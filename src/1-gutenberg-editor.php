@@ -1,6 +1,6 @@
 <?php
 
-defined(constant_name: 'ABSPATH') || exit;
+defined('ABSPATH') || exit;
 
 if (class_exists('CSF')) {
     /**
@@ -19,9 +19,12 @@ if (class_exists('CSF')) {
         )
     ));
 
-    global $oyiso_options;
+    $options = get_option('oyiso');
+    if (!is_array($options)) {
+        return;
+    }
 
-    if ($oyiso_options['opt-gutenberg-editor'] == false) {
+    if ($options['opt-gutenberg-editor'] == false) {
         // 禁用古腾堡编辑器
         add_filter('use_block_editor_for_post', '__return_false', 10);
 

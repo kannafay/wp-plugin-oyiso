@@ -18,9 +18,12 @@ if (class_exists('CSF')) {
         )
     ));
 
-    global $oyiso_options;
+    $options = get_option('oyiso');
+    if (!is_array($options)) {
+        return;
+    }
 
-    if ($code51la = $oyiso_options['opt-51la-code']) {
+    if ($code51la = $options['opt-51la-code']) {
         add_action('wp_head', function () use ($code51la) {
             echo $code51la;
         });

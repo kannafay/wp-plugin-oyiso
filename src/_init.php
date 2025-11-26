@@ -1,7 +1,5 @@
 <?php
 
-global $oyiso_options;
-
 // Control core classes for avoid errors
 if (class_exists('CSF')) {
 
@@ -32,16 +30,7 @@ if (class_exists('CSF')) {
         'menu_parent' => 'plugins.php',
     ));
 
-    /**
-     * 特色图片
-     * featured-image.php
-     */
-    $oyiso_options = get_option('oyiso');
-
-    // 引入文件
-    // require_once plugin_dir_path(__FILE__) . 'gutenberg-editor.php';
-    // require_once plugin_dir_path(__FILE__) . '51la.php';
-
+    // 循环引入文件
     $plugin_dir = plugin_dir_path(__FILE__);
     // 扫描当前目录
     $items = scandir($plugin_dir);

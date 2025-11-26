@@ -10,8 +10,8 @@ Domain Path: /languages
 
 defined('ABSPATH') || exit;
 
-add_filter('plugin_action_links_' . plugin_basename(__FILE__), function($links) {
-    $settings_link = '<a href="plugins.php?page=oyiso">设置</a>';
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links) {
+    $settings_link = '<a href="plugins.php?page=oyiso">' . __('Settings') . '</a>';
     array_unshift($links, $settings_link); // 放在第一个位置
     return $links;
 });
