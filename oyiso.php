@@ -2,7 +2,7 @@
 /*
 Plugin Name: 橘子猫头
 Description: 橘子猫头的多功能实用插件
-Version:     1.0.1
+Version:     1.0.2
 Author:      橘子猫头
 Text Domain: oyiso
 Domain Path: /languages
