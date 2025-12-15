@@ -65,8 +65,7 @@ if (class_exists('CSF')) {
         /**
          * 更新 Yoast SEO meta 字段
          */
-        function update_yoast_seo_meta($request)
-        {
+        function update_yoast_seo_meta($request) {
             $post_id = $request['id'];
 
             // 检查文章是否存在
@@ -86,11 +85,11 @@ if (class_exists('CSF')) {
             // 支持的 Yoast SEO 字段映射
             $field_mapping = array(
                 'focuskw' => '_yoast_wpseo_focuskw',
-                'title' => '_yoast_wpseo_title',
+                // 'title' => '_yoast_wpseo_title',
                 'metadesc' => '_yoast_wpseo_metadesc',
                 // 也支持直接使用完整字段名
                 '_yoast_wpseo_focuskw' => '_yoast_wpseo_focuskw',
-                '_yoast_wpseo_title' => '_yoast_wpseo_title',
+                // '_yoast_wpseo_title' => '_yoast_wpseo_title',
                 '_yoast_wpseo_metadesc' => '_yoast_wpseo_metadesc',
             );
 
@@ -114,8 +113,7 @@ if (class_exists('CSF')) {
         /**
          * 获取 Yoast SEO meta 字段
          */
-        function get_yoast_seo_meta($request)
-        {
+        function get_yoast_seo_meta($request) {
             $post_id = $request['id'];
 
             // 检查文章是否存在
@@ -127,7 +125,7 @@ if (class_exists('CSF')) {
             return array(
                 'post_id' => $post_id,
                 'focuskw' => get_post_meta($post_id, '_yoast_wpseo_focuskw', true),
-                'title' => get_post_meta($post_id, '_yoast_wpseo_title', true),
+                // 'title' => get_post_meta($post_id, '_yoast_wpseo_title', true),
                 'metadesc' => get_post_meta($post_id, '_yoast_wpseo_metadesc', true),
             );
         }
@@ -135,7 +133,7 @@ if (class_exists('CSF')) {
         add_action('init', function () {
             $yoast_fields = array(
                 '_yoast_wpseo_focuskw' => 'Focus keyphrase',
-                '_yoast_wpseo_title' => 'SEO Title',
+                // '_yoast_wpseo_title' => 'SEO Title',
                 '_yoast_wpseo_metadesc' => 'Meta Description',
             );
 
