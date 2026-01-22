@@ -62,6 +62,7 @@ class OyisoTGBot {
             'chat_id' => $chatId,
             'text' => $content,
             'parse_mode' => 'HTML',
+            'disable_web_page_preview' => true,
         ];
 
         $ch = curl_init($url);
