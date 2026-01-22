@@ -121,7 +121,7 @@ if (!function_exists('oyiso_wc_cart')) {
         $message = sprintf(
             "<b>%s【%s】：</b>\n" .
             "<b>站点：</b>%s\n" .
-            "<b>商品：</b>%s\n" .
+            "<b>产品：</b>%s\n" .
             "<b>数量：</b>%d\n" .
             "<b>单价：</b>%s\n" .
             "<b>小计：</b>%s\n" .
@@ -152,7 +152,7 @@ function oyiso_build_order_message(WC_Order $order) {
     $siteName = get_bloginfo('name');
     $siteUrl = get_bloginfo('url');
 
-    // 商品列表
+    // 产品列表
     $items = [];
     foreach ($order->get_items() as $item) {
         $items[] = sprintf(
@@ -192,20 +192,20 @@ function oyiso_build_order_message(WC_Order $order) {
     return sprintf(
         "<b>🎉您有一个新订单【%s】：</b>\n" .
         "<b>站点：</b>%s\n" .
-        "<b>订单号：</b>#%d\n" .
-        "<b>商品列表：</b>\n%s\n\n" .
-        "<b>订单信息：</b>\n" .
+        "<b>订单号：</b>#%d\n\n" .
+        "<b>📦【产品】：</b>\n%s\n\n" .
+        "<b>🚚【支付与运送】：</b>\n" .
         "<b>支付方式：</b>%s\n" .
-        "<b>运输方式：</b>%s\n" .
+        "<b>运送方式：</b>%s\n" .
         "<b>金额：</b>%s\n" .
         "<b>运费：</b>%s\n" .
         "<b>总金额：</b>%s\n\n" .
-        "<b>账单信息：</b>\n" .
+        "<b>🧑‍💼【账单信息】：</b>\n" .
         "<b>客户：</b>%s\n" .
         "<b>邮箱：</b>%s\n" .
         "<b>电话：</b>%s\n" .
-        "<b>地址：</b>%s\n\n" .
-        "<b>客户备注：</b>%s\n\n" .
+        "<b>地址：</b>%s\n" .
+        "<b>备注：</b>%s\n\n" .
         "<b>IP：</b>%s\n" .
         "<b>时间：</b>%s",
         $siteName,
