@@ -72,8 +72,8 @@ if (class_exists('CSF')) {
                             [
                                 'id' => 'woo_remove_from_cart',
                                 'type' => 'switcher',
-                                'title' => '移除购物车通知',
-                                'label' => '开启后可在有用户将商品从购物车移除时通过Telegram Bot发送通知',
+                                'title' => '移出购物车通知',
+                                'label' => '开启后可在有用户将商品从购物车移出时通过Telegram Bot发送通知',
                                 'default' => false,
                             ]
                         ]

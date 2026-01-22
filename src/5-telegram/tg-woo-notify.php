@@ -116,7 +116,7 @@ if (!function_exists('oyiso_wc_cart')) {
         $siteName = get_bloginfo('name');
         $siteUrl = get_bloginfo('url');
 
-        $title = $type === 'add' ? '✨加入购物车' : '😭移除购物车';
+        $title = $type === 'add' ? '✨加入购物车' : '😭移出购物车';
 
         $message = sprintf(
             "<b>%s【%s】：</b>\n" .
