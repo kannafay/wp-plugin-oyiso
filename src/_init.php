@@ -23,12 +23,12 @@ if (class_exists('CSF')) {
      * For Settings: 'options-general.php'
      *
      */
-    CSF::createOptions($prefix, array(
+    CSF::createOptions($prefix, [
         'menu_title' => '橘子猫头',
         'menu_slug' => 'oyiso',
         'menu_type' => 'submenu',
         'menu_parent' => 'plugins.php',
-    ));
+    ]);
 
     // 循环引入文件
     $plugin_dir = plugin_dir_path(__FILE__);
@@ -43,8 +43,8 @@ if (class_exists('CSF')) {
             // 当前目录下的 PHP 文件直接 require_once
             require_once $path;
         } elseif (is_dir($path)) {
-            // 如果是文件夹，寻找同名 PHP 文件
-            $folder_php = $path . '/' . $item . '.php';
+            // 如果是文件夹，寻找 index.php
+            $folder_php = $path . '/index.php';
             if (file_exists($folder_php)) {
                 require_once $folder_php;
             }

@@ -6,17 +6,21 @@ if (class_exists('CSF')) {
     /**
      * 51LA统计代码
      */
-    CSF::createSection($prefix, array(
+    CSF::createSection($prefix, [
         'title' => '51LA统计代码',
-        'fields' => array(
-            array(
+        'fields' => [
+            [
+                'type' => 'heading',
+                'content' => '51LA统计代码设置',
+            ],
+            [
                 'id' => 'opt-51la-code',
                 'type' => 'code_editor',
                 'title' => 'HTML代码',
                 'sanitize' => false,
-            ),
-        )
-    ));
+            ],
+        ]
+    ]);
 
     $options = get_option('oyiso');
     if (!is_array($options)) {

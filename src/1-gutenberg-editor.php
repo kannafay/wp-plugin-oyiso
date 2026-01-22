@@ -6,25 +6,29 @@ if (class_exists('CSF')) {
     /**
      * 古腾堡编辑器
      */
-    CSF::createSection($prefix, array(
+    CSF::createSection($prefix, [
         'title' => '古腾堡编辑器',
-        'fields' => array(
-            array(
+        'fields' => [
+            [
+                'type' => 'heading',
+                'content' => '古腾堡编辑器设置',
+            ],
+            [
                 'id' => 'opt-gutenberg-editor',
                 'type' => 'switcher',
                 'title' => '禁用古腾堡编辑器',
                 'label' => '开启后将禁用古腾堡编辑器，使用经典编辑器',
                 'default' => false
-            ),
-            array(
+            ],
+            [
                 'id' => 'opt-gutenberg-styles',
                 'type' => 'switcher',
                 'title' => '禁用古腾堡相关样式',
                 'label' => '开启后将禁用古腾堡相关样式的加载',
                 'default' => false
-            ),
-        )
-    ));
+            ],
+        ]
+    ]);
 
     $options = get_option('oyiso');
     if (!is_array($options)) {
