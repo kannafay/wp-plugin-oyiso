@@ -260,8 +260,18 @@ if ($notify_options['woo_new_order'] ?? false) {
     add_action('woocommerce_thankyou', function ($order_id) {
         global $TGBot;
         $order = wc_get_order($order_id);
+
+        // 检查是否已发送过通知
+        if ($order->get_meta('_oyiso_tg_notified', true)) {
+            return;
+        }
+
         $message = oyiso_build_order_message($order);
         $TGBot->sendMessage($message);
+
+        // 标记已发送
+        $order->update_meta_data('_oyiso_tg_notified', 1);
+        $order->save();
     }, 10, 1);
 }
 
@@ -270,6 +280,12 @@ if ($notify_options['woo_new_order'] ?? false) {
  */
 if ($notify_options['woo_order_status_change'] ?? false) {
     add_action('woocommerce_order_status_changed', function ($order_id, $old_status, $new_status, $order) {
+        if (
+            $old_status == 'pending' && $new_status == 'processing'
+            || $old_status == 'checkout-draft' && $new_status == 'pending'
+        ) {
+            return;
+        }
         global $TGBot;
         $siteName = get_bloginfo('name');
         $siteUrl = get_bloginfo('url');
