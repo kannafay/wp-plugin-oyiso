@@ -281,7 +281,7 @@ if ($notify_options['woo_new_order'] ?? false) {
 if ($notify_options['woo_order_status_change'] ?? false) {
     add_action('woocommerce_order_status_changed', function ($order_id, $old_status, $new_status, $order) {
         if (
-            $old_status == 'pending' && $new_status == 'processing'
+            $old_status == 'pending' && in_array(['processing', 'on-hold'], $new_status)
             || $old_status == 'checkout-draft' && $new_status == 'pending'
         ) {
             return;
