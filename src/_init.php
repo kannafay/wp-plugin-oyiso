@@ -30,24 +30,35 @@ if (class_exists('CSF')) {
         'menu_parent' => 'plugins.php',
     ]);
 
-    // 循环引入文件
-    $plugin_dir = plugin_dir_path(__FILE__);
-    // 扫描当前目录
-    $items = scandir($plugin_dir);
-    foreach ($items as $item) {
-        // 跳过 . 和 ..，以及下划线开头的文件或文件夹
-        if ($item === '.' || $item === '..' || strpos($item, '_') === 0)
-            continue;
-        $path = $plugin_dir . $item;
-        if (is_file($path) && pathinfo($path, PATHINFO_EXTENSION) === 'php') {
-            // 当前目录下的 PHP 文件直接 require_once
-            require_once $path;
-        } elseif (is_dir($path)) {
-            // 如果是文件夹，寻找 index.php
-            $folder_php = $path . '/index.php';
-            if (file_exists($folder_php)) {
-                require_once $folder_php;
-            }
-        }
-    }
+    // 父级分类（仅导航，无字段）
+    CSF::createSection($prefix, [
+        'id'       => 'wp-optimize',
+        'title'    => 'WordPress 优化',
+        'icon'     => 'fab fa-wordpress',
+        'priority' => 10,
+    ]);
+
+    CSF::createSection($prefix, [
+        'id'       => 'seo-analytics',
+        'title'    => 'SEO 与统计',
+        'icon'     => 'fas fa-chart-bar',
+        'priority' => 20,
+    ]);
+
+    CSF::createSection($prefix, [
+        'id'       => 'notifications',
+        'title'    => '通知与集成',
+        'icon'     => 'fas fa-bell',
+        'priority' => 30,
+    ]);
+
+    // 统一获取选项，子模块共享此变量
+    $options = get_option('oyiso', []);
+
+    // 加载模块
+    $dir = plugin_dir_path(__FILE__);
+    require_once $dir . 'gutenberg-editor/index.php';
+    require_once $dir . 'wp-update/index.php';
+    require_once $dir . '51la-analytics/index.php';
+    require_once $dir . 'telegram/index.php';
 }

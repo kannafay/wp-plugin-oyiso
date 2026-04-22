@@ -192,7 +192,6 @@ if ( ! class_exists( 'CSF_Setup' ) ) {
 
       // Setup widget option framework
       if ( class_exists( 'CSF_Widget' ) && class_exists( 'WP_Widget_Factory' ) && ! empty( self::$args['widget_options'] ) ) {
-        $wp_widget_factory = new WP_Widget_Factory();
         global $wp_widget_factory;
         foreach ( self::$args['widget_options'] as $key => $value ) {
           if ( ! isset( self::$inited[$key] ) ) {

@@ -7,11 +7,14 @@ if (class_exists('CSF')) {
      * Telegram Bot通知设置
      */
     CSF::createSection($prefix, [
-        'title' => 'Telegram Bot通知设置',
+        'parent'   => 'notifications',
+        'title'    => 'Telegram Bot',
+        'icon'     => 'fab fa-telegram-plane',
+        'priority' => 10,
         'fields' => [
             [
                 'type' => 'heading',
-                'content' => 'Telegram Bot通知设置',
+                'content' => 'Telegram Bot',
             ],
             [
                 'id' => 'bot_token',

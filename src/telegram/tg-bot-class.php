@@ -1,4 +1,4 @@
-<?php
+<?php if ( ! defined( 'ABSPATH' ) ) { die; }
 
 class OyisoTGBot {
     protected string $token;
@@ -65,26 +65,18 @@ class OyisoTGBot {
             'disable_web_page_preview' => true,
         ];
 
-        $ch = curl_init($url);
-
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $data,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 5,
+        $response = wp_remote_post($url, [
+            'timeout' => 5,
+            'body'    => $data,
         ]);
 
-        $response = curl_exec($ch);
-        $error = curl_error($ch);
-
-        curl_close($ch);
-
-        if ($error) {
-            error_log('[TelegramBot] ' . $error . PHP_EOL);
+        if (is_wp_error($response)) {
+            error_log('[TelegramBot] ' . $response->get_error_message() . PHP_EOL);
             return false;
         }
 
-        $result = json_decode($response, true);
+        $body   = wp_remote_retrieve_body($response);
+        $result = json_decode($body, true);
 
         return isset($result['ok']) && $result['ok'] === true;
     }

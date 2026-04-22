@@ -8,11 +8,14 @@ if (class_exists('CSF')) {
      * WordPress设置
      */
     CSF::createSection($prefix, [
-        'title' => 'WordPress设置',
+        'parent'   => 'wp-optimize',
+        'title'    => '自动更新管理',
+        'icon'     => 'fas fa-sync-alt',
+        'priority' => 20,
         'fields' => [
             [
                 'type' => 'heading',
-                'content' => 'WordPress设置',
+                'content' => '自动更新管理',
             ],
             [
                 'id' => 'opt-ban-wp-core-auto-update',
@@ -38,30 +41,27 @@ if (class_exists('CSF')) {
         ]
     ]);
 
-    $options = get_option('oyiso');
-    if (!is_array($options)) {
-        return;
-    }
-
     // 禁用WordPress核心自动更新
-    if ($options['opt-ban-wp-core-auto-update'] == true) {
+    if (!empty($options['opt-ban-wp-core-auto-update'])) {
         add_filter('auto_update_core', '__return_false');
-        add_filter('pre_site_transient_update_core', 'dwp_clear_update_data');
+        add_filter('pre_site_transient_update_core', 'oyiso_clear_update_data');
     }
 
     // 禁用WordPress插件自动更新
-    if ($options['opt-ban-wp-plugin-auto-update'] == true) {
+    if (!empty($options['opt-ban-wp-plugin-auto-update'])) {
         add_filter('auto_update_plugin', '__return_false');
-        add_filter('pre_site_transient_update_plugins', 'dwp_clear_update_data');
+        add_filter('pre_site_transient_update_plugins', 'oyiso_clear_update_data');
     }
 
     // 禁用WordPress主题自动更新
-    if ($options['opt-ban-wp-theme-auto-update'] == true) {
+    if (!empty($options['opt-ban-wp-theme-auto-update'])) {
         add_filter('auto_update_theme', '__return_false');
-        add_filter('pre_site_transient_update_themes', 'dwp_clear_update_data');
+        add_filter('pre_site_transient_update_themes', 'oyiso_clear_update_data');
     }
+}
 
-    function dwp_clear_update_data() {
+if (!function_exists('oyiso_clear_update_data')) {
+    function oyiso_clear_update_data() {
         global $wp_version;
         return (object) [
             'last_checked' => time(),

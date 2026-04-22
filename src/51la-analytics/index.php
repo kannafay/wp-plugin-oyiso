@@ -7,7 +7,10 @@ if (class_exists('CSF')) {
      * 51LA统计代码
      */
     CSF::createSection($prefix, [
-        'title' => '51LA统计代码',
+        'parent'   => 'seo-analytics',
+        'title'    => '51LA 统计代码',
+        'icon'     => 'fas fa-code',
+        'priority' => 10,
         'fields' => [
             [
                 'type' => 'heading',
@@ -22,12 +25,8 @@ if (class_exists('CSF')) {
         ]
     ]);
 
-    $options = get_option('oyiso');
-    if (!is_array($options)) {
-        return;
-    }
-
-    if ($code51la = $options['opt-51la-code']) {
+    $code51la = $options['opt-51la-code'] ?? '';
+    if (!empty($code51la)) {
         add_action('wp_head', function () use ($code51la) {
             echo $code51la;
         });

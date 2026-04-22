@@ -163,6 +163,10 @@ if ( ! class_exists( 'CSF_Options' ) ) {
 
     public function ajax_save() {
 
+      if ( ! current_user_can( $this->args['menu_capability'] ) ) {
+        wp_send_json_error( array( 'error' => esc_html__( 'Error: You do not have permission to do that.', 'csf' ) ) );
+      }
+
       $result = $this->set_options( true );
 
       if ( ! $result ) {
@@ -377,33 +381,33 @@ if ( ! class_exists( 'CSF_Options' ) ) {
     // admin menu
     public function add_admin_menu() {
 
-      extract( $this->args );
+      $args = $this->args;
 
-      if ( $menu_type === 'submenu' ) {
+      if ( $args['menu_type'] === 'submenu' ) {
 
-        $menu_page = call_user_func( 'add_submenu_page', $menu_parent, esc_attr( $menu_title ), esc_attr( $menu_title ), $menu_capability, $menu_slug, array( $this, 'add_options_html' ) );
+        $menu_page = call_user_func( 'add_submenu_page', $args['menu_parent'], esc_attr( $args['menu_title'] ), esc_attr( $args['menu_title'] ), $args['menu_capability'], $args['menu_slug'], array( $this, 'add_options_html' ) );
 
       } else {
 
-        $menu_page = call_user_func( 'add_menu_page', esc_attr( $menu_title ), esc_attr( $menu_title ), $menu_capability, $menu_slug, array( $this, 'add_options_html' ), $menu_icon, $menu_position );
+        $menu_page = call_user_func( 'add_menu_page', esc_attr( $args['menu_title'] ), esc_attr( $args['menu_title'] ), $args['menu_capability'], $args['menu_slug'], array( $this, 'add_options_html' ), $args['menu_icon'], $args['menu_position'] );
 
-        if ( ! empty( $sub_menu_title ) ) {
-          call_user_func( 'add_submenu_page', $menu_slug, esc_attr( $sub_menu_title ), esc_attr( $sub_menu_title ), $menu_capability, $menu_slug, array( $this, 'add_options_html' ) );
+        if ( ! empty( $args['sub_menu_title'] ) ) {
+          call_user_func( 'add_submenu_page', $args['menu_slug'], esc_attr( $args['sub_menu_title'] ), esc_attr( $args['sub_menu_title'] ), $args['menu_capability'], $args['menu_slug'], array( $this, 'add_options_html' ) );
         }
 
-        if ( ! empty( $this->args['show_sub_menu'] ) && count( $this->pre_tabs ) > 1 ) {
+        if ( ! empty( $args['show_sub_menu'] ) && count( $this->pre_tabs ) > 1 ) {
 
           // create submenus
           foreach ( $this->pre_tabs as $section ) {
-            call_user_func( 'add_submenu_page', $menu_slug, esc_attr( $section['title'] ),  esc_attr( $section['title'] ), $menu_capability, $menu_slug .'#tab='. sanitize_title( $section['title'] ), '__return_null' );
+            call_user_func( 'add_submenu_page', $args['menu_slug'], esc_attr( $section['title'] ),  esc_attr( $section['title'] ), $args['menu_capability'], $args['menu_slug'] .'#tab='. sanitize_title( $section['title'] ), '__return_null' );
           }
 
-          remove_submenu_page( $menu_slug, $menu_slug );
+          remove_submenu_page( $args['menu_slug'], $args['menu_slug'] );
 
         }
 
-        if ( ! empty( $menu_hidden ) ) {
-          remove_menu_page( $menu_slug );
+        if ( ! empty( $args['menu_hidden'] ) ) {
+          remove_menu_page( $args['menu_slug'] );
         }
 
       }
