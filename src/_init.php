@@ -28,6 +28,7 @@ if (class_exists('CSF')) {
         'menu_slug' => 'oyiso',
         'menu_type' => 'submenu',
         'menu_parent' => 'plugins.php',
+        'theme' => 'light',
     ]);
 
     // 父级分类（仅导航，无字段）
