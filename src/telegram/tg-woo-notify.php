@@ -4,6 +4,7 @@ defined('ABSPATH') || exit;
 
 const OYISO_TG_ORDER_NOTIFIED_META_KEY = '_oyiso_tg_notified';
 const OYISO_TG_ORDER_FAILED_META_KEY = '_oyiso_tg_notify_failed_at';
+const OYISO_TG_ORDER_PENDING_LOCK_TTL = 300;
 
 $notify_options = $options['woo_notify_options'] ?? [];
 $_oyiso_tg_token = $options['bot_token'] ?? '';
@@ -311,7 +312,7 @@ if (!function_exists('oyiso_get_customer_profile')) {
             'customer_type' => '新客户',
             'historical_order_count' => 0,
             'historical_spend_text' => oyiso_wc_price(0),
-            'customer_rating' => '★★★ 普通客户',
+            'customer_rating' => '★★★☆☆ 普通',
         ];
 
         $queryArgs = [
@@ -403,6 +404,50 @@ if (!function_exists('oyiso_get_order_status_operator_name')) {
     }
 }
 
+if (!function_exists('oyiso_get_new_order_notification_lock_key')) {
+    function oyiso_get_new_order_notification_lock_key(int $order_id): string {
+        return 'oyiso_tg_new_order_lock_' . $order_id;
+    }
+}
+
+if (!function_exists('oyiso_acquire_new_order_notification_lock')) {
+    function oyiso_acquire_new_order_notification_lock(int $order_id): ?string {
+        if ($order_id <= 0) {
+            return null;
+        }
+
+        $lockKey = oyiso_get_new_order_notification_lock_key($order_id);
+        $now = time();
+        $existing = get_option($lockKey, false);
+
+        if ($existing !== false) {
+            $lockedAt = (int) $existing;
+
+            if ($lockedAt > 0 && ($now - $lockedAt) < OYISO_TG_ORDER_PENDING_LOCK_TTL) {
+                return null;
+            }
+
+            delete_option($lockKey);
+        }
+
+        if (!add_option($lockKey, (string) $now, '', false)) {
+            return null;
+        }
+
+        return $lockKey;
+    }
+}
+
+if (!function_exists('oyiso_release_new_order_notification_lock')) {
+    function oyiso_release_new_order_notification_lock(?string $lockKey): void {
+        if (!is_string($lockKey) || $lockKey === '') {
+            return;
+        }
+
+        delete_option($lockKey);
+    }
+}
+
 if (!function_exists('oyiso_send_new_order_notification')) {
     function oyiso_send_new_order_notification(int $order_id): void {
         $bot = oyiso_get_tg_bot();
@@ -419,15 +464,22 @@ if (!function_exists('oyiso_send_new_order_notification')) {
             return;
         }
 
+        $pendingLockKey = oyiso_acquire_new_order_notification_lock($order_id);
+        if (!$pendingLockKey) {
+            return;
+        }
+
         $message = oyiso_build_order_message($order);
         $sent = $bot->sendMessage($message, [
             'order_id'         => $order->get_id(),
             'blog_id'          => function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 0,
             'success_meta_key' => OYISO_TG_ORDER_NOTIFIED_META_KEY,
             'failure_meta_key' => OYISO_TG_ORDER_FAILED_META_KEY,
+            'pending_lock_key' => $pendingLockKey,
         ]);
 
         if (!$sent) {
+            oyiso_release_new_order_notification_lock($pendingLockKey);
             $order->update_meta_data(OYISO_TG_ORDER_FAILED_META_KEY, current_time('mysql'));
             $order->save();
         }

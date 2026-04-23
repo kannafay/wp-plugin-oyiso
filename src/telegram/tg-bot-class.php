@@ -189,56 +189,70 @@ class OyisoTGBot {
 
     protected static function handleSuccess(array $payload): void {
         $context = $payload['context'];
+        $pendingLockKey = isset($context['pending_lock_key']) ? (string) $context['pending_lock_key'] : '';
 
-        if (!function_exists('wc_get_order')) {
-            return;
+        try {
+            if (!function_exists('wc_get_order')) {
+                return;
+            }
+
+            $orderId = (int) ($context['order_id'] ?? 0);
+            if ($orderId <= 0) {
+                return;
+            }
+
+            $order = wc_get_order($orderId);
+            if (!$order) {
+                return;
+            }
+
+            $successMetaKey = isset($context['success_meta_key']) ? (string) $context['success_meta_key'] : '';
+            $failureMetaKey = isset($context['failure_meta_key']) ? (string) $context['failure_meta_key'] : '';
+
+            if ($successMetaKey !== '') {
+                $order->update_meta_data($successMetaKey, 1);
+            }
+
+            if ($failureMetaKey !== '') {
+                $order->delete_meta_data($failureMetaKey);
+            }
+
+            $order->save();
+        } finally {
+            if ($pendingLockKey !== '') {
+                delete_option($pendingLockKey);
+            }
         }
-
-        $orderId = (int) ($context['order_id'] ?? 0);
-        if ($orderId <= 0) {
-            return;
-        }
-
-        $order = wc_get_order($orderId);
-        if (!$order) {
-            return;
-        }
-
-        $successMetaKey = isset($context['success_meta_key']) ? (string) $context['success_meta_key'] : '';
-        $failureMetaKey = isset($context['failure_meta_key']) ? (string) $context['failure_meta_key'] : '';
-
-        if ($successMetaKey !== '') {
-            $order->update_meta_data($successMetaKey, 1);
-        }
-
-        if ($failureMetaKey !== '') {
-            $order->delete_meta_data($failureMetaKey);
-        }
-
-        $order->save();
     }
 
     protected static function handleFailure(array $payload): void {
         $context = $payload['context'];
+        $pendingLockKey = isset($context['pending_lock_key']) ? (string) $context['pending_lock_key'] : '';
 
-        if (!function_exists('wc_get_order')) {
-            return;
+        try {
+            if (!function_exists('wc_get_order')) {
+                return;
+            }
+
+            $orderId = (int) ($context['order_id'] ?? 0);
+            $failureMetaKey = isset($context['failure_meta_key']) ? (string) $context['failure_meta_key'] : '';
+
+            if ($orderId <= 0 || $failureMetaKey === '') {
+                return;
+            }
+
+            $order = wc_get_order($orderId);
+            if (!$order) {
+                return;
+            }
+
+            $order->update_meta_data($failureMetaKey, current_time('mysql'));
+            $order->save();
+        } finally {
+            if ($pendingLockKey !== '') {
+                delete_option($pendingLockKey);
+            }
         }
-
-        $orderId = (int) ($context['order_id'] ?? 0);
-        $failureMetaKey = isset($context['failure_meta_key']) ? (string) $context['failure_meta_key'] : '';
-
-        if ($orderId <= 0 || $failureMetaKey === '') {
-            return;
-        }
-
-        $order = wc_get_order($orderId);
-        if (!$order) {
-            return;
-        }
-
-        $order->update_meta_data($failureMetaKey, current_time('mysql'));
-        $order->save();
     }
 
     protected static function logError(string $message): void {
