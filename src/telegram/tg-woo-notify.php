@@ -178,81 +178,215 @@ if (!function_exists('oyiso_build_order_message')) {
 function oyiso_build_order_message(WC_Order $order) {
     $siteName = get_bloginfo('name');
     $siteUrl = get_bloginfo('url');
-
-    // 产品列表
-    $items = [];
-    foreach ($order->get_items() as $item) {
-        $items[] = sprintf(
-            '- %s × %d',
-            $item->get_name(),
-            $item->get_quantity()
-        );
-    }
-    $items_text = implode("\n", $items);
-
-    // 支付 & 物流
-    $payment_method = $order->get_payment_method_title();
-    $shipping_method = $order->get_shipping_method();
-
-    // 金额（纯文本）
-    $subtotal = oyiso_wc_price($order->get_subtotal());
-    $shipping = oyiso_wc_price($order->get_shipping_total());
-    $total = oyiso_wc_price($order->get_total());
-
-    // 地址
-    $address = oyiso_get_order_shipping_address_text($order);
-
-    // 客户备注
-    $customer_note = $order->get_customer_note();
-    if (empty($customer_note)) {
-        $customer_note = '无';
-    }
-
-    // IP
-    $ip = oyiso_get_client_ip();
-
-    // 时间
-    $time = $order->get_date_created()
-        ? $order->get_date_created()->date('Y-m-d H:i:s')
-        : current_time('Y-m-d H:i:s');
+    $customerOverviewSection = oyiso_build_customer_overview_section($order);
+    $productsSection = oyiso_build_order_products_section($order);
+    $paymentShippingSection = oyiso_build_order_payment_shipping_section($order);
+    $billingSection = oyiso_build_order_billing_section($order);
+    $footerSection = oyiso_build_order_footer_section($order);
 
     return sprintf(
         "<b>🎉您有一个新订单【%s】：</b>\n" .
         "<b>站点：</b>%s\n" .
         "<b>订单号：</b>#%d\n\n" .
-        "<b>📦【产品】：</b>\n%s\n\n" .
-        "<b>🚚【支付与运送】：</b>\n" .
-        "<b>支付方式：</b>%s\n" .
-        "<b>运送方式：</b>%s\n" .
-        "<b>金额：</b>%s\n" .
-        "<b>运费：</b>%s\n" .
-        "<b>总金额：</b>%s\n\n" .
-        "<b>🧑‍💼【账单信息】：</b>\n" .
-        "<b>客户：</b>%s\n" .
-        "<b>邮箱：</b>%s\n" .
-        "<b>电话：</b>%s\n" .
-        "<b>地址：</b>%s\n" .
-        "<b>备注：</b>%s\n\n" .
-        "<b>IP：</b>%s\n" .
-        "<b>时间：</b>%s",
+        "%s\n\n" .
+        "%s\n\n" .
+        "%s\n\n" .
+        "%s\n\n" .
+        "%s",
         $siteName,
         $siteUrl,
         $order->get_id(),
-        $items_text,
-        $payment_method,
-        $shipping_method,
-        $subtotal,
-        $shipping,
-        $total,
-        $order->get_formatted_billing_full_name(),
-        $order->get_billing_email(),
-        $order->get_billing_phone(),
-        $address,
-        $customer_note,
-        $ip,
-        $time
+        $customerOverviewSection,
+        $productsSection,
+        $paymentShippingSection,
+        $billingSection,
+        $footerSection
     );
 }
+}
+
+if (!function_exists('oyiso_build_customer_overview_section')) {
+    function oyiso_build_customer_overview_section(WC_Order $order): string {
+        $customerProfile = oyiso_get_customer_profile($order);
+
+        return sprintf(
+            "<b>📊【客户概览】：</b>\n" .
+            "<b>客户类型：</b>%s\n" .
+            "<b>历史下单：</b>%d 次\n" .
+            "<b>历史消费：</b>%s\n" .
+            "<b>客户评级：</b>%s",
+            $customerProfile['customer_type'],
+            $customerProfile['historical_order_count'],
+            $customerProfile['historical_spend_text'],
+            $customerProfile['customer_rating']
+        );
+    }
+}
+
+if (!function_exists('oyiso_build_order_products_section')) {
+    function oyiso_build_order_products_section(WC_Order $order): string {
+        $items = [];
+
+        foreach ($order->get_items() as $item) {
+            $items[] = sprintf(
+                '- %s × %d',
+                $item->get_name(),
+                $item->get_quantity()
+            );
+        }
+
+        return sprintf(
+            "<b>📦【订单明细】：</b>\n%s",
+            implode("\n", $items)
+        );
+    }
+}
+
+if (!function_exists('oyiso_build_order_payment_shipping_section')) {
+    function oyiso_build_order_payment_shipping_section(WC_Order $order): string {
+        return sprintf(
+            "<b>🚚【支付与配送】：</b>\n" .
+            "<b>支付方式：</b>%s\n" .
+            "<b>配送方式：</b>%s\n" .
+            "<b>金额：</b>%s\n" .
+            "<b>运费：</b>%s\n" .
+            "<b>总金额：</b>%s",
+            $order->get_payment_method_title(),
+            $order->get_shipping_method(),
+            oyiso_wc_price($order->get_subtotal()),
+            oyiso_wc_price($order->get_shipping_total()),
+            oyiso_wc_price($order->get_total())
+        );
+    }
+}
+
+if (!function_exists('oyiso_build_order_billing_section')) {
+    function oyiso_build_order_billing_section(WC_Order $order): string {
+        $customerNote = $order->get_customer_note();
+
+        if (empty($customerNote)) {
+            $customerNote = '无';
+        }
+
+        return sprintf(
+            "<b>📬【收货与联系信息】：</b>\n" .
+            "<b>客户：</b>%s\n" .
+            "<b>邮箱：</b>%s\n" .
+            "<b>电话：</b>%s\n" .
+            "<b>地址：</b>%s\n" .
+            "<b>备注：</b>%s",
+            $order->get_formatted_billing_full_name(),
+            $order->get_billing_email(),
+            $order->get_billing_phone(),
+            oyiso_get_order_shipping_address_text($order),
+            $customerNote
+        );
+    }
+}
+
+if (!function_exists('oyiso_build_order_footer_section')) {
+    function oyiso_build_order_footer_section(WC_Order $order): string {
+        $time = $order->get_date_created()
+            ? $order->get_date_created()->date('Y-m-d H:i:s')
+            : current_time('Y-m-d H:i:s');
+
+        return sprintf(
+            "<b>IP：</b>%s\n" .
+            "<b>时间：</b>%s",
+            oyiso_get_client_ip(),
+            $time
+        );
+    }
+}
+
+if (!function_exists('oyiso_get_customer_profile')) {
+    /**
+     * 汇总当前客户的历史订单表现，用于新订单通知里的客户概览。
+     *
+     * @param WC_Order $order
+     * @return array{customer_type:string,historical_order_count:int,historical_spend_text:string,customer_rating:string}
+     */
+    function oyiso_get_customer_profile(WC_Order $order): array {
+        $defaultProfile = [
+            'customer_type' => '新客户',
+            'historical_order_count' => 0,
+            'historical_spend_text' => oyiso_wc_price(0),
+            'customer_rating' => '★★★ 普通客户',
+        ];
+
+        $queryArgs = [
+            'limit' => -1,
+            'return' => 'objects',
+            'exclude' => [$order->get_id()],
+        ];
+
+        $customerId = (int) $order->get_customer_id();
+        $billingEmail = sanitize_email((string) $order->get_billing_email());
+
+        if ($customerId > 0) {
+            $queryArgs['customer_id'] = $customerId;
+        } elseif ($billingEmail !== '') {
+            $queryArgs['billing_email'] = $billingEmail;
+        } else {
+            return $defaultProfile;
+        }
+
+        $historicalOrders = wc_get_orders($queryArgs);
+        if (empty($historicalOrders)) {
+            return $defaultProfile;
+        }
+
+        $historicalOrderCount = 0;
+        $historicalCancelledCount = 0;
+        $historicalCompletedCount = 0;
+        $historicalSpend = 0.0;
+        $effectiveStatuses = array_unique(array_merge(wc_get_is_paid_statuses(), ['on-hold']));
+
+        foreach ($historicalOrders as $historicalOrder) {
+            if (!$historicalOrder instanceof WC_Order) {
+                continue;
+            }
+
+            $status = $historicalOrder->get_status();
+            if (in_array($status, ['auto-draft', 'checkout-draft'], true)) {
+                continue;
+            }
+
+            $historicalOrderCount++;
+
+            if ($status === 'cancelled') {
+                $historicalCancelledCount++;
+                continue;
+            }
+
+            if (in_array($status, $effectiveStatuses, true)) {
+                $historicalCompletedCount++;
+                $historicalSpend += max(0, (float) $historicalOrder->get_total() - (float) $historicalOrder->get_total_refunded());
+            }
+        }
+
+        $cancelRate = $historicalOrderCount > 0 ? ($historicalCancelledCount / $historicalOrderCount) : 0.0;
+        $customerRating = '★★★☆☆ 普通';
+
+        if ($historicalCompletedCount >= 5 && $cancelRate < 0.05) {
+            $customerRating = '★★★★★ 优质';
+        } elseif ($historicalCompletedCount >= 3 && $cancelRate < 0.1) {
+            $customerRating = '★★★★☆ 良好';
+        } elseif ($cancelRate < 0.3) {
+            $customerRating = '★★★☆☆ 普通';
+        } elseif ($cancelRate < 0.5) {
+            $customerRating = '★★☆☆☆ 注意';
+        } else {
+            $customerRating = '★☆☆☆☆ 风险';
+        }
+
+        return [
+            'customer_type' => $historicalOrderCount > 0 ? '老客户' : '新客户',
+            'historical_order_count' => $historicalOrderCount,
+            'historical_spend_text' => oyiso_wc_price($historicalSpend),
+            'customer_rating' => $customerRating,
+        ];
+    }
 }
 
 if (!function_exists('oyiso_get_order_status_operator_name')) {
@@ -360,6 +494,7 @@ if ($notify_options['woo_order_status_change'] ?? false) {
         $siteName = get_bloginfo('name');
         $siteUrl = get_bloginfo('url');
         $operatorName = oyiso_get_order_status_operator_name($order_id);
+        $operatorIp = oyiso_get_client_ip();
 
         $message = sprintf(
             "<b>📢订单状态已改变【%s】：</b>\n" .
@@ -367,6 +502,7 @@ if ($notify_options['woo_order_status_change'] ?? false) {
             "<b>订单号：</b>#%d\n" .
             "<b>状态：</b>%s (%s) → %s (%s)\n" .
             "<b>操作者：</b>%s\n" .
+            "<b>IP：</b>%s\n" .
             "<b>时间：</b>%s",
             $siteName,
             $siteUrl,
@@ -376,6 +512,7 @@ if ($notify_options['woo_order_status_change'] ?? false) {
             wc_get_order_status_name($new_status),
             $new_status,
             $operatorName,
+            $operatorIp,
             date_i18n('Y-m-d H:i:s')
         );
 
