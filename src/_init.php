@@ -29,6 +29,128 @@ if (class_exists('CSF')) {
         'menu_type' => 'submenu',
         'menu_parent' => 'plugins.php',
         'theme' => 'light',
+        'footer_after' => '
+            <style>
+            .csf-nav-options .csf-tab-item > ul {
+                display: none;
+            }
+            .csf-nav-options .csf-tab-item.csf-tab-expanded > ul {
+                display: block;
+            }
+            #wpfooter {
+                display: none;
+            }
+            #wpbody-content {
+                padding-bottom: 0;
+            }
+            #wpcontent,
+            .auto-fold #wpcontent {
+                padding-left: 0;
+            }
+            .csf.csf-options {
+                min-height: calc(100vh - 32px);
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+            }
+            .csf.csf-options > .csf-container {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }
+            .csf.csf-options #csf-form {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }
+            .csf.csf-options .csf-wrapper {
+                flex: 1;
+                position: relative;
+                overflow: hidden;
+            }
+            .csf.csf-options .csf-nav {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 225px;
+                overflow-x: hidden;
+                overflow-y: auto;
+                z-index: 10;
+            }
+            .csf.csf-options .csf-nav .csf-arrow:after {
+                transition: transform .2s ease;
+            }
+            /* ── 一级菜单 ── */
+            .csf.csf-options .csf-nav > ul > li > a {
+                background-color: #fafafa;
+                color: #1d1d1d;
+                font-weight: 600;
+            }
+            .csf.csf-options .csf-nav > ul > li > a:hover {
+                background-color: #fff;
+            }
+            /* ── 二级菜单 ── */
+            .csf.csf-options .csf-nav > ul > li > ul > li > a {
+                background-color: #ebebeb;
+                color: #555;
+                font-size: 12.5px;
+                border-left: 3px solid transparent;
+            }
+            .csf.csf-options .csf-nav > ul > li > ul > li > a:hover {
+                background-color: #f2f2f2;
+                color: #333;
+            }
+            .csf.csf-options .csf-nav > ul > li > ul > li > a.csf-active {
+                background-color: #f5f5f5;
+                color: #1d1d1d;
+                border-left-color: #e5702a;
+            }
+            .csf.csf-options .csf-content {
+                min-height: 100%;
+            }
+            </style>
+            <script>
+            jQuery(function($){
+                var $nav = $(".csf-nav-options");
+
+                // 一级菜单点击：展开/折叠
+                $nav.on("click", ".csf-arrow", function(e){
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var $item = $(this).closest(".csf-tab-item");
+                    $item.find("> ul").slideToggle(200, function(){
+                        $item.toggleClass("csf-tab-expanded", $(this).is(":visible"));
+                    });
+                });
+
+                // 二级菜单点击：手动切换面板，用 replaceState 不触发 hashchange
+                $nav.on("click", "ul ul a", function(e){
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+
+                    var $this = $(this);
+                    var tabId = $this.data("tab-id");
+
+                    // 激活当前链接
+                    $nav.find("a").removeClass("csf-active");
+                    $this.addClass("csf-active");
+
+                    // 展开所属父级
+                    $this.closest(".csf-tab-item").addClass("csf-tab-expanded").find("> ul").show();
+
+                    // 切换右侧面板
+                    $(".csf-section").removeClass("csf-onload").addClass("hidden");
+                    var $section = $("[data-section-id=\"" + tabId + "\"]");
+                    $section.removeClass("hidden").addClass("csf-onload");
+                    $section.csf_reload_script();
+                    $(".csf-section-id").val($section.index() + 1);
+
+                    // 更新 URL，不触发 hashchange
+                    history.replaceState(null, null, "#tab=" + tabId);
+                });
+            });
+            </script>',
     ]);
 
     // 父级分类（仅导航，无字段）
