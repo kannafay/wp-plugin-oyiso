@@ -255,6 +255,20 @@ function oyiso_build_order_message(WC_Order $order) {
 }
 }
 
+if (!function_exists('oyiso_get_order_status_operator_name')) {
+    function oyiso_get_order_status_operator_name(int $order_id): string {
+        if (is_user_logged_in() && current_user_can('edit_shop_orders', $order_id)) {
+            $user = get_user_by('id', get_current_user_id());
+
+            if ($user && !empty($user->display_name)) {
+                return $user->display_name;
+            }
+        }
+
+        return __('WooCommerce', 'woocommerce');
+    }
+}
+
 if (!function_exists('oyiso_send_new_order_notification')) {
     function oyiso_send_new_order_notification(int $order_id): void {
         $bot = oyiso_get_tg_bot();
@@ -345,12 +359,14 @@ if ($notify_options['woo_order_status_change'] ?? false) {
         }
         $siteName = get_bloginfo('name');
         $siteUrl = get_bloginfo('url');
+        $operatorName = oyiso_get_order_status_operator_name($order_id);
 
         $message = sprintf(
             "<b>📢订单状态已改变【%s】：</b>\n" .
             "<b>站点：</b>%s\n" .
             "<b>订单号：</b>#%d\n" .
             "<b>状态：</b>%s (%s) → %s (%s)\n" .
+            "<b>操作者：</b>%s\n" .
             "<b>时间：</b>%s",
             $siteName,
             $siteUrl,
@@ -359,6 +375,7 @@ if ($notify_options['woo_order_status_change'] ?? false) {
             $old_status,
             wc_get_order_status_name($new_status),
             $new_status,
+            $operatorName,
             date_i18n('Y-m-d H:i:s')
         );
 
