@@ -2,6 +2,12 @@
 
 defined('ABSPATH') || exit;
 
+if (!function_exists('oyiso_render_tg_test_field')) {
+function oyiso_render_tg_test_field(): void {
+    echo '<div class="oyiso-tg-test-field"><button type="button" class="button button-secondary" id="oyiso-tg-test-button">发送测试消息</button><div id="oyiso-tg-test-status" style="margin-top:8px;"></div></div>';
+}
+}
+
 /**
  * Telegram Bot通知设置
  */
@@ -29,8 +35,10 @@ CSF::createSection($prefix, [
             'desc' => '填写接收者Chat ID，一行一个 <a href="https://telegram.me/chatIDrobot" target="_blank">点击获取</a>',
         ],
         [
-            'type' => 'content',
-            'content' => '<div class="oyiso-tg-test"><p style="margin:0 0 10px;">保存当前 Token 和 Chat ID 后，可发送一条测试消息验证连通性。</p><p style="margin:0;"><button type="button" class="button button-secondary" id="oyiso-tg-test-button">发送测试消息</button> <span id="oyiso-tg-test-status" style="margin-left:10px;"></span></p></div>',
+            'type' => 'callback',
+            'title' => '测试通知',
+            'desc' => '保存当前 Token 和 Chat ID 后，可发送一条测试消息验证连通性。',
+            'function' => 'oyiso_render_tg_test_field',
         ],
         [
             'id' => 'woo_notify',
