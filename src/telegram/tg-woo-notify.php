@@ -122,6 +122,23 @@ function oyiso_get_order_shipping_address_text(WC_Order $order): string {
 }
 }
 
+if (!function_exists('oyiso_format_telegram_email_text')) {
+function oyiso_format_telegram_email_text(string $email): string {
+    $email = sanitize_email($email);
+
+    if ($email === '') {
+        return '';
+    }
+
+    $parts = preg_split('//u', $email, -1, PREG_SPLIT_NO_EMPTY);
+    if (empty($parts)) {
+        return $email;
+    }
+
+    return implode('&#8203;', $parts);
+}
+}
+
 /**
  * 购物车消息格式
  */
@@ -265,7 +282,7 @@ if (!function_exists('oyiso_build_order_products_section')) {
         }
 
         return sprintf(
-            "<b>📦【订单明细】：</b>\n%s",
+            "<b>📦【产品明细】：</b>\n%s",
             implode("\n", $items)
         );
     }
@@ -305,7 +322,7 @@ if (!function_exists('oyiso_build_order_billing_section')) {
             "<b>地址：</b>%s\n" .
             "<b>备注：</b>%s",
             $order->get_formatted_billing_full_name(),
-            $order->get_billing_email(),
+            oyiso_format_telegram_email_text((string) $order->get_billing_email()),
             $order->get_billing_phone(),
             oyiso_get_order_shipping_address_text($order),
             $customerNote
