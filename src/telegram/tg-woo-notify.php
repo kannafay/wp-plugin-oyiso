@@ -535,25 +535,6 @@ if ($notify_options['woo_add_to_cart'] ?? false) {
 
         $bot->sendMessage($message);
     }, 10, 6);
-
-    add_action('woocommerce_after_cart_item_quantity_update', function ($cart_item_key, $quantity, $old_quantity, $cart) {
-        if ($quantity <= $old_quantity) {
-            return;
-        }
-
-        $bot = oyiso_get_tg_bot();
-        if (!$bot) return;
-
-        $cart_item = $cart instanceof WC_Cart ? $cart->get_cart_item($cart_item_key) : [];
-        if (empty($cart_item['data']) || !($cart_item['data'] instanceof WC_Product)) {
-            return;
-        }
-
-        $message = oyiso_wc_cart('increase', $cart_item['data'], $cart_item['variation'] ?? [], (int) $quantity, [
-            'old_quantity' => (int) $old_quantity,
-        ]);
-        $bot->sendMessage($message);
-    }, 10, 4);
 }
 
 /** 
@@ -575,6 +556,30 @@ if ($notify_options['woo_remove_from_cart'] ?? false) {
         $message = oyiso_wc_cart('remove', $product, $variation, $quantity);
         $bot->sendMessage($message);
     }, 10, 2);
+}
+
+/**
+ * WooCommerce 购物车数量调整通知
+ */
+if ($notify_options['woo_cart_quantity_change'] ?? false) {
+    add_action('woocommerce_after_cart_item_quantity_update', function ($cart_item_key, $quantity, $old_quantity, $cart) {
+        if ($quantity <= $old_quantity) {
+            return;
+        }
+
+        $bot = oyiso_get_tg_bot();
+        if (!$bot) return;
+
+        $cart_item = $cart instanceof WC_Cart ? $cart->get_cart_item($cart_item_key) : [];
+        if (empty($cart_item['data']) || !($cart_item['data'] instanceof WC_Product)) {
+            return;
+        }
+
+        $message = oyiso_wc_cart('increase', $cart_item['data'], $cart_item['variation'] ?? [], (int) $quantity, [
+            'old_quantity' => (int) $old_quantity,
+        ]);
+        $bot->sendMessage($message);
+    }, 10, 4);
 
     add_action('woocommerce_after_cart_item_quantity_update', function ($cart_item_key, $quantity, $old_quantity, $cart) {
         if ($quantity >= $old_quantity || $quantity <= 0) {

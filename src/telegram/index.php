@@ -82,6 +82,13 @@ CSF::createSection($prefix, [
                             'title' => '移出购物车通知',
                             'label' => '开启后可在有用户将商品从购物车移出时通过Telegram Bot发送通知',
                             'default' => false,
+                        ],
+                        [
+                            'id' => 'woo_cart_quantity_change',
+                            'type' => 'switcher',
+                            'title' => '数量调整通知',
+                            'label' => '开启后可在用户调整购物车商品数量时通过Telegram Bot发送通知',
+                            'default' => false,
                         ]
                     ]
                 ],
