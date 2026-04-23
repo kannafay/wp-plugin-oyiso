@@ -16,5 +16,9 @@ add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links)
     return $links;
 });
 
-require_once plugin_dir_path(__FILE__) . 'classes/setup.class.php';
+// CSF 框架仅后台加载，前端无需解析 7+ 个类文件
+if (is_admin()) {
+    require_once plugin_dir_path(__FILE__) . 'classes/setup.class.php';
+}
+
 require_once plugin_dir_path(__FILE__) . 'src/_init.php';

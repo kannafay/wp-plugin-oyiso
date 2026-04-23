@@ -1,28 +1,13 @@
 <?php
 
-// Control core classes for avoid errors
+// 统一获取选项，子模块共享此变量
+$options = get_option('oyiso', []);
+
+// CSF 后台 UI 定义（前端 class_exists('CSF') 为 false，整块跳过）
 if (class_exists('CSF')) {
 
-    // Set a unique slug-like ID
     $prefix = 'oyiso';
 
-    /**
-     *
-     * @menu_parent argument examples.
-     *
-     * For Dashboard: 'index.php'
-     * For Posts: 'edit.php'
-     * For Media: 'upload.php'
-     * For Pages: 'edit.php?post_type=page'
-     * For Comments: 'edit-comments.php'
-     * For Custom Post Types: 'edit.php?post_type=your_post_type'
-     * For Appearance: 'themes.php'
-     * For Plugins: 'plugins.php'
-     * For Users: 'users.php'
-     * For Tools: 'tools.php'
-     * For Settings: 'options-general.php'
-     *
-     */
     CSF::createOptions($prefix, [
         'menu_title' => '橘子猫头',
         'menu_slug' => 'oyiso',
@@ -183,13 +168,11 @@ if (class_exists('CSF')) {
         'priority' => 30,
     ]);
 
-    // 统一获取选项，子模块共享此变量
-    $options = get_option('oyiso', []);
+} // end CSF UI block
 
-    // 加载模块
-    $dir = plugin_dir_path(__FILE__);
-    require_once $dir . 'gutenberg-editor/index.php';
-    require_once $dir . 'wp-update/index.php';
-    require_once $dir . '51la-analytics/index.php';
-    require_once $dir . 'telegram/index.php';
-}
+// 加载模块（功能钩子在前后端均需注册，CSF 调用由模块内部自行 guard）
+$dir = plugin_dir_path(__FILE__);
+require_once $dir . 'gutenberg-editor/index.php';
+require_once $dir . 'wp-update/index.php';
+require_once $dir . '51la-analytics/index.php';
+require_once $dir . 'telegram/index.php';

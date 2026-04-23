@@ -2,8 +2,6 @@
 
 defined('ABSPATH') || exit;
 
-require_once __DIR__ . '/tg-bot-class.php';
-
 $notify_options = $options['woo_notify_options'] ?? [];
 $_oyiso_tg_token = $options['bot_token'] ?? '';
 $_oyiso_tg_chatids_raw = $options['tg_chatids'] ?? '';
@@ -20,6 +18,7 @@ if (!function_exists('oyiso_get_tg_bot')) {
     function oyiso_get_tg_bot(): ?OyisoTGBot {
         static $bot = null;
         if ($bot === null) {
+            require_once __DIR__ . '/tg-bot-class.php';
             $options = get_option('oyiso', []);
             $token   = $options['bot_token'] ?? '';
             $chatIds = OyisoTGBot::parseChatIds($options['tg_chatids'] ?? '');

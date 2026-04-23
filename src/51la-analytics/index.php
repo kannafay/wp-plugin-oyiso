@@ -5,6 +5,7 @@ defined('ABSPATH') || exit;
 /**
  * 51LA统计代码
  */
+if (class_exists('CSF')) {
 CSF::createSection($prefix, [
     'parent'   => 'seo-analytics',
     'title'    => '51LA 统计代码',
@@ -23,10 +24,11 @@ CSF::createSection($prefix, [
         ],
     ]
 ]);
+}
 
-// 统计代码需要原始 HTML/JS 输出；保存端已由 CSF 限制为 manage_options 权限
+// 统计代码仅需在前端输出
 $code51la = $options['opt-51la-code'] ?? '';
-if (!empty($code51la)) {
+if (!is_admin() && !empty($code51la)) {
     add_action('wp_head', function () use ($code51la) {
         echo $code51la;
     });

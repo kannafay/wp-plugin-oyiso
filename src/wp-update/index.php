@@ -5,6 +5,7 @@ defined('ABSPATH') || exit;
 /**
  * WordPress设置
  */
+if (class_exists('CSF')) {
 CSF::createSection($prefix, [
     'parent'   => 'wp-optimize',
     'title'    => '自动更新管理',
@@ -38,6 +39,7 @@ CSF::createSection($prefix, [
         ],
     ]
 ]);
+}
 
 // 禁用WordPress核心自动更新
 if (!empty($options['opt-ban-wp-core-auto-update'])) {

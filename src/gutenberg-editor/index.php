@@ -5,6 +5,7 @@ defined('ABSPATH') || exit;
 /**
  * 古腾堡编辑器
  */
+if (class_exists('CSF')) {
 CSF::createSection($prefix, [
     'parent'   => 'wp-optimize',
     'title'    => '古腾堡编辑器',
@@ -31,6 +32,7 @@ CSF::createSection($prefix, [
         ],
     ]
 ]);
+}
 
 // 收集需要禁用古腾堡的文章类型
 $disabled_types = [];
