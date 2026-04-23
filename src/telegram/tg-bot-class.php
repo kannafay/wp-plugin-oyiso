@@ -66,6 +66,10 @@ class OyisoTGBot {
      * 投入后台队列，优先使用 Action Scheduler，失败时兜底到 WP Cron，再不行就同步发送。
      */
     public function sendMessage(string $content, array $context = []): bool {
+        if (!isset($context['blog_id']) && function_exists('get_current_blog_id')) {
+            $context['blog_id'] = (int) get_current_blog_id();
+        }
+
         $payload = self::sanitizePayload([
             'token'      => $this->token,
             'chat_ids'   => $this->chatIds,
@@ -93,21 +97,23 @@ class OyisoTGBot {
             return false;
         }
 
-        $failedChatIds = [];
+        return self::runInBlogContext($payload['context'], static function () use ($payload): bool {
+            $failedChatIds = [];
 
-        foreach ($payload['chat_ids'] as $chatId) {
-            if (!self::sendToChat($payload['token'], $chatId, $payload['content'])) {
-                $failedChatIds[] = $chatId;
+            foreach ($payload['chat_ids'] as $chatId) {
+                if (!self::sendToChat($payload['token'], $chatId, $payload['content'])) {
+                    $failedChatIds[] = $chatId;
+                }
             }
-        }
 
-        if (empty($failedChatIds)) {
-            self::handleSuccess($payload);
-            return true;
-        }
+            if (empty($failedChatIds)) {
+                self::handleSuccess($payload);
+                return true;
+            }
 
-        self::queueRetry($payload, $failedChatIds);
-        return false;
+            self::queueRetry($payload, $failedChatIds);
+            return false;
+        });
     }
 
     protected static function sanitizePayload(array $payload): array {
@@ -330,5 +336,34 @@ class OyisoTGBot {
 
     protected static function logError(string $message): void {
         error_log('[TelegramBot] ' . $message . PHP_EOL);
+    }
+
+    /**
+     * 多站点下显式切回原始子站，避免异步任务运行在错误 blog 上下文。
+     *
+     * @param array    $context
+     * @param callable $callback
+     * @return mixed
+     */
+    protected static function runInBlogContext(array $context, callable $callback) {
+        $blogId = (int) ($context['blog_id'] ?? 0);
+
+        if (!is_multisite() || $blogId <= 0 || !function_exists('get_current_blog_id') || !function_exists('switch_to_blog')) {
+            return $callback();
+        }
+
+        $currentBlogId = (int) get_current_blog_id();
+
+        if ($currentBlogId === $blogId) {
+            return $callback();
+        }
+
+        switch_to_blog($blogId);
+
+        try {
+            return $callback();
+        } finally {
+            restore_current_blog();
+        }
     }
 }

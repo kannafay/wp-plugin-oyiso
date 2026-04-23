@@ -20,18 +20,22 @@ if (empty($_oyiso_tg_token) || empty($_oyiso_tg_chatids_raw) || !$enableWooNotif
  */
 if (!function_exists('oyiso_get_tg_bot')) {
     function oyiso_get_tg_bot(): ?OyisoTGBot {
-        static $bot = null;
-        if ($bot === null) {
+        static $bots = [];
+        $blogId = function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 0;
+
+        if (!array_key_exists($blogId, $bots)) {
             require_once __DIR__ . '/tg-bot-class.php';
             $options = get_option('oyiso', []);
             $token   = $options['bot_token'] ?? '';
             $chatIds = OyisoTGBot::parseChatIds($options['tg_chatids'] ?? '');
             if (empty($token) || empty($chatIds)) {
+                $bots[$blogId] = null;
                 return null;
             }
-            $bot = new OyisoTGBot($token, $chatIds);
+            $bots[$blogId] = new OyisoTGBot($token, $chatIds);
         }
-        return $bot;
+
+        return $bots[$blogId];
     }
 }
 
@@ -285,6 +289,7 @@ if (!function_exists('oyiso_queue_new_order_notification')) {
         $message = oyiso_build_order_message($order);
         $queued = $bot->sendMessage($message, [
             'order_id'         => $order->get_id(),
+            'blog_id'          => function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 0,
             'success_meta_key' => OYISO_TG_ORDER_NOTIFIED_META_KEY,
             'pending_meta_key' => OYISO_TG_ORDER_PENDING_META_KEY,
             'failure_meta_key' => OYISO_TG_ORDER_FAILED_META_KEY,
