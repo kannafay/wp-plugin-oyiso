@@ -189,12 +189,13 @@ add_action('wp_ajax_oyiso_tg_test_message', function () {
     $siteName = get_bloginfo('name');
     $siteUrl = get_bloginfo('url');
     $blogId = function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 0;
-    $siteIdLine = is_multisite() ? sprintf("\n<b>多站点ID：</b>%d", $blogId) : '';
+    $siteType = is_multisite() ? '多站点网络' : '独立站点';
     $message = sprintf(
-        "<b>Telegram 测试消息</b>\n<b>站点：</b>%s\n<b>地址：</b>%s%s\n<b>时间：</b>%s",
+        "<b>Telegram 测试消息</b>\n<b>站点：</b>%s\n<b>地址：</b>%s\n<b>类型：</b>%s\n<b>ID：</b>%d\n<b>时间：</b>%s",
         $siteName,
         $siteUrl,
-        $siteIdLine,
+        $siteType,
+        $blogId,
         current_time('Y-m-d H:i:s')
     );
 

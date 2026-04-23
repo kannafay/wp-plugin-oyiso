@@ -1,6 +1,8 @@
 <?php if ( ! defined( 'ABSPATH' ) ) { die; }
 
 class OyisoTGBot {
+    protected static array $deferredQueue = [];
+    protected static bool $shutdownRegistered = false;
     protected string $token;
     protected array $chatIds = [];
 
@@ -40,7 +42,8 @@ class OyisoTGBot {
     }
 
     /**
-     * 直接同步发送 Telegram 消息。
+     * 将 Telegram 消息延后到请求结束时发送。
+     * 如果服务器支持 fastcgi_finish_request()，会先把响应返回给用户，再继续发送。
      */
     public function sendMessage(string $content, array $context = []): bool {
         if (!isset($context['blog_id']) && function_exists('get_current_blog_id')) {
@@ -59,23 +62,10 @@ class OyisoTGBot {
             return false;
         }
 
-        return self::runInBlogContext($payload['context'], static function () use ($payload): bool {
-            $failedChatIds = [];
+        self::$deferredQueue[] = $payload;
+        self::registerDeferredSender();
 
-            foreach ($payload['chat_ids'] as $chatId) {
-                if (!self::sendToChat($payload['token'], $chatId, $payload['content'])) {
-                    $failedChatIds[] = $chatId;
-                }
-            }
-
-            if (empty($failedChatIds)) {
-                self::handleSuccess($payload);
-                return true;
-            }
-
-            self::handleFailure($payload);
-            return false;
-        });
+        return true;
     }
 
     /**
@@ -253,6 +243,59 @@ class OyisoTGBot {
 
     protected static function logError(string $message): void {
         error_log('[TelegramBot] ' . $message . PHP_EOL);
+    }
+
+    protected static function registerDeferredSender(): void {
+        if (self::$shutdownRegistered) {
+            return;
+        }
+
+        self::$shutdownRegistered = true;
+        register_shutdown_function([self::class, 'flushDeferredQueue']);
+    }
+
+    public static function flushDeferredQueue(): void {
+        if (empty(self::$deferredQueue)) {
+            return;
+        }
+
+        $queue = self::$deferredQueue;
+        self::$deferredQueue = [];
+        self::$shutdownRegistered = false;
+
+        ignore_user_abort(true);
+
+        if (function_exists('session_write_close')) {
+            @session_write_close();
+        }
+
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        }
+
+        foreach ($queue as $payload) {
+            self::deliverPayload($payload);
+        }
+    }
+
+    protected static function deliverPayload(array $payload): bool {
+        return self::runInBlogContext($payload['context'], static function () use ($payload): bool {
+            $failedChatIds = [];
+
+            foreach ($payload['chat_ids'] as $chatId) {
+                if (!self::sendToChat($payload['token'], $chatId, $payload['content'])) {
+                    $failedChatIds[] = $chatId;
+                }
+            }
+
+            if (empty($failedChatIds)) {
+                self::handleSuccess($payload);
+                return true;
+            }
+
+            self::handleFailure($payload);
+            return false;
+        });
     }
 
     /**
