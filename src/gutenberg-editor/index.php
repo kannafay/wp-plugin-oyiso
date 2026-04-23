@@ -16,20 +16,17 @@ CSF::createSection($prefix, [
             'content' => '古腾堡编辑器设置',
         ],
         [
-            'type' => 'notice',
-            'style' => 'info',
-            'content' => '开启后将禁用对应类型的古腾堡编辑器并移除前端相关样式，恢复为经典编辑器。',
-        ],
-        [
             'id' => 'opt-gutenberg-post',
             'type' => 'switcher',
             'title' => '文章 (post)',
+            'label' => '开启后将禁用文章的古腾堡编辑器，恢复为经典编辑器',
             'default' => false,
         ],
         [
             'id' => 'opt-gutenberg-page',
             'type' => 'switcher',
             'title' => '页面 (page)',
+            'label' => '开启后将禁用页面的古腾堡编辑器，恢复为经典编辑器',
             'default' => false,
         ],
     ]
