@@ -126,16 +126,25 @@ function oyiso_get_order_shipping_address_text(WC_Order $order): string {
  * 购物车消息格式
  */
 if (!function_exists('oyiso_wc_cart')) {
-    function oyiso_wc_cart($type, $product, $variation, $quantity): string {
+    function oyiso_wc_cart($type, $product, $variation, $quantity, array $extra = []): string {
         $productName = '';
-        if (!empty($variation) && $type === 'add') {
+        if (!empty($variation)) {
             $variation_text = [];
             foreach ($variation as $attr => $value) {
                 $taxonomy = str_replace('attribute_', '', $attr);
                 $term = get_term_by('slug', $value, $taxonomy);
                 $variation_text[] = $term ? $term->name : $value;
             }
-            $productName = $product->get_name() . ' - ' . implode(', ', $variation_text);
+            $baseProductName = $product->get_name();
+
+            if ($product instanceof WC_Product_Variation) {
+                $parentProduct = wc_get_product($product->get_parent_id());
+                if ($parentProduct instanceof WC_Product) {
+                    $baseProductName = $parentProduct->get_name();
+                }
+            }
+
+            $productName = $baseProductName . ' - ' . implode(', ', $variation_text);
         } else {
             $productName = $product->get_name();
         }
@@ -143,13 +152,32 @@ if (!function_exists('oyiso_wc_cart')) {
         $siteName = get_bloginfo('name');
         $siteUrl = get_bloginfo('url');
 
-        $title = $type === 'add' ? '✨加入购物车' : '😭移出购物车';
+        $title = '🛒购物车变更';
+        $quantityLine = sprintf("<b>数量：</b>%d\n", $quantity);
+        $subtotal = $product->get_price() * $quantity;
+
+        if ($type === 'add') {
+            $title = '✨加入购物车';
+        } elseif ($type === 'remove') {
+            $title = '😭移出购物车';
+        } elseif ($type === 'increase') {
+            $title = '➕增加数量';
+            $oldQuantity = isset($extra['old_quantity']) ? (int) $extra['old_quantity'] : max(0, $quantity - 1);
+            $quantityLine = sprintf("<b>数量：</b>%d → %d\n", $oldQuantity, $quantity);
+        } elseif ($type === 'decrease') {
+            $title = '➖减少数量';
+            $oldQuantity = isset($extra['old_quantity']) ? (int) $extra['old_quantity'] : $quantity;
+            $newQuantity = isset($extra['new_quantity']) ? (int) $extra['new_quantity'] : max(0, $oldQuantity - 1);
+            $quantity = $newQuantity;
+            $subtotal = $product->get_price() * $quantity;
+            $quantityLine = sprintf("<b>数量：</b>%d → %d\n", $oldQuantity, $newQuantity);
+        }
 
         $message = sprintf(
             "<b>%s【%s】：</b>\n" .
             "<b>站点：</b>%s\n" .
             "<b>产品：</b>%s\n" .
-            "<b>数量：</b>%d\n" .
+            "%s" .
             "<b>单价：</b>%s\n" .
             "<b>小计：</b>%s\n" .
             "<b>IP：</b>%s\n" .
@@ -158,9 +186,9 @@ if (!function_exists('oyiso_wc_cart')) {
             $siteName,
             $siteUrl,
             $productName,
-            $quantity,
+            $quantityLine,
             oyiso_wc_price($product->get_price()),
-            oyiso_wc_price($product->get_price() * $quantity),
+            oyiso_wc_price($subtotal),
             oyiso_get_client_ip(),
             date_i18n('Y-m-d H:i:s')
         );
@@ -493,29 +521,80 @@ if ($notify_options['woo_add_to_cart'] ?? false) {
     add_action('woocommerce_add_to_cart', function ($cart_item_key, $product_id, $quantity, $variation_id, $variation, $cart_item_data) {
         $bot = oyiso_get_tg_bot();
         if (!$bot) return;
+
         $product = wc_get_product($product_id);
-        $message = oyiso_wc_cart('add', $product, $variation, $quantity);
+        if (!$product) return;
+
+        $cartItem = WC()->cart ? WC()->cart->get_cart_item($cart_item_key) : [];
+        $currentQuantity = (int) ($cartItem['quantity'] ?? $quantity);
+        if ($currentQuantity > (int) $quantity) {
+            return;
+        }
+
+        $message = oyiso_wc_cart('add', $product, $cartItem['variation'] ?? $variation, (int) $quantity);
+
         $bot->sendMessage($message);
     }, 10, 6);
+
+    add_action('woocommerce_after_cart_item_quantity_update', function ($cart_item_key, $quantity, $old_quantity, $cart) {
+        if ($quantity <= $old_quantity) {
+            return;
+        }
+
+        $bot = oyiso_get_tg_bot();
+        if (!$bot) return;
+
+        $cart_item = $cart instanceof WC_Cart ? $cart->get_cart_item($cart_item_key) : [];
+        if (empty($cart_item['data']) || !($cart_item['data'] instanceof WC_Product)) {
+            return;
+        }
+
+        $message = oyiso_wc_cart('increase', $cart_item['data'], $cart_item['variation'] ?? [], (int) $quantity, [
+            'old_quantity' => (int) $old_quantity,
+        ]);
+        $bot->sendMessage($message);
+    }, 10, 4);
 }
 
 /** 
  * WooCommerce 移出购物车通知
  */
 if ($notify_options['woo_remove_from_cart'] ?? false) {
-    add_action('woocommerce_remove_cart_item', function ($cart_item_key) {
+    add_action('woocommerce_remove_cart_item', function ($cart_item_key, $cart) {
         $bot = oyiso_get_tg_bot();
         if (!$bot) return;
-        $cart_item = WC()->cart->get_cart_item($cart_item_key);
-        if (empty($cart_item)) {
+
+        $cart_item = $cart instanceof WC_Cart ? $cart->get_cart_item($cart_item_key) : [];
+        if (empty($cart_item['data']) || !($cart_item['data'] instanceof WC_Product)) {
             return;
         }
+
         $product   = $cart_item['data'];
         $variation = $cart_item['variation'] ?? [];
-        $quantity  = $cart_item['quantity'] ?? 1;
+        $quantity  = (int) ($cart_item['quantity'] ?? 1);
         $message = oyiso_wc_cart('remove', $product, $variation, $quantity);
         $bot->sendMessage($message);
-    });
+    }, 10, 2);
+
+    add_action('woocommerce_after_cart_item_quantity_update', function ($cart_item_key, $quantity, $old_quantity, $cart) {
+        if ($quantity >= $old_quantity || $quantity <= 0) {
+            return;
+        }
+
+        $bot = oyiso_get_tg_bot();
+        if (!$bot) return;
+
+        $cart_item = $cart instanceof WC_Cart ? $cart->get_cart_item($cart_item_key) : [];
+        if (empty($cart_item['data']) || !($cart_item['data'] instanceof WC_Product)) {
+            return;
+        }
+
+        $message = oyiso_wc_cart('decrease', $cart_item['data'], $cart_item['variation'] ?? [], (int) $old_quantity, [
+            'old_quantity' => (int) $old_quantity,
+            'new_quantity' => (int) $quantity,
+        ]);
+        $bot->sendMessage($message);
+    }, 10, 4);
 }
 
 /**
