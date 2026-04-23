@@ -40,44 +40,53 @@ class OyisoTGBot {
     }
 
     /**
-     * 给所有 chat_id 发送消息（HTML）
+     * 投入 WP Cron 后台队列，立即返回，不阻塞当前请求
      */
-    public function sendMessage(string $content): array {
-        $results = [];
+    public function sendMessage(string $content): void {
+        wp_schedule_single_event(time(), 'oyiso_tg_send_message', [
+            $this->token,
+            $this->chatIds,
+            $content,
+        ]);
 
-        foreach ($this->chatIds as $chatId) {
-            $results[$chatId] = $this->sendOne($chatId, $content);
+        if (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) {
+            // spawn_cron() 被禁用，手动向本机 wp-cron.php 发非阻塞请求触发队列
+            $doing_wp_cron = sprintf('%.22F', microtime(true));
+            set_transient('doing_cron', $doing_wp_cron);
+
+            wp_remote_post(
+                add_query_arg('doing_wp_cron', $doing_wp_cron, site_url('wp-cron.php')),
+                [
+                    'timeout'   => 1,
+                    'blocking'  => false,
+                    'sslverify' => apply_filters('https_local_ssl_verify', false),
+                ]
+            );
+        } else {
+            spawn_cron();
         }
-
-        return $results;
     }
 
     /**
-     * 发送给单个 chat_id
+     * WP Cron 回调 —— 在独立的后台请求中逐个发送
      */
-    protected function sendOne(string|int $chatId, string $content): bool {
-        $url = "https://api.telegram.org/bot{$this->token}/sendMessage";
+    public static function processCronSend(string $token, array $chatIds, string $content): void {
+        foreach ($chatIds as $chatId) {
+            $url = "https://api.telegram.org/bot{$token}/sendMessage";
 
-        $data = [
-            'chat_id' => $chatId,
-            'text' => $content,
-            'parse_mode' => 'HTML',
-            'disable_web_page_preview' => true,
-        ];
+            $response = wp_remote_post($url, [
+                'timeout' => 15,
+                'body'    => [
+                    'chat_id'                  => $chatId,
+                    'text'                     => $content,
+                    'parse_mode'               => 'HTML',
+                    'disable_web_page_preview' => true,
+                ],
+            ]);
 
-        $response = wp_remote_post($url, [
-            'timeout' => 5,
-            'body'    => $data,
-        ]);
-
-        if (is_wp_error($response)) {
-            error_log('[TelegramBot] ' . $response->get_error_message() . PHP_EOL);
-            return false;
+            if (is_wp_error($response)) {
+                error_log('[TelegramBot] ' . $response->get_error_message() . PHP_EOL);
+            }
         }
-
-        $body   = wp_remote_retrieve_body($response);
-        $result = json_decode($body, true);
-
-        return isset($result['ok']) && $result['ok'] === true;
     }
 }

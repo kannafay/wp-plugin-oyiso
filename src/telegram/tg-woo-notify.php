@@ -2,18 +2,35 @@
 
 defined('ABSPATH') || exit;
 
-require_once 'tg-bot-class.php';
+require_once __DIR__ . '/tg-bot-class.php';
 
 $notify_options = $options['woo_notify_options'] ?? [];
-$token = $options['bot_token'] ?? '';
-$chatIds = OyisoTGBot::parseChatIds($options['tg_chatids'] ?? '');
+$_oyiso_tg_token = $options['bot_token'] ?? '';
+$_oyiso_tg_chatids_raw = $options['tg_chatids'] ?? '';
 $enableWooNotify = $options['woo_notify'] ?? false;
 
-if (empty($token) || empty($chatIds) || !$enableWooNotify) {
+if (empty($_oyiso_tg_token) || empty($_oyiso_tg_chatids_raw) || !$enableWooNotify) {
     return;
 }
 
-$TGBot = new OyisoTGBot($token, $chatIds);
+/**
+ * 延迟实例化 TGBot，仅在首次调用时创建
+ */
+if (!function_exists('oyiso_get_tg_bot')) {
+    function oyiso_get_tg_bot(): ?OyisoTGBot {
+        static $bot = null;
+        if ($bot === null) {
+            $options = get_option('oyiso', []);
+            $token   = $options['bot_token'] ?? '';
+            $chatIds = OyisoTGBot::parseChatIds($options['tg_chatids'] ?? '');
+            if (empty($token) || empty($chatIds)) {
+                return null;
+            }
+            $bot = new OyisoTGBot($token, $chatIds);
+        }
+        return $bot;
+    }
+}
 
 /**
  * WooCommerce 获取纯文本价格（无 HTML / 无实体）
@@ -33,6 +50,7 @@ if (!function_exists('oyiso_wc_price')) {
 /**
  * 获取客户端真实IP地址
  */
+if (!function_exists('oyiso_get_client_ip')) {
 function oyiso_get_client_ip(): string {
     $keys = [
         'HTTP_CF_CONNECTING_IP',
@@ -58,6 +76,7 @@ function oyiso_get_client_ip(): string {
 
     return 'unknown';
 }
+}
 
 /**
  * 获取 WooCommerce 订单收货地址（纯文本，适合 TG / 日志）
@@ -65,6 +84,7 @@ function oyiso_get_client_ip(): string {
  * @param WC_Order $order
  * @return string
  */
+if (!function_exists('oyiso_get_order_shipping_address_text')) {
 function oyiso_get_order_shipping_address_text(WC_Order $order): string {
     // 优先收货地址，兜底账单地址
     $address = $order->get_formatted_shipping_address();
@@ -92,6 +112,7 @@ function oyiso_get_order_shipping_address_text(WC_Order $order): string {
     $address = preg_replace('/\s+/', ' ', $address);
 
     return trim($address);
+}
 }
 
 /**
@@ -147,6 +168,7 @@ if (!function_exists('oyiso_wc_cart')) {
  * @param WC_Order $order
  * @return string
  */
+if (!function_exists('oyiso_build_order_message')) {
 function oyiso_build_order_message(WC_Order $order) {
     $siteName = get_bloginfo('name');
     $siteUrl = get_bloginfo('url');
@@ -225,15 +247,18 @@ function oyiso_build_order_message(WC_Order $order) {
         $time
     );
 }
+}
 
 /**
  * WooCommerce 加入购物车通知
  */
 if ($notify_options['woo_add_to_cart'] ?? false) {
-    add_action('woocommerce_add_to_cart', function ($cart_item_key, $product_id, $quantity, $variation_id, $variation, $cart_item_data) use ($TGBot) {
+    add_action('woocommerce_add_to_cart', function ($cart_item_key, $product_id, $quantity, $variation_id, $variation, $cart_item_data) {
+        $bot = oyiso_get_tg_bot();
+        if (!$bot) return;
         $product = wc_get_product($product_id);
         $message = oyiso_wc_cart('add', $product, $variation, $quantity);
-        $TGBot->sendMessage($message);
+        $bot->sendMessage($message);
     }, 10, 6);
 }
 
@@ -241,7 +266,9 @@ if ($notify_options['woo_add_to_cart'] ?? false) {
  * WooCommerce 移出购物车通知
  */
 if ($notify_options['woo_remove_from_cart'] ?? false) {
-    add_action('woocommerce_remove_cart_item', function ($cart_item_key) use ($TGBot) {
+    add_action('woocommerce_remove_cart_item', function ($cart_item_key) {
+        $bot = oyiso_get_tg_bot();
+        if (!$bot) return;
         $cart_item = WC()->cart->get_cart_item($cart_item_key);
         if (empty($cart_item)) {
             return;
@@ -250,7 +277,7 @@ if ($notify_options['woo_remove_from_cart'] ?? false) {
         $variation = $cart_item['variation'] ?? [];
         $quantity  = $cart_item['quantity'] ?? 1;
         $message = oyiso_wc_cart('remove', $product, $variation, $quantity);
-        $TGBot->sendMessage($message);
+        $bot->sendMessage($message);
     });
 }
 
@@ -258,7 +285,9 @@ if ($notify_options['woo_remove_from_cart'] ?? false) {
  * WooCommerce 新订单通知
  */
 if ($notify_options['woo_new_order'] ?? false) {
-    add_action('woocommerce_thankyou', function ($order_id) use ($TGBot) {
+    add_action('woocommerce_thankyou', function ($order_id) {
+        $bot = oyiso_get_tg_bot();
+        if (!$bot) return;
         $order = wc_get_order($order_id);
 
         // 检查是否已发送过通知
@@ -267,7 +296,7 @@ if ($notify_options['woo_new_order'] ?? false) {
         }
 
         $message = oyiso_build_order_message($order);
-        $TGBot->sendMessage($message);
+        $bot->sendMessage($message);
 
         // 标记已发送
         $order->update_meta_data('_oyiso_tg_notified', 1);
@@ -279,7 +308,7 @@ if ($notify_options['woo_new_order'] ?? false) {
  * WooCommerce 订单状态变更通知
  */
 if ($notify_options['woo_order_status_change'] ?? false) {
-    add_action('woocommerce_order_status_changed', function ($order_id, $old_status, $new_status, $order) use ($TGBot) {
+    add_action('woocommerce_order_status_changed', function ($order_id, $old_status, $new_status, $order) {
         if (
             ($old_status === 'pending' && $new_status === 'processing')
             || ($old_status === 'checkout-draft' && $new_status === 'pending')
@@ -305,6 +334,7 @@ if ($notify_options['woo_order_status_change'] ?? false) {
             date_i18n('Y-m-d H:i:s')
         );
 
-        $TGBot->sendMessage($message);
+        $bot = oyiso_get_tg_bot();
+        if ($bot) $bot->sendMessage($message);
     }, 10, 4);
 }
