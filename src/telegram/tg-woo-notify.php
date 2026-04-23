@@ -161,11 +161,11 @@ if (!function_exists('oyiso_wc_cart')) {
         } elseif ($type === 'remove') {
             $title = '😭移出购物车';
         } elseif ($type === 'increase') {
-            $title = '➕增加数量';
+            $title = '🚀购物车加量';
             $oldQuantity = isset($extra['old_quantity']) ? (int) $extra['old_quantity'] : max(0, $quantity - 1);
             $quantityLine = sprintf("<b>数量：</b>%d → %d\n", $oldQuantity, $quantity);
         } elseif ($type === 'decrease') {
-            $title = '➖减少数量';
+            $title = '🪫购物车减量';
             $oldQuantity = isset($extra['old_quantity']) ? (int) $extra['old_quantity'] : $quantity;
             $newQuantity = isset($extra['new_quantity']) ? (int) $extra['new_quantity'] : max(0, $oldQuantity - 1);
             $quantity = $newQuantity;
