@@ -97,6 +97,7 @@ if (class_exists('CSF')) {
                 color: #555;
                 font-size: 12.5px;
                 border-left: 3px solid transparent;
+                transition: border-left-color .2s ease, background-color .2s ease, color .2s ease;
             }
             .csf.csf-options .csf-nav > ul > li > ul > li > a:hover {
                 background-color: #f2f2f2;
@@ -112,6 +113,9 @@ if (class_exists('CSF')) {
             }
             .csf.csf-options .csf-field-heading {
                 border-bottom: 1px solid #e0e0e0;
+            }
+            .csf.csf-options .csf-field-heading + .csf-field {
+                border-top: none;
             }
             </style>
             <script>
