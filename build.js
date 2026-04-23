@@ -2,9 +2,17 @@ const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 
-const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 const pluginDir = 'wp-plugin-oyiso';
-const zipName = `${pluginDir}-v${pkg.version}.zip`;
+const pluginMainFile = path.join(__dirname, 'oyiso.php');
+const pluginMainContent = fs.readFileSync(pluginMainFile, 'utf8');
+const versionMatch = pluginMainContent.match(/^[ \t/*#@]*Version:\s*(.+)$/mi);
+
+if (!versionMatch) {
+  throw new Error('无法从 oyiso.php 读取插件版本号');
+}
+
+const pluginVersion = versionMatch[1].trim();
+const zipName = `${pluginDir}_v${pluginVersion}.zip`;
 const distDir = path.join(__dirname, 'dist');
 
 // 需要打包的文件/目录

@@ -1,6 +1,5 @@
 {
   "name": "wp-plugin-oyiso",
-  "version": "1.1.5",
   "private": true,
   "scripts": {
     "build": "node build.js"
