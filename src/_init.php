@@ -102,6 +102,31 @@ if (class_exists('CSF')) {
             .csf.csf-options .csf-field-heading + .csf-field {
                 border-top: none;
             }
+            .csf.csf-options .csf-field-text input,
+            .csf.csf-options .csf-field-textarea textarea {
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+            @media only screen and (max-width: 782px) {
+                .csf.csf-options {
+                    margin: 10px;
+                    min-height: auto;
+                }
+                .csf.csf-options .csf-field .csf-title,
+                .csf.csf-options .csf-field .csf-fieldset {
+                    float: none;
+                    width: 100%;
+                }
+                .csf.csf-options .csf-field .csf-title {
+                    margin-bottom: 8px;
+                }
+                .csf.csf-options .csf-field-text input,
+                .csf.csf-options .csf-field-textarea textarea {
+                    width: 100%;
+                    max-width: 100%;
+                }
+            }
             </style>
             <script>
             jQuery(function($){
