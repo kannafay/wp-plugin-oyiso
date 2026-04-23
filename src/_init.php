@@ -48,8 +48,8 @@ if (class_exists('CSF')) {
                 padding-left: 0;
             }
             .csf.csf-options {
-                min-height: calc(100vh - 32px);
-                margin: 0;
+                min-height: calc(100vh - 32px - 40px);
+                margin: 20px;
                 display: flex;
                 flex-direction: column;
             }
@@ -67,6 +67,7 @@ if (class_exists('CSF')) {
                 flex: 1;
                 position: relative;
                 overflow: hidden;
+                background-color: #fff;
             }
             .csf.csf-options .csf-nav {
                 position: absolute;
@@ -108,6 +109,9 @@ if (class_exists('CSF')) {
             }
             .csf.csf-options .csf-content {
                 min-height: 100%;
+            }
+            .csf.csf-options .csf-field-heading {
+                border-bottom: 1px solid #e0e0e0;
             }
             </style>
             <script>
