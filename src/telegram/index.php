@@ -87,11 +87,15 @@ CSF::createSection($prefix, [
 ]);
 }
 
-// 注册 WP Cron 回调（每次请求都需注册，否则 Cron 触发时找不到处理函数）
-add_action('oyiso_tg_send_message', function (string $token, array $chatIds, string $content) {
+// 注册异步发送回调；兼容 Action Scheduler 与旧版 WP Cron 参数。
+add_action('oyiso_tg_send_message', function ($arg1 = null, $arg2 = null, $arg3 = null, $arg4 = null) {
     require_once __DIR__ . '/tg-bot-class.php';
-    OyisoTGBot::processCronSend($token, $chatIds, $content);
-}, 10, 3);
+    $payload = OyisoTGBot::normalizePayloadFromHookArgs($arg1, $arg2, $arg3, $arg4);
+
+    if (!empty($payload)) {
+        OyisoTGBot::processQueuedSend($payload);
+    }
+}, 10, 4);
 
 // 仅在 WooCommerce 激活时加载通知模块
 if (class_exists('WooCommerce')) {
