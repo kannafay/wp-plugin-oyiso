@@ -3,7 +3,6 @@
 defined('ABSPATH') || exit;
 
 const OYISO_TG_ORDER_NOTIFIED_META_KEY = '_oyiso_tg_notified';
-const OYISO_TG_ORDER_PENDING_META_KEY = '_oyiso_tg_notify_pending';
 const OYISO_TG_ORDER_FAILED_META_KEY = '_oyiso_tg_notify_failed_at';
 
 $notify_options = $options['woo_notify_options'] ?? [];
@@ -256,16 +255,8 @@ function oyiso_build_order_message(WC_Order $order) {
 }
 }
 
-if (!function_exists('oyiso_mark_order_notification_pending')) {
-    function oyiso_mark_order_notification_pending(WC_Order $order): void {
-        $order->update_meta_data(OYISO_TG_ORDER_PENDING_META_KEY, 1);
-        $order->delete_meta_data(OYISO_TG_ORDER_FAILED_META_KEY);
-        $order->save();
-    }
-}
-
-if (!function_exists('oyiso_queue_new_order_notification')) {
-    function oyiso_queue_new_order_notification(int $order_id): void {
+if (!function_exists('oyiso_send_new_order_notification')) {
+    function oyiso_send_new_order_notification(int $order_id): void {
         $bot = oyiso_get_tg_bot();
         if (!$bot) {
             return;
@@ -280,23 +271,15 @@ if (!function_exists('oyiso_queue_new_order_notification')) {
             return;
         }
 
-        if ($order->get_meta(OYISO_TG_ORDER_PENDING_META_KEY, true)) {
-            return;
-        }
-
-        oyiso_mark_order_notification_pending($order);
-
         $message = oyiso_build_order_message($order);
-        $queued = $bot->sendMessage($message, [
+        $sent = $bot->sendMessage($message, [
             'order_id'         => $order->get_id(),
             'blog_id'          => function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 0,
             'success_meta_key' => OYISO_TG_ORDER_NOTIFIED_META_KEY,
-            'pending_meta_key' => OYISO_TG_ORDER_PENDING_META_KEY,
             'failure_meta_key' => OYISO_TG_ORDER_FAILED_META_KEY,
         ]);
 
-        if (!$queued) {
-            $order->delete_meta_data(OYISO_TG_ORDER_PENDING_META_KEY);
+        if (!$sent) {
             $order->update_meta_data(OYISO_TG_ORDER_FAILED_META_KEY, current_time('mysql'));
             $order->save();
         }
@@ -340,12 +323,12 @@ if ($notify_options['woo_remove_from_cart'] ?? false) {
  */
 if ($notify_options['woo_new_order'] ?? false) {
     add_action('woocommerce_checkout_order_processed', function ($order_id) {
-        oyiso_queue_new_order_notification((int) $order_id);
+        oyiso_send_new_order_notification((int) $order_id);
     }, 10, 1);
 
-    // 兼容部分支付流程仍走 thankyou，但 pending 标记会防重复入队。
+    // 兼容部分支付流程仍走 thankyou，但已发送标记会防重复发送。
     add_action('woocommerce_thankyou', function ($order_id) {
-        oyiso_queue_new_order_notification((int) $order_id);
+        oyiso_send_new_order_notification((int) $order_id);
     }, 10, 1);
 }
 

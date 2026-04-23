@@ -1,9 +1,6 @@
 <?php if ( ! defined( 'ABSPATH' ) ) { die; }
 
 class OyisoTGBot {
-    protected const ASYNC_HOOK = 'oyiso_tg_send_message';
-    protected const ASYNC_GROUP = 'oyiso-tg';
-    protected const MAX_RETRIES = 3;
     protected string $token;
     protected array $chatIds = [];
 
@@ -43,27 +40,7 @@ class OyisoTGBot {
     }
 
     /**
-     * 统一整理后台任务参数，兼容旧版 wp-cron 的 3 参结构。
-     */
-    public static function normalizePayloadFromHookArgs($arg1 = null, $arg2 = null, $arg3 = null, $arg4 = null): array {
-        if (is_array($arg1) && isset($arg1['token'])) {
-            return self::sanitizePayload($arg1);
-        }
-
-        if (is_string($arg1) && is_array($arg2) && is_string($arg3)) {
-            return self::sanitizePayload([
-                'token'   => $arg1,
-                'chat_ids'=> $arg2,
-                'content' => $arg3,
-                'context' => is_array($arg4) ? $arg4 : [],
-            ]);
-        }
-
-        return [];
-    }
-
-    /**
-     * 投入后台队列，优先使用 Action Scheduler，失败时兜底到 WP Cron，再不行就同步发送。
+     * 直接同步发送 Telegram 消息。
      */
     public function sendMessage(string $content, array $context = []): bool {
         if (!isset($context['blog_id']) && function_exists('get_current_blog_id')) {
@@ -75,22 +52,7 @@ class OyisoTGBot {
             'chat_ids'   => $this->chatIds,
             'content'    => $content,
             'context'    => $context,
-            'attempt'    => 0,
-            'created_at' => time(),
         ]);
-
-        if (self::queueAsyncSend($payload)) {
-            return true;
-        }
-
-        return self::processQueuedSend($payload);
-    }
-
-    /**
-     * 后台任务实际执行入口。
-     */
-    public static function processQueuedSend(array $payload): bool {
-        $payload = self::sanitizePayload($payload);
 
         if (empty($payload['token']) || empty($payload['chat_ids']) || $payload['content'] === '') {
             self::logError('Invalid Telegram payload');
@@ -111,8 +73,44 @@ class OyisoTGBot {
                 return true;
             }
 
-            self::queueRetry($payload, $failedChatIds);
+            self::handleFailure($payload);
             return false;
+        });
+    }
+
+    /**
+     * 立即同步发送，供后台测试按钮使用。
+     *
+     * @param string $content
+     * @return array{success:bool,results:array<int,array<string,mixed>>}
+     */
+    public function sendMessageNow(string $content): array {
+        $payload = self::sanitizePayload([
+            'token'    => $this->token,
+            'chat_ids' => $this->chatIds,
+            'content'  => $content,
+            'context'  => [
+                'blog_id' => function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 0,
+            ],
+        ]);
+
+        return self::runInBlogContext($payload['context'], static function () use ($payload): array {
+            $results = [];
+            $allSucceeded = true;
+
+            foreach ($payload['chat_ids'] as $chatId) {
+                $result = self::sendToChatDetailed($payload['token'], $chatId, $payload['content']);
+                $results[] = $result;
+
+                if (empty($result['success'])) {
+                    $allSucceeded = false;
+                }
+            }
+
+            return [
+                'success' => $allSucceeded,
+                'results' => $results,
+            ];
         });
     }
 
@@ -124,63 +122,32 @@ class OyisoTGBot {
             }))),
             'content'    => isset($payload['content']) ? (string) $payload['content'] : '',
             'context'    => is_array($payload['context'] ?? null) ? $payload['context'] : [],
-            'attempt'    => max(0, (int) ($payload['attempt'] ?? 0)),
-            'created_at' => (int) ($payload['created_at'] ?? time()),
         ];
     }
 
-    protected static function queueAsyncSend(array $payload): bool {
-        if (function_exists('as_enqueue_async_action')) {
-            try {
-                $actionId = as_enqueue_async_action(self::ASYNC_HOOK, [$payload], self::ASYNC_GROUP);
-                if (!empty($actionId)) {
-                    return true;
-                }
-            } catch (Throwable $e) {
-                self::logError('Action Scheduler enqueue failed: ' . $e->getMessage());
-            }
-        }
-
-        return self::scheduleWpCronSend($payload, time());
-    }
-
-    protected static function scheduleWpCronSend(array $payload, int $timestamp): bool {
-        $scheduled = wp_schedule_single_event($timestamp, self::ASYNC_HOOK, [$payload]);
-
-        if (is_wp_error($scheduled) || false === $scheduled) {
-            self::logError('WP Cron enqueue failed');
-            return false;
-        }
-
-        self::triggerWpCronRunner();
-        return true;
-    }
-
-    protected static function triggerWpCronRunner(): void {
-        if (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) {
-            $doing_wp_cron = sprintf('%.22F', microtime(true));
-            set_transient('doing_cron', $doing_wp_cron);
-
-            wp_remote_post(
-                add_query_arg('doing_wp_cron', $doing_wp_cron, site_url('wp-cron.php')),
-                [
-                    'timeout'   => 1,
-                    'blocking'  => false,
-                    'sslverify' => apply_filters('https_local_ssl_verify', false),
-                ]
-            );
-
-            return;
-        }
-
-        spawn_cron();
-    }
-
     protected static function sendToChat(string $token, string $chatId, string $content): bool {
+        $result = self::sendToChatDetailed($token, $chatId, $content);
+
+        if (!$result['success']) {
+            self::logError(sprintf('Send failed for chat_id %s: %s', $chatId, $result['message']));
+        }
+
+        return $result['success'];
+    }
+
+    /**
+     * 发送并返回详细结果，便于后台测试按钮展示。
+     *
+     * @param string $token
+     * @param string $chatId
+     * @param string $content
+     * @return array{success:bool,chat_id:string,message:string,status_code:int}
+     */
+    protected static function sendToChatDetailed(string $token, string $chatId, string $content): array {
         $url = "https://api.telegram.org/bot{$token}/sendMessage";
 
         $response = wp_remote_post($url, [
-            'timeout' => 15,
+            'timeout' => 10,
             'body'    => [
                 'chat_id'                  => $chatId,
                 'text'                     => $content,
@@ -190,70 +157,44 @@ class OyisoTGBot {
         ]);
 
         if (is_wp_error($response)) {
-            self::logError(sprintf('Send failed for chat_id %s: %s', $chatId, $response->get_error_message()));
-            return false;
+            return [
+                'success'     => false,
+                'chat_id'     => $chatId,
+                'message'     => $response->get_error_message(),
+                'status_code' => 0,
+            ];
         }
 
         $statusCode = (int) wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
 
         if ($statusCode < 200 || $statusCode >= 300) {
-            self::logError(sprintf('Send failed for chat_id %s: HTTP %d %s', $chatId, $statusCode, $body));
-            return false;
+            return [
+                'success'     => false,
+                'chat_id'     => $chatId,
+                'message'     => sprintf('HTTP %d %s', $statusCode, $body),
+                'status_code' => $statusCode,
+            ];
         }
 
         $decoded = json_decode($body, true);
 
         if (is_array($decoded) && array_key_exists('ok', $decoded) && !$decoded['ok']) {
             $description = isset($decoded['description']) ? (string) $decoded['description'] : 'Unknown Telegram API error';
-            self::logError(sprintf('Send failed for chat_id %s: %s', $chatId, $description));
-            return false;
+            return [
+                'success'     => false,
+                'chat_id'     => $chatId,
+                'message'     => $description,
+                'status_code' => $statusCode,
+            ];
         }
 
-        return true;
-    }
-
-    protected static function queueRetry(array $payload, array $failedChatIds): void {
-        $attempt = (int) $payload['attempt'];
-        $context = $payload['context'];
-
-        if ($attempt >= self::MAX_RETRIES) {
-            self::clearPendingOrderFlag($context);
-            self::markOrderFailure($context);
-            self::logError(sprintf('Telegram send failed permanently after %d retries', $attempt));
-            return;
-        }
-
-        $retryPayload = $payload;
-        $retryPayload['chat_ids'] = $failedChatIds;
-        $retryPayload['attempt'] = $attempt + 1;
-        $timestamp = time() + self::getRetryDelay($retryPayload['attempt']);
-
-        if (function_exists('as_schedule_single_action')) {
-            try {
-                $actionId = as_schedule_single_action($timestamp, self::ASYNC_HOOK, [$retryPayload], self::ASYNC_GROUP);
-                if (!empty($actionId)) {
-                    return;
-                }
-            } catch (Throwable $e) {
-                self::logError('Action Scheduler retry enqueue failed: ' . $e->getMessage());
-            }
-        }
-
-        if (!self::scheduleWpCronSend($retryPayload, $timestamp)) {
-            self::clearPendingOrderFlag($context);
-            self::markOrderFailure($context);
-        }
-    }
-
-    protected static function getRetryDelay(int $attempt): int {
-        $delays = [
-            1 => 60,
-            2 => 300,
-            3 => 900,
+        return [
+            'success'     => true,
+            'chat_id'     => $chatId,
+            'message'     => 'OK',
+            'status_code' => $statusCode,
         ];
-
-        return $delays[$attempt] ?? 1800;
     }
 
     protected static function handleSuccess(array $payload): void {
@@ -274,15 +215,10 @@ class OyisoTGBot {
         }
 
         $successMetaKey = isset($context['success_meta_key']) ? (string) $context['success_meta_key'] : '';
-        $pendingMetaKey = isset($context['pending_meta_key']) ? (string) $context['pending_meta_key'] : '';
         $failureMetaKey = isset($context['failure_meta_key']) ? (string) $context['failure_meta_key'] : '';
 
         if ($successMetaKey !== '') {
             $order->update_meta_data($successMetaKey, 1);
-        }
-
-        if ($pendingMetaKey !== '') {
-            $order->delete_meta_data($pendingMetaKey);
         }
 
         if ($failureMetaKey !== '') {
@@ -292,28 +228,9 @@ class OyisoTGBot {
         $order->save();
     }
 
-    protected static function clearPendingOrderFlag(array $context): void {
-        if (!function_exists('wc_get_order')) {
-            return;
-        }
+    protected static function handleFailure(array $payload): void {
+        $context = $payload['context'];
 
-        $orderId = (int) ($context['order_id'] ?? 0);
-        $pendingMetaKey = isset($context['pending_meta_key']) ? (string) $context['pending_meta_key'] : '';
-
-        if ($orderId <= 0 || $pendingMetaKey === '') {
-            return;
-        }
-
-        $order = wc_get_order($orderId);
-        if (!$order) {
-            return;
-        }
-
-        $order->delete_meta_data($pendingMetaKey);
-        $order->save();
-    }
-
-    protected static function markOrderFailure(array $context): void {
         if (!function_exists('wc_get_order')) {
             return;
         }
