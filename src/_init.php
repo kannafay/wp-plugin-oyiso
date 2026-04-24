@@ -33,23 +33,28 @@ if (class_exists('CSF')) {
                 padding-left: 0;
             }
             .csf.csf-options {
-                min-height: calc(100vh - 32px - 40px);
+                height: calc(100vh - 32px - 40px);
+                min-height: 0;
                 margin: 20px;
                 display: flex;
                 flex-direction: column;
+                box-sizing: border-box;
             }
             .csf.csf-options > .csf-container {
                 flex: 1;
+                min-height: 0;
                 display: flex;
                 flex-direction: column;
             }
             .csf.csf-options #csf-form {
                 flex: 1;
+                min-height: 0;
                 display: flex;
                 flex-direction: column;
             }
             .csf.csf-options .csf-wrapper {
                 flex: 1;
+                min-height: 0;
                 position: relative;
                 overflow: hidden;
                 background-color: #fff;
@@ -94,7 +99,9 @@ if (class_exists('CSF')) {
                 border-left-color: #e5702a;
             }
             .csf.csf-options .csf-content {
-                min-height: 100%;
+                height: 100%;
+                min-height: 0;
+                overflow-y: auto;
             }
             .csf.csf-options .csf-field-heading {
                 border-bottom: 1px solid #e0e0e0;
@@ -111,6 +118,7 @@ if (class_exists('CSF')) {
             @media only screen and (max-width: 782px) {
                 .csf.csf-options {
                     margin: 10px;
+                    height: auto;
                     min-height: auto;
                 }
                 .csf.csf-options .csf-field .csf-title,
