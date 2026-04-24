@@ -5,6 +5,7 @@ namespace Oyiso\ElementorWidgets;
 defined('ABSPATH') || exit;
 
 use Elementor\Controls_Manager;
+use Elementor\Group_Control_Background;
 use Elementor\Group_Control_Box_Shadow;
 use Elementor\Icons_Manager;
 use Elementor\Repeater;
@@ -56,15 +57,41 @@ class Coupons extends Widget_Base
             'options' => $this->get_banner_background_options(),
         ]);
 
+        $this->add_group_control(Group_Control_Background::get_type(), [
+            'name'           => 'banner_custom_background',
+            'label'          => __('自定义背景', 'oyiso'),
+            'types'          => ['classic', 'gradient'],
+            'selector'       => '{{WRAPPER}} .oyiso-coupons__banner',
+            'condition'      => [
+                'banner_background' => 'auto',
+            ],
+            'fields_options' => [
+                'background' => [
+                    'label'   => __('背景类型', 'oyiso'),
+                    'default' => 'classic',
+                ],
+                'image'      => [
+                    'label' => __('图片', 'oyiso'),
+                ],
+                'position'   => [
+                    'default' => 'center center',
+                ],
+                'repeat'     => [
+                    'default' => 'no-repeat',
+                ],
+                'size'       => [
+                    'default' => 'cover',
+                ],
+            ],
+        ]);
+
         $this->add_control('banner_image', [
-            'label'       => __('自动图片', 'oyiso'),
-            'type'        => Controls_Manager::MEDIA,
-            'default'     => [
+            'type'      => Controls_Manager::MEDIA,
+            'default'   => [
                 'url' => '',
             ],
-            'description' => __('当“横幅背景”选择自动图片时使用。', 'oyiso'),
-            'condition'   => [
-                'banner_background' => 'auto',
+            'condition' => [
+                'banner_background' => '__legacy_banner_image__',
             ],
         ]);
 
@@ -313,9 +340,38 @@ class Coupons extends Widget_Base
                 ],
             ],
             'selectors_dictionary' => [
-                'left'   => '--oyiso-banner-content-justify: flex-start; --oyiso-banner-content-text-align: left;',
-                'center' => '--oyiso-banner-content-justify: center; --oyiso-banner-content-text-align: center;',
-                'right'  => '--oyiso-banner-content-justify: flex-end; --oyiso-banner-content-text-align: right;',
+                'left'   => '--oyiso-banner-content-justify: flex-start; --oyiso-banner-content-items: flex-start; --oyiso-banner-content-text-align: left;',
+                'center' => '--oyiso-banner-content-justify: center; --oyiso-banner-content-items: center; --oyiso-banner-content-text-align: center;',
+                'right'  => '--oyiso-banner-content-justify: flex-end; --oyiso-banner-content-items: flex-end; --oyiso-banner-content-text-align: right;',
+            ],
+            'selectors'            => [
+                '{{WRAPPER}} .oyiso-coupons' => '{{VALUE}}',
+            ],
+            'toggle'               => false,
+        ]);
+
+        $this->add_responsive_control('banner_vertical_align', [
+            'label'                => __('垂直对齐', 'oyiso'),
+            'type'                 => Controls_Manager::CHOOSE,
+            'default'              => 'bottom',
+            'options'              => [
+                'top'    => [
+                    'title' => __('顶部', 'oyiso'),
+                    'icon'  => 'eicon-v-align-top',
+                ],
+                'middle' => [
+                    'title' => __('居中', 'oyiso'),
+                    'icon'  => 'eicon-v-align-middle',
+                ],
+                'bottom' => [
+                    'title' => __('底部', 'oyiso'),
+                    'icon'  => 'eicon-v-align-bottom',
+                ],
+            ],
+            'selectors_dictionary' => [
+                'top'    => '--oyiso-banner-vertical-align: flex-start;',
+                'middle' => '--oyiso-banner-vertical-align: center;',
+                'bottom' => '--oyiso-banner-vertical-align: flex-end;',
             ],
             'selectors'            => [
                 '{{WRAPPER}} .oyiso-coupons' => '{{VALUE}}',
@@ -716,8 +772,8 @@ class Coupons extends Widget_Base
     private function get_banner_background_options()
     {
         $options = [
-            'none' => __('无图片', 'oyiso'),
-            'auto' => __('自动图片', 'oyiso'),
+            'none' => __('无', 'oyiso'),
+            'auto' => __('自定义图片', 'oyiso'),
         ];
 
         foreach ($this->get_banner_background_presets() as $key => $preset) {
@@ -729,41 +785,30 @@ class Coupons extends Widget_Base
 
     private function get_banner_background_presets()
     {
-        return [
-            'svg_coupon_flow' => [
-                'label' => __('优惠流光', 'oyiso'),
-                'file'  => 'coupon-flow.svg',
-            ],
-            'svg_ticket_grid' => [
-                'label' => __('票券网格', 'oyiso'),
-                'file'  => 'ticket-grid.svg',
-            ],
-            'svg_soft_wave'   => [
-                'label' => __('柔和波纹', 'oyiso'),
-                'file'  => 'soft-wave.svg',
-            ],
-            'svg_dark_voucher' => [
-                'label' => __('深色礼券', 'oyiso'),
-                'file'  => 'dark-voucher.svg',
-            ],
-        ];
+        return [];
     }
 
-    private function get_banner_background_url(array $settings)
+    private function get_banner_background_style(array $settings)
     {
         $background = $settings['banner_background'] ?? 'none';
 
         if ($background === 'auto') {
-            return $settings['banner_image']['url'] ?? '';
+            $legacy_image = $settings['banner_image'] ?? [];
+            $image_url = is_array($legacy_image) ? ($legacy_image['url'] ?? '') : '';
+
+            return $image_url ? 'background-image: url("' . esc_url($image_url) . '");' : '';
         }
 
-        $presets = $this->get_banner_background_presets();
+        return '';
+    }
 
-        if (!isset($presets[$background]['file'])) {
-            return '';
+    private function has_banner_background(array $settings, string $banner_style)
+    {
+        if ($banner_style) {
+            return true;
         }
 
-        return plugins_url('assets/images/' . $presets[$background]['file'], dirname(__DIR__) . '/index.php');
+        return ($settings['banner_background'] ?? 'none') === 'auto';
     }
 
     protected function render()
@@ -771,7 +816,8 @@ class Coupons extends Widget_Base
         $settings = $this->get_settings_for_display();
         $accent_color = sanitize_hex_color($settings['accent_color'] ?? '#e5702a') ?: '#e5702a';
         $groups = $this->prepare_coupon_groups($settings['coupon_groups'] ?? [], $accent_color);
-        $banner_image = $this->get_banner_background_url($settings);
+        $banner_style = $this->get_banner_background_style($settings);
+        $has_banner_background = $this->has_banner_background($settings, $banner_style);
         $widget_id = 'oyiso-coupons-' . esc_attr($this->get_id());
 
         if (!class_exists('WC_Coupon')) {
@@ -785,7 +831,7 @@ class Coupons extends Widget_Base
         }
         ?>
         <section id="<?php echo esc_attr($widget_id); ?>" class="oyiso-coupons" data-oyiso-coupons>
-            <div class="oyiso-coupons__banner<?php echo $banner_image ? '' : ' oyiso-coupons__banner--plain'; ?>" <?php echo $banner_image ? 'style="background-image: url(' . esc_url($banner_image) . ');"' : ''; ?>>
+            <div class="oyiso-coupons__banner<?php echo $has_banner_background ? '' : ' oyiso-coupons__banner--plain'; ?>" <?php echo $banner_style ? 'style="' . esc_attr($banner_style) . '"' : ''; ?>>
                 <div class="oyiso-coupons__banner-overlay"></div>
                 <div class="oyiso-coupons__banner-content">
                     <?php if (!empty($settings['banner_kicker'])) : ?>

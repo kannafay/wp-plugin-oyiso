@@ -60,6 +60,13 @@
     --oyiso-banner-radius: 8px;
     --oyiso-banner-title-size: 42px;
     --oyiso-banner-description-size: 16px;
+    --oyiso-banner-vertical-align: flex-end;
+    --oyiso-banner-content-justify: flex-start;
+    --oyiso-banner-content-items: flex-start;
+    --oyiso-banner-content-text-align: left;
+    --oyiso-banner-bg-position: center center;
+    --oyiso-banner-bg-size: cover;
+    --oyiso-banner-bg-repeat: no-repeat;
     --oyiso-grid-columns: repeat(2, minmax(0, 1fr));
     --oyiso-tabs-display: flex;
     --oyiso-tabs-columns: none;
@@ -111,6 +118,7 @@
     --oyiso-banner-radius: 8px !important;
     --oyiso-banner-title-size: 42px !important;
     --oyiso-banner-description-size: 16px !important;
+    --oyiso-banner-vertical-align: flex-end !important;
     --oyiso-tabs-display: flex !important;
     --oyiso-tabs-columns: none !important;
     --oyiso-tabs-wrap: wrap !important;
@@ -147,19 +155,24 @@
     position: relative;
     min-height: var(--oyiso-banner-min-height);
     display: flex;
-    align-items: flex-end;
+    align-items: var(--oyiso-banner-vertical-align);
+    justify-content: var(--oyiso-banner-content-justify);
     padding: var(--oyiso-banner-padding);
     overflow: hidden;
     border-radius: var(--oyiso-banner-radius);
     background-color: #2f2a26;
-    background-position: center;
-    background-size: cover;
+    background-position: var(--oyiso-banner-bg-position);
+    background-repeat: var(--oyiso-banner-bg-repeat);
+    background-size: var(--oyiso-banner-bg-size);
 }
 
 .oyiso-coupons__banner-overlay {
     position: absolute;
+    z-index: 0;
     inset: 0;
-    background: linear-gradient(90deg, rgba(20, 16, 13, 0.86), rgba(20, 16, 13, 0.42) 55%, rgba(20, 16, 13, 0.18));
+    background:
+        linear-gradient(90deg, rgba(12, 16, 24, 0.58), rgba(12, 16, 24, 0.2) 48%, rgba(12, 16, 24, 0.06)),
+        linear-gradient(0deg, rgba(12, 16, 24, 0.12), rgba(12, 16, 24, 0.04));
 }
 
 .oyiso-coupons__banner--plain {
@@ -176,8 +189,13 @@
 
 .oyiso-coupons__banner-content {
     position: relative;
-    z-index: 1;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: var(--oyiso-banner-content-items);
+    width: 100%;
     max-width: 680px;
+    text-align: var(--oyiso-banner-content-text-align);
 }
 
 .oyiso-coupons__kicker {
