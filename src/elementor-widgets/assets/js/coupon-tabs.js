@@ -11,6 +11,8 @@
             panel.classList.toggle('is-active', isActive);
             panel.hidden = !isActive;
         });
+
+        updateSegmentedSlider(root);
     }
 
     document.addEventListener('click', function (event) {
@@ -65,19 +67,115 @@
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             markElementorContainers(document);
+            scheduleSegmentedSliders(document);
+            observeSegmentedSliderChanges();
             updateDescriptionToggles(document);
         });
     } else {
         markElementorContainers(document);
+        scheduleSegmentedSliders(document);
+        observeSegmentedSliderChanges();
         updateDescriptionToggles(document);
     }
 
     window.addEventListener('resize', debounce(function () {
+        scheduleSegmentedSliders(document);
         updateDescriptionToggles(document);
     }, 160));
 
+    window.addEventListener('load', function () {
+        scheduleSegmentedSliders(document);
+    });
+
+    if (window.elementorFrontend && window.elementorFrontend.hooks) {
+        window.elementorFrontend.hooks.addAction('frontend/element_ready/oyiso_coupons.default', function ($scope) {
+            var scope = $scope && $scope[0] ? $scope[0] : $scope;
+
+            if (!scope) {
+                return;
+            }
+
+            markElementorContainers(scope);
+            scheduleSegmentedSliders(scope);
+            updateDescriptionToggles(scope);
+        });
+    }
+
     function updateDescriptionToggles(root) {
         root.querySelectorAll('[data-coupon-description]').forEach(updateDescriptionToggle);
+    }
+
+    function updateSegmentedSliders(root) {
+        root.querySelectorAll('[data-oyiso-coupons]').forEach(updateSegmentedSlider);
+    }
+
+    function scheduleSegmentedSliders(root) {
+        window.requestAnimationFrame(function () {
+            updateSegmentedSliders(root);
+        });
+
+        window.setTimeout(function () {
+            updateSegmentedSliders(root);
+        }, 80);
+
+        window.setTimeout(function () {
+            updateSegmentedSliders(root);
+        }, 240);
+    }
+
+    function observeSegmentedSliderChanges() {
+        if (!window.MutationObserver || window.oyisoCouponsSliderObserver) {
+            return;
+        }
+
+        window.oyisoCouponsSliderObserver = new MutationObserver(debounce(function () {
+            scheduleSegmentedSliders(document);
+        }, 60));
+
+        window.oyisoCouponsSliderObserver.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['class', 'style'],
+            childList: true,
+            subtree: true
+        });
+    }
+
+    function updateSegmentedSlider(root) {
+        var tabs = root.querySelector('.oyiso-coupons__tabs');
+        var slider = tabs ? tabs.querySelector('[data-coupon-tabs-slider]') : null;
+        var activeTab = tabs ? tabs.querySelector('[data-coupon-tab].is-active') : null;
+
+        if (!tabs || !slider || !activeTab) {
+            return;
+        }
+
+        var widget = root.closest('.elementor-widget-oyiso_coupons');
+
+        if (!widget || !widget.classList.contains('oyiso-coupons-tabs-style-segmented')) {
+            slider.style.setProperty('--oyiso-tabs-slider-opacity', '0');
+            slider.classList.remove('is-ready');
+            return;
+        }
+
+        window.requestAnimationFrame(function () {
+            var isReady = slider.classList.contains('is-ready');
+            var tabsRect = tabs.getBoundingClientRect();
+            var tabRect = activeTab.getBoundingClientRect();
+            var x = tabRect.left - tabsRect.left + tabs.scrollLeft;
+            var y = tabRect.top - tabsRect.top + tabs.scrollTop;
+
+            slider.style.setProperty('--oyiso-tabs-slider-x', x + 'px');
+            slider.style.setProperty('--oyiso-tabs-slider-y', y + 'px');
+            slider.style.setProperty('--oyiso-tabs-slider-width', tabRect.width + 'px');
+            slider.style.setProperty('--oyiso-tabs-slider-height', tabRect.height + 'px');
+            slider.style.setProperty('--oyiso-tabs-slider-opacity', '1');
+
+            if (!isReady) {
+                window.requestAnimationFrame(function () {
+                    slider.classList.add('is-ready');
+                });
+            }
+        });
     }
 
     function markElementorContainers(root) {

@@ -289,8 +289,34 @@
     height: 0;
 }
 
+.oyiso-coupons__tabs-slider {
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    left: 0;
+    display: none;
+    width: var(--oyiso-tabs-slider-width, 0);
+    height: var(--oyiso-tabs-slider-height, 0);
+    border-radius: var(--oyiso-tab-radius);
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(31, 41, 55, 0.08);
+    pointer-events: none;
+    opacity: var(--oyiso-tabs-slider-opacity, 0);
+    transform: translate3d(var(--oyiso-tabs-slider-x, 0), var(--oyiso-tabs-slider-y, 0), 0);
+    transition: none;
+}
+
+.oyiso-coupons__tabs-slider.is-ready {
+    transition:
+        width .24s ease,
+        height .24s ease,
+        opacity .18s ease,
+        transform .24s cubic-bezier(.2, .8, .2, 1);
+}
+
 body .oyiso-coupons .oyiso-coupons__tab {
     position: relative;
+    z-index: 1;
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
@@ -437,13 +463,29 @@ body .oyiso-coupons-tabs-style-underline .oyiso-coupons .oyiso-coupons__tab.is-a
     max-width: 100%;
 }
 
+.oyiso-coupons-tabs-style-segmented .oyiso-coupons__tabs-slider {
+    display: block;
+}
+
+body .oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
 .oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab.is-active {
+    background: transparent !important;
+    box-shadow: none !important;
     color: var(--oyiso-group-color, var(--oyiso-coupon-accent));
 }
 
 .oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab.is-active .oyiso-coupons__tab-count {
     background: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #fff 86%);
     color: var(--oyiso-group-color, var(--oyiso-coupon-accent));
+}
+
+.oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab:hover {
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
 .oyiso-coupons-tabs-style-minimal .oyiso-coupons__tabs {
@@ -939,6 +981,7 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
 .oyiso-scope-dialog__row a:hover,
 .oyiso-scope-dialog__row a:focus {
+    color: color-mix(in srgb, var(--oyiso-coupon-accent, #e5702a), #fff 28%);
     text-decoration: underline;
 }
 
@@ -1074,6 +1117,8 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         width: 100% !important;
         min-width: 0 !important;
         justify-content: center;
+        background: transparent !important;
+        box-shadow: none !important;
         white-space: nowrap;
     }
 
