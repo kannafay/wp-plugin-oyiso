@@ -102,7 +102,7 @@
     --oyiso-card-icon-min-height: auto;
     --oyiso-card-icon-size: 38px;
     --oyiso-card-icon-radius: 7px 0 0 7px;
-    --oyiso-card-content-padding: 18px 20px 20px;
+    --oyiso-card-content-padding: 18px;
     --oyiso-card-discount-size: 32px;
     --oyiso-card-text-size: 14px;
     --oyiso-progress-columns: repeat(2, minmax(0, 1fr));
@@ -150,7 +150,7 @@
     --oyiso-card-bg: #fff !important;
     --oyiso-card-gap: 18px !important;
     --oyiso-card-radius: 8px !important;
-    --oyiso-card-content-padding: 18px 20px 20px !important;
+    --oyiso-card-content-padding: 18px !important;
     --oyiso-card-discount-size: 32px !important;
     --oyiso-card-text-size: 14px !important;
 }
@@ -273,6 +273,7 @@
     flex-wrap: var(--oyiso-tabs-wrap);
     gap: var(--oyiso-tabs-gap);
     align-items: center;
+    width: 100%;
     margin-bottom: var(--oyiso-tabs-margin-bottom);
     overflow-x: var(--oyiso-tabs-overflow-x);
     padding: var(--oyiso-tabs-padding);
@@ -1077,7 +1078,7 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
     .oyiso-coupon-card__content {
         display: block;
-        padding: 14px 16px 18px;
+        padding: 16px;
     }
 
     .oyiso-coupon-card__identity {
@@ -1091,7 +1092,6 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
     .oyiso-coupon-card__progress-list {
         grid-template-columns: 1fr;
-        margin-top: 14px;
     }
 }
 
