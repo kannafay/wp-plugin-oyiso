@@ -571,7 +571,6 @@ body .oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab {
     align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 10px;
 }
 
 .oyiso-coupon-card__identity,
@@ -594,7 +593,7 @@ body .oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab {
 }
 
 .oyiso-coupon-card__discount {
-    margin-bottom: 10px;
+    margin: 12px 0;
     color: var(--oyiso-group-color, var(--oyiso-coupon-accent));
     font-size: var(--oyiso-card-discount-size);
     font-weight: 800;
@@ -791,7 +790,11 @@ body .oyiso-coupons .oyiso-coupon-card__copy-button.is-copied {
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: var(--oyiso-group-color, var(--oyiso-coupon-accent));
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #fff 48%),
+        var(--oyiso-group-color, var(--oyiso-coupon-accent))
+    );
 }
 
 .oyiso-scope-dialog[hidden] {
@@ -981,7 +984,7 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
 .oyiso-scope-dialog__row a:hover,
 .oyiso-scope-dialog__row a:focus {
-    color: color-mix(in srgb, var(--oyiso-coupon-accent, #e5702a), #fff 28%);
+    color: var(--oyiso-coupon-accent, #e5702a);
     text-decoration: underline;
 }
 
@@ -1030,18 +1033,31 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     .oyiso-coupon-card {
         grid-template-columns: 1fr;
         min-height: 0;
+        overflow: hidden;
     }
 
     .oyiso-coupon-card__icon {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        z-index: 2;
+        width: 42px;
+        min-height: 42px;
+        padding: 0;
         justify-content: flex-start;
-        min-height: 70px;
-        border-radius: 7px 7px 0 0;
-        font-size: 30px;
+        border-radius: 8px;
+        background: transparent;
+        font-size: 22px;
+    }
+
+    .oyiso-coupon-card__icon svg {
+        padding: 8px;
+        border-radius: 8px;
     }
 
     .oyiso-coupon-card__content {
         display: block;
-        padding: var(--oyiso-card-content-padding);
+        padding: 66px 16px 18px;
     }
 
     .oyiso-coupon-card__discount {
