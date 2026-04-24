@@ -42,6 +42,13 @@
     filter: brightness(0.95);
 }
 
+.elementor-widget-oyiso_coupons,
+.elementor-widget-oyiso_coupons > .elementor-widget-container {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
 .oyiso-coupons {
     --oyiso-coupon-accent: #e5702a;
     --oyiso-coupon-dark: #1f2937;
@@ -50,12 +57,15 @@
     --oyiso-coupons-gap: 24px;
     --oyiso-banner-min-height: 280px;
     --oyiso-banner-padding: 44px;
+    --oyiso-banner-radius: 8px;
     --oyiso-banner-title-size: 42px;
+    --oyiso-banner-description-size: 16px;
     --oyiso-grid-columns: repeat(2, minmax(0, 1fr));
     --oyiso-tabs-display: flex;
     --oyiso-tabs-columns: none;
     --oyiso-tabs-wrap: wrap;
     --oyiso-tabs-gap: 8px;
+    --oyiso-tabs-margin-bottom: 20px;
     --oyiso-tabs-overflow-x: visible;
     --oyiso-tabs-padding: 0;
     --oyiso-tabs-border-bottom: 0;
@@ -63,11 +73,15 @@
     --oyiso-tab-indicator-display: none;
     --oyiso-tab-min-height: 34px;
     --oyiso-tab-padding: 7px 12px;
+    --oyiso-tab-radius: 6px;
     --oyiso-tab-font-size: 14px;
     --oyiso-tab-dot-size: 7px;
     --oyiso-tab-count-size: 18px;
     --oyiso-tab-count-padding: 0 6px;
     --oyiso-tab-count-font-size: 11px;
+    --oyiso-card-bg: #fff;
+    --oyiso-card-gap: 18px;
+    --oyiso-card-radius: 8px;
     --oyiso-card-columns: 86px minmax(0, 1fr);
     --oyiso-card-icon-justify: center;
     --oyiso-card-icon-min-height: auto;
@@ -75,12 +89,47 @@
     --oyiso-card-icon-radius: 7px 0 0 7px;
     --oyiso-card-content-padding: 18px 20px 20px;
     --oyiso-card-discount-size: 32px;
+    --oyiso-card-text-size: 14px;
     --oyiso-progress-columns: repeat(2, minmax(0, 1fr));
     container-name: oyiso-coupons;
     container-type: inline-size;
     display: grid;
     gap: var(--oyiso-coupons-gap);
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
+    box-sizing: border-box;
+}
+
+.oyiso-coupons-default-style-yes .oyiso-coupons {
+    --oyiso-coupon-accent: #e5702a !important;
+    --oyiso-coupon-dark: #1f2937 !important;
+    --oyiso-coupon-line: #e7e2dc !important;
+    --oyiso-coupons-gap: 24px !important;
+    --oyiso-banner-min-height: 280px !important;
+    --oyiso-banner-padding: 44px !important;
+    --oyiso-banner-radius: 8px !important;
+    --oyiso-banner-title-size: 42px !important;
+    --oyiso-banner-description-size: 16px !important;
+    --oyiso-tabs-display: flex !important;
+    --oyiso-tabs-columns: none !important;
+    --oyiso-tabs-wrap: wrap !important;
+    --oyiso-tabs-gap: 8px !important;
+    --oyiso-tabs-margin-bottom: 20px !important;
+    --oyiso-tab-bg: transparent !important;
+    --oyiso-tab-min-height: 34px !important;
+    --oyiso-tab-radius: 6px !important;
+    --oyiso-tab-font-size: 14px !important;
+    --oyiso-card-bg: #fff !important;
+    --oyiso-card-gap: 18px !important;
+    --oyiso-card-radius: 8px !important;
+    --oyiso-card-content-padding: 18px 20px 20px !important;
+    --oyiso-card-discount-size: 32px !important;
+    --oyiso-card-text-size: 14px !important;
+}
+
+.oyiso-coupons-default-style-yes .oyiso-coupon-card {
+    box-shadow: 0 8px 22px rgba(31, 41, 55, 0.05) !important;
 }
 
 .oyiso-coupons--empty {
@@ -101,7 +150,7 @@
     align-items: flex-end;
     padding: var(--oyiso-banner-padding);
     overflow: hidden;
-    border-radius: 8px;
+    border-radius: var(--oyiso-banner-radius);
     background-color: #2f2a26;
     background-position: center;
     background-size: cover;
@@ -144,7 +193,7 @@
     max-width: 560px;
     margin: 0;
     color: rgba(255, 255, 255, 0.84);
-    font-size: 16px;
+    font-size: var(--oyiso-banner-description-size);
     line-height: 1.75;
 }
 
@@ -161,7 +210,7 @@
     flex-wrap: var(--oyiso-tabs-wrap);
     gap: var(--oyiso-tabs-gap);
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: var(--oyiso-tabs-margin-bottom);
     overflow-x: var(--oyiso-tabs-overflow-x);
     padding: var(--oyiso-tabs-padding);
     border: 0;
@@ -192,7 +241,7 @@ body .oyiso-coupons .oyiso-coupons__tab {
     appearance: none;
     -webkit-appearance: none;
     border: 0 !important;
-    border-radius: 6px !important;
+    border-radius: var(--oyiso-tab-radius) !important;
     background: var(--oyiso-tab-bg) !important;
     box-shadow: none !important;
     color: #626b76;
@@ -287,7 +336,7 @@ body .oyiso-coupons .oyiso-coupons__tab.is-active::before {
 .oyiso-coupons__grid {
     display: grid;
     grid-template-columns: var(--oyiso-grid-columns);
-    gap: 18px;
+    gap: var(--oyiso-card-gap);
     min-width: 0;
 }
 
@@ -298,8 +347,8 @@ body .oyiso-coupons .oyiso-coupons__tab.is-active::before {
     align-items: stretch;
     min-height: 142px;
     border: 1px solid var(--oyiso-coupon-line);
-    border-radius: 8px;
-    background: #fff;
+    border-radius: var(--oyiso-card-radius);
+    background: var(--oyiso-card-bg);
     box-shadow: 0 8px 22px rgba(31, 41, 55, 0.05);
 }
 
@@ -391,7 +440,7 @@ body .oyiso-coupons .oyiso-coupons__tab.is-active::before {
 .oyiso-coupon-card__description-viewport {
     position: relative;
     overflow: hidden;
-    max-height: calc(14px * 1.6 * 2);
+    max-height: calc(var(--oyiso-card-text-size) * 1.6 * 2);
     transition: max-height .28s ease;
 }
 
@@ -415,7 +464,7 @@ body .oyiso-coupons .oyiso-coupons__tab.is-active::before {
 .oyiso-coupon-card__text {
     margin: 0;
     color: #71665d;
-    font-size: 14px;
+    font-size: var(--oyiso-card-text-size);
     line-height: 1.6;
 }
 
@@ -809,11 +858,11 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
     .oyiso-coupon-card__content {
         display: block;
-        padding: 18px;
+        padding: var(--oyiso-card-content-padding);
     }
 
     .oyiso-coupon-card__discount {
-        font-size: 30px;
+        font-size: var(--oyiso-card-discount-size);
     }
 
     .oyiso-coupon-card__progress-list {
@@ -824,13 +873,13 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
 @container oyiso-coupons (max-width: 560px) {
     .oyiso-coupons {
-        gap: 16px;
+        gap: var(--oyiso-coupons-gap);
     }
 
     .oyiso-coupons__banner {
         min-height: var(--oyiso-banner-min-height);
         padding: var(--oyiso-banner-padding);
-        border-radius: 6px;
+        border-radius: var(--oyiso-banner-radius);
     }
 
     .oyiso-coupons__title {
@@ -852,7 +901,7 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         justify-content: center;
         min-height: var(--oyiso-tab-min-height) !important;
         padding: var(--oyiso-tab-padding) !important;
-        border-radius: 5px !important;
+        border-radius: var(--oyiso-tab-radius) !important;
         background: var(--oyiso-tab-bg) !important;
         font-size: var(--oyiso-tab-font-size);
         white-space: normal;

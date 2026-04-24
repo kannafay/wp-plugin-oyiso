@@ -5,6 +5,7 @@ namespace Oyiso\ElementorWidgets;
 defined('ABSPATH') || exit;
 
 use Elementor\Controls_Manager;
+use Elementor\Group_Control_Box_Shadow;
 use Elementor\Icons_Manager;
 use Elementor\Repeater;
 use Elementor\Utils;
@@ -136,17 +137,29 @@ class Coupons extends Widget_Base
 
         $this->end_controls_section();
 
-        $this->start_controls_section('style_section', [
-            'label' => __('样式', 'oyiso'),
+        $this->start_controls_section('style_basic_section', [
+            'label' => __('基础', 'oyiso'),
             'tab'   => Controls_Manager::TAB_STYLE,
+        ]);
+
+        $this->add_control('use_default_style', [
+            'label'        => __('使用默认样式', 'oyiso'),
+            'type'         => Controls_Manager::SWITCHER,
+            'label_on'     => __('是', 'oyiso'),
+            'label_off'    => __('否', 'oyiso'),
+            'default'      => '',
+            'return_value' => 'yes',
+            'description'  => __('开启后会临时使用插件默认样式；关闭后恢复当前自定义设置。', 'oyiso'),
+            'prefix_class' => 'oyiso-coupons-default-style-',
         ]);
 
         $this->add_control('accent_color', [
             'label'       => __('强调色', 'oyiso'),
             'type'        => Controls_Manager::COLOR,
             'default'     => '#e5702a',
+            'placeholder' => '#e5702a',
             'description' => __('用于“全部”标签、弹窗链接，以及没有单独设置分组颜色时的默认颜色。分组颜色会优先显示。', 'oyiso'),
-            'selectors' => [
+            'selectors'   => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupon-accent: {{VALUE}};',
             ],
         ]);
@@ -155,23 +168,225 @@ class Coupons extends Widget_Base
             'label'     => __('深色文字', 'oyiso'),
             'type'      => Controls_Manager::COLOR,
             'default'   => '#1f2937',
+            'placeholder' => '#1f2937',
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupon-dark: {{VALUE}};',
             ],
         ]);
 
-        $this->add_control('responsive_layout_heading', [
-            'label'     => __('响应式布局', 'oyiso'),
-            'type'      => Controls_Manager::HEADING,
-            'separator' => 'before',
+        $this->add_control('line_color', [
+            'label'     => __('线条颜色', 'oyiso'),
+            'type'      => Controls_Manager::COLOR,
+            'default'   => '#e7e2dc',
+            'placeholder' => '#e7e2dc',
+            'selectors' => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupon-line: {{VALUE}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('section_gap', [
+            'label'      => __('板块间距', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
+                'px' => [
+                    'min' => 0,
+                    'max' => 80,
+                ],
+            ],
+            'default'    => [
+                'size' => 24,
+                'unit' => 'px',
+            ],
+            'placeholder' => [
+                'size' => 24,
+                'unit' => 'px',
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupons-gap: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->end_controls_section();
+
+        $this->start_controls_section('style_banner_section', [
+            'label' => __('横幅', 'oyiso'),
+            'tab'   => Controls_Manager::TAB_STYLE,
+        ]);
+
+        $this->add_responsive_control('banner_min_height', [
+            'label'          => __('高度', 'oyiso'),
+            'type'           => Controls_Manager::SLIDER,
+            'size_units'     => ['px'],
+            'range'          => [
+                'px' => [
+                    'min' => 120,
+                    'max' => 600,
+                ],
+            ],
+            'default'        => [
+                'size' => 280,
+                'unit' => 'px',
+            ],
+            'mobile_default' => [
+                'size' => 220,
+                'unit' => 'px',
+            ],
+            'placeholder'    => [
+                'size' => 280,
+                'unit' => 'px',
+            ],
+            'device_args'    => [
+                'mobile' => [
+                    'placeholder' => [
+                        'size' => 220,
+                        'unit' => 'px',
+                    ],
+                ],
+            ],
+            'selectors'      => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-min-height: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('banner_padding', [
+            'label'          => __('内边距', 'oyiso'),
+            'type'           => Controls_Manager::SLIDER,
+            'size_units'     => ['px'],
+            'range'          => [
+                'px' => [
+                    'min' => 12,
+                    'max' => 80,
+                ],
+            ],
+            'default'        => [
+                'size' => 44,
+                'unit' => 'px',
+            ],
+            'mobile_default' => [
+                'size' => 28,
+                'unit' => 'px',
+            ],
+            'placeholder'    => [
+                'size' => 44,
+                'unit' => 'px',
+            ],
+            'device_args'    => [
+                'mobile' => [
+                    'placeholder' => [
+                        'size' => 28,
+                        'unit' => 'px',
+                    ],
+                ],
+            ],
+            'selectors'      => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-padding: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('banner_radius', [
+            'label'      => __('圆角', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
+                'px' => [
+                    'min' => 0,
+                    'max' => 40,
+                ],
+            ],
+            'default'    => [
+                'size' => 8,
+                'unit' => 'px',
+            ],
+            'placeholder' => [
+                'size' => 8,
+                'unit' => 'px',
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-radius: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('banner_title_size', [
+            'label'          => __('标题大小', 'oyiso'),
+            'type'           => Controls_Manager::SLIDER,
+            'size_units'     => ['px'],
+            'range'          => [
+                'px' => [
+                    'min' => 18,
+                    'max' => 72,
+                ],
+            ],
+            'default'        => [
+                'size' => 42,
+                'unit' => 'px',
+            ],
+            'mobile_default' => [
+                'size' => 30,
+                'unit' => 'px',
+            ],
+            'placeholder'    => [
+                'size' => 42,
+                'unit' => 'px',
+            ],
+            'device_args'    => [
+                'mobile' => [
+                    'placeholder' => [
+                        'size' => 30,
+                        'unit' => 'px',
+                    ],
+                ],
+            ],
+            'selectors'      => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-title-size: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('banner_description_size', [
+            'label'      => __('描述大小', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
+                'px' => [
+                    'min' => 12,
+                    'max' => 28,
+                ],
+            ],
+            'default'    => [
+                'size' => 16,
+                'unit' => 'px',
+            ],
+            'placeholder' => [
+                'size' => 16,
+                'unit' => 'px',
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-description-size: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->end_controls_section();
+
+        $this->start_controls_section('style_tabs_section', [
+            'label' => __('标签栏', 'oyiso'),
+            'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_responsive_control('tabs_layout', [
-            'label'                => __('Tabs 布局', 'oyiso'),
+            'label'                => __('布局', 'oyiso'),
             'type'                 => Controls_Manager::SELECT,
             'default'              => 'wrap',
             'tablet_default'       => 'wrap',
             'mobile_default'       => 'grid_2',
+            'placeholder'          => 'wrap',
+            'device_args'          => [
+                'tablet' => [
+                    'placeholder' => 'wrap',
+                ],
+                'mobile' => [
+                    'placeholder' => 'grid_2',
+                ],
+            ],
             'options'              => [
                 'wrap'   => __('自动换行', 'oyiso'),
                 'grid_1' => __('1 列网格', 'oyiso'),
@@ -179,83 +394,280 @@ class Coupons extends Widget_Base
                 'grid_3' => __('3 列网格', 'oyiso'),
             ],
             'selectors_dictionary' => [
-                'inline' => '--oyiso-tabs-display: flex; --oyiso-tabs-columns: none; --oyiso-tabs-wrap: wrap; --oyiso-tabs-gap: 8px; --oyiso-tabs-overflow-x: visible; --oyiso-tabs-padding: 0; --oyiso-tabs-border-bottom: 0; --oyiso-tab-bg: transparent; --oyiso-tab-indicator-display: none; --oyiso-tab-min-height: 34px; --oyiso-tab-padding: 7px 12px; --oyiso-tab-font-size: 14px; --oyiso-tab-dot-size: 7px; --oyiso-tab-count-size: 18px; --oyiso-tab-count-padding: 0 6px; --oyiso-tab-count-font-size: 11px;',
-                'wrap'   => '--oyiso-tabs-display: flex; --oyiso-tabs-columns: none; --oyiso-tabs-wrap: wrap; --oyiso-tabs-gap: 8px; --oyiso-tabs-overflow-x: visible; --oyiso-tabs-padding: 0; --oyiso-tabs-border-bottom: 0; --oyiso-tab-bg: transparent; --oyiso-tab-indicator-display: none; --oyiso-tab-min-height: 34px; --oyiso-tab-padding: 7px 12px; --oyiso-tab-font-size: 14px; --oyiso-tab-dot-size: 7px; --oyiso-tab-count-size: 18px; --oyiso-tab-count-padding: 0 6px; --oyiso-tab-count-font-size: 11px;',
-                'grid_1' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(1, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tabs-gap: 8px; --oyiso-tabs-overflow-x: visible; --oyiso-tabs-padding: 0; --oyiso-tabs-border-bottom: 0; --oyiso-tab-bg: #f7f8f9; --oyiso-tab-indicator-display: none; --oyiso-tab-min-height: 36px; --oyiso-tab-padding: 8px 10px; --oyiso-tab-font-size: 12px; --oyiso-tab-dot-size: 6px; --oyiso-tab-count-size: 17px; --oyiso-tab-count-padding: 0 5px; --oyiso-tab-count-font-size: 11px;',
-                'grid_2' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(2, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tabs-gap: 8px; --oyiso-tabs-overflow-x: visible; --oyiso-tabs-padding: 0; --oyiso-tabs-border-bottom: 0; --oyiso-tab-bg: #f7f8f9; --oyiso-tab-indicator-display: none; --oyiso-tab-min-height: 36px; --oyiso-tab-padding: 8px 10px; --oyiso-tab-font-size: 12px; --oyiso-tab-dot-size: 6px; --oyiso-tab-count-size: 17px; --oyiso-tab-count-padding: 0 5px; --oyiso-tab-count-font-size: 11px;',
-                'grid_3' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(3, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tabs-gap: 8px; --oyiso-tabs-overflow-x: visible; --oyiso-tabs-padding: 0; --oyiso-tabs-border-bottom: 0; --oyiso-tab-bg: #f7f8f9; --oyiso-tab-indicator-display: none; --oyiso-tab-min-height: 36px; --oyiso-tab-padding: 8px 8px; --oyiso-tab-font-size: 12px; --oyiso-tab-dot-size: 6px; --oyiso-tab-count-size: 17px; --oyiso-tab-count-padding: 0 5px; --oyiso-tab-count-font-size: 11px;',
+                'wrap'   => '--oyiso-tabs-display: flex; --oyiso-tabs-columns: none; --oyiso-tabs-wrap: wrap;',
+                'grid_1' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(1, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tab-bg: #f7f8f9;',
+                'grid_2' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(2, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tab-bg: #f7f8f9;',
+                'grid_3' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(3, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tab-bg: #f7f8f9;',
             ],
             'selectors'            => [
                 '{{WRAPPER}} .oyiso-coupons' => '{{VALUE}}',
             ],
         ]);
 
-        $this->add_responsive_control('banner_min_height', [
-            'label'           => __('Banner 高度', 'oyiso'),
-            'type'            => Controls_Manager::SLIDER,
-            'size_units'      => ['px'],
-            'range'           => [
+        $this->add_responsive_control('tabs_gap', [
+            'label'      => __('标签间距', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
                 'px' => [
-                    'min' => 120,
-                    'max' => 600,
+                    'min' => 0,
+                    'max' => 32,
                 ],
             ],
-            'default'         => [
-                'size' => 280,
+            'default'    => [
+                'size' => 8,
                 'unit' => 'px',
             ],
-            'mobile_default'  => [
-                'size' => 220,
+            'placeholder' => [
+                'size' => 8,
                 'unit' => 'px',
             ],
-            'selectors'       => [
-                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-min-height: {{SIZE}}{{UNIT}};',
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tabs-gap: {{SIZE}}{{UNIT}};',
             ],
         ]);
 
-        $this->add_responsive_control('banner_padding', [
-            'label'           => __('Banner 内边距', 'oyiso'),
-            'type'            => Controls_Manager::SLIDER,
-            'size_units'      => ['px'],
-            'range'           => [
+        $this->add_responsive_control('tabs_bottom_spacing', [
+            'label'      => __('底部间距', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
                 'px' => [
-                    'min' => 12,
-                    'max' => 80,
+                    'min' => 0,
+                    'max' => 60,
                 ],
             ],
-            'default'         => [
-                'size' => 44,
+            'default'    => [
+                'size' => 20,
                 'unit' => 'px',
             ],
-            'mobile_default'  => [
-                'size' => 28,
+            'placeholder' => [
+                'size' => 20,
                 'unit' => 'px',
             ],
-            'selectors'       => [
-                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-padding: {{SIZE}}{{UNIT}};',
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tabs-margin-bottom: {{SIZE}}{{UNIT}};',
             ],
         ]);
 
-        $this->add_responsive_control('banner_title_size', [
-            'label'           => __('Banner 标题大小', 'oyiso'),
-            'type'            => Controls_Manager::SLIDER,
-            'size_units'      => ['px'],
-            'range'           => [
+        $this->add_responsive_control('tab_min_height', [
+            'label'      => __('按钮高度', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
+                'px' => [
+                    'min' => 24,
+                    'max' => 64,
+                ],
+            ],
+            'default'    => [
+                'size' => 34,
+                'unit' => 'px',
+            ],
+            'placeholder' => [
+                'size' => 34,
+                'unit' => 'px',
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tab-min-height: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('tab_radius', [
+            'label'      => __('按钮圆角', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
+                'px' => [
+                    'min' => 0,
+                    'max' => 32,
+                ],
+            ],
+            'default'    => [
+                'size' => 6,
+                'unit' => 'px',
+            ],
+            'placeholder' => [
+                'size' => 6,
+                'unit' => 'px',
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tab-radius: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('tab_font_size', [
+            'label'      => __('文字大小', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
+                'px' => [
+                    'min' => 10,
+                    'max' => 22,
+                ],
+            ],
+            'default'    => [
+                'size' => 14,
+                'unit' => 'px',
+            ],
+            'placeholder' => [
+                'size' => 14,
+                'unit' => 'px',
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tab-font-size: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->end_controls_section();
+
+        $this->start_controls_section('style_coupon_section', [
+            'label' => __('优惠券', 'oyiso'),
+            'tab'   => Controls_Manager::TAB_STYLE,
+        ]);
+
+        $this->add_control('card_background_color', [
+            'label'     => __('卡片背景', 'oyiso'),
+            'type'      => Controls_Manager::COLOR,
+            'default'   => '#ffffff',
+            'placeholder' => '#ffffff',
+            'selectors' => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-bg: {{VALUE}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('coupon_grid_gap', [
+            'label'      => __('卡片间距', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
+                'px' => [
+                    'min' => 0,
+                    'max' => 48,
+                ],
+            ],
+            'default'    => [
+                'size' => 18,
+                'unit' => 'px',
+            ],
+            'placeholder' => [
+                'size' => 18,
+                'unit' => 'px',
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-gap: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('card_radius', [
+            'label'      => __('卡片圆角', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
+                'px' => [
+                    'min' => 0,
+                    'max' => 32,
+                ],
+            ],
+            'default'    => [
+                'size' => 8,
+                'unit' => 'px',
+            ],
+            'placeholder' => [
+                'size' => 8,
+                'unit' => 'px',
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-radius: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_group_control(Group_Control_Box_Shadow::get_type(), [
+            'name'           => 'card_box_shadow',
+            'label'          => __('卡片阴影', 'oyiso'),
+            'selector'       => '{{WRAPPER}} .oyiso-coupon-card',
+            'fields_options' => [
+                'box_shadow_type' => [
+                    'default' => 'yes',
+                ],
+                'box_shadow'      => [
+                    'default' => [
+                        'horizontal' => 0,
+                        'vertical'   => 8,
+                        'blur'       => 22,
+                        'spread'     => 0,
+                        'color'      => 'rgba(31, 41, 55, 0.05)',
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->add_responsive_control('card_content_padding', [
+            'label'      => __('内容内边距', 'oyiso'),
+            'type'       => Controls_Manager::DIMENSIONS,
+            'size_units' => ['px'],
+            'default'    => [
+                'top'      => 18,
+                'right'    => 20,
+                'bottom'   => 20,
+                'left'     => 20,
+                'unit'     => 'px',
+                'isLinked' => false,
+            ],
+            'placeholder' => [
+                'top'    => 18,
+                'right'  => 20,
+                'bottom' => 20,
+                'left'   => 20,
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-content-padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('card_discount_size', [
+            'label'      => __('金额大小', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
                 'px' => [
                     'min' => 18,
-                    'max' => 72,
+                    'max' => 60,
                 ],
             ],
-            'default'         => [
-                'size' => 42,
+            'default'    => [
+                'size' => 32,
                 'unit' => 'px',
             ],
-            'mobile_default'  => [
-                'size' => 30,
+            'placeholder' => [
+                'size' => 32,
                 'unit' => 'px',
             ],
-            'selectors'       => [
-                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-title-size: {{SIZE}}{{UNIT}};',
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-discount-size: {{SIZE}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control('card_text_size', [
+            'label'      => __('描述文字大小', 'oyiso'),
+            'type'       => Controls_Manager::SLIDER,
+            'size_units' => ['px'],
+            'range'      => [
+                'px' => [
+                    'min' => 12,
+                    'max' => 22,
+                ],
+            ],
+            'default'    => [
+                'size' => 14,
+                'unit' => 'px',
+            ],
+            'placeholder' => [
+                'size' => 14,
+                'unit' => 'px',
+            ],
+            'selectors'  => [
+                '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-text-size: {{SIZE}}{{UNIT}};',
             ],
         ]);
 
