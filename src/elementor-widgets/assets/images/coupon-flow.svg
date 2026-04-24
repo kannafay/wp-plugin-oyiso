@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="620" viewBox="0 0 1600 620" role="img" aria-label="Coupon flow banner">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#241b16"/>
+      <stop offset="0.52" stop-color="#5a3424"/>
+      <stop offset="1" stop-color="#e5702a"/>
+    </linearGradient>
+    <linearGradient id="ticket" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff7ed" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#ffd7b0" stop-opacity="0.75"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-25%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#1a100b" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="620" fill="url(#bg)"/>
+  <path d="M0 480C240 420 365 575 608 500C830 430 890 240 1115 200C1302 167 1445 252 1600 178V620H0Z" fill="#1f2937" opacity="0.28"/>
+  <path d="M0 98C185 130 288 56 444 74C665 99 778 246 1003 240C1248 234 1370 68 1600 112V0H0Z" fill="#fff" opacity="0.08"/>
+  <g filter="url(#shadow)" opacity="0.88">
+    <path d="M1055 145h290c0 30 24 54 54 54v176c-30 0-54 24-54 54h-290c0-30-24-54-54-54V199c30 0 54-24 54-54Z" fill="url(#ticket)"/>
+    <path d="M1095 203h210" stroke="#a55a31" stroke-width="8" stroke-linecap="round" opacity="0.55"/>
+    <path d="M1095 258h164" stroke="#a55a31" stroke-width="8" stroke-linecap="round" opacity="0.38"/>
+    <circle cx="1324" cy="286" r="54" fill="#e5702a" opacity="0.88"/>
+    <path d="M1298 305l55-55" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="1304" cy="262" r="10" fill="#fff"/>
+    <circle cx="1346" cy="304" r="10" fill="#fff"/>
+  </g>
+  <g opacity="0.2" fill="#fff">
+    <circle cx="134" cy="126" r="5"/>
+    <circle cx="218" cy="244" r="4"/>
+    <circle cx="612" cy="128" r="5"/>
+    <circle cx="1452" cy="504" r="6"/>
+    <circle cx="1512" cy="360" r="4"/>
+  </g>
+</svg>
