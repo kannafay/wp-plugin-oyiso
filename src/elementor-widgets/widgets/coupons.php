@@ -390,11 +390,11 @@ class Coupons extends Widget_Base
                 ],
             ],
             'default'    => [
-                'size' => 8,
+                'size' => 12,
                 'unit' => 'px',
             ],
             'placeholder' => [
-                'size' => 8,
+                'size' => 12,
                 'unit' => 'px',
             ],
             'selectors'  => [
@@ -467,6 +467,30 @@ class Coupons extends Widget_Base
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
+        $this->add_control('tabs_style_preset', [
+            'label'                => __('样式设计', 'oyiso'),
+            'type'                 => Controls_Manager::SELECT,
+            'default'              => 'default',
+            'options'              => [
+                'default'   => __('默认圆点', 'oyiso'),
+                'pills'     => __('胶囊色块', 'oyiso'),
+                'underline' => __('下划线', 'oyiso'),
+                'segmented' => __('分段控件', 'oyiso'),
+                'minimal'   => __('极简文字', 'oyiso'),
+            ],
+            'prefix_class'         => 'oyiso-coupons-tabs-style-',
+            'selectors_dictionary' => [
+                'default'   => '--oyiso-tabs-padding: 0; --oyiso-tabs-border-bottom: 0; --oyiso-tabs-bg: transparent; --oyiso-tabs-radius: 0; --oyiso-tabs-shadow: none; --oyiso-tab-bg: transparent; --oyiso-tab-border: 0; --oyiso-tab-padding: 7px 12px; --oyiso-tab-radius: 6px; --oyiso-tab-dot-size: 7px; --oyiso-tab-count-bg: #f1f3f5; --oyiso-tab-hover-bg: #f7f8f9; --oyiso-tab-active-bg: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #fff 90%); --oyiso-tab-active-shadow: none;',
+                'pills'     => '--oyiso-tabs-padding: 0; --oyiso-tabs-border-bottom: 0; --oyiso-tabs-bg: transparent; --oyiso-tabs-radius: 0; --oyiso-tabs-shadow: none; --oyiso-tab-bg: #f7f8f9; --oyiso-tab-border: 1px solid #eceff2; --oyiso-tab-padding: 9px 15px; --oyiso-tab-radius: 999px; --oyiso-tab-dot-size: 0; --oyiso-tab-count-bg: #fff; --oyiso-tab-hover-bg: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #fff 92%); --oyiso-tab-active-bg: var(--oyiso-group-color, var(--oyiso-coupon-accent)); --oyiso-tab-active-shadow: 0 10px 22px color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), transparent 76%);',
+                'underline' => '--oyiso-tabs-padding: 0; --oyiso-tabs-border-bottom: 0; --oyiso-tabs-bg: transparent; --oyiso-tabs-radius: 0; --oyiso-tabs-shadow: none; --oyiso-tab-bg: transparent; --oyiso-tab-border: 0; --oyiso-tab-padding: 9px 2px 12px; --oyiso-tab-radius: 0; --oyiso-tab-dot-size: 0; --oyiso-tab-count-bg: #f1f3f5; --oyiso-tab-hover-bg: transparent; --oyiso-tab-active-bg: transparent; --oyiso-tab-active-shadow: none;',
+                'segmented' => '--oyiso-tabs-padding: 5px; --oyiso-tabs-border-bottom: 0; --oyiso-tabs-bg: #f5f6f7; --oyiso-tabs-radius: 8px; --oyiso-tabs-shadow: inset 0 0 0 1px #eceff2; --oyiso-tab-bg: transparent; --oyiso-tab-border: 0; --oyiso-tab-padding: 8px 14px; --oyiso-tab-radius: 6px; --oyiso-tab-dot-size: 0; --oyiso-tab-count-bg: #e9edf1; --oyiso-tab-hover-bg: #fff; --oyiso-tab-active-bg: #fff; --oyiso-tab-active-shadow: 0 4px 12px rgba(31, 41, 55, 0.08);',
+                'minimal'   => '--oyiso-tabs-padding: 0; --oyiso-tabs-border-bottom: 0; --oyiso-tabs-bg: transparent; --oyiso-tabs-radius: 0; --oyiso-tabs-shadow: none; --oyiso-tab-bg: transparent; --oyiso-tab-border: 0; --oyiso-tab-padding: 4px 0; --oyiso-tab-radius: 0; --oyiso-tab-dot-size: 0; --oyiso-tab-count-bg: transparent; --oyiso-tab-hover-bg: transparent; --oyiso-tab-active-bg: transparent; --oyiso-tab-active-shadow: none;',
+            ],
+            'selectors'            => [
+                '{{WRAPPER}} .oyiso-coupons' => '{{VALUE}}',
+            ],
+        ]);
+
         $this->add_responsive_control('tabs_layout', [
             'label'                => __('布局', 'oyiso'),
             'type'                 => Controls_Manager::SELECT,
@@ -510,11 +534,11 @@ class Coupons extends Widget_Base
                 ],
             ],
             'default'    => [
-                'size' => 8,
+                'size' => 12,
                 'unit' => 'px',
             ],
             'placeholder' => [
-                'size' => 8,
+                'size' => 12,
                 'unit' => 'px',
             ],
             'selectors'  => [
