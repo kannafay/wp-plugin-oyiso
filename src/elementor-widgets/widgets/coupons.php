@@ -1272,6 +1272,13 @@ class Coupons extends Widget_Base
                     <div class="oyiso-coupon-card__head">
                         <div class="oyiso-coupon-card__identity">
                             <?php if ($code) : ?>
+                                <span class="oyiso-coupon-card__mobile-icon" aria-hidden="true">
+                                    <?php
+                                    if (!empty($group['icon']['value'])) {
+                                        Icons_Manager::render_icon($group['icon'], ['aria-hidden' => 'true']);
+                                    }
+                                    ?>
+                                </span>
                                 <span class="oyiso-coupon-card__code"><?php echo esc_html($code); ?></span>
 
                                 <button

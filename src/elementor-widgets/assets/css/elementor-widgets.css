@@ -750,6 +750,25 @@ body .oyiso-coupons .oyiso-coupon-card__copy-button.is-copied {
     font-weight: 700;
 }
 
+.oyiso-coupon-card__mobile-icon {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    color: #fff;
+    font-size: 14px;
+    background: var(--oyiso-group-color, var(--oyiso-coupon-accent));
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), transparent 76%);
+}
+
+.oyiso-coupon-card__mobile-icon svg {
+    width: 1em;
+    height: 1em;
+    fill: currentColor;
+}
+
 .oyiso-coupon-card__progress-list {
     display: grid;
     grid-template-columns: var(--oyiso-progress-columns);
@@ -1037,27 +1056,33 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     }
 
     .oyiso-coupon-card__icon {
-        position: absolute;
-        top: 14px;
-        left: 14px;
-        z-index: 2;
-        width: 42px;
-        min-height: 42px;
-        padding: 0;
-        justify-content: flex-start;
-        border-radius: 8px;
-        background: transparent;
-        font-size: 22px;
+        display: none;
     }
 
-    .oyiso-coupon-card__icon svg {
-        padding: 8px;
-        border-radius: 8px;
+    .oyiso-coupon-card__mobile-icon {
+        display: inline-flex;
+        flex: 0 0 auto;
+    }
+
+    .oyiso-coupon-card__code {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .oyiso-coupon-card__copy-button {
+        flex: 0 0 auto !important;
     }
 
     .oyiso-coupon-card__content {
         display: block;
-        padding: 66px 16px 18px;
+        padding: 14px 16px 18px;
+    }
+
+    .oyiso-coupon-card__identity {
+        flex-wrap: nowrap;
+        overflow: hidden;
     }
 
     .oyiso-coupon-card__discount {
