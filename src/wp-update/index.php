@@ -10,7 +10,7 @@ CSF::createSection($prefix, [
     'parent'   => 'wp-optimize',
     'title'    => '自动更新管理',
     'icon'     => 'fas fa-sync-alt',
-    'priority' => 20,
+    'priority' => 1,
     'fields' => [
         [
             'type' => 'heading',

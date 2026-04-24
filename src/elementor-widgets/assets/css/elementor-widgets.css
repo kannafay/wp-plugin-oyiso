@@ -1,0 +1,43 @@
+.oyiso-info-card {
+    --oyiso-accent-color: #e5702a;
+    padding: 24px;
+    border: 1px solid #ececec;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.oyiso-info-card__title {
+    margin: 0 0 10px;
+    color: #1f2937;
+    font-size: 24px;
+    line-height: 1.25;
+}
+
+.oyiso-info-card__description {
+    color: #4b5563;
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.oyiso-info-card__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    margin-top: 18px;
+    padding: 9px 16px;
+    border-radius: 6px;
+    background: var(--oyiso-accent-color);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+}
+
+.oyiso-info-card__button:hover,
+.oyiso-info-card__button:focus {
+    color: #fff;
+    filter: brightness(0.95);
+}

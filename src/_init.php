@@ -55,6 +55,7 @@ if (class_exists('CSF')) {
                 background-color: #fff;
             }
             .csf.csf-options .csf-nav {
+                --oyiso-nav-accent-width: 2px;
                 position: absolute;
                 top: 0;
                 left: 0;
@@ -69,20 +70,59 @@ if (class_exists('CSF')) {
             }
             /* ── 一级菜单 ── */
             .csf.csf-options .csf-nav > ul > li > a {
+                position: relative;
                 background-color: #fafafa;
                 color: #1d1d1d;
-                font-weight: 600;
+                /* font-weight: 600; */
+                transition: background-color .2s ease, color .2s ease;
             }
             .csf.csf-options .csf-nav > ul > li > a:hover {
                 background-color: #fff;
             }
+            .csf.csf-options .csf-nav > ul > li > a::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                width: var(--oyiso-nav-accent-width);
+                background-color: #e5702a;
+                opacity: 0;
+                pointer-events: none;
+                transform: scaleY(0);
+                transform-origin: bottom;
+                transition: opacity .2s ease, transform .2s ease;
+            }
+            .csf.csf-options .csf-nav > ul > li.csf-parent-active:not(.csf-tab-expanded) > a {
+                background-color: #fff;
+            }
+            .csf.csf-options .csf-nav > ul > li.csf-parent-active:not(.csf-tab-expanded) > a::before {
+                opacity: 1;
+                transform: scaleY(1);
+            }
             /* ── 二级菜单 ── */
             .csf.csf-options .csf-nav > ul > li > ul > li > a {
+                position: relative;
                 background-color: #ebebeb;
                 color: #555;
                 font-size: 12.5px;
-                border-left: 3px solid transparent;
-                transition: border-left-color .2s ease, background-color .2s ease, color .2s ease;
+                padding-left: calc(24px + var(--oyiso-nav-accent-width));
+                border-left: 0;
+                transition: background-color .2s ease, color .2s ease;
+            }
+            .csf.csf-options .csf-nav > ul > li > ul > li > a::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                width: var(--oyiso-nav-accent-width);
+                background-color: #e5702a;
+                opacity: 0;
+                pointer-events: none;
+                transform: scaleX(0);
+                transform-origin: left;
+                transition: opacity .2s ease, transform .2s ease;
             }
             .csf.csf-options .csf-nav > ul > li > ul > li > a:hover {
                 background-color: #f2f2f2;
@@ -91,7 +131,10 @@ if (class_exists('CSF')) {
             .csf.csf-options .csf-nav > ul > li > ul > li > a.csf-active {
                 background-color: #f5f5f5;
                 color: #1d1d1d;
-                border-left-color: #e5702a;
+            }
+            .csf.csf-options .csf-nav > ul > li > ul > li > a.csf-active::before {
+                opacity: 1;
+                transform: scaleX(1);
             }
             .csf.csf-options .csf-content {
                 min-height: 100%;
@@ -132,14 +175,58 @@ if (class_exists('CSF')) {
             jQuery(function($){
                 var $nav = $(".csf-nav-options");
 
+                $nav.find(".csf-tab-item > ul:visible").closest(".csf-tab-item").addClass("csf-tab-expanded");
+
+                function updateActiveParents(){
+                    var $activeLinks = $nav.find("ul ul a.csf-active");
+
+                    if (!$activeLinks.length && window.location.hash.indexOf("tab=") !== -1) {
+                        var tabId = window.location.hash.replace(/^#tab=/, "");
+                        $activeLinks = $nav.find("ul ul a[data-tab-id=\"" + tabId + "\"]");
+                    }
+
+                    if (!$activeLinks.length) {
+                        var sectionId = $(".csf-section.csf-onload:not(.hidden), .csf-section:not(.hidden)").first().data("section-id");
+                        if (sectionId) {
+                            $activeLinks = $nav.find("ul ul a[data-tab-id=\"" + sectionId + "\"]");
+                        }
+                    }
+
+                    $nav.find(".csf-tab-item").removeClass("csf-parent-active");
+                    $activeLinks.closest(".csf-tab-item").addClass("csf-parent-active");
+                }
+
+                updateActiveParents();
+                setTimeout(updateActiveParents, 100);
+
                 // 一级菜单点击：展开/折叠
                 $nav.on("click", ".csf-arrow", function(e){
                     e.preventDefault();
                     e.stopPropagation();
+                    updateActiveParents();
+
                     var $item = $(this).closest(".csf-tab-item");
-                    $item.find("> ul").slideToggle(200, function(){
-                        $item.toggleClass("csf-tab-expanded", $(this).is(":visible"));
+                    var isOpen = $item.hasClass("csf-tab-expanded");
+
+                    $item.siblings(".csf-tab-expanded").each(function(){
+                        var $sibling = $(this);
+                        var $submenu = $sibling.find("> ul");
+
+                        $submenu.stop(true, true).css("display", "block");
+                        $sibling.removeClass("csf-tab-expanded");
+                        $submenu.slideUp(200);
                     });
+
+                    if (isOpen) {
+                        $item.find("> ul").stop(true, true).css("display", "block");
+                        $item.removeClass("csf-tab-expanded");
+                        $item.find("> ul").slideUp(200);
+                        return;
+                    }
+
+                    $item.find("> ul").stop(true, true).hide();
+                    $item.addClass("csf-tab-expanded");
+                    $item.find("> ul").slideDown(200);
                 });
 
                 // 二级菜单点击：手动切换面板，用 replaceState 不触发 hashchange
@@ -153,6 +240,7 @@ if (class_exists('CSF')) {
                     // 激活当前链接
                     $nav.find("a").removeClass("csf-active");
                     $this.addClass("csf-active");
+                    updateActiveParents();
 
                     // 展开所属父级
                     $this.closest(".csf-tab-item").addClass("csf-tab-expanded").find("> ul").show();
@@ -193,6 +281,13 @@ if (class_exists('CSF')) {
         'priority' => 30,
     ]);
 
+    CSF::createSection($prefix, [
+        'id'       => 'plugin-extensions',
+        'title'    => '插件扩展',
+        'icon'     => 'fas fa-puzzle-piece',
+        'priority' => 40,
+    ]);
+
 } // end CSF UI block
 
 // 加载模块（功能钩子在前后端均需注册，CSF 调用由模块内部自行 guard）
@@ -201,3 +296,4 @@ require_once $dir . 'gutenberg-editor/index.php';
 require_once $dir . 'wp-update/index.php';
 require_once $dir . '51la-analytics/index.php';
 require_once $dir . 'telegram/index.php';
+require_once $dir . 'elementor-widgets/index.php';
