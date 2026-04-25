@@ -2177,6 +2177,8 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
     .oyiso-coupons-default-style-yes .oyiso-coupons {
         --oyiso-banner-min-height: 220px !important;
+        --oyiso-banner-title-size: 24px !important;
+        --oyiso-banner-description-size: 14px !important;
     }
 
     .oyiso-coupons__banner {
