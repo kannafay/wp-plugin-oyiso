@@ -189,11 +189,730 @@
 
 .oyiso-coupons__banner-overlay {
     position: absolute;
-    z-index: 0;
+    z-index: 1;
     inset: 0;
     background:
-        linear-gradient(90deg, rgba(12, 16, 24, 0.58), rgba(12, 16, 24, 0.2) 48%, rgba(12, 16, 24, 0.06)),
-        linear-gradient(0deg, rgba(12, 16, 24, 0.12), rgba(12, 16, 24, 0.04));
+        linear-gradient(135deg, rgba(12, 16, 26, 0.22), rgba(12, 16, 26, 0.08) 48%, rgba(12, 16, 26, 0.16)),
+        radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 60%);
+}
+
+.oyiso-coupons__banner-art {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    overflow: hidden;
+}
+
+.oyiso-coupons__banner-art svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale svg {
+    filter: saturate(0.82) brightness(0.86);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-nebula ellipse {
+    fill: rgba(255, 255, 255, 0.08);
+    mix-blend-mode: screen;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-nebula ellipse:first-child {
+    fill: rgba(144, 196, 255, 0.12);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-nebula ellipse:nth-child(2) {
+    fill: rgba(255, 200, 235, 0.08);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-nebula ellipse:nth-child(3) {
+    fill: rgba(206, 165, 255, 0.1);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-star {
+    fill: rgba(255, 249, 241, 0.76);
+    transform-origin: center;
+    animation: oyisoTwinkle 4.8s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-star--b {
+    animation-delay: -1.4s;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-star--c {
+    animation-delay: -2.6s;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-starburst path {
+    fill: none;
+    stroke: rgba(255, 244, 229, 0.5);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    animation: oyisoGleam 5.6s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-starburst--b path {
+    animation-delay: -1.8s;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-starburst--c path {
+    animation-delay: -3.1s;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-orbit path {
+    fill: none;
+    stroke: rgba(255, 243, 227, 0.1);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-orbit--two path {
+    stroke: rgba(187, 214, 255, 0.08);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-meteor {
+    opacity: 0;
+    animation: oyisoMeteorSweep var(--oyiso-meteor-duration, 8.6s) linear infinite;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-meteor--one {
+    --oyiso-meteor-start-x: 708px;
+    --oyiso-meteor-start-y: 122px;
+    --oyiso-meteor-end-x: 1028px;
+    --oyiso-meteor-end-y: 262px;
+    --oyiso-meteor-duration: 8.2s;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-meteor--two {
+    --oyiso-meteor-start-x: 1118px;
+    --oyiso-meteor-start-y: 86px;
+    --oyiso-meteor-end-x: 1404px;
+    --oyiso-meteor-end-y: 204px;
+    --oyiso-meteor-duration: 10.4s;
+    animation-delay: -4.6s;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-meteor__tail {
+    fill: none;
+    stroke: url(#oyiso-meteor-tail);
+    stroke-width: 16;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-meteor__spark {
+    fill: none;
+    stroke: rgba(255, 224, 187, 0.42);
+    stroke-width: 4;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-meteor__head {
+    fill: url(#oyiso-meteor-head);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-planet circle:first-child {
+    fill: url(#oyiso-planet-fill);
+    opacity: 0.68;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-planet ellipse {
+    fill: none;
+    stroke: url(#oyiso-planet-ring);
+    stroke-width: 7;
+    opacity: 0.56;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-planet__moon {
+    fill: rgba(255, 242, 225, 0.44);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card {
+    opacity: 0.76;
+    animation: oyisoFloat 8.6s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card__glow {
+    fill: url(#oyiso-ticket-glow);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card__body {
+    fill: url(#oyiso-ticket-fill);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card__edge {
+    fill: none;
+    stroke: url(#oyiso-ticket-stroke);
+    stroke-width: 3;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card__shine {
+    fill: rgba(255, 255, 255, 0.18);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card__seal {
+    fill: rgba(118, 88, 255, 0.64);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card__seal-mark {
+    fill: none;
+    stroke: rgba(255, 244, 230, 0.92);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card__line {
+    fill: rgba(62, 73, 111, 0.16);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card__line--two {
+    fill: rgba(62, 73, 111, 0.12);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-coupon-card__corner {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.34);
+    stroke-width: 4;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-ship-route path,
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-ship__trail {
+    fill: none;
+    stroke: url(#oyiso-ship-trail);
+    stroke-width: 4;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-ship-route path {
+    stroke-dasharray: 10 14;
+    opacity: 0.44;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-ship {
+    animation: oyisoFloat 7.2s ease-in-out infinite -1.2s;
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-ship__body {
+    fill: rgba(255, 246, 238, 0.74);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-ship__glass {
+    fill: rgba(149, 202, 255, 0.54);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-ship__wing {
+    fill: rgba(255, 191, 126, 0.44);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-ship__fin {
+    fill: rgba(234, 225, 255, 0.5);
+}
+
+.oyiso-coupons__banner-art--cosmic_sale .oyiso-ship__glow {
+    fill: rgba(255, 176, 107, 0.52);
+    animation: oyisoPulse 2.8s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure svg {
+    filter: saturate(0.8) brightness(0.88);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-water-rays path {
+    fill: url(#oyiso-water-ray);
+    opacity: 0.22;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-depth ellipse {
+    fill: rgba(6, 21, 33, 0.42);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-bubble {
+    fill: rgba(223, 251, 255, 0.34);
+    animation: oyisoBubbleLift 9.6s linear infinite;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-bubble--b {
+    animation-delay: -1.6s;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-bubble--c {
+    animation-delay: -3.2s;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-bubble--d {
+    animation-delay: -5.1s;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-bubble--e {
+    animation-delay: -6.4s;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-reef path {
+    fill: url(#oyiso-reef-fill);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-kelp path {
+    fill: url(#oyiso-kelp-fill);
+    transform-origin: bottom center;
+    animation: oyisoKelpSway 8.4s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-kelp--right path {
+    animation-delay: -3.4s;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-coral path {
+    fill: rgba(114, 214, 189, 0.18);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-coin {
+    fill: url(#oyiso-coin-fill);
+    stroke: rgba(255, 241, 194, 0.28);
+    stroke-width: 4;
+    animation: oyisoCoinGlint 5.8s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-coin--b {
+    animation-delay: -1.8s;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-coin--c {
+    animation-delay: -3.1s;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card {
+    opacity: 0.74;
+    animation: oyisoCurrentFloat 9.4s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card__glow {
+    fill: url(#oyiso-ocean-card-glow);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card__body {
+    fill: url(#oyiso-ocean-card-fill);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card__edge {
+    fill: none;
+    stroke: url(#oyiso-ocean-card-stroke);
+    stroke-width: 3;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card__shine {
+    fill: rgba(255, 255, 255, 0.16);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card__seal {
+    fill: rgba(31, 123, 122, 0.76);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card__seal-wave {
+    fill: none;
+    stroke: rgba(234, 255, 246, 0.88);
+    stroke-width: 5.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card__line {
+    fill: rgba(31, 73, 88, 0.18);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card__line--two {
+    fill: rgba(31, 73, 88, 0.12);
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-ocean-card__corner {
+    fill: none;
+    stroke: rgba(248, 255, 255, 0.34);
+    stroke-width: 4;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-fish {
+    fill: url(#oyiso-fish-fill);
+    opacity: 0.62;
+    animation: oyisoFishGlide 18s linear infinite;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-fish--one {
+    --oyiso-fish-start-x: 566px;
+    --oyiso-fish-start-y: 212px;
+    --oyiso-fish-end-x: 244px;
+    --oyiso-fish-end-y: 228px;
+}
+
+.oyiso-coupons__banner-art--ocean_treasure .oyiso-fish--two {
+    --oyiso-fish-start-x: 1398px;
+    --oyiso-fish-start-y: 220px;
+    --oyiso-fish-end-x: 1188px;
+    --oyiso-fish-end-y: 192px;
+    animation-duration: 21s;
+    animation-delay: -8.8s;
+}
+
+.oyiso-coupons__banner-art--diamond_vault svg {
+    filter: saturate(0.76) brightness(0.84);
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-prism-haze path {
+    fill: url(#oyiso-prism-beam);
+    opacity: 0.34;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-arcs path {
+    fill: none;
+    stroke: rgba(255, 243, 228, 0.12);
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-arcs path:last-child {
+    stroke: rgba(219, 202, 255, 0.12);
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card {
+    opacity: 0.72;
+    animation: oyisoCurrentFloat 9.8s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card__glow {
+    fill: url(#oyiso-vault-card-glow);
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card__body {
+    fill: url(#oyiso-vault-card-fill);
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card__edge {
+    fill: none;
+    stroke: url(#oyiso-vault-card-stroke);
+    stroke-width: 3;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card__shine {
+    fill: rgba(255, 255, 255, 0.14);
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card__gem {
+    fill: url(#oyiso-vault-gem);
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card__gem-facet {
+    fill: none;
+    stroke: rgba(255, 252, 244, 0.72);
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card__line {
+    fill: rgba(66, 70, 98, 0.16);
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card__line--two {
+    fill: rgba(66, 70, 98, 0.12);
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-vault-card__corner {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.28);
+    stroke-width: 4;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond-cluster {
+    opacity: 0.74;
+    animation: oyisoFacetDrift 11.2s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond path {
+    fill: url(#oyiso-diamond-fill-main);
+    stroke: url(#oyiso-diamond-stroke);
+    stroke-width: 2.6;
+    stroke-linejoin: round;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond--b path,
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond--c path,
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond--d path {
+    fill: url(#oyiso-diamond-fill-soft);
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond--b {
+    opacity: 0.68;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond--c {
+    opacity: 0.54;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond--d {
+    opacity: 0.48;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond-sparkle path {
+    fill: none;
+    stroke: rgba(255, 247, 235, 0.54);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    animation: oyisoPrismGleam 5.8s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond-sparkle--b path {
+    animation-delay: -1.6s;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond-sparkle--c path {
+    animation-delay: -3.2s;
+}
+
+.oyiso-coupons__banner-art--diamond_vault .oyiso-diamond-sparkle--d path {
+    animation-delay: -4.4s;
+}
+
+.oyiso-coupons__banner-art--mall_parade svg {
+    filter: saturate(0.76) brightness(0.84);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-skyline path {
+    fill: none;
+    stroke: rgba(255, 245, 230, 0.08);
+    stroke-width: 22;
+    stroke-linecap: square;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-floor {
+    fill: url(#oyiso-mall-floor);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-lanes path {
+    fill: none;
+    stroke: rgba(255, 238, 214, 0.16);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 14 14;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-storefront__shell {
+    fill: rgba(255, 248, 238, 0.08);
+    stroke: rgba(255, 248, 238, 0.08);
+    stroke-width: 2;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-storefront__glass {
+    fill: url(#oyiso-mall-glass);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-storefront__window {
+    fill: url(#oyiso-mall-window);
+    animation: oyisoMallGlow 7.4s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-storefront--left .oyiso-storefront__window:nth-of-type(2),
+.oyiso-coupons__banner-art--mall_parade .oyiso-storefront--center .oyiso-storefront__window:nth-of-type(3),
+.oyiso-coupons__banner-art--mall_parade .oyiso-storefront--right .oyiso-storefront__window:nth-of-type(2) {
+    animation-delay: -2.4s;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-storefront__awning {
+    fill: url(#oyiso-mall-awning);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-storefront__plate {
+    fill: rgba(255, 250, 244, 0.2);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-sign {
+    opacity: 0.7;
+    animation: oyisoCurrentFloat 9.6s ease-in-out infinite;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-sign__glow {
+    fill: url(#oyiso-mall-sign-glow);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-sign__body {
+    fill: url(#oyiso-mall-sign-fill);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-sign__edge {
+    fill: none;
+    stroke: url(#oyiso-mall-sign-stroke);
+    stroke-width: 3;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-sign__shine {
+    fill: rgba(255, 255, 255, 0.14);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-sign__dot {
+    fill: rgba(125, 89, 188, 0.66);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-sign__line {
+    fill: rgba(70, 76, 110, 0.16);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-sign__line--two {
+    fill: rgba(70, 76, 110, 0.12);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-mall-sign__corner {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.28);
+    stroke-width: 4;
+    stroke-linecap: round;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-shopper {
+    fill: rgba(255, 242, 232, 0.42);
+    animation: oyisoShopperWalk 19s linear infinite;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-shopper rect {
+    fill: rgba(239, 185, 149, 0.34);
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-shopper--one {
+    --oyiso-shopper-start-x: 248px;
+    --oyiso-shopper-start-y: 430px;
+    --oyiso-shopper-end-x: 446px;
+    --oyiso-shopper-end-y: 430px;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-shopper--two {
+    --oyiso-shopper-start-x: 1128px;
+    --oyiso-shopper-start-y: 438px;
+    --oyiso-shopper-end-x: 1328px;
+    --oyiso-shopper-end-y: 438px;
+    animation-duration: 22s;
+    animation-delay: -7.2s;
+}
+
+.oyiso-coupons__banner-art--mall_parade .oyiso-shopper--three {
+    --oyiso-shopper-start-x: 704px;
+    --oyiso-shopper-start-y: 446px;
+    --oyiso-shopper-end-x: 860px;
+    --oyiso-shopper-end-y: 446px;
+    animation-duration: 17s;
+    animation-delay: -11s;
+}
+
+@keyframes oyisoTwinkle {
+    0%, 100% { opacity: 0.38; transform: scale(0.84); }
+    50% { opacity: 1; transform: scale(1.18); }
+}
+
+@keyframes oyisoGleam {
+    0%, 100% { opacity: 0.26; transform: scale(0.82); }
+    46% { opacity: 0.94; transform: scale(1.08); }
+}
+
+@keyframes oyisoMeteorSweep {
+    0%, 14% {
+        opacity: 0;
+        transform: translate(var(--oyiso-meteor-start-x), var(--oyiso-meteor-start-y)) scale(0.92);
+    }
+
+    20%, 52% {
+        opacity: 1;
+    }
+
+    74%, 100% {
+        opacity: 0;
+        transform: translate(var(--oyiso-meteor-end-x), var(--oyiso-meteor-end-y)) scale(1);
+    }
+}
+
+@keyframes oyisoFloat {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -12px, 0); }
+}
+
+@keyframes oyisoPulse {
+    0%, 100% { opacity: 0.74; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.14); }
+}
+
+@keyframes oyisoBubbleLift {
+    0% {
+        opacity: 0;
+        transform: translate3d(0, 20px, 0) scale(0.9);
+    }
+
+    18%, 74% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate3d(12px, -132px, 0) scale(1.08);
+    }
+}
+
+@keyframes oyisoKelpSway {
+    0%, 100% { transform: rotate(-2deg); }
+    50% { transform: rotate(3deg); }
+}
+
+@keyframes oyisoCurrentFloat {
+    0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+    50% { transform: translate3d(0, -10px, 0) rotate(-1deg); }
+}
+
+@keyframes oyisoCoinGlint {
+    0%, 100% { opacity: 0.82; transform: translateY(0) scale(1); }
+    50% { opacity: 1; transform: translateY(-4px) scale(1.02); }
+}
+
+@keyframes oyisoFishGlide {
+    0%, 12% {
+        opacity: 0;
+        transform: translate3d(var(--oyiso-fish-start-x), var(--oyiso-fish-start-y), 0) scale(1);
+    }
+
+    20%, 78% {
+        opacity: 0.62;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate3d(var(--oyiso-fish-end-x), var(--oyiso-fish-end-y), 0) scale(1);
+    }
+}
+
+@keyframes oyisoFacetDrift {
+    0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+    50% { transform: translate3d(0, -10px, 0) rotate(1deg); }
+}
+
+@keyframes oyisoPrismGleam {
+    0%, 100% { opacity: 0.2; transform: scale(0.78); }
+    44% { opacity: 0.88; transform: scale(1.06); }
+}
+
+@keyframes oyisoMallGlow {
+    0%, 100% { opacity: 0.58; }
+    50% { opacity: 0.94; }
+}
+
+@keyframes oyisoShopperWalk {
+    0%, 14% {
+        opacity: 0;
+        transform: translate3d(var(--oyiso-shopper-start-x), var(--oyiso-shopper-start-y), 0);
+    }
+
+    20%, 78% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate3d(var(--oyiso-shopper-end-x), var(--oyiso-shopper-end-y), 0);
+    }
 }
 
 .oyiso-coupons__banner--plain {

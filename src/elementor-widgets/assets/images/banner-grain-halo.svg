@@ -1,0 +1,43 @@
+<svg width="1600" height="520" viewBox="0 0 1600 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="92" y1="38" x2="1496" y2="502" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#292D33"/>
+      <stop offset="0.52" stop-color="#34383E"/>
+      <stop offset="1" stop-color="#42352F"/>
+    </linearGradient>
+    <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.74" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0 0.025 0.05"/>
+      </feComponentTransfer>
+    </filter>
+  </defs>
+  <rect width="1600" height="520" rx="24" fill="url(#bg)"/>
+
+  <g opacity="0.94">
+    <g transform="translate(270 116)">
+      <path d="M88 0L112 18L142 12L148 44L176 60L160 88L176 116L148 132L142 164L112 158L88 176L64 158L34 164L28 132L0 116L16 88L0 60L28 44L34 12L64 18L88 0Z" fill="#FFF4E8" fill-opacity="0.08" stroke="#FFF2E6" stroke-opacity="0.12"/>
+      <circle cx="88" cy="88" r="44" stroke="#FFF2E6" stroke-opacity="0.18" stroke-width="2"/>
+      <path d="M68 108L108 68" stroke="#FFF2E6" stroke-opacity="0.3" stroke-width="7" stroke-linecap="round"/>
+      <path d="M62 76H114" stroke="#FFF2E6" stroke-opacity="0.3" stroke-width="7" stroke-linecap="round"/>
+    </g>
+
+    <g transform="translate(712 154)">
+      <rect width="176" height="108" rx="16" fill="#FFF4E8" fill-opacity="0.06" stroke="#FFF2E6" stroke-opacity="0.1"/>
+      <circle cx="176" cy="54" r="14" fill="#34383E"/>
+      <path d="M30 42H106" stroke="#FFF2E6" stroke-opacity="0.12" stroke-width="8" stroke-linecap="round"/>
+      <path d="M30 72H128" stroke="#FFF2E6" stroke-opacity="0.08" stroke-width="7" stroke-linecap="round"/>
+      <path d="M122 28V80" stroke="#FFF2E6" stroke-opacity="0.14" stroke-width="2" stroke-dasharray="6 8"/>
+    </g>
+
+    <g transform="translate(1082 116)">
+      <path d="M88 0L112 18L142 12L148 44L176 60L160 88L176 116L148 132L142 164L112 158L88 176L64 158L34 164L28 132L0 116L16 88L0 60L28 44L34 12L64 18L88 0Z" fill="#FFF4E8" fill-opacity="0.08" stroke="#FFF2E6" stroke-opacity="0.12"/>
+      <circle cx="88" cy="88" r="44" stroke="#FFF2E6" stroke-opacity="0.18" stroke-width="2"/>
+      <path d="M68 108L108 68" stroke="#FFF2E6" stroke-opacity="0.3" stroke-width="7" stroke-linecap="round"/>
+      <path d="M62 76H114" stroke="#FFF2E6" stroke-opacity="0.3" stroke-width="7" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <rect width="1600" height="520" rx="24" filter="url(#grain)" opacity="0.62"/>
+</svg>
