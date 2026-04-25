@@ -232,17 +232,6 @@ class Coupons extends Widget_Base
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
-        $this->add_control('use_default_style', [
-            'label'        => __('Use Default Style', 'oyiso'),
-            'type'         => Controls_Manager::SWITCHER,
-            'label_on'     => __('Yes', 'oyiso'),
-            'label_off'    => __('No', 'oyiso'),
-            'default'      => '',
-            'return_value' => 'yes',
-            'description'  => __('Turn this on to preview the plugin default style. Turn it off to restore your current custom settings.', 'oyiso'),
-            'prefix_class' => 'oyiso-coupons-default-style-',
-        ]);
-
         $this->add_control('theme_mode', [
             'label'        => __('Theme', 'oyiso'),
             'type'         => Controls_Manager::SELECT,
