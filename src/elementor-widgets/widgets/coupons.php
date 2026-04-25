@@ -470,7 +470,7 @@ class Coupons extends Widget_Base
                 'unit' => 'px',
             ],
             'mobile_default' => [
-                'size' => 30,
+                'size' => 24,
                 'unit' => 'px',
             ],
             'placeholder'    => [
@@ -480,7 +480,7 @@ class Coupons extends Widget_Base
             'device_args'    => [
                 'mobile' => [
                     'placeholder' => [
-                        'size' => 30,
+                        'size' => 24,
                         'unit' => 'px',
                     ],
                 ],
@@ -504,9 +504,21 @@ class Coupons extends Widget_Base
                 'size' => 16,
                 'unit' => 'px',
             ],
+            'mobile_default' => [
+                'size' => 12,
+                'unit' => 'px',
+            ],
             'placeholder' => [
                 'size' => 16,
                 'unit' => 'px',
+            ],
+            'device_args' => [
+                'mobile' => [
+                    'placeholder' => [
+                        'size' => 12,
+                        'unit' => 'px',
+                    ],
+                ],
             ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-description-size: {{SIZE}}{{UNIT}};',

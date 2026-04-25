@@ -60,6 +60,7 @@
     --oyiso-banner-radius: 8px;
     --oyiso-banner-title-size: 42px;
     --oyiso-banner-description-size: 16px;
+    --oyiso-banner-content-max-width: 920px;
     --oyiso-banner-vertical-align: flex-end;
     --oyiso-banner-content-justify: flex-start;
     --oyiso-banner-content-items: flex-start;
@@ -127,6 +128,7 @@
     --oyiso-banner-radius: 8px !important;
     --oyiso-banner-title-size: 42px !important;
     --oyiso-banner-description-size: 16px !important;
+    --oyiso-banner-content-max-width: 920px !important;
     --oyiso-banner-vertical-align: flex-end !important;
     --oyiso-tabs-display: flex !important;
     --oyiso-tabs-columns: none !important;
@@ -934,7 +936,7 @@
     flex-direction: column;
     align-items: var(--oyiso-banner-content-items);
     width: 100%;
-    max-width: 680px;
+    max-width: min(100%, var(--oyiso-banner-content-max-width));
     text-align: var(--oyiso-banner-content-text-align);
 }
 
@@ -2169,6 +2171,8 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     .oyiso-coupons {
         gap: var(--oyiso-coupons-gap);
         --oyiso-banner-min-height: 220px;
+        --oyiso-banner-title-size: 24px;
+        --oyiso-banner-description-size: 14px;
     }
 
     .oyiso-coupons-default-style-yes .oyiso-coupons {
@@ -2188,7 +2192,20 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     }
 
     .oyiso-coupons__title {
-        font-size: var(--oyiso-banner-title-size);
+        font-size: min(var(--oyiso-banner-title-size), 24px);
+        margin: 8px 0 6px;
+        line-height: 1.12;
+    }
+
+    .oyiso-coupons__kicker {
+        min-height: 22px;
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+
+    .oyiso-coupons__description {
+        font-size: min(var(--oyiso-banner-description-size), 14px);
+        line-height: 1.5;
     }
 
     .oyiso-coupons__tabs {
