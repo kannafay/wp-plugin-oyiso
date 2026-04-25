@@ -74,6 +74,7 @@
     --oyiso-tabs-gap: 12px;
     --oyiso-tabs-margin-bottom: 20px;
     --oyiso-tabs-overflow-x: visible;
+    --oyiso-tabs-segmented-width: fit-content;
     --oyiso-tabs-padding: 0;
     --oyiso-tabs-border-bottom: 0;
     --oyiso-tabs-bg: transparent;
@@ -132,6 +133,7 @@
     --oyiso-tabs-wrap: wrap !important;
     --oyiso-tabs-gap: 12px !important;
     --oyiso-tabs-margin-bottom: 20px !important;
+    --oyiso-tabs-segmented-width: fit-content !important;
     --oyiso-tabs-bg: transparent !important;
     --oyiso-tabs-radius: 0 !important;
     --oyiso-tabs-shadow: none !important;
@@ -460,7 +462,7 @@ body .oyiso-coupons-tabs-style-underline .oyiso-coupons .oyiso-coupons__tab.is-a
 }
 
 .oyiso-coupons-tabs-style-segmented .oyiso-coupons__tabs {
-    width: fit-content;
+    width: var(--oyiso-tabs-segmented-width);
     max-width: 100%;
 }
 

@@ -496,14 +496,14 @@ class Coupons extends Widget_Base
             'type'                 => Controls_Manager::SELECT,
             'default'              => 'wrap',
             'tablet_default'       => 'wrap',
-            'mobile_default'       => 'grid_2',
+            'mobile_default'       => 'wrap',
             'placeholder'          => 'wrap',
             'device_args'          => [
                 'tablet' => [
                     'placeholder' => 'wrap',
                 ],
                 'mobile' => [
-                    'placeholder' => 'grid_2',
+                    'placeholder' => 'wrap',
                 ],
             ],
             'options'              => [
@@ -513,10 +513,10 @@ class Coupons extends Widget_Base
                 'grid_3' => __('3 列网格', 'oyiso'),
             ],
             'selectors_dictionary' => [
-                'wrap'   => '--oyiso-tabs-display: flex; --oyiso-tabs-columns: none; --oyiso-tabs-wrap: wrap;',
-                'grid_1' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(1, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tab-bg: #f7f8f9;',
-                'grid_2' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(2, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tab-bg: #f7f8f9;',
-                'grid_3' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(3, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tab-bg: #f7f8f9;',
+                'wrap'   => '--oyiso-tabs-display: flex; --oyiso-tabs-columns: none; --oyiso-tabs-wrap: wrap; --oyiso-tabs-segmented-width: fit-content;',
+                'grid_1' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(1, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tab-bg: #f7f8f9; --oyiso-tabs-segmented-width: 100%;',
+                'grid_2' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(2, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tab-bg: #f7f8f9; --oyiso-tabs-segmented-width: 100%;',
+                'grid_3' => '--oyiso-tabs-display: grid; --oyiso-tabs-columns: repeat(3, minmax(0, 1fr)); --oyiso-tabs-wrap: nowrap; --oyiso-tab-bg: #f7f8f9; --oyiso-tabs-segmented-width: 100%;',
             ],
             'selectors'            => [
                 '{{WRAPPER}} .oyiso-coupons' => '{{VALUE}}',
