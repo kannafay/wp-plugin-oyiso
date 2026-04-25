@@ -664,3 +664,304 @@ msgstr "Proszę wprowadzić prawidłowy adres URL."
 
 #~ msgid "Write shortcode here..."
 #~ msgstr "Wprowadź shortcode..."
+
+# Oyiso coupons widget
+msgid "Settings"
+msgstr "Ustawienia"
+
+msgid "Oyiso"
+msgstr "Oyiso"
+
+msgid "Oyiso Coupons"
+msgstr "Kupony Oyiso"
+
+msgid "Banner"
+msgstr "Baner"
+
+msgid "Banner Background"
+msgstr "Tlo banera"
+
+msgid "Custom Background"
+msgstr "Wlasne tlo"
+
+msgid "Background Type"
+msgstr "Typ tla"
+
+msgid "Image"
+msgstr "Obraz"
+
+msgid "Subtitle"
+msgstr "Podtytul"
+
+msgid "Featured Deals"
+msgstr "Polecane okazje"
+
+msgid "Title"
+msgstr "Tytul"
+
+msgid "Limited-Time Coupon Deals"
+msgstr "Kupony promocyjne na czas ograniczony"
+
+msgid "Description"
+msgstr "Opis"
+
+msgid "Explore our current offers in one place and discover the most suitable savings for your purchase."
+msgstr "Poznaj nasze aktualne oferty w jednym miejscu i odkryj oszczednosci najlepiej dopasowane do Twojego zakupu."
+
+msgid "Coupon Groups"
+msgstr "Grupy kuponow"
+
+msgid "Group Name"
+msgstr "Nazwa grupy"
+
+msgid "e.g. Featured Deals"
+msgstr "np. Polecane okazje"
+
+msgid "Select Coupons"
+msgstr "Wybierz kupony"
+
+msgid "Group Color"
+msgstr "Kolor grupy"
+
+msgid "Group Icon"
+msgstr "Ikona grupy"
+
+msgid "Groups"
+msgstr "Grupy"
+
+msgid "The frontend automatically adds an \"All\" tab. If the same coupon is assigned to multiple groups, it is shown only in the first matching group."
+msgstr "Frontend automatycznie dodaje zakladke \"Wszystkie\". Jesli ten sam kupon zostanie przypisany do wielu grup, pojawi sie tylko w pierwszej pasujacej grupie."
+
+msgid "Basic"
+msgstr "Podstawowe"
+
+msgid "Use Default Style"
+msgstr "Uzyj stylu domyslnego"
+
+msgid "Yes"
+msgstr "Tak"
+
+msgid "No"
+msgstr "Nie"
+
+msgid "When enabled, the widget temporarily uses the plugin default style. Disable it to restore your current custom settings."
+msgstr "Po wlaczeniu widget tymczasowo uzyje domyslnego stylu wtyczki. Wylacz te opcje, aby przywrocic biezace ustawienia wlasne."
+
+msgid "Accent Color"
+msgstr "Kolor akcentu"
+
+msgid "Used for the \"All\" tab, dialog links, and as the fallback color when a group has no custom color. Group colors take priority."
+msgstr "Uzywany dla zakladki \"Wszystkie\", linkow w oknie dialogowym i jako kolor zapasowy, gdy grupa nie ma wlasnego koloru. Kolory grup maja pierwszenstwo."
+
+msgid "Dark Text"
+msgstr "Ciemny tekst"
+
+msgid "Border Color"
+msgstr "Kolor obramowania"
+
+msgid "Section Gap"
+msgstr "Odstep sekcji"
+
+msgid "Height"
+msgstr "Wysokosc"
+
+msgid "Padding"
+msgstr "Wewnetrzny odstep"
+
+msgid "Horizontal Alignment"
+msgstr "Wyrownanie poziome"
+
+msgid "Left"
+msgstr "Do lewej"
+
+msgid "Center"
+msgstr "Do srodka"
+
+msgid "Right"
+msgstr "Do prawej"
+
+msgid "Vertical Alignment"
+msgstr "Wyrownanie pionowe"
+
+msgid "Top"
+msgstr "Gora"
+
+msgid "Bottom"
+msgstr "Dol"
+
+msgid "Corner Radius"
+msgstr "Promien naroznikow"
+
+msgid "Title Size"
+msgstr "Rozmiar tytulu"
+
+msgid "Description Size"
+msgstr "Rozmiar opisu"
+
+msgid "Tabs"
+msgstr "Zakladki"
+
+msgid "Style Preset"
+msgstr "Styl"
+
+msgid "Default Dot"
+msgstr "Domyslna kropka"
+
+msgid "Pills"
+msgstr "Kapsulki"
+
+msgid "Underline"
+msgstr "Podkreslenie"
+
+msgid "Segmented Control"
+msgstr "Kontrolka segmentowa"
+
+msgid "Minimal Text"
+msgstr "Minimalny tekst"
+
+msgid "Layout"
+msgstr "Uklad"
+
+msgid "Wrap"
+msgstr "Zawijanie"
+
+msgid "1 Column Grid"
+msgstr "Siatka 1 kolumny"
+
+msgid "2 Column Grid"
+msgstr "Siatka 2 kolumn"
+
+msgid "3 Column Grid"
+msgstr "Siatka 3 kolumn"
+
+msgid "Tab Gap"
+msgstr "Odstep zakladek"
+
+msgid "Bottom Spacing"
+msgstr "Dolny odstep"
+
+msgid "Button Height"
+msgstr "Wysokosc przycisku"
+
+msgid "Button Radius"
+msgstr "Promien przycisku"
+
+msgid "Text Size"
+msgstr "Rozmiar tekstu"
+
+msgid "Coupons"
+msgstr "Kupony"
+
+msgid "Card Background"
+msgstr "Tlo karty"
+
+msgid "Card Gap"
+msgstr "Odstep kart"
+
+msgid "Card Radius"
+msgstr "Promien karty"
+
+msgid "Card Shadow"
+msgstr "Cien karty"
+
+msgid "Content Padding"
+msgstr "Wewnetrzny odstep tresci"
+
+msgid "Amount Size"
+msgstr "Rozmiar kwoty"
+
+msgid "Description Text Size"
+msgstr "Rozmiar tekstu opisu"
+
+msgid "None"
+msgstr "Brak"
+
+msgid "Custom Image"
+msgstr "Wlasny obraz"
+
+msgid "Cosmic Rewards"
+msgstr "Kosmiczne okazje"
+
+msgid "Ocean Treasure"
+msgstr "Oceaniczny skarb"
+
+msgid "Diamond Vault"
+msgstr "Diamentowy skarbiec"
+
+msgid "Mall Parade"
+msgstr "Parada zakupow"
+
+msgid "Expand"
+msgstr "Rozwin"
+
+msgid "Collapse"
+msgstr "Zwin"
+
+msgid "Copied"
+msgstr "Skopiowano"
+
+msgid "Scope"
+msgstr "Zakres"
+
+msgid "%1$s - Scope"
+msgstr "%1$s - Zakres"
+
+msgid "Close"
+msgstr "Zamknij"
+
+msgid "Please enable WooCommerce before using the Coupons widget."
+msgstr "Wlacz WooCommerce przed uzyciem widgetu Kupony."
+
+msgid "Add coupon groups and choose WooCommerce coupons in the widget settings first."
+msgstr "Najpierw dodaj grupy kuponow i wybierz kupony WooCommerce w ustawieniach widgetu."
+
+msgid "Group %d"
+msgstr "Grupa %d"
+
+msgid "All"
+msgstr "Wszystkie"
+
+msgid "Apply this coupon at checkout to enjoy the available savings."
+msgstr "Uzyj kuponu przy kasie, aby skorzystac ze znizki."
+
+msgid "Discount"
+msgstr "Rabat"
+
+msgid "Cart Discount"
+msgstr "Rabat na koszyk"
+
+msgid "Product Discount"
+msgstr "Rabat na produkt"
+
+msgid "Coupon"
+msgstr "Kupon"
+
+msgid "Unlimited"
+msgstr "Bez ograniczen"
+
+msgid "Included Products"
+msgstr "Objete produkty"
+
+msgid "Included Categories"
+msgstr "Objete kategorie"
+
+msgid "Minimum Spend"
+msgstr "Minimalna kwota zamowienia"
+
+msgid "Maximum Spend"
+msgstr "Maksymalna kwota zamowienia"
+
+msgid "Free Shipping"
+msgstr "Darmowa wysylka"
+
+msgid "Remaining"
+msgstr "Pozostalo"
+
+msgid "No Expiration"
+msgstr "Bez terminu waznosci"
+
+msgid "Copy"
+msgstr "Kopiuj"
+
+msgid "Validity"
+msgstr "Waznosc"

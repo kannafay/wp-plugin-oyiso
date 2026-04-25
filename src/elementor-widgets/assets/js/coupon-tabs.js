@@ -1,4 +1,6 @@
 (function () {
+    var couponTabsI18n = window.oyisoCouponTabsI18n || {};
+
     function activateTab(root, key) {
         root.querySelectorAll('[data-coupon-tab]').forEach(function (tab) {
             var isActive = tab.getAttribute('data-coupon-tab') === key;
@@ -214,12 +216,12 @@
             description.classList.add('is-expanded');
             viewport.style.maxHeight = expandedHeight + 'px';
             button.setAttribute('aria-expanded', 'true');
-            button.textContent = button.getAttribute('data-collapse-text') || '收起';
+            button.textContent = button.getAttribute('data-collapse-text') || getI18nString('collapse', 'Collapse');
             return;
         }
 
         button.setAttribute('aria-expanded', 'false');
-        button.textContent = button.getAttribute('data-expand-text') || '展开';
+        button.textContent = button.getAttribute('data-expand-text') || getI18nString('expand', 'Expand');
     }
 
     function toggleDescription(button) {
@@ -241,8 +243,8 @@
         description.classList.toggle('is-expanded', isExpanded);
         button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
         button.textContent = isExpanded
-            ? button.getAttribute('data-collapse-text') || '收起'
-            : button.getAttribute('data-expand-text') || '展开';
+            ? button.getAttribute('data-collapse-text') || getI18nString('collapse', 'Collapse')
+            : button.getAttribute('data-expand-text') || getI18nString('expand', 'Expand');
     }
 
     function getCollapsedDescriptionHeight(text) {
@@ -272,6 +274,20 @@
         };
     }
 
+    function getI18nString(key, fallback) {
+        var value = couponTabsI18n[key];
+
+        return typeof value === 'string' && value !== '' ? value : fallback;
+    }
+
+    function formatI18nString(template, replacements) {
+        return template.replace(/%(\d+\$)?s/g, function (match, indexToken) {
+            var index = indexToken ? parseInt(indexToken, 10) - 1 : 0;
+
+            return Object.prototype.hasOwnProperty.call(replacements, index) ? replacements[index] : match;
+        });
+    }
+
     function openScopeDialog(button) {
         var dialog = getScopeDialog();
         var title = dialog.querySelector('[data-coupon-scope-title]');
@@ -280,7 +296,9 @@
         var root = button.closest('[data-oyiso-coupons]');
         var accentColor = root ? window.getComputedStyle(root).getPropertyValue('--oyiso-coupon-accent').trim() : '';
 
-        title.textContent = code ? code + ' - 适用范围' : '适用范围';
+        title.textContent = code
+            ? formatI18nString(getI18nString('scopeTitleWithCode', '%1$s - Scope'), [code])
+            : getI18nString('scopeTitle', 'Scope');
         content.innerHTML = button.getAttribute('data-coupon-scope') || '';
         dialog.style.setProperty('--oyiso-coupon-accent', accentColor || '#e5702a');
         dialog.classList.remove('is-closing');
@@ -321,7 +339,7 @@
         dialog.innerHTML = [
             '<div class="oyiso-scope-dialog__backdrop" data-coupon-scope-close></div>',
             '<div class="oyiso-scope-dialog__panel" role="dialog" aria-modal="true">',
-            '<button class="oyiso-scope-dialog__close" type="button" data-coupon-scope-close aria-label="关闭"></button>',
+            '<button class="oyiso-scope-dialog__close" type="button" data-coupon-scope-close aria-label="' + escapeHtmlAttribute(getI18nString('closeLabel', 'Close')) + '"></button>',
             '<h3 class="oyiso-scope-dialog__title" data-coupon-scope-title></h3>',
             '<div class="oyiso-scope-dialog__content" data-coupon-scope-content></div>',
             '</div>'
@@ -340,7 +358,7 @@
 
         copyText(code).then(function () {
             var originalText = button.textContent;
-            button.textContent = button.getAttribute('data-copied-text') || '已复制';
+            button.textContent = button.getAttribute('data-copied-text') || getI18nString('copied', 'Copied');
             button.classList.add('is-copied');
 
             window.setTimeout(function () {
@@ -366,6 +384,18 @@
             document.execCommand('copy');
             document.body.removeChild(textarea);
             resolve();
+        });
+    }
+
+    function escapeHtmlAttribute(value) {
+        return String(value).replace(/[&<>"']/g, function (char) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char];
         });
     }
 })();

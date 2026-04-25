@@ -970,7 +970,8 @@
 }
 
 .oyiso-coupons__description {
-    max-width: 560px;
+    width: 100%;
+    max-width: none;
     margin: 0;
     color: rgba(255, 255, 255, 0.84);
     font-size: var(--oyiso-banner-description-size);
@@ -1830,6 +1831,12 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         min-height: var(--oyiso-banner-min-height);
         padding: var(--oyiso-banner-padding);
         border-radius: var(--oyiso-banner-radius);
+    }
+
+    .oyiso-coupons__banner--plain {
+        min-height: 0;
+        padding: 0;
+        border-radius: 0;
     }
 
     .oyiso-coupons__title {

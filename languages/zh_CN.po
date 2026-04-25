@@ -670,3 +670,304 @@ msgstr "Codestar"
 #. Author URI of the plugin/theme
 msgid "http://codestarthemes.com/"
 msgstr "http://codestarthemes.com/"
+
+# Oyiso coupons widget
+msgid "Settings"
+msgstr "设置"
+
+msgid "Oyiso"
+msgstr "橘子猫头"
+
+msgid "Oyiso Coupons"
+msgstr "Oyiso 优惠券"
+
+msgid "Banner"
+msgstr "横幅"
+
+msgid "Banner Background"
+msgstr "横幅背景"
+
+msgid "Custom Background"
+msgstr "自定义背景"
+
+msgid "Background Type"
+msgstr "背景类型"
+
+msgid "Image"
+msgstr "图片"
+
+msgid "Subtitle"
+msgstr "辅助标题"
+
+msgid "Featured Deals"
+msgstr "精选优惠"
+
+msgid "Title"
+msgstr "标题"
+
+msgid "Limited-Time Coupon Deals"
+msgstr "限时优惠券专区"
+
+msgid "Description"
+msgstr "描述"
+
+msgid "Explore our current offers in one place and discover the most suitable savings for your purchase."
+msgstr "汇集当前可用优惠信息，帮助客户轻松发现更适合本次购买的专属优惠。"
+
+msgid "Coupon Groups"
+msgstr "优惠券分组"
+
+msgid "Group Name"
+msgstr "分组名称"
+
+msgid "e.g. Featured Deals"
+msgstr "例如：热门优惠"
+
+msgid "Select Coupons"
+msgstr "选择优惠券"
+
+msgid "Group Color"
+msgstr "分组颜色"
+
+msgid "Group Icon"
+msgstr "分组图标"
+
+msgid "Groups"
+msgstr "分组列表"
+
+msgid "The frontend automatically adds an \"All\" tab. If the same coupon is assigned to multiple groups, it is shown only in the first matching group."
+msgstr "前台会自动生成“全部”标签。同一张优惠券如果被多个分组选择，仅会显示在第一个选择它的分组中。"
+
+msgid "Basic"
+msgstr "基础"
+
+msgid "Use Default Style"
+msgstr "使用默认样式"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "No"
+msgstr "否"
+
+msgid "When enabled, the widget temporarily uses the plugin default style. Disable it to restore your current custom settings."
+msgstr "开启后会临时使用插件默认样式；关闭后恢复当前自定义设置。"
+
+msgid "Accent Color"
+msgstr "强调色"
+
+msgid "Used for the \"All\" tab, dialog links, and as the fallback color when a group has no custom color. Group colors take priority."
+msgstr "用于“全部”标签、弹窗链接，以及没有单独设置分组颜色时的默认颜色。分组颜色会优先显示。"
+
+msgid "Dark Text"
+msgstr "深色文字"
+
+msgid "Border Color"
+msgstr "线条颜色"
+
+msgid "Section Gap"
+msgstr "板块间距"
+
+msgid "Height"
+msgstr "高度"
+
+msgid "Padding"
+msgstr "内边距"
+
+msgid "Horizontal Alignment"
+msgstr "水平对齐"
+
+msgid "Left"
+msgstr "左对齐"
+
+msgid "Center"
+msgstr "居中"
+
+msgid "Right"
+msgstr "右对齐"
+
+msgid "Vertical Alignment"
+msgstr "垂直对齐"
+
+msgid "Top"
+msgstr "顶部"
+
+msgid "Bottom"
+msgstr "底部"
+
+msgid "Corner Radius"
+msgstr "圆角"
+
+msgid "Title Size"
+msgstr "标题大小"
+
+msgid "Description Size"
+msgstr "描述大小"
+
+msgid "Tabs"
+msgstr "标签栏"
+
+msgid "Style Preset"
+msgstr "样式设计"
+
+msgid "Default Dot"
+msgstr "默认圆点"
+
+msgid "Pills"
+msgstr "胶囊色块"
+
+msgid "Underline"
+msgstr "下划线"
+
+msgid "Segmented Control"
+msgstr "分段控件"
+
+msgid "Minimal Text"
+msgstr "极简文字"
+
+msgid "Layout"
+msgstr "布局"
+
+msgid "Wrap"
+msgstr "自动换行"
+
+msgid "1 Column Grid"
+msgstr "1 列网格"
+
+msgid "2 Column Grid"
+msgstr "2 列网格"
+
+msgid "3 Column Grid"
+msgstr "3 列网格"
+
+msgid "Tab Gap"
+msgstr "标签间距"
+
+msgid "Bottom Spacing"
+msgstr "底部间距"
+
+msgid "Button Height"
+msgstr "按钮高度"
+
+msgid "Button Radius"
+msgstr "按钮圆角"
+
+msgid "Text Size"
+msgstr "文字大小"
+
+msgid "Coupons"
+msgstr "优惠券"
+
+msgid "Card Background"
+msgstr "卡片背景"
+
+msgid "Card Gap"
+msgstr "卡片间距"
+
+msgid "Card Radius"
+msgstr "卡片圆角"
+
+msgid "Card Shadow"
+msgstr "卡片阴影"
+
+msgid "Content Padding"
+msgstr "内容内边距"
+
+msgid "Amount Size"
+msgstr "金额大小"
+
+msgid "Description Text Size"
+msgstr "描述文字大小"
+
+msgid "None"
+msgstr "无"
+
+msgid "Custom Image"
+msgstr "自定义图片"
+
+msgid "Cosmic Rewards"
+msgstr "星穹礼遇"
+
+msgid "Ocean Treasure"
+msgstr "深海礼藏"
+
+msgid "Diamond Vault"
+msgstr "钻耀臻礼"
+
+msgid "Mall Parade"
+msgstr "都会购享"
+
+msgid "Expand"
+msgstr "展开"
+
+msgid "Collapse"
+msgstr "收起"
+
+msgid "Copied"
+msgstr "已复制"
+
+msgid "Scope"
+msgstr "适用范围"
+
+msgid "%1$s - Scope"
+msgstr "%1$s - 适用范围"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Please enable WooCommerce before using the Coupons widget."
+msgstr "请先启用 WooCommerce 后再使用优惠券小部件。"
+
+msgid "Add coupon groups and choose WooCommerce coupons in the widget settings first."
+msgstr "请在小部件设置中添加优惠券分组并选择 WooCommerce 优惠券。"
+
+msgid "Group %d"
+msgstr "分组 %d"
+
+msgid "All"
+msgstr "全部"
+
+msgid "Apply this coupon at checkout to enjoy the available savings."
+msgstr "下单结算时使用此优惠券，即可享受相应优惠。"
+
+msgid "Discount"
+msgstr "折扣优惠"
+
+msgid "Cart Discount"
+msgstr "满减优惠"
+
+msgid "Product Discount"
+msgstr "商品优惠"
+
+msgid "Coupon"
+msgstr "优惠券"
+
+msgid "Unlimited"
+msgstr "不限制"
+
+msgid "Included Products"
+msgstr "指定商品"
+
+msgid "Included Categories"
+msgstr "指定分类"
+
+msgid "Minimum Spend"
+msgstr "最低消费"
+
+msgid "Maximum Spend"
+msgstr "最高消费"
+
+msgid "Free Shipping"
+msgstr "免运费"
+
+msgid "Remaining"
+msgstr "剩余数量"
+
+msgid "No Expiration"
+msgstr "长期有效"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "Validity"
+msgstr "有效期"

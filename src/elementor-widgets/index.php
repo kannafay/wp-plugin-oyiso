@@ -90,11 +90,20 @@ add_action('elementor/frontend/after_register_scripts', function () {
         file_exists($script_path) ? filemtime($script_path) : '1.0.0',
         true
     );
+
+    wp_localize_script('oyiso-coupon-tabs', 'oyisoCouponTabsI18n', [
+        'expand'             => __('Expand', 'oyiso'),
+        'collapse'           => __('Collapse', 'oyiso'),
+        'copied'             => __('Copied', 'oyiso'),
+        'scopeTitle'         => __('Scope', 'oyiso'),
+        'scopeTitleWithCode' => __('%1$s - Scope', 'oyiso'),
+        'closeLabel'         => __('Close', 'oyiso'),
+    ]);
 });
 
 add_action('elementor/elements/categories_registered', function ($elements_manager) {
     $elements_manager->add_category('oyiso', [
-        'title' => __('橘子猫头', 'oyiso'),
+        'title' => __('Oyiso', 'oyiso'),
         'icon'  => 'fa fa-plug',
     ]);
 }, 0);

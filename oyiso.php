@@ -10,8 +10,21 @@ Domain Path: /languages
 
 defined('ABSPATH') || exit;
 
+add_action('init', function () {
+    $locale = determine_locale();
+    $mofile = plugin_dir_path(__FILE__) . 'languages/' . $locale . '.mo';
+
+    if (is_readable($mofile)) {
+        unload_textdomain('oyiso');
+        load_textdomain('oyiso', $mofile);
+        return;
+    }
+
+    load_plugin_textdomain('oyiso', false, dirname(plugin_basename(__FILE__)) . '/languages');
+});
+
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links) {
-    $settings_link = '<a href="plugins.php?page=oyiso">' . __('Settings') . '</a>';
+    $settings_link = '<a href="plugins.php?page=oyiso">' . __('Settings', 'oyiso') . '</a>';
     array_unshift($links, $settings_link);
     return $links;
 });
