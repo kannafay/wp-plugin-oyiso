@@ -13,59 +13,57 @@ use Elementor\Widget_Base;
 
 class Coupons extends Widget_Base
 {
-    private function get_site_default_text(string $text): string
+    private function get_site_locale(): string
     {
         $site_locale = is_multisite()
             ? (get_option('WPLANG') ?: get_site_option('WPLANG'))
             : get_option('WPLANG');
-        $site_locale = $site_locale ?: get_locale();
-        $current_locale = determine_locale();
+
+        if (!$site_locale && function_exists('get_bloginfo')) {
+            $site_language = (string) get_bloginfo('language');
+
+            if ($site_language) {
+                $site_locale = str_replace('-', '_', $site_language);
+            }
+        }
+
+        return $site_locale ?: 'en_US';
+    }
+
+    private function translate_for_locale(string $text, string $locale): string
+    {
+        static $catalogs = [];
+        $mofile = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'languages' . DIRECTORY_SEPARATOR . 'oyiso-' . $locale . '.mo';
+
+        if (!is_readable($mofile)) {
+            return $text;
+        }
+
+        if (!array_key_exists($locale, $catalogs)) {
+            if (!class_exists('\MO')) {
+                require_once ABSPATH . WPINC . '/pomo/mo.php';
+            }
+
+            $mo = new \MO();
+            $catalogs[$locale] = $mo->import_from_file($mofile) ? $mo : false;
+        }
+
+        if (!$catalogs[$locale]) {
+            return $text;
+        }
+
+        $translated = $catalogs[$locale]->translate($text);
+
+        return is_string($translated) && $translated !== '' ? $translated : $text;
+    }
+
+    private function get_site_default_text(string $text): string
+    {
+        $site_locale = $this->get_site_locale();
         $fallback = translate($text, 'oyiso');
+        $translated = $this->translate_for_locale($text, $site_locale);
 
-        if ($current_locale === $site_locale) {
-            return $fallback;
-        }
-
-        $languages_dir = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'languages' . DIRECTORY_SEPARATOR;
-        $candidates = [
-            $languages_dir . 'oyiso-' . $site_locale . '.mo',
-        ];
-        $current_candidates = [
-            $languages_dir . 'oyiso-' . $current_locale . '.mo',
-        ];
-        $site_mofile = '';
-        $current_mofile = '';
-
-        foreach ($candidates as $candidate) {
-            if (is_readable($candidate)) {
-                $site_mofile = $candidate;
-                break;
-            }
-        }
-
-        foreach ($current_candidates as $candidate) {
-            if (is_readable($candidate)) {
-                $current_mofile = $candidate;
-                break;
-            }
-        }
-
-        if (!$site_mofile) {
-            return $fallback;
-        }
-
-        unload_textdomain('oyiso');
-        load_textdomain('oyiso', $site_mofile);
-
-        $translated = translate($text, 'oyiso');
-
-        unload_textdomain('oyiso');
-
-        if ($current_mofile) {
-            load_textdomain('oyiso', $current_mofile);
-        }
-
-        return $translated ?: $fallback;
+        return $translated !== $text ? $translated : $fallback;
     }
 
     public function get_name()
@@ -181,7 +179,7 @@ class Coupons extends Widget_Base
             'label'       => __('Group Name', 'oyiso'),
             'type'        => Controls_Manager::TEXT,
             'default'     => $this->get_site_default_text('Featured Offers'),
-            'placeholder' => __('e.g. Featured Offers', 'oyiso'),
+            'placeholder' => $this->get_site_default_text('e.g. Featured Offers'),
         ]);
 
         $repeater->add_control('coupon_ids', [
