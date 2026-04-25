@@ -11,16 +11,15 @@ Domain Path: /languages
 defined('ABSPATH') || exit;
 
 add_action('init', function () {
+    load_plugin_textdomain('oyiso', false, dirname(plugin_basename(__FILE__)) . '/languages');
+
     $locale = determine_locale();
-    $mofile = plugin_dir_path(__FILE__) . 'languages/' . $locale . '.mo';
+    $mofile = plugin_dir_path(__FILE__) . 'languages/oyiso-' . $locale . '.mo';
 
     if (is_readable($mofile)) {
         unload_textdomain('oyiso');
         load_textdomain('oyiso', $mofile);
-        return;
     }
-
-    load_plugin_textdomain('oyiso', false, dirname(plugin_basename(__FILE__)) . '/languages');
 });
 
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links) {

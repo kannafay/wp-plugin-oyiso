@@ -216,12 +216,12 @@
             description.classList.add('is-expanded');
             viewport.style.maxHeight = expandedHeight + 'px';
             button.setAttribute('aria-expanded', 'true');
-            button.textContent = button.getAttribute('data-collapse-text') || getI18nString('collapse', 'Collapse');
+            button.textContent = button.getAttribute('data-collapse-text') || getI18nString('collapse', 'Show Less');
             return;
         }
 
         button.setAttribute('aria-expanded', 'false');
-        button.textContent = button.getAttribute('data-expand-text') || getI18nString('expand', 'Expand');
+        button.textContent = button.getAttribute('data-expand-text') || getI18nString('expand', 'Show More');
     }
 
     function toggleDescription(button) {
@@ -243,8 +243,8 @@
         description.classList.toggle('is-expanded', isExpanded);
         button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
         button.textContent = isExpanded
-            ? button.getAttribute('data-collapse-text') || getI18nString('collapse', 'Collapse')
-            : button.getAttribute('data-expand-text') || getI18nString('expand', 'Expand');
+            ? button.getAttribute('data-collapse-text') || getI18nString('collapse', 'Show Less')
+            : button.getAttribute('data-expand-text') || getI18nString('expand', 'Show More');
     }
 
     function getCollapsedDescriptionHeight(text) {
@@ -297,8 +297,8 @@
         var accentColor = root ? window.getComputedStyle(root).getPropertyValue('--oyiso-coupon-accent').trim() : '';
 
         title.textContent = code
-            ? formatI18nString(getI18nString('scopeTitleWithCode', '%1$s - Scope'), [code])
-            : getI18nString('scopeTitle', 'Scope');
+            ? formatI18nString(getI18nString('scopeTitleWithCode', '%1$s - Offer Details'), [code])
+            : getI18nString('scopeTitle', 'Offer Details');
         content.innerHTML = button.getAttribute('data-coupon-scope') || '';
         dialog.style.setProperty('--oyiso-coupon-accent', accentColor || '#e5702a');
         dialog.classList.remove('is-closing');

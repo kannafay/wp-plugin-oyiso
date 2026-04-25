@@ -92,11 +92,11 @@ add_action('elementor/frontend/after_register_scripts', function () {
     );
 
     wp_localize_script('oyiso-coupon-tabs', 'oyisoCouponTabsI18n', [
-        'expand'             => __('Expand', 'oyiso'),
-        'collapse'           => __('Collapse', 'oyiso'),
+        'expand'             => __('Show More', 'oyiso'),
+        'collapse'           => __('Show Less', 'oyiso'),
         'copied'             => __('Copied', 'oyiso'),
-        'scopeTitle'         => __('Scope', 'oyiso'),
-        'scopeTitleWithCode' => __('%1$s - Scope', 'oyiso'),
+        'scopeTitle'         => __('Offer Details', 'oyiso'),
+        'scopeTitleWithCode' => __('%1$s - Offer Details', 'oyiso'),
         'closeLabel'         => __('Close', 'oyiso'),
     ]);
 });
