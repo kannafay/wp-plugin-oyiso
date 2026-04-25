@@ -1817,14 +1817,14 @@ class Coupons extends Widget_Base
 
         $expires_timestamp = $date_expires->getTimestamp();
         $created = $coupon->get_date_created();
-        $created_timestamp = $created ? $created->getTimestamp() : current_time('timestamp');
-        $now = current_time('timestamp');
+        $created_timestamp = $created ? $created->getTimestamp() : current_time('timestamp', true);
+        $now = current_time('timestamp', true);
         $duration = max(1, $expires_timestamp - $created_timestamp);
         $remaining = max(0, $expires_timestamp - $now);
 
         return [
             'label' => __('Validity', 'oyiso'),
-            'value' => date_i18n(get_option('date_format'), $expires_timestamp),
+            'value' => $date_expires->date('Y-m-d'),
             'percent' => max(0, min(100, ($remaining / $duration) * 100)),
         ];
     }
