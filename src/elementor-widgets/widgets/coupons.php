@@ -153,19 +153,19 @@ class Coupons extends Widget_Base
         $this->add_control('banner_kicker', [
             'label'   => __('Intro Label', 'oyiso'),
             'type'    => Controls_Manager::TEXT,
-            'default' => $this->get_site_default_text('Featured Deals'),
+            'default' => $this->get_site_default_text('Featured Offers'),
         ]);
 
         $this->add_control('banner_title', [
             'label'   => __('Title', 'oyiso'),
             'type'    => Controls_Manager::TEXT,
-            'default' => $this->get_site_default_text('Limited-Time Coupon Deals'),
+            'default' => $this->get_site_default_text('Limited-Time Offers'),
         ]);
 
         $this->add_control('banner_description', [
             'label'   => __('Description', 'oyiso'),
             'type'    => Controls_Manager::TEXTAREA,
-            'default' => $this->get_site_default_text('Explore our current offers in one place and discover the most suitable savings for your purchase.'),
+            'default' => $this->get_site_default_text('Browse current offers and quickly find the best savings for your order.'),
         ]);
 
         $this->end_controls_section();
@@ -180,8 +180,8 @@ class Coupons extends Widget_Base
         $repeater->add_control('group_name', [
             'label'       => __('Group Name', 'oyiso'),
             'type'        => Controls_Manager::TEXT,
-            'default'     => $this->get_site_default_text('Featured Deals'),
-            'placeholder' => __('e.g. Featured Deals', 'oyiso'),
+            'default'     => $this->get_site_default_text('Featured Offers'),
+            'placeholder' => __('e.g. Featured Offers', 'oyiso'),
         ]);
 
         $repeater->add_control('coupon_ids', [
@@ -214,7 +214,7 @@ class Coupons extends Widget_Base
             'title_field' => '{{{ group_name }}}',
             'default'     => [
                 [
-                    'group_name' => $this->get_site_default_text('Featured Deals'),
+                    'group_name' => $this->get_site_default_text('Featured Offers'),
                     'coupon_ids' => [],
                     'group_color' => '#e5702a',
                 ],
@@ -223,7 +223,7 @@ class Coupons extends Widget_Base
 
         $this->add_control('coupon_group_notice', [
             'type'            => Controls_Manager::RAW_HTML,
-            'raw'             => __('The frontend automatically adds an "All" tab. If the same coupon is assigned to multiple groups, it is shown only in the first matching group.', 'oyiso'),
+            'raw'             => __('The frontend adds an "All" tab automatically. If a coupon appears in multiple groups, it will show only in the first matching group.', 'oyiso'),
             'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
         ]);
 
@@ -235,13 +235,13 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_control('use_default_style', [
-            'label'        => __('Use Plugin Default Style', 'oyiso'),
+            'label'        => __('Use Default Style', 'oyiso'),
             'type'         => Controls_Manager::SWITCHER,
             'label_on'     => __('Yes', 'oyiso'),
             'label_off'    => __('No', 'oyiso'),
             'default'      => '',
             'return_value' => 'yes',
-            'description'  => __('When enabled, the widget temporarily uses the plugin default style. Disable it to restore your current custom settings.', 'oyiso'),
+            'description'  => __('Turn this on to preview the plugin default style. Turn it off to restore your current custom settings.', 'oyiso'),
             'prefix_class' => 'oyiso-coupons-default-style-',
         ]);
 
@@ -250,7 +250,7 @@ class Coupons extends Widget_Base
             'type'        => Controls_Manager::COLOR,
             'default'     => '#e5702a',
             'placeholder' => '#e5702a',
-            'description' => __('Used for the "All" tab, dialog links, and as the fallback color when a group has no custom color. Group colors take priority.', 'oyiso'),
+            'description' => __('Used for the "All" tab, dialog links, and as the fallback when a group has no custom color. Group colors override this setting.', 'oyiso'),
             'selectors'   => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupon-accent: {{VALUE}};',
             ],
@@ -1489,12 +1489,12 @@ class Coupons extends Widget_Base
         $widget_id = 'oyiso-coupons-' . esc_attr($this->get_id());
 
         if (!class_exists('WC_Coupon')) {
-            $this->render_notice(__('Please enable WooCommerce before using the Coupons widget.', 'oyiso'));
+            $this->render_notice(__('Enable WooCommerce before using the Coupons widget.', 'oyiso'));
             return;
         }
 
         if (empty($groups)) {
-            $this->render_notice(__('Add coupon groups and choose WooCommerce coupons in the widget settings first.', 'oyiso'));
+            $this->render_notice(__('Add a coupon group and choose WooCommerce coupons in the widget settings first.', 'oyiso'));
             return;
         }
         ?>
@@ -1702,7 +1702,7 @@ class Coupons extends Widget_Base
             'code'           => $code,
             'discount'       => $this->format_coupon_discount($coupon),
             'discount_label' => $this->format_coupon_type_label($coupon),
-            'description'    => $description ?: __('Apply this coupon code at checkout to receive the available savings.', 'oyiso'),
+            'description'    => $description ?: __('Apply this code at checkout to claim the offer.', 'oyiso'),
             'scope'          => $this->format_coupon_scope($coupon),
             'remaining'      => $this->get_coupon_remaining_data($coupon),
             'validity'       => $this->get_coupon_validity_data($coupon),
@@ -1755,7 +1755,7 @@ class Coupons extends Widget_Base
             return __('Product Discount', 'oyiso');
         }
 
-        return __('Coupon Offer', 'oyiso');
+        return __('Offer', 'oyiso');
     }
 
     private function format_coupon_scope(\WC_Coupon $coupon)
@@ -1807,13 +1807,16 @@ class Coupons extends Widget_Base
             }
         }
 
-        $unlimited = __('Unlimited', 'oyiso');
+        $all_products = __('All Products', 'oyiso');
+        $all_categories = __('All Categories', 'oyiso');
+        $no_minimum = __('No Minimum', 'oyiso');
+        $no_maximum = __('No Maximum', 'oyiso');
 
         return implode('', [
-            $this->format_coupon_scope_row(__('Eligible Products', 'oyiso'), !empty($product_links) ? implode(', ', $product_links) : esc_html($unlimited)),
-            $this->format_coupon_scope_row(__('Eligible Categories', 'oyiso'), !empty($category_links) ? implode(', ', $category_links) : esc_html($unlimited)),
-            $this->format_coupon_scope_row(__('Minimum Order', 'oyiso'), esc_html($minimum_amount > 0 ? $this->format_coupon_money($minimum_amount) : $unlimited)),
-            $this->format_coupon_scope_row(__('Maximum Order', 'oyiso'), esc_html($maximum_amount > 0 ? $this->format_coupon_money($maximum_amount) : $unlimited)),
+            $this->format_coupon_scope_row(__('Applies to Products', 'oyiso'), !empty($product_links) ? implode(', ', $product_links) : esc_html($all_products)),
+            $this->format_coupon_scope_row(__('Applies to Categories', 'oyiso'), !empty($category_links) ? implode(', ', $category_links) : esc_html($all_categories)),
+            $this->format_coupon_scope_row(__('Minimum Spend', 'oyiso'), esc_html($minimum_amount > 0 ? $this->format_coupon_money($minimum_amount) : $no_minimum)),
+            $this->format_coupon_scope_row(__('Maximum Spend', 'oyiso'), esc_html($maximum_amount > 0 ? $this->format_coupon_money($maximum_amount) : $no_maximum)),
             $this->format_coupon_scope_row(__('Free Shipping', 'oyiso'), esc_html($coupon->get_free_shipping() ? __('Yes', 'oyiso') : __('No', 'oyiso'))),
         ]);
     }
@@ -1843,7 +1846,7 @@ class Coupons extends Widget_Base
 
         if ($usage_limit <= 0) {
             return [
-                'label' => __('Redemptions Left', 'oyiso'),
+                'label' => __('Remaining Uses', 'oyiso'),
                 'value' => __('Unlimited', 'oyiso'),
                 'percent' => 100,
             ];
@@ -1852,7 +1855,7 @@ class Coupons extends Widget_Base
         $remaining = max(0, $usage_limit - $usage_count);
 
         return [
-            'label' => __('Redemptions Left', 'oyiso'),
+            'label' => __('Remaining Uses', 'oyiso'),
             'value' => sprintf(__('%1$d / %2$d', 'oyiso'), $remaining, $usage_limit),
             'percent' => max(0, min(100, ($remaining / $usage_limit) * 100)),
         ];
@@ -1864,8 +1867,8 @@ class Coupons extends Widget_Base
 
         if (!$date_expires) {
             return [
-                'label' => __('Valid Until', 'oyiso'),
-                'value' => __('No Expiry', 'oyiso'),
+                'label' => __('Expiry Date', 'oyiso'),
+                'value' => __('No Expiry Date', 'oyiso'),
                 'percent' => 100,
             ];
         }
@@ -1878,7 +1881,7 @@ class Coupons extends Widget_Base
         $remaining = max(0, $expires_timestamp - $now);
 
         return [
-            'label' => __('Valid Until', 'oyiso'),
+            'label' => __('Expiry Date', 'oyiso'),
             'value' => $date_expires->date('Y-m-d'),
             'percent' => max(0, min(100, ($remaining / $duration) * 100)),
         ];
