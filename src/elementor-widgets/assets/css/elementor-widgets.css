@@ -1960,8 +1960,12 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
     .oyiso-coupon-card__mobile-actions {
         display: grid;
-        gap: 8px;
-        margin-top: 14px;
+        margin: 16px -16px -16px;
+        gap: 0;
+        border-top: 1px solid #eceef2;
+        border-radius: 0 0 var(--oyiso-card-radius) var(--oyiso-card-radius);
+        overflow: hidden;
+        background: #fff;
     }
 
     .oyiso-coupon-card__mobile-actions--dual {
@@ -1972,14 +1976,46 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         grid-template-columns: 1fr;
     }
 
-    .oyiso-coupon-card__copy-button--mobile,
-    .oyiso-coupon-card__scope-button--mobile {
+    body .oyiso-coupons .oyiso-coupon-card__copy-button--mobile,
+    body .oyiso-coupons .oyiso-coupon-card__scope-button--mobile {
+        position: relative;
         width: 100% !important;
+        min-width: 0 !important;
         max-width: none !important;
-        height: 36px !important;
-        min-height: 36px !important;
-        max-height: 36px !important;
-        border-radius: 9px !important;
+        height: 42px !important;
+        min-height: 42px !important;
+        max-height: 42px !important;
+        padding: 0 12px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #71665d;
+        font-size: 14px !important;
+        font-weight: 500;
+    }
+
+    .oyiso-coupon-card__mobile-actions--dual > * + * {
+        border-left: 0 !important;
+    }
+
+    body .oyiso-coupons .oyiso-coupon-card__mobile-actions--dual .oyiso-coupon-card__copy-button--mobile::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 1px;
+        background: #eceef2;
+        pointer-events: none;
+    }
+
+    body .oyiso-coupons .oyiso-coupon-card__copy-button--mobile:hover,
+    body .oyiso-coupons .oyiso-coupon-card__copy-button--mobile:focus,
+    body .oyiso-coupons .oyiso-coupon-card__scope-button--mobile:hover,
+    body .oyiso-coupons .oyiso-coupon-card__scope-button--mobile:focus,
+    body .oyiso-coupons .oyiso-coupon-card__copy-button--mobile.is-copied {
+        color: var(--oyiso-group-color, var(--oyiso-coupon-accent));
     }
 
     .oyiso-coupon-card__content {

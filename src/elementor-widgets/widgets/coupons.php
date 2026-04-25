@@ -1990,17 +1990,6 @@ class Coupons extends Widget_Base
 
                 <?php if ($code || $scope) : ?>
                     <div class="oyiso-coupon-card__mobile-actions<?php echo ($code && $scope) ? ' oyiso-coupon-card__mobile-actions--dual' : ' oyiso-coupon-card__mobile-actions--single'; ?>">
-                        <?php if ($code) : ?>
-                            <button
-                                class="oyiso-coupon-card__copy-button oyiso-coupon-card__copy-button--mobile"
-                                type="button"
-                                data-coupon-copy="<?php echo esc_attr($code); ?>"
-                                data-copied-text="<?php echo esc_attr__('Copied', 'oyiso'); ?>"
-                            >
-                                <?php echo esc_html__('Copy Code', 'oyiso'); ?>
-                            </button>
-                        <?php endif; ?>
-
                         <?php if ($scope) : ?>
                             <button
                                 class="oyiso-coupon-card__scope-button oyiso-coupon-card__scope-button--mobile"
@@ -2009,6 +1998,17 @@ class Coupons extends Widget_Base
                                 data-coupon-code="<?php echo esc_attr($code); ?>"
                             >
                                 <?php echo esc_html__('Details', 'oyiso'); ?>
+                            </button>
+                        <?php endif; ?>
+
+                        <?php if ($code) : ?>
+                            <button
+                                class="oyiso-coupon-card__copy-button oyiso-coupon-card__copy-button--mobile"
+                                type="button"
+                                data-coupon-copy="<?php echo esc_attr($code); ?>"
+                                data-copied-text="<?php echo esc_attr__('Copied', 'oyiso'); ?>"
+                            >
+                                <?php echo esc_html__('Copy Code', 'oyiso'); ?>
                             </button>
                         <?php endif; ?>
                     </div>
