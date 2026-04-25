@@ -131,6 +131,9 @@ msgstr "Akcent z kropką"
 msgid "Applies to Categories"
 msgstr "Dotyczy kategorii"
 
+msgid "Applies to Brands"
+msgstr "Dotyczy marek"
+
 msgid "Applies to Products"
 msgstr "Dotyczy produktów"
 
@@ -145,6 +148,12 @@ msgstr "Darmowa dostawa"
 
 msgid "Excluded Products"
 msgstr "Wykluczone produkty"
+
+msgid "Excluded Categories"
+msgstr "Wykluczone kategorie"
+
+msgid "Excluded Brands"
+msgstr "Wykluczone marki"
 
 msgid "General"
 msgstr "Ogólne"
@@ -199,6 +208,9 @@ msgstr "Maksymalna kwota zamówienia"
 
 msgid "Minimum Spend"
 msgstr "Minimalna kwota zamówienia"
+
+msgid "Item Quantity Limit"
+msgstr "Limit liczby produktów"
 
 msgid "No"
 msgstr "Nie"
@@ -262,6 +274,18 @@ msgstr "Odstęp sekcji"
 
 msgid "Segmented Tabs"
 msgstr "Zakładki segmentowe"
+
+msgid "Total Usage Limit"
+msgstr "Łączny limit użyć"
+
+msgid "Per-Customer Limit"
+msgstr "Limit na klienta"
+
+msgid "Usage Limits"
+msgstr "Limity użycia"
+
+msgid "All Brands"
+msgstr "Wszystkie marki"
 
 msgid "Select Coupons"
 msgstr "Wybierz kupony"

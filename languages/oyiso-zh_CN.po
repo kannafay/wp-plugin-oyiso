@@ -131,11 +131,17 @@ msgstr "圆点强调"
 msgid "All Categories"
 msgstr "全部分类"
 
+msgid "All Brands"
+msgstr "全部品牌"
+
 msgid "All Products"
 msgstr "全部商品"
 
 msgid "Applies to Categories"
 msgstr "适用分类"
+
+msgid "Applies to Brands"
+msgstr "适用品牌"
 
 msgid "Applies to Products"
 msgstr "适用商品"
@@ -154,6 +160,12 @@ msgstr "免运费"
 
 msgid "Excluded Products"
 msgstr "不可使用商品"
+
+msgid "Excluded Categories"
+msgstr "不可使用分类"
+
+msgid "Excluded Brands"
+msgstr "不可使用品牌"
 
 msgid "General"
 msgstr "常规"
@@ -208,6 +220,9 @@ msgstr "最高消费"
 
 msgid "Minimum Spend"
 msgstr "最低消费"
+
+msgid "Item Quantity Limit"
+msgstr "可优惠商品数量"
 
 msgid "No"
 msgstr "否"
@@ -277,6 +292,15 @@ msgstr "模块间距"
 
 msgid "Segmented Tabs"
 msgstr "分段标签"
+
+msgid "Total Usage Limit"
+msgstr "总使用次数"
+
+msgid "Per-Customer Limit"
+msgstr "每位顾客限用次数"
+
+msgid "Usage Limits"
+msgstr "使用次数限制"
 
 msgid "Select Coupons"
 msgstr "选择优惠券"
