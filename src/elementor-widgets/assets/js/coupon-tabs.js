@@ -335,6 +335,7 @@
         var accentColor = root ? window.getComputedStyle(root).getPropertyValue('--oyiso-coupon-accent').trim() : '';
         var groupColor = card ? window.getComputedStyle(card).getPropertyValue('--oyiso-group-color').trim() : '';
 
+        syncScopeDialogTheme(dialog, root);
         title.textContent = getI18nString('scopeTitle', 'Offer Details');
         content.innerHTML = buildScopeDialogContent(code, button.getAttribute('data-coupon-scope') || '');
         dialog.style.setProperty('--oyiso-coupon-accent', accentColor || '#e5702a');
@@ -387,6 +388,39 @@
         document.body.appendChild(dialog);
 
         return dialog;
+    }
+
+    function syncScopeDialogTheme(dialog, root) {
+        var themeClasses = ['oyiso-coupons-theme-light', 'oyiso-coupons-theme-dark'];
+        var themeClass = getClosestWidgetThemeClass(root);
+
+        themeClasses.forEach(function (className) {
+            dialog.classList.remove(className);
+        });
+
+        if (themeClass) {
+            dialog.classList.add(themeClass);
+        }
+    }
+
+    function getClosestWidgetThemeClass(root) {
+        var node = root;
+
+        while (node && node !== document.body) {
+            if (node.classList) {
+                if (node.classList.contains('oyiso-coupons-theme-dark')) {
+                    return 'oyiso-coupons-theme-dark';
+                }
+
+                if (node.classList.contains('oyiso-coupons-theme-light')) {
+                    return 'oyiso-coupons-theme-light';
+                }
+            }
+
+            node = node.parentElement;
+        }
+
+        return '';
     }
 
     function buildScopeDialogContent(code, scopeHtml) {

@@ -152,13 +152,15 @@ body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__copy-button.is
     background: linear-gradient(180deg, #131b26, #111823);
 }
 
-body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close {
-    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #111823 82%) !important;
+body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close {
+    background: #1a2330 !important;
+    color: #d6deea;
 }
 
-body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close:hover,
-body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
-    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #111823 72%) !important;
+body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:hover,
+body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:focus {
+    background: #222d3a !important;
+    color: #eef4fb;
 }
 
 .oyiso-coupons-theme-dark .oyiso-scope-dialog__content {
@@ -2034,10 +2036,9 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close {
     -webkit-appearance: none;
     border: 0 !important;
     border-radius: 50% !important;
-    background: #f4eee8 !important;
-    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #fff 88%) !important;
+    background: #f2f5f8 !important;
     box-shadow: none;
-    color: var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a));
+    color: #5d6978;
     font: inherit !important;
     font-size: 0 !important;
     line-height: 1;
@@ -2072,10 +2073,20 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close::after {
 
 body .oyiso-scope-dialog .oyiso-scope-dialog__close:hover,
 body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
-    background: #eadfd5 !important;
-    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #fff 82%) !important;
-    color: var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a));
+    background: #e6ebf1 !important;
+    color: #334152;
     box-shadow: none;
+}
+
+body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close {
+    background: #1a2330 !important;
+    color: #d6deea;
+}
+
+body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close:hover,
+body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
+    background: #222d3a !important;
+    color: #eef4fb;
 }
 
 .oyiso-scope-dialog__title {
