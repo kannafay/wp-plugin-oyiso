@@ -1819,6 +1819,11 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 @container oyiso-coupons (max-width: 560px) {
     .oyiso-coupons {
         gap: var(--oyiso-coupons-gap);
+        --oyiso-banner-min-height: 220px;
+    }
+
+    .oyiso-coupons-default-style-yes .oyiso-coupons {
+        --oyiso-banner-min-height: 220px !important;
     }
 
     .oyiso-coupons__banner {
