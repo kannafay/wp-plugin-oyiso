@@ -26,14 +26,38 @@
     --oyiso-tab-border: 1px solid #303948 !important;
 }
 
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab-count {
+    background: #27313d;
+    color: #cfd8e3;
+}
+
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab.is-active .oyiso-coupons__tab-count,
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab.is-active:hover .oyiso-coupons__tab-count,
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab.is-active:focus .oyiso-coupons__tab-count {
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--oyiso-group-color, var(--oyiso-coupon-accent));
+}
+
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab:hover {
+    background: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #18212c 82%) !important;
+    border-color: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #303948 68%) !important;
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), transparent 90%) !important;
+    color: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #fff 18%);
+}
+
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab:hover .oyiso-coupons__tab-count {
+    background: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #24303c 76%);
+    color: #eef4fb;
+}
+
 .oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-segmented .oyiso-coupons {
     --oyiso-tabs-bg: #18212c !important;
     --oyiso-tabs-shadow: inset 0 0 0 1px #303948 !important;
 }
 
 .oyiso-coupons-theme-dark .oyiso-coupons__banner--plain {
-    border: 1px solid var(--oyiso-coupon-line);
-    background: linear-gradient(180deg, #101722, #0d141d);
+    border: 0;
+    background: transparent;
 }
 
 .oyiso-coupons-theme-dark .oyiso-coupons__banner--plain .oyiso-coupons__kicker {
@@ -1347,6 +1371,12 @@ body .oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab-label 
     background: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #fff 90%) !important;
 }
 
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab.is-active,
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab.is-active:hover,
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab.is-active:focus {
+    background: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #111823 76%) !important;
+}
+
 .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab.is-active,
 .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab.is-active:hover,
 .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab.is-active:focus {
@@ -1375,6 +1405,11 @@ body .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab-label {
     text-overflow: ellipsis;
     white-space: nowrap;
     text-align: left;
+}
+
+.oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab-count {
+    background: #e7ebf0;
+    color: #66707c;
 }
 
 .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab:hover {
@@ -1527,6 +1562,7 @@ body .oyiso-coupons-tabs-style-minimal .oyiso-coupons .oyiso-coupons__tab-label 
 .oyiso-coupons-tabs-style-minimal .oyiso-coupons .oyiso-coupons__tab-count {
     min-width: auto;
     padding: 0;
+    background: transparent;
     color: #9aa3ad;
 }
 
