@@ -68,12 +68,14 @@
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
+            normalizeTabLabels(document);
             markElementorContainers(document);
             scheduleSegmentedSliders(document);
             observeSegmentedSliderChanges();
             updateDescriptionToggles(document);
         });
     } else {
+        normalizeTabLabels(document);
         markElementorContainers(document);
         scheduleSegmentedSliders(document);
         observeSegmentedSliderChanges();
@@ -97,9 +99,44 @@
                 return;
             }
 
+            normalizeTabLabels(scope);
             markElementorContainers(scope);
             scheduleSegmentedSliders(scope);
             updateDescriptionToggles(scope);
+        });
+    }
+
+    function normalizeTabLabels(root) {
+        root.querySelectorAll('[data-coupon-tab]').forEach(function (tab) {
+            var existingLabel = tab.querySelector('.oyiso-coupons__tab-label');
+            var count = tab.querySelector('.oyiso-coupons__tab-count');
+
+            if (existingLabel || !count) {
+                return;
+            }
+
+            var labelText = '';
+
+            Array.from(tab.childNodes).forEach(function (node) {
+                if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                    labelText += node.textContent.trim();
+                }
+            });
+
+            if (!labelText) {
+                return;
+            }
+
+            Array.from(tab.childNodes).forEach(function (node) {
+                if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                    tab.removeChild(node);
+                }
+            });
+
+            var label = document.createElement('span');
+            label.className = 'oyiso-coupons__tab-label';
+            label.textContent = labelText;
+            tab.insertBefore(label, count);
         });
     }
 

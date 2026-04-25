@@ -1138,6 +1138,26 @@ body .oyiso-coupons .oyiso-coupons__tab.is-active::before {
     background: var(--oyiso-group-color, var(--oyiso-coupon-accent));
 }
 
+body .oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    justify-content: flex-start !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+}
+
+body .oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab-label {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
 .oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab.is-active {
     background: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #fff 90%) !important;
 }
@@ -1932,6 +1952,19 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
+        justify-content: flex-start !important;
+        text-align: left !important;
+        white-space: nowrap !important;
+    }
+
+    body .oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab-label {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
     }
 
     .oyiso-coupons-tabs-style-pills .oyiso-coupons__tabs,
