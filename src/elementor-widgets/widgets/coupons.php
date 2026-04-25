@@ -2019,7 +2019,7 @@ class Coupons extends Widget_Base
 
         if ($usage_limit <= 0) {
             return [
-                'label' => __('Remaining Uses', 'oyiso'),
+                'label' => __('Remaining Quantity', 'oyiso'),
                 'value' => __('Unlimited', 'oyiso'),
                 'percent' => 100,
             ];
@@ -2028,7 +2028,7 @@ class Coupons extends Widget_Base
         $remaining = max(0, $usage_limit - $usage_count);
 
         return [
-            'label' => __('Remaining Uses', 'oyiso'),
+            'label' => __('Remaining Quantity', 'oyiso'),
             'value' => sprintf(__('%1$d / %2$d', 'oyiso'), $remaining, $usage_limit),
             'percent' => max(0, min(100, ($remaining / $usage_limit) * 100)),
         ];
@@ -2040,8 +2040,8 @@ class Coupons extends Widget_Base
 
         if (!$date_expires) {
             return [
-                'label' => __('Expiry Date', 'oyiso'),
-                'value' => __('No Expiry Date', 'oyiso'),
+                'label' => __('Valid Until', 'oyiso'),
+                'value' => __('No Expiry', 'oyiso'),
                 'percent' => 100,
             ];
         }
@@ -2054,7 +2054,7 @@ class Coupons extends Widget_Base
         $remaining = max(0, $expires_timestamp - $now);
 
         return [
-            'label' => __('Expiry Date', 'oyiso'),
+            'label' => __('Valid Until', 'oyiso'),
             'value' => $date_expires->date('Y-m-d'),
             'percent' => max(0, min(100, ($remaining / $duration) * 100)),
         ];

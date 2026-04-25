@@ -152,6 +152,12 @@ msgstr "浏览当前优惠，快速找到更适合这笔订单的省钱方式。
 msgid "Expiry Date"
 msgstr "到期日期"
 
+msgid "Expiration"
+msgstr "过期时间"
+
+msgid "Valid Until"
+msgstr "过期时间"
+
 msgid "Featured Offers"
 msgstr "精选优惠"
 
@@ -230,6 +236,15 @@ msgstr "否"
 msgid "No Expiry Date"
 msgstr "无到期日"
 
+msgid "No Expiration"
+msgstr "无过期时间"
+
+msgid "Always Valid"
+msgstr "长期有效"
+
+msgid "No Expiry"
+msgstr "长期有效"
+
 msgid "No Maximum"
 msgstr "无上限"
 
@@ -283,6 +298,12 @@ msgstr "商品优惠"
 
 msgid "Remaining Uses"
 msgstr "剩余次数"
+
+msgid "Remaining Coupons"
+msgstr "剩余优惠券"
+
+msgid "Remaining Quantity"
+msgstr "剩余数量"
 
 msgid "Right"
 msgstr "右侧"
@@ -345,7 +366,10 @@ msgid "Underline"
 msgstr "下划线"
 
 msgid "Unlimited"
-msgstr "不限次数"
+msgstr "无限量"
+
+msgid "No Quantity Limit"
+msgstr "不限数量"
 
 msgid "Use Default Style"
 msgstr "使用默认样式"

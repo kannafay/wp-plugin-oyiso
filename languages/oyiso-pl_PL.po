@@ -218,6 +218,15 @@ msgstr "Nie"
 msgid "No Expiry Date"
 msgstr "Brak daty ważności"
 
+msgid "No Expiration"
+msgstr "Bez terminu wygaśnięcia"
+
+msgid "Always Valid"
+msgstr "Bezterminowo"
+
+msgid "No Expiry"
+msgstr "Bezterminowo"
+
 msgid "None"
 msgstr "Brak"
 
@@ -265,6 +274,12 @@ msgstr "Zniżka na produkt"
 
 msgid "Remaining Uses"
 msgstr "Pozostałe użycia"
+
+msgid "Remaining Coupons"
+msgstr "Pozostała liczba kuponów"
+
+msgid "Remaining Quantity"
+msgstr "Pozostało"
 
 msgid "Right"
 msgstr "Do prawej"
@@ -332,6 +347,9 @@ msgstr "Podkreślenie"
 msgid "Unlimited"
 msgstr "Bez limitu"
 
+msgid "No Quantity Limit"
+msgstr "Bez limitu ilości"
+
 msgid "Use Default Style"
 msgstr "Użyj domyślnego stylu"
 
@@ -340,6 +358,12 @@ msgstr "Używany dla zakładki „Wszystkie”, linków w oknie dialogowym oraz 
 
 msgid "Expiry Date"
 msgstr "Data ważności"
+
+msgid "Expiration"
+msgstr "Termin wygaśnięcia"
+
+msgid "Valid Until"
+msgstr "Ważny do"
 
 msgid "Vertical Alignment"
 msgstr "Wyrównanie w pionie"
