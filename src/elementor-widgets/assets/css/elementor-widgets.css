@@ -12,11 +12,23 @@
     --oyiso-coupon-line: #303948 !important;
     --oyiso-coupon-muted: #111823 !important;
     --oyiso-card-bg: #111823 !important;
-    --oyiso-tabs-bg: #18212c !important;
-    --oyiso-tab-bg: rgba(255, 255, 255, 0.04) !important;
+    --oyiso-tabs-bg: transparent !important;
+    --oyiso-tabs-shadow: none !important;
+    --oyiso-tab-bg: transparent !important;
+    --oyiso-tab-border: 0 !important;
     --oyiso-tab-hover-bg: rgba(255, 255, 255, 0.08) !important;
     --oyiso-tab-count-bg: rgba(255, 255, 255, 0.12) !important;
     color-scheme: dark;
+}
+
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-pills .oyiso-coupons {
+    --oyiso-tab-bg: #18212c !important;
+    --oyiso-tab-border: 1px solid #303948 !important;
+}
+
+.oyiso-coupons-theme-dark.oyiso-coupons-tabs-style-segmented .oyiso-coupons {
+    --oyiso-tabs-bg: #18212c !important;
+    --oyiso-tabs-shadow: inset 0 0 0 1px #303948 !important;
 }
 
 .oyiso-coupons-theme-dark .oyiso-coupons__banner--plain {
