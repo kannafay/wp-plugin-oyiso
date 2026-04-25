@@ -152,6 +152,9 @@ msgstr "精选优惠"
 msgid "Free Shipping"
 msgstr "免运费"
 
+msgid "Excluded Products"
+msgstr "不可使用商品"
+
 msgid "General"
 msgstr "常规"
 
@@ -181,6 +184,9 @@ msgstr "图片"
 
 msgid "Inner Padding"
 msgstr "内边距"
+
+msgid "Individual Use Only"
+msgstr "仅限单独使用"
 
 msgid "Intro Label"
 msgstr "引导标签"
@@ -235,6 +241,9 @@ msgstr "使用条件"
 
 msgid "Order Discount"
 msgstr "订单优惠"
+
+msgid "Exclude Sale Items"
+msgstr "不含促销商品"
 
 msgid "Oyiso"
 msgstr "Oyiso"

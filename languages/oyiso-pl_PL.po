@@ -143,6 +143,9 @@ msgstr "Polecane oferty"
 msgid "Free Shipping"
 msgstr "Darmowa dostawa"
 
+msgid "Excluded Products"
+msgstr "Wykluczone produkty"
+
 msgid "General"
 msgstr "Ogólne"
 
@@ -172,6 +175,9 @@ msgstr "Obraz"
 
 msgid "Inner Padding"
 msgstr "Wewnętrzny odstęp"
+
+msgid "Individual Use Only"
+msgstr "Tylko do pojedynczego użycia"
 
 msgid "Intro Label"
 msgstr "Etykieta nad tytułem"
@@ -220,6 +226,9 @@ msgstr "Warunki użycia"
 
 msgid "Order Discount"
 msgstr "Zniżka na zamówienie"
+
+msgid "Exclude Sale Items"
+msgstr "Bez produktów promocyjnych"
 
 msgid "Oyiso"
 msgstr "Oyiso"

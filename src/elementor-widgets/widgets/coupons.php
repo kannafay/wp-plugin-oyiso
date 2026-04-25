@@ -1759,31 +1759,13 @@ class Coupons extends Widget_Base
     private function format_coupon_scope(\WC_Coupon $coupon)
     {
         $product_ids = $coupon->get_product_ids();
+        $excluded_product_ids = $coupon->get_excluded_product_ids();
         $category_ids = $coupon->get_product_categories();
         $minimum_amount = (float) $coupon->get_minimum_amount();
         $maximum_amount = (float) $coupon->get_maximum_amount();
-        $product_links = [];
+        $product_links = $this->get_coupon_scope_product_links($product_ids);
+        $excluded_product_links = $this->get_coupon_scope_product_links($excluded_product_ids);
         $category_links = [];
-
-        if (!empty($product_ids)) {
-            foreach ($product_ids as $product_id) {
-                $product = wc_get_product($product_id);
-
-                if ($product) {
-                    $url = get_permalink($product_id);
-
-                    if ($url) {
-                        $product_links[] = sprintf(
-                            '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
-                            esc_url($url),
-                            esc_html($product->get_name())
-                        );
-                    } else {
-                        $product_links[] = esc_html($product->get_name());
-                    }
-                }
-            }
-        }
 
         if (!empty($category_ids)) {
             foreach ($category_ids as $category_id) {
@@ -1809,6 +1791,7 @@ class Coupons extends Widget_Base
         $all_categories = __('All Categories', 'oyiso');
         $no_minimum = __('No Minimum', 'oyiso');
         $no_maximum = __('No Maximum', 'oyiso');
+        $none = __('None', 'oyiso');
 
         $eligibility_rows = [
             $this->format_coupon_scope_row(
@@ -1818,6 +1801,10 @@ class Coupons extends Widget_Base
             $this->format_coupon_scope_row(
                 __('Applies to Categories', 'oyiso'),
                 $this->format_coupon_scope_collection($category_links, $all_categories)
+            ),
+            $this->format_coupon_scope_row(
+                __('Excluded Products', 'oyiso'),
+                $this->format_coupon_scope_collection($excluded_product_links, $none)
             ),
         ];
 
@@ -1833,6 +1820,14 @@ class Coupons extends Widget_Base
             $this->format_coupon_scope_row(
                 __('Free Shipping', 'oyiso'),
                 esc_html($coupon->get_free_shipping() ? __('Yes', 'oyiso') : __('No', 'oyiso'))
+            ),
+            $this->format_coupon_scope_row(
+                __('Individual Use Only', 'oyiso'),
+                esc_html($coupon->get_individual_use() ? __('Yes', 'oyiso') : __('No', 'oyiso'))
+            ),
+            $this->format_coupon_scope_row(
+                __('Exclude Sale Items', 'oyiso'),
+                esc_html($coupon->get_exclude_sale_items() ? __('Yes', 'oyiso') : __('No', 'oyiso'))
             ),
         ];
 
@@ -1871,6 +1866,37 @@ class Coupons extends Widget_Base
         }, $items);
 
         return '<div class="oyiso-scope-dialog__list">' . implode('', $entries) . '</div>';
+    }
+
+    private function get_coupon_scope_product_links(array $product_ids)
+    {
+        $links = [];
+
+        if (empty($product_ids)) {
+            return $links;
+        }
+
+        foreach ($product_ids as $product_id) {
+            $product = wc_get_product($product_id);
+
+            if (!$product) {
+                continue;
+            }
+
+            $url = get_permalink($product_id);
+
+            if ($url) {
+                $links[] = sprintf(
+                    '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
+                    esc_url($url),
+                    esc_html($product->get_name())
+                );
+            } else {
+                $links[] = esc_html($product->get_name());
+            }
+        }
+
+        return $links;
     }
 
     private function format_coupon_money(float $amount)
