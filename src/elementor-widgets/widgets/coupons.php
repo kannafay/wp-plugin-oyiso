@@ -1854,7 +1854,7 @@ class Coupons extends Widget_Base
     private function format_coupon_scope_section(string $title, array $rows)
     {
         return sprintf(
-            '<section class="oyiso-scope-dialog__section"><h4 class="oyiso-scope-dialog__section-title">%1$s</h4><div class="oyiso-scope-dialog__section-body">%2$s</div></section>',
+            '<section class="oyiso-scope-dialog__section"><h4 class="oyiso-scope-dialog__section-title">%1$s</h4><div class="oyiso-scope-dialog__section-card"><div class="oyiso-scope-dialog__section-body">%2$s</div></div></section>',
             esc_html($title),
             implode('', array_filter($rows))
         );
@@ -1866,11 +1866,11 @@ class Coupons extends Widget_Base
             $items = [esc_html($fallback)];
         }
 
-        $chips = array_map(static function ($item) {
-            return sprintf('<span class="oyiso-scope-dialog__chip">%s</span>', $item);
+        $entries = array_map(static function ($item) {
+            return sprintf('<div class="oyiso-scope-dialog__list-item">%s</div>', $item);
         }, $items);
 
-        return '<div class="oyiso-scope-dialog__chips">' . implode('', $chips) . '</div>';
+        return '<div class="oyiso-scope-dialog__list">' . implode('', $entries) . '</div>';
     }
 
     private function format_coupon_money(float $amount)

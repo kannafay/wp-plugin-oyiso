@@ -1722,11 +1722,13 @@ body.oyiso-scope-dialog-open {
     z-index: 1;
     width: min(460px, calc(100vw - 36px));
     max-height: calc(100vh - 36px);
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     padding: 0;
-    border-radius: 8px;
+    border-radius: 12px;
     background: #fff;
     box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
     animation: oyiso-dialog-panel .22s ease both;
@@ -1780,12 +1782,21 @@ body.oyiso-scope-dialog-open {
     }
 }
 
-body .oyiso-scope-dialog .oyiso-scope-dialog__close {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    left: auto;
+.oyiso-scope-dialog__header {
+    position: sticky;
+    top: 0;
     z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #eceef2;
+    background: linear-gradient(180deg, #fff, #fcfcfd);
+}
+
+body .oyiso-scope-dialog .oyiso-scope-dialog__close {
+    position: static;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1821,7 +1832,8 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close {
 body .oyiso-scope-dialog .oyiso-scope-dialog__close::before {
     content: "\00d7";
     display: block;
-    position: static;
+    position: relative;
+    top: -1px;
     width: auto;
     height: auto;
     background: transparent;
@@ -1847,10 +1859,13 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
 .oyiso-scope-dialog__title {
     margin: 0;
-    padding: 22px 56px 16px 24px;
-    border-bottom: 1px solid #eceef2;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    border-bottom: 0;
+    background: transparent;
     color: var(--oyiso-coupon-dark);
-    font-size: 19px;
+    font-size: 18px;
     font-weight: 700;
     line-height: 1.3;
     overflow-wrap: anywhere;
@@ -1858,8 +1873,10 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
 .oyiso-scope-dialog__content {
     display: grid;
-    gap: 14px;
+    gap: 16px;
     padding: 18px 24px 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     color: #71665d;
     font-size: 14px;
     line-height: 1.7;
@@ -1867,20 +1884,52 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     word-break: break-word;
 }
 
+.oyiso-scope-dialog__summary {
+    display: grid;
+    gap: 8px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #fff 94%), #fff);
+    border: 1px solid color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #fff 82%);
+}
+
+.oyiso-scope-dialog__summary-label {
+    color: #8b8279;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.oyiso-scope-dialog__summary-code {
+    color: var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a));
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 .oyiso-scope-dialog__section {
-    padding: 14px 16px;
-    border: 1px solid #eceef2;
-    border-radius: 10px;
-    background: #fafbfc;
+    display: grid;
+    gap: 10px;
 }
 
 .oyiso-scope-dialog__section-title {
-    margin: 0 0 12px;
+    margin: 0;
     color: #4f463f;
     font-size: 12px;
     font-weight: 700;
     line-height: 1.2;
     letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.oyiso-scope-dialog__section-card {
+    padding: 14px 16px;
+    border: 1px solid #eceef2;
+    border-radius: 10px;
+    background: #fafbfc;
 }
 
 .oyiso-scope-dialog__section-body {
@@ -1912,39 +1961,44 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     line-height: 1.7;
 }
 
-.oyiso-scope-dialog__chips {
-    display: flex;
-    flex-wrap: wrap;
+.oyiso-scope-dialog__list {
+    display: grid;
     gap: 8px;
 }
 
-.oyiso-scope-dialog__chip {
-    display: inline-flex;
-    align-items: center;
+.oyiso-scope-dialog__list-item {
     min-width: 0;
-    max-width: 100%;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: #fff;
-    border: 1px solid #eceef2;
+    padding-left: 14px;
+    position: relative;
     color: inherit;
     overflow-wrap: anywhere;
     word-break: break-word;
 }
 
-.oyiso-scope-dialog__chip a,
+.oyiso-scope-dialog__list-item::before {
+    content: "";
+    position: absolute;
+    top: 9px;
+    left: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #fff 30%);
+}
+
+.oyiso-scope-dialog__list-item a,
 .oyiso-scope-dialog__value a {
-    color: var(--oyiso-coupon-accent);
+    color: var(--oyiso-scope-group-color, var(--oyiso-coupon-accent));
     text-decoration: none;
     overflow-wrap: anywhere;
     word-break: break-word;
 }
 
-.oyiso-scope-dialog__chip a:hover,
-.oyiso-scope-dialog__chip a:focus,
+.oyiso-scope-dialog__list-item a:hover,
+.oyiso-scope-dialog__list-item a:focus,
 .oyiso-scope-dialog__value a:hover,
 .oyiso-scope-dialog__value a:focus {
-    color: var(--oyiso-coupon-accent, #e5702a);
+    color: var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a));
     text-decoration: underline;
 }
 

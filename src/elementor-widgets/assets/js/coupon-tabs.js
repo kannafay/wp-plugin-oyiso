@@ -335,10 +335,8 @@
         var accentColor = root ? window.getComputedStyle(root).getPropertyValue('--oyiso-coupon-accent').trim() : '';
         var groupColor = card ? window.getComputedStyle(card).getPropertyValue('--oyiso-group-color').trim() : '';
 
-        title.textContent = code
-            ? formatI18nString(getI18nString('scopeTitleWithCode', '%1$s - Offer Details'), [code])
-            : getI18nString('scopeTitle', 'Offer Details');
-        content.innerHTML = button.getAttribute('data-coupon-scope') || '';
+        title.textContent = getI18nString('scopeTitle', 'Offer Details');
+        content.innerHTML = buildScopeDialogContent(code, button.getAttribute('data-coupon-scope') || '');
         dialog.style.setProperty('--oyiso-coupon-accent', accentColor || '#e5702a');
         dialog.style.setProperty('--oyiso-scope-group-color', groupColor || accentColor || '#e5702a');
         dialog.classList.remove('is-closing');
@@ -379,14 +377,39 @@
         dialog.innerHTML = [
             '<div class="oyiso-scope-dialog__backdrop" data-coupon-scope-close></div>',
             '<div class="oyiso-scope-dialog__panel" role="dialog" aria-modal="true">',
-            '<button class="oyiso-scope-dialog__close" type="button" data-coupon-scope-close aria-label="' + escapeHtmlAttribute(getI18nString('closeLabel', 'Close')) + '"></button>',
+            '<div class="oyiso-scope-dialog__header">',
             '<h3 class="oyiso-scope-dialog__title" data-coupon-scope-title></h3>',
+            '<button class="oyiso-scope-dialog__close" type="button" data-coupon-scope-close aria-label="' + escapeHtmlAttribute(getI18nString('closeLabel', 'Close')) + '"></button>',
+            '</div>',
             '<div class="oyiso-scope-dialog__content" data-coupon-scope-content></div>',
             '</div>'
         ].join('');
         document.body.appendChild(dialog);
 
         return dialog;
+    }
+
+    function buildScopeDialogContent(code, scopeHtml) {
+        var parts = [];
+
+        if (code) {
+            parts.push([
+                '<section class="oyiso-scope-dialog__summary">',
+                '<div class="oyiso-scope-dialog__summary-label">',
+                escapeHtml(getI18nString('couponCodeLabel', 'Coupon Code')),
+                '</div>',
+                '<div class="oyiso-scope-dialog__summary-code">',
+                escapeHtml(code),
+                '</div>',
+                '</section>'
+            ].join(''));
+        }
+
+        if (scopeHtml) {
+            parts.push(scopeHtml);
+        }
+
+        return parts.join('');
     }
 
     function copyCouponCode(button) {
@@ -437,5 +460,9 @@
                 "'": '&#039;'
             }[char];
         });
+    }
+
+    function escapeHtml(value) {
+        return escapeHtmlAttribute(value);
     }
 })();
