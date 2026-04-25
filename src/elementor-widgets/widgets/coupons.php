@@ -1533,7 +1533,7 @@ class Coupons extends Widget_Base
                             data-coupon-tab="<?php echo esc_attr($category_key); ?>"
                             <?php echo $tab_style; ?>
                         >
-                            <?php echo esc_html($group['label']); ?>
+                            <span class="oyiso-coupons__tab-label"><?php echo esc_html($group['label']); ?></span>
                             <span class="oyiso-coupons__tab-count"><?php echo esc_html(count($group['items'])); ?></span>
                         </button>
                         <?php

@@ -1088,6 +1088,7 @@ body .oyiso-coupons .oyiso-coupons__tab::before {
 
 .oyiso-coupons__tab-count {
     display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     min-width: var(--oyiso-tab-count-size);
@@ -1857,7 +1858,7 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     }
 }
 
-@container oyiso-coupons (max-width: 560px) {
+@container oyiso-coupons (max-width: 640px) {
     .oyiso-coupons {
         gap: var(--oyiso-coupons-gap);
         --oyiso-banner-min-height: 220px;
@@ -1920,6 +1921,19 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         font-size: var(--oyiso-tab-count-font-size);
     }
 
+    .oyiso-coupons__tab-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    body .oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+    }
+
     .oyiso-coupons-tabs-style-pills .oyiso-coupons__tabs,
     .oyiso-coupons-tabs-style-segmented .oyiso-coupons__tabs {
         width: 100%;
@@ -1930,7 +1944,10 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     body .oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab {
         width: 100% !important;
         min-width: 0 !important;
-        justify-content: center;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        justify-content: initial;
         background: transparent !important;
         box-shadow: none !important;
         white-space: nowrap;
@@ -1951,6 +1968,9 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         width: auto !important;
         min-width: 0 !important;
         max-width: 100% !important;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
         justify-content: flex-start;
         white-space: nowrap;
     }
