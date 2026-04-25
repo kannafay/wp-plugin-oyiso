@@ -294,13 +294,16 @@
         var content = dialog.querySelector('[data-coupon-scope-content]');
         var code = button.getAttribute('data-coupon-code') || '';
         var root = button.closest('[data-oyiso-coupons]');
+        var card = button.closest('.oyiso-coupon-card');
         var accentColor = root ? window.getComputedStyle(root).getPropertyValue('--oyiso-coupon-accent').trim() : '';
+        var groupColor = card ? window.getComputedStyle(card).getPropertyValue('--oyiso-group-color').trim() : '';
 
         title.textContent = code
             ? formatI18nString(getI18nString('scopeTitleWithCode', '%1$s - Offer Details'), [code])
             : getI18nString('scopeTitle', 'Offer Details');
         content.innerHTML = button.getAttribute('data-coupon-scope') || '';
         dialog.style.setProperty('--oyiso-coupon-accent', accentColor || '#e5702a');
+        dialog.style.setProperty('--oyiso-scope-group-color', groupColor || accentColor || '#e5702a');
         dialog.classList.remove('is-closing');
         dialog.hidden = false;
         document.body.classList.add('oyiso-scope-dialog-open');

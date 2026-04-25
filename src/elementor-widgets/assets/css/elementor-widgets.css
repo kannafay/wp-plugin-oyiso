@@ -1673,9 +1673,9 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close {
     border: 0 !important;
     border-radius: 50% !important;
     background: #f4eee8 !important;
-    background: color-mix(in srgb, var(--oyiso-coupon-accent, #e5702a), #fff 88%) !important;
+    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #fff 88%) !important;
     box-shadow: none;
-    color: var(--oyiso-coupon-accent, #e5702a);
+    color: var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a));
     font: inherit !important;
     font-size: 0 !important;
     line-height: 1;
@@ -1710,8 +1710,8 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close::after {
 body .oyiso-scope-dialog .oyiso-scope-dialog__close:hover,
 body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     background: #eadfd5 !important;
-    background: color-mix(in srgb, var(--oyiso-coupon-accent, #e5702a), #fff 82%) !important;
-    color: var(--oyiso-coupon-accent, #e5702a);
+    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #fff 82%) !important;
+    color: var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a));
     box-shadow: none;
 }
 
