@@ -1171,6 +1171,27 @@ body .oyiso-coupons-tabs-style-default .oyiso-coupons .oyiso-coupons__tab-label 
     color: #fff;
 }
 
+body .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    justify-content: flex-start !important;
+    max-width: 100% !important;
+    overflow: hidden;
+    text-align: left !important;
+    white-space: nowrap !important;
+}
+
+body .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab-label {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
 .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab:hover {
     background: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #fff 92%) !important;
     border-color: color-mix(in srgb, var(--oyiso-group-color, var(--oyiso-coupon-accent)), #fff 78%) !important;
@@ -1981,9 +2002,32 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
         justify-content: initial;
+        white-space: nowrap;
+    }
+
+    body .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab {
+        justify-content: flex-start !important;
+        max-width: 100% !important;
+        overflow: hidden;
+        background: var(--oyiso-tab-bg) !important;
+        box-shadow: none !important;
+        text-align: left !important;
+        white-space: nowrap !important;
+    }
+
+    body .oyiso-coupons-tabs-style-pills .oyiso-coupons .oyiso-coupons__tab-label {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+    }
+
+    body .oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab {
         background: transparent !important;
         box-shadow: none !important;
-        white-space: nowrap;
     }
 
     .oyiso-coupons-tabs-style-underline .oyiso-coupons__tabs,
