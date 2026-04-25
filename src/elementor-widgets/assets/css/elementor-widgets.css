@@ -312,7 +312,7 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     --oyiso-card-icon-justify: center;
     --oyiso-card-icon-min-height: auto;
     --oyiso-card-icon-size: 38px;
-    --oyiso-card-icon-radius: 7px 0 0 7px;
+    --oyiso-card-icon-radius: var(--oyiso-card-radius) 0 0 var(--oyiso-card-radius);
     --oyiso-card-content-padding: 18px;
     --oyiso-card-discount-size: 32px;
     --oyiso-card-text-size: 14px;
@@ -1594,6 +1594,7 @@ body .oyiso-coupons-tabs-style-minimal .oyiso-coupons .oyiso-coupons__tab-label 
     grid-template-columns: var(--oyiso-card-columns);
     align-items: stretch;
     min-height: 142px;
+    overflow: hidden;
     border: 1px solid var(--oyiso-coupon-line);
     border-radius: var(--oyiso-card-radius);
     background: var(--oyiso-card-bg);
