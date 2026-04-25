@@ -1810,22 +1810,67 @@ class Coupons extends Widget_Base
         $no_minimum = __('No Minimum', 'oyiso');
         $no_maximum = __('No Maximum', 'oyiso');
 
+        $eligibility_rows = [
+            $this->format_coupon_scope_row(
+                __('Applies to Products', 'oyiso'),
+                $this->format_coupon_scope_collection($product_links, $all_products)
+            ),
+            $this->format_coupon_scope_row(
+                __('Applies to Categories', 'oyiso'),
+                $this->format_coupon_scope_collection($category_links, $all_categories)
+            ),
+        ];
+
+        $conditions_rows = [
+            $this->format_coupon_scope_row(
+                __('Minimum Spend', 'oyiso'),
+                esc_html($minimum_amount > 0 ? $this->format_coupon_money($minimum_amount) : $no_minimum)
+            ),
+            $this->format_coupon_scope_row(
+                __('Maximum Spend', 'oyiso'),
+                esc_html($maximum_amount > 0 ? $this->format_coupon_money($maximum_amount) : $no_maximum)
+            ),
+            $this->format_coupon_scope_row(
+                __('Free Shipping', 'oyiso'),
+                esc_html($coupon->get_free_shipping() ? __('Yes', 'oyiso') : __('No', 'oyiso'))
+            ),
+        ];
+
         return implode('', [
-            $this->format_coupon_scope_row(__('Applies to Products', 'oyiso'), !empty($product_links) ? implode(', ', $product_links) : esc_html($all_products)),
-            $this->format_coupon_scope_row(__('Applies to Categories', 'oyiso'), !empty($category_links) ? implode(', ', $category_links) : esc_html($all_categories)),
-            $this->format_coupon_scope_row(__('Minimum Spend', 'oyiso'), esc_html($minimum_amount > 0 ? $this->format_coupon_money($minimum_amount) : $no_minimum)),
-            $this->format_coupon_scope_row(__('Maximum Spend', 'oyiso'), esc_html($maximum_amount > 0 ? $this->format_coupon_money($maximum_amount) : $no_maximum)),
-            $this->format_coupon_scope_row(__('Free Shipping', 'oyiso'), esc_html($coupon->get_free_shipping() ? __('Yes', 'oyiso') : __('No', 'oyiso'))),
+            $this->format_coupon_scope_section(__('Eligibility', 'oyiso'), $eligibility_rows),
+            $this->format_coupon_scope_section(__('Conditions', 'oyiso'), $conditions_rows),
         ]);
     }
 
     private function format_coupon_scope_row(string $label, string $value_html)
     {
         return sprintf(
-            '<div class="oyiso-scope-dialog__row"><strong>%1$s：</strong><span>%2$s</span></div>',
+            '<div class="oyiso-scope-dialog__row"><div class="oyiso-scope-dialog__label">%1$s</div><div class="oyiso-scope-dialog__value">%2$s</div></div>',
             esc_html($label),
             $value_html
         );
+    }
+
+    private function format_coupon_scope_section(string $title, array $rows)
+    {
+        return sprintf(
+            '<section class="oyiso-scope-dialog__section"><h4 class="oyiso-scope-dialog__section-title">%1$s</h4><div class="oyiso-scope-dialog__section-body">%2$s</div></section>',
+            esc_html($title),
+            implode('', array_filter($rows))
+        );
+    }
+
+    private function format_coupon_scope_collection(array $items, string $fallback)
+    {
+        if (empty($items)) {
+            $items = [esc_html($fallback)];
+        }
+
+        $chips = array_map(static function ($item) {
+            return sprintf('<span class="oyiso-scope-dialog__chip">%s</span>', $item);
+        }, $items);
+
+        return '<div class="oyiso-scope-dialog__chips">' . implode('', $chips) . '</div>';
     }
 
     private function format_coupon_money(float $amount)

@@ -1414,6 +1414,7 @@ body .oyiso-coupons-tabs-style-minimal .oyiso-coupons .oyiso-coupons__tab-label 
     align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
+    min-width: 0;
 }
 
 .oyiso-coupon-card__identity,
@@ -1421,25 +1422,31 @@ body .oyiso-coupons-tabs-style-minimal .oyiso-coupons .oyiso-coupons__tab-label 
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
 .oyiso-coupon-card__identity {
     flex: 1 1 auto;
     min-width: 0;
+    flex-wrap: nowrap;
+    overflow: hidden;
 }
 
 .oyiso-coupon-card__actions {
     flex: 0 0 auto;
     margin-left: auto;
     justify-content: flex-end;
+    flex-wrap: nowrap;
 }
 
 .oyiso-coupon-card__code-row {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
+    flex: 0 1 auto;
+    max-width: 100%;
+    overflow: visible;
 }
 
 .oyiso-coupon-card__mobile-actions {
@@ -1553,6 +1560,7 @@ body .oyiso-coupons .oyiso-coupon-card__description-toggle:focus {
 body .oyiso-coupons .oyiso-coupon-card__scope-button,
 body .oyiso-coupons .oyiso-coupon-card__copy-button {
     display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
@@ -1573,6 +1581,7 @@ body .oyiso-coupons .oyiso-coupon-card__copy-button {
     color: #71665d;
     font-size: 13px !important;
     line-height: 1.2 !important;
+    white-space: nowrap;
     text-align: center;
     text-decoration: none;
     text-indent: 0;
@@ -1594,8 +1603,14 @@ body .oyiso-coupons .oyiso-coupon-card__copy-button.is-copied {
 }
 
 .oyiso-coupon-card__code {
-    display: inline-flex;
-    align-items: center;
+    display: block;
+    box-sizing: border-box;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     min-height: 28px;
     padding: 5px 9px;
     border-radius: 5px;
@@ -1710,7 +1725,7 @@ body.oyiso-scope-dialog-open {
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding: 24px;
+    padding: 0;
     border-radius: 8px;
     background: #fff;
     box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
@@ -1831,56 +1846,104 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 }
 
 .oyiso-scope-dialog__title {
-    margin: 0 0 12px;
-    padding-right: 42px;
+    margin: 0;
+    padding: 22px 56px 16px 24px;
+    border-bottom: 1px solid #eceef2;
     color: var(--oyiso-coupon-dark);
-    font-size: 18px;
-    line-height: 1.35;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.3;
     overflow-wrap: anywhere;
 }
 
 .oyiso-scope-dialog__content {
+    display: grid;
+    gap: 14px;
+    padding: 18px 24px 24px;
     color: #71665d;
     font-size: 14px;
-    line-height: 1.8;
+    line-height: 1.7;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+.oyiso-scope-dialog__section {
+    padding: 14px 16px;
+    border: 1px solid #eceef2;
+    border-radius: 10px;
+    background: #fafbfc;
+}
+
+.oyiso-scope-dialog__section-title {
+    margin: 0 0 12px;
+    color: #4f463f;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0;
+}
+
+.oyiso-scope-dialog__section-body {
+    display: grid;
+    gap: 12px;
 }
 
 .oyiso-scope-dialog__row {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
-    align-items: start;
-    column-gap: 8px;
+    gap: 6px;
 }
 
-.oyiso-scope-dialog__row + .oyiso-scope-dialog__row {
-    margin-top: 6px;
+.oyiso-scope-dialog__section-body > .oyiso-scope-dialog__row + .oyiso-scope-dialog__row {
+    padding-top: 12px;
+    border-top: 1px solid #eceef2;
 }
 
-.oyiso-scope-dialog__row strong {
-    color: #4f463f;
+.oyiso-scope-dialog__label {
+    color: #8b8279;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
 }
 
-.oyiso-scope-dialog__row strong,
-.oyiso-scope-dialog__row span {
+.oyiso-scope-dialog__value {
     min-width: 0;
+    color: #4f463f;
+    font-size: 14px;
+    line-height: 1.7;
 }
 
-.oyiso-scope-dialog__row span {
+.oyiso-scope-dialog__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.oyiso-scope-dialog__chip {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #eceef2;
+    color: inherit;
     overflow-wrap: anywhere;
     word-break: break-word;
 }
 
-.oyiso-scope-dialog__row a {
+.oyiso-scope-dialog__chip a,
+.oyiso-scope-dialog__value a {
     color: var(--oyiso-coupon-accent);
     text-decoration: none;
     overflow-wrap: anywhere;
     word-break: break-word;
 }
 
-.oyiso-scope-dialog__row a:hover,
-.oyiso-scope-dialog__row a:focus {
+.oyiso-scope-dialog__chip a:hover,
+.oyiso-scope-dialog__chip a:focus,
+.oyiso-scope-dialog__value a:hover,
+.oyiso-scope-dialog__value a:focus {
     color: var(--oyiso-coupon-accent, #e5702a);
     text-decoration: underline;
 }
