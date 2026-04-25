@@ -7,6 +7,177 @@
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
+.oyiso-coupons-theme-dark .oyiso-coupons {
+    --oyiso-coupon-dark: #e7edf5 !important;
+    --oyiso-coupon-line: #303948 !important;
+    --oyiso-coupon-muted: #111823 !important;
+    --oyiso-card-bg: #111823 !important;
+    --oyiso-tabs-bg: #18212c !important;
+    --oyiso-tab-bg: rgba(255, 255, 255, 0.04) !important;
+    --oyiso-tab-hover-bg: rgba(255, 255, 255, 0.08) !important;
+    --oyiso-tab-count-bg: rgba(255, 255, 255, 0.12) !important;
+    color-scheme: dark;
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupons__banner--plain {
+    border: 1px solid var(--oyiso-coupon-line);
+    background: linear-gradient(180deg, #101722, #0d141d);
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupons__banner--plain .oyiso-coupons__kicker {
+    border-color: color-mix(in srgb, var(--oyiso-coupon-accent), #000 46%);
+    background: color-mix(in srgb, var(--oyiso-coupon-accent), #0d141d 78%);
+    color: color-mix(in srgb, var(--oyiso-coupon-accent), #fff 18%);
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupons__banner--plain .oyiso-coupons__title {
+    color: var(--oyiso-coupon-dark);
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupons__banner--plain .oyiso-coupons__description {
+    color: rgba(231, 237, 245, 0.76);
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupons__tabs-slider {
+    background: #0f1720;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupons__tab {
+    color: #a8b3c2;
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupons__tab-count {
+    color: #cfd7e3;
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupon-card {
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupon-card__icon {
+    background: linear-gradient(180deg, #18212b, #111823);
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupon-card__discount-label {
+    background: #1a2330;
+    color: #aeb9c8;
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupon-card__description-viewport::after {
+    background: linear-gradient(180deg, rgba(17, 24, 35, 0), #111823 88%);
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupon-card__text {
+    color: #aeb9c8;
+}
+
+body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__scope-button,
+body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__copy-button {
+    background: #18212c;
+    color: #b9c4d2;
+}
+
+body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__scope-button:hover,
+body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__scope-button:focus,
+body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__copy-button:hover,
+body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__copy-button:focus,
+body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__copy-button.is-copied {
+    background: #0f1720;
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupon-card__code {
+    background: #0f1720;
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupon-card__progress-head {
+    color: #8390a1;
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupon-card__progress-head strong {
+    color: #d8e0ea;
+}
+
+.oyiso-coupons-theme-dark .oyiso-coupon-card__progress-track {
+    background: #222c38;
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__backdrop {
+    background: rgba(6, 10, 16, 0.68);
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__panel {
+    background: #111823;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.34);
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__header {
+    border-bottom-color: #26303c;
+    background: linear-gradient(180deg, #131b26, #111823);
+}
+
+body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close {
+    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #111823 82%) !important;
+}
+
+body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close:hover,
+body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
+    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #111823 72%) !important;
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__content {
+    color: #aeb9c8;
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__summary {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #111823 86%), #0f1720);
+    border-color: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #111823 66%);
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__summary-label,
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__label,
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__section-title {
+    color: #8c98a8;
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__section-card {
+    border-color: #26303c;
+    background: #0f1720;
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__section-body > .oyiso-scope-dialog__row + .oyiso-scope-dialog__row {
+    border-top-color: #26303c;
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__value {
+    color: #d7e0ea;
+}
+
+.oyiso-coupons-theme-dark .oyiso-scope-dialog__list-item::before {
+    background: color-mix(in srgb, var(--oyiso-scope-group-color, var(--oyiso-coupon-accent, #e5702a)), #fff 16%);
+}
+
+@container oyiso-coupons (max-width: 640px) {
+    .oyiso-coupons-theme-dark .oyiso-coupon-card__head {
+        background: linear-gradient(180deg, #18212b, #111823);
+        border-bottom-color: #26303c;
+    }
+
+    .oyiso-coupons-theme-dark .oyiso-coupon-card__mobile-actions {
+        border-top-color: #26303c;
+        background: #111823;
+    }
+
+    body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__copy-button--mobile,
+    body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__scope-button--mobile {
+        color: #b9c4d2;
+    }
+
+    body .oyiso-coupons-theme-dark .oyiso-coupons .oyiso-coupon-card__mobile-actions--dual .oyiso-coupon-card__copy-button--mobile::before {
+        background: #26303c;
+    }
+}
+
 .oyiso-info-card__title {
     margin: 0 0 10px;
     color: #1f2937;

@@ -119,6 +119,15 @@ msgstr "描述"
 msgid "Description Size"
 msgstr "描述字号"
 
+msgid "Theme"
+msgstr "主题"
+
+msgid "Light Theme"
+msgstr "浅色主题"
+
+msgid "Dark Theme"
+msgstr "深色主题"
+
 msgid "Details"
 msgstr "详情"
 

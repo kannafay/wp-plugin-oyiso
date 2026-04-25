@@ -243,6 +243,17 @@ class Coupons extends Widget_Base
             'prefix_class' => 'oyiso-coupons-default-style-',
         ]);
 
+        $this->add_control('theme_mode', [
+            'label'        => __('Theme', 'oyiso'),
+            'type'         => Controls_Manager::SELECT,
+            'default'      => 'light',
+            'options'      => [
+                'light' => __('Light Theme', 'oyiso'),
+                'dark'  => __('Dark Theme', 'oyiso'),
+            ],
+            'prefix_class' => 'oyiso-coupons-theme-',
+        ]);
+
         $this->add_control('accent_color', [
             'label'       => __('Accent Color', 'oyiso'),
             'type'        => Controls_Manager::COLOR,

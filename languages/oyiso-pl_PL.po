@@ -317,6 +317,15 @@ msgstr "Pokaż więcej"
 msgid "Style Preset"
 msgstr "Preset stylu"
 
+msgid "Theme"
+msgstr "Motyw"
+
+msgid "Light Theme"
+msgstr "Motyw jasny"
+
+msgid "Dark Theme"
+msgstr "Motyw ciemny"
+
 msgid "Tab Gap"
 msgstr "Odstęp zakładek"
 
