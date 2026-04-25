@@ -1346,6 +1346,7 @@ body .oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab {
     overflow: hidden;
     max-height: calc(var(--oyiso-card-text-size) * 1.6 * 2);
     transition: max-height .28s ease;
+    min-width: 0;
 }
 
 .oyiso-coupon-card__description-viewport::after {
@@ -1370,6 +1371,8 @@ body .oyiso-coupons-tabs-style-segmented .oyiso-coupons .oyiso-coupons__tab {
     color: #71665d;
     font-size: var(--oyiso-card-text-size);
     line-height: 1.6;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .oyiso-coupon-card__description.is-expanded .oyiso-coupon-card__text {
@@ -1709,6 +1712,15 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     color: #71665d;
     font-size: 14px;
     line-height: 1.8;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.oyiso-scope-dialog__row {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: start;
+    column-gap: 8px;
 }
 
 .oyiso-scope-dialog__row + .oyiso-scope-dialog__row {
@@ -1719,9 +1731,21 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     color: #4f463f;
 }
 
+.oyiso-scope-dialog__row strong,
+.oyiso-scope-dialog__row span {
+    min-width: 0;
+}
+
+.oyiso-scope-dialog__row span {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 .oyiso-scope-dialog__row a {
     color: var(--oyiso-coupon-accent);
     text-decoration: none;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .oyiso-scope-dialog__row a:hover,
