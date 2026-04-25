@@ -1942,6 +1942,17 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         flex: 0 0 auto;
     }
 
+    .oyiso-coupon-card__head {
+        margin: -16px -16px 16px;
+        padding: 16px;
+        background: linear-gradient(180deg, #fbfbfc, #f3f4f5);
+        border-bottom: 1px solid #eceef2;
+    }
+
+    .oyiso-coupon-card__actions {
+        display: none;
+    }
+
     .oyiso-coupon-card__code {
         display: block;
         overflow: hidden;
