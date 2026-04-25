@@ -549,14 +549,14 @@ class Coupons extends Widget_Base
             'type'                 => Controls_Manager::SELECT,
             'default'              => 'wrap',
             'tablet_default'       => 'wrap',
-            'mobile_default'       => 'wrap',
+            'mobile_default'       => 'grid_2',
             'placeholder'          => 'wrap',
             'device_args'          => [
                 'tablet' => [
                     'placeholder' => 'wrap',
                 ],
                 'mobile' => [
-                    'placeholder' => 'wrap',
+                    'placeholder' => 'grid_2',
                 ],
             ],
             'options'              => [
