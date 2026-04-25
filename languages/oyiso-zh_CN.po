@@ -224,6 +224,15 @@ msgstr "海洋宝藏"
 msgid "Offer Details"
 msgstr "优惠详情"
 
+msgid "Coupon Code"
+msgstr "优惠码"
+
+msgid "Eligibility"
+msgstr "适用范围"
+
+msgid "Conditions"
+msgstr "使用条件"
+
 msgid "Order Discount"
 msgstr "订单优惠"
 

@@ -209,6 +209,15 @@ msgstr "Morskie skarby"
 msgid "Offer Details"
 msgstr "Szczegóły oferty"
 
+msgid "Coupon Code"
+msgstr "Kod rabatowy"
+
+msgid "Eligibility"
+msgstr "Zakres zastosowania"
+
+msgid "Conditions"
+msgstr "Warunki użycia"
+
 msgid "Order Discount"
 msgstr "Zniżka na zamówienie"
 
