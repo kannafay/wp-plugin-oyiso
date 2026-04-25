@@ -1222,6 +1222,8 @@ body .oyiso-coupons-tabs-style-underline .oyiso-coupons .oyiso-coupons__tab {
     justify-content: flex-start !important;
     max-width: 100% !important;
     overflow: hidden;
+    background: transparent !important;
+    box-shadow: none !important;
     text-align: left !important;
     white-space: nowrap !important;
 }
@@ -2094,6 +2096,13 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
         row-gap: 6px;
     }
 
+    .oyiso-coupons-tabs-style-underline .oyiso-coupons__tabs {
+        display: var(--oyiso-tabs-display);
+        grid-template-columns: var(--oyiso-tabs-columns);
+        flex-wrap: var(--oyiso-tabs-wrap);
+        row-gap: var(--oyiso-tabs-gap);
+    }
+
     body .oyiso-coupons-tabs-style-underline .oyiso-coupons .oyiso-coupons__tab,
     body .oyiso-coupons-tabs-style-minimal .oyiso-coupons .oyiso-coupons__tab {
         width: auto !important;
@@ -2109,6 +2118,8 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
     body .oyiso-coupons-tabs-style-underline .oyiso-coupons .oyiso-coupons__tab {
         overflow: hidden;
         padding-inline: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
         text-align: left !important;
         white-space: nowrap !important;
     }
