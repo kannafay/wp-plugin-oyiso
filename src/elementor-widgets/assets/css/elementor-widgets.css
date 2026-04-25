@@ -1435,6 +1435,17 @@ body .oyiso-coupons-tabs-style-minimal .oyiso-coupons .oyiso-coupons__tab-label 
     justify-content: flex-end;
 }
 
+.oyiso-coupon-card__code-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.oyiso-coupon-card__mobile-actions {
+    display: none;
+}
+
 .oyiso-coupon-card__discount {
     margin: 12px 0;
     color: var(--oyiso-group-color, var(--oyiso-coupon-accent));
@@ -1940,6 +1951,35 @@ body .oyiso-scope-dialog .oyiso-scope-dialog__close:focus {
 
     .oyiso-coupon-card__copy-button {
         flex: 0 0 auto !important;
+    }
+
+    body .oyiso-coupons .oyiso-coupon-card__copy-button--desktop,
+    body .oyiso-coupons .oyiso-coupon-card__scope-button--desktop {
+        display: none !important;
+    }
+
+    .oyiso-coupon-card__mobile-actions {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .oyiso-coupon-card__mobile-actions--dual {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .oyiso-coupon-card__mobile-actions--single {
+        grid-template-columns: 1fr;
+    }
+
+    .oyiso-coupon-card__copy-button--mobile,
+    .oyiso-coupon-card__scope-button--mobile {
+        width: 100% !important;
+        max-width: none !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        max-height: 36px !important;
+        border-radius: 9px !important;
     }
 
     .oyiso-coupon-card__content {

@@ -1925,23 +1925,25 @@ class Coupons extends Widget_Base
                                     }
                                     ?>
                                 </span>
-                                <span class="oyiso-coupon-card__code"><?php echo esc_html($code); ?></span>
+                                <div class="oyiso-coupon-card__code-row">
+                                    <span class="oyiso-coupon-card__code"><?php echo esc_html($code); ?></span>
 
-                                <button
-                                    class="oyiso-coupon-card__copy-button"
-                                    type="button"
-                                    data-coupon-copy="<?php echo esc_attr($code); ?>"
-                                    data-copied-text="<?php echo esc_attr__('Copied', 'oyiso'); ?>"
-                                >
-                                    <?php echo esc_html__('Copy Code', 'oyiso'); ?>
-                                </button>
+                                    <button
+                                        class="oyiso-coupon-card__copy-button oyiso-coupon-card__copy-button--desktop"
+                                        type="button"
+                                        data-coupon-copy="<?php echo esc_attr($code); ?>"
+                                        data-copied-text="<?php echo esc_attr__('Copied', 'oyiso'); ?>"
+                                    >
+                                        <?php echo esc_html__('Copy Code', 'oyiso'); ?>
+                                    </button>
+                                </div>
                             <?php endif; ?>
                         </div>
 
                         <?php if ($scope) : ?>
                             <div class="oyiso-coupon-card__actions">
                                 <button
-                                    class="oyiso-coupon-card__scope-button"
+                                    class="oyiso-coupon-card__scope-button oyiso-coupon-card__scope-button--desktop"
                                     type="button"
                                     data-coupon-scope="<?php echo esc_attr($scope); ?>"
                                     data-coupon-code="<?php echo esc_attr($code); ?>"
@@ -1985,6 +1987,32 @@ class Coupons extends Widget_Base
                         <?php $this->render_coupon_progress($validity); ?>
                     <?php endif; ?>
                 </div>
+
+                <?php if ($code || $scope) : ?>
+                    <div class="oyiso-coupon-card__mobile-actions<?php echo ($code && $scope) ? ' oyiso-coupon-card__mobile-actions--dual' : ' oyiso-coupon-card__mobile-actions--single'; ?>">
+                        <?php if ($code) : ?>
+                            <button
+                                class="oyiso-coupon-card__copy-button oyiso-coupon-card__copy-button--mobile"
+                                type="button"
+                                data-coupon-copy="<?php echo esc_attr($code); ?>"
+                                data-copied-text="<?php echo esc_attr__('Copied', 'oyiso'); ?>"
+                            >
+                                <?php echo esc_html__('Copy Code', 'oyiso'); ?>
+                            </button>
+                        <?php endif; ?>
+
+                        <?php if ($scope) : ?>
+                            <button
+                                class="oyiso-coupon-card__scope-button oyiso-coupon-card__scope-button--mobile"
+                                type="button"
+                                data-coupon-scope="<?php echo esc_attr($scope); ?>"
+                                data-coupon-code="<?php echo esc_attr($code); ?>"
+                            >
+                                <?php echo esc_html__('Details', 'oyiso'); ?>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </article>
         <?php
