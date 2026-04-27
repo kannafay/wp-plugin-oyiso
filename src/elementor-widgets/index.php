@@ -8,6 +8,7 @@ defined('ABSPATH') || exit;
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
         'parent'   => 'plugin-extensions',
+        'id'       => 'elementor-widgets',
         'title'    => 'Elementor 小部件',
         'icon'     => 'fab fa-elementor',
         'priority' => 10,

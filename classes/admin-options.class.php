@@ -399,7 +399,8 @@ if ( ! class_exists( 'CSF_Options' ) ) {
 
           // create submenus
           foreach ( $this->pre_tabs as $section ) {
-            call_user_func( 'add_submenu_page', $args['menu_slug'], esc_attr( $section['title'] ),  esc_attr( $section['title'] ), $args['menu_capability'], $args['menu_slug'] .'#tab='. sanitize_title( $section['title'] ), '__return_null' );
+            $section_id = ( ! empty( $section['id'] ) ) ? $section['id'] : sanitize_title( $section['title'] );
+            call_user_func( 'add_submenu_page', $args['menu_slug'], esc_attr( $section['title'] ),  esc_attr( $section['title'] ), $args['menu_capability'], $args['menu_slug'] .'#tab='. $section_id, '__return_null' );
           }
 
           remove_submenu_page( $args['menu_slug'], $args['menu_slug'] );
@@ -538,7 +539,7 @@ if ( ! class_exists( 'CSF_Options' ) ) {
 
               foreach ( $this->pre_tabs as $tab ) {
 
-                $tab_id    = sanitize_title( $tab['title'] );
+                $tab_id    = ( ! empty( $tab['id'] ) ) ? $tab['id'] : sanitize_title( $tab['title'] );
                 $tab_error = $this->error_check( $tab );
                 $tab_icon  = ( ! empty( $tab['icon'] ) ) ? '<i class="csf-tab-icon '. esc_attr( $tab['icon'] ) .'"></i>' : '';
 
@@ -552,7 +553,8 @@ if ( ! class_exists( 'CSF_Options' ) ) {
 
                     foreach ( $tab['subs'] as $sub ) {
 
-                      $sub_id    = $tab_id .'/'. sanitize_title( $sub['title'] );
+                      $sub_slug  = ( ! empty( $sub['id'] ) ) ? $sub['id'] : sanitize_title( $sub['title'] );
+                      $sub_id    = $tab_id .'/'. $sub_slug;
                       $sub_error = $this->error_check( $sub );
                       $sub_icon  = ( ! empty( $sub['icon'] ) ) ? '<i class="csf-tab-icon '. esc_attr( $sub['icon'] ) .'"></i>' : '';
 
@@ -588,8 +590,8 @@ if ( ! class_exists( 'CSF_Options' ) ) {
               $section_class  = ( ! empty( $section['class'] ) ) ? ' '. $section['class'] : '';
               $section_icon   = ( ! empty( $section['icon'] ) ) ? '<i class="csf-section-icon '. esc_attr( $section['icon'] ) .'"></i>' : '';
               $section_title  = ( ! empty( $section['title'] ) ) ? $section['title'] : '';
-              $section_parent = ( ! empty( $section['ptitle'] ) ) ? sanitize_title( $section['ptitle'] ) .'/' : '';
-              $section_slug   = ( ! empty( $section['title'] ) ) ? sanitize_title( $section_title ) : '';
+              $section_parent = ( ! empty( $section['pid'] ) ) ? $section['pid'] .'/' : ( ( ! empty( $section['ptitle'] ) ) ? sanitize_title( $section['ptitle'] ) .'/' : '' );
+              $section_slug   = ( ! empty( $section['id'] ) ) ? $section['id'] : ( ( ! empty( $section['title'] ) ) ? sanitize_title( $section_title ) : '' );
 
               echo '<div class="csf-section hidden'. esc_attr( $section_onload . $section_class ) .'" data-section-id="'. esc_attr( $section_parent . $section_slug ) .'">';
               echo ( $has_nav ) ? '<div class="csf-section-title"><h3>'. $section_icon . $section_title .'</h3></div>' : '';

@@ -165,6 +165,7 @@ abstract class CSF_Abstract {
       if ( ! empty( $section['subs'] ) ) {
         foreach ( $section['subs'] as $sub ) {
           $sub['ptitle'] = ( ! empty( $section['title'] ) ) ? $section['title'] : '';
+          $sub['pid']    = ( ! empty( $section['id'] ) ) ? $section['id'] : '';
           $result[] = $sub;
         }
       }

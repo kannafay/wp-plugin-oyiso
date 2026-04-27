@@ -8,6 +8,7 @@ defined('ABSPATH') || exit;
 if (class_exists('CSF')) {
 CSF::createSection($prefix, [
     'parent'   => 'wp-optimize',
+    'id'       => 'gutenberg-editor',
     'title'    => '古腾堡编辑器',
     'icon'     => 'fas fa-edit',
     'priority' => 10,

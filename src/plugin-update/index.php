@@ -460,7 +460,7 @@ JS);
 
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
-        'id'       => 'plugin-update',
+        'id'       => 'oyiso-update',
         'title'    => '在线更新',
         'icon'     => 'fas fa-cloud-download-alt',
         'priority' => 50,

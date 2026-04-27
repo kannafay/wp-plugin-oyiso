@@ -14,6 +14,7 @@ function oyiso_render_tg_test_field(): void {
 if (class_exists('CSF')) {
 CSF::createSection($prefix, [
     'parent'   => 'notifications',
+    'id'       => 'telegram-bot',
     'title'    => 'Telegram Bot',
     'icon'     => 'fab fa-telegram-plane',
     'priority' => 10,

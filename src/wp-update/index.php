@@ -8,6 +8,7 @@ defined('ABSPATH') || exit;
 if (class_exists('CSF')) {
 CSF::createSection($prefix, [
     'parent'   => 'wp-optimize',
+    'id'       => 'wp-update',
     'title'    => '自动更新管理',
     'icon'     => 'fas fa-sync-alt',
     'priority' => 1,
