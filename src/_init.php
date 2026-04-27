@@ -288,13 +288,6 @@ if (class_exists('CSF')) {
         'priority' => 40,
     ]);
 
-    CSF::createSection($prefix, [
-        'id'       => 'plugin-update',
-        'title'    => '插件在线更新',
-        'icon'     => 'fas fa-cloud-download-alt',
-        'priority' => 50,
-    ]);
-
 } // end CSF UI block
 
 // 加载模块（功能钩子在前后端均需注册，CSF 调用由模块内部自行 guard）

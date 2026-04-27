@@ -160,7 +160,7 @@ JS);
                 return $transient;
             }
 
-            return $this->mergeReleaseIntoTransient($transient);
+            return $this->mergeReleaseIntoTransient($transient, true);
         }
 
         public function injectPluginInfo($result, $action, $args) {
@@ -241,7 +241,7 @@ JS);
 
             $transient->checked[$pluginFile] = $currentVersion;
             $transient->last_checked = time();
-            $transient = $this->mergeReleaseIntoTransient($transient);
+            $transient = $this->mergeReleaseIntoTransient($transient, false, $release);
 
             set_site_transient('update_plugins', $transient);
             wp_clean_plugins_cache(false);
@@ -261,12 +261,18 @@ JS);
             ]);
         }
 
-        private function mergeReleaseIntoTransient($transient) {
+        private function mergeReleaseIntoTransient($transient, bool $allowFetch = false, ?array $releaseOverride = null) {
             $pluginFile = plugin_basename(oyiso_get_plugin_update_main_file());
             $pluginData = oyiso_get_plugin_update_plugin_data();
-            $release = $this->getStoredRelease();
+            $release = $releaseOverride;
 
-            if (!$release || empty($pluginData['Version'])) {
+            if ($release === null) {
+                $release = $allowFetch
+                    ? $this->requestLatestRelease(false)
+                    : $this->getStoredRelease();
+            }
+
+            if (is_wp_error($release) || !$release || empty($pluginData['Version'])) {
                 return $transient;
             }
 
@@ -323,10 +329,19 @@ JS);
 
         private function requestLatestRelease(bool $forceRefresh = false) {
             if (!$forceRefresh) {
-                $cached = $this->getStoredRelease();
+                $cached = get_transient(self::CACHE_KEY);
 
-                if ($cached) {
-                    return $cached;
+                if (is_array($cached)) {
+                    if (($cached['_status'] ?? '') === 'success') {
+                        return $cached;
+                    }
+
+                    if (($cached['_status'] ?? '') === 'error') {
+                        return new WP_Error(
+                            'oyiso_plugin_update_error',
+                            (string) ($cached['message'] ?? '暂时无法检查 GitHub 更新。')
+                        );
+                    }
                 }
             }
 
@@ -450,11 +465,10 @@ JS);
 
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
-        'id'       => 'plugin-update-github',
-        'parent'   => 'plugin-update',
-        'title'    => 'GitHub 更新',
-        'icon'     => 'fab fa-github',
-        'priority' => 10,
+        'id'       => 'plugin-update',
+        'title'    => '插件在线更新',
+        'icon'     => 'fas fa-cloud-download-alt',
+        'priority' => 50,
         'fields'   => [
             [
                 'type'    => 'heading',
