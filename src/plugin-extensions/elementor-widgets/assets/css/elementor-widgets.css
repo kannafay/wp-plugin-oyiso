@@ -243,6 +243,7 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     font-weight: 400;
     line-height: 1.2;
     text-decoration: none;
+    transition: background-color .2s ease, color .2s ease, filter .2s ease;
 }
 
 .oyiso-info-card__button:hover,
