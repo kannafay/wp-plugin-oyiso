@@ -623,11 +623,6 @@ if ($notify_options['woo_cart_quantity_change'] ?? false) {
  * WooCommerce 新订单通知
  */
 if ($notify_options['woo_new_order'] ?? false) {
-    add_action('woocommerce_checkout_order_processed', function ($order_id) {
-        oyiso_send_new_order_notification((int) $order_id);
-    }, 10, 1);
-
-    // 兼容部分支付流程仍走 thankyou，但已发送标记会防重复发送。
     add_action('woocommerce_thankyou', function ($order_id) {
         oyiso_send_new_order_notification((int) $order_id);
     }, 10, 1);
