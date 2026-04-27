@@ -70,11 +70,14 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
                 return;
             }
 
+            $headerBadge = $this->getHeaderBadgePayload();
+
             wp_register_script('oyiso-plugin-update', '', ['jquery'], null, true);
             wp_enqueue_script('oyiso-plugin-update');
             wp_localize_script('oyiso-plugin-update', 'oyisoPluginUpdate', [
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce'   => wp_create_nonce('oyiso_plugin_update_check'),
+                'headerBadge' => $headerBadge,
                 'labels'  => [
                     'checking'      => '正在检查 GitHub 更新...',
                     'error'         => '检查失败，请稍后重试。',
@@ -82,15 +85,57 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
                 ],
             ]);
 
+            wp_add_inline_style('csf', <<<'CSS'
+.csf-header-left h1 {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.oyiso-update-header-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #e5702a;
+    background: #fff7f2;
+    color: #e5702a;
+    font-size: 12px;
+    line-height: 1;
+    vertical-align: middle;
+}
+CSS);
+
             wp_add_inline_script('oyiso-plugin-update', <<<'JS'
 jQuery(function ($) {
     var $button = $('#oyiso-plugin-update-check');
     var $action = $('#oyiso-plugin-update-action');
     var $status = $('#oyiso-plugin-update-status');
+    var badgeSelector = '.oyiso-update-header-badge';
 
     if (!$button.length || !$action.length || !$status.length) {
         return;
     }
+
+    function syncHeaderBadge(payload) {
+        var $title = $('.csf-header-left h1').first();
+
+        if (!$title.length) {
+            return;
+        }
+
+        $title.find(badgeSelector).remove();
+
+        if (!payload || !payload.show || !payload.text) {
+            return;
+        }
+
+        $('<span/>', {
+            'class': 'oyiso-update-header-badge',
+            text: payload.text
+        }).appendTo($title);
+    }
+
+    syncHeaderBadge(oyisoPluginUpdate.headerBadge);
 
     $(document).on('click', '.oyiso-plugin-update-now', function (event) {
         if (!window.confirm(oyisoPluginUpdate.labels.confirmUpdate)) {
@@ -110,6 +155,7 @@ jQuery(function ($) {
             if (response && response.success && response.data && response.data.statusHtml !== undefined) {
                 $status.html(response.data.statusHtml);
                 $action.html(response.data.actionHtml || '');
+                syncHeaderBadge(response.data.headerBadge || null);
                 return;
             }
 
@@ -207,6 +253,7 @@ JS);
             wp_send_json_success([
                 'statusHtml' => $statusPayload['status_html'],
                 'actionHtml' => $statusPayload['action_html'],
+                'headerBadge' => $this->getHeaderBadgePayload($release),
             ]);
         }
 
@@ -369,6 +416,31 @@ JS);
 
             set_site_transient('update_plugins', $transient);
             wp_clean_plugins_cache(false);
+        }
+
+        private function getHeaderBadgePayload(?array $releaseOverride = null): array {
+            $pluginData = oyiso_get_plugin_update_plugin_data();
+            $currentVersion = (string) ($pluginData['Version'] ?? '');
+            $release = is_array($releaseOverride) ? $releaseOverride : $this->getStoredRelease();
+
+            if (!$release || empty($release['version']) || $currentVersion === '') {
+                return [
+                    'show' => false,
+                    'text' => '',
+                ];
+            }
+
+            if (!version_compare((string) $release['version'], $currentVersion, '>')) {
+                return [
+                    'show' => false,
+                    'text' => '',
+                ];
+            }
+
+            return [
+                'show' => true,
+                'text' => '发现新版本 v' . (string) $release['version'],
+            ];
         }
 
         private function getUpgradeUrl(): string {
