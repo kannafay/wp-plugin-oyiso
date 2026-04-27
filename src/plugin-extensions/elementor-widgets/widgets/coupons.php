@@ -41,7 +41,7 @@ class Coupons extends Widget_Base
     private function translate_for_locale(string $text, string $locale): string
     {
         static $catalogs = [];
-        $mofile = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'languages' . DIRECTORY_SEPARATOR . 'oyiso-' . $locale . '.mo';
+        $mofile = dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'languages' . DIRECTORY_SEPARATOR . 'oyiso-' . $locale . '.mo';
 
         if (!is_readable($mofile)) {
             return $text;
