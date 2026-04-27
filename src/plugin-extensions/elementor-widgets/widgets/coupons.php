@@ -193,7 +193,7 @@ class Coupons extends Widget_Base
         $repeater->add_control('group_color', [
             'label'   => __('Group Color', 'oyiso'),
             'type'    => Controls_Manager::COLOR,
-            'default' => '#e5702a',
+            'default' => '',
         ]);
 
         $repeater->add_control('group_icon', [
@@ -214,7 +214,7 @@ class Coupons extends Widget_Base
                 [
                     'group_name' => $this->get_site_default_text('Featured Offers'),
                     'coupon_ids' => [],
-                    'group_color' => '#e5702a',
+                    'group_color' => '',
                 ],
             ],
         ]);
@@ -1534,7 +1534,11 @@ class Coupons extends Widget_Base
                     $tab_index = 0;
                     foreach ($groups as $category_key => $group) :
                         $is_active = $tab_index === 0;
-                        $tab_style = $category_key === 'all' ? '' : 'style="--oyiso-group-color: ' . esc_attr($group['color']) . ';"';
+                        $tab_style = '';
+
+                        if ($category_key !== 'all' && !empty($group['color'])) {
+                            $tab_style = 'style="--oyiso-group-color: ' . esc_attr($group['color']) . ';"';
+                        }
                         ?>
                         <button
                             class="oyiso-coupons__tab<?php echo $is_active ? ' is-active' : ''; ?>"
@@ -1622,7 +1626,7 @@ class Coupons extends Widget_Base
         foreach ($settings_groups as $group_index => $settings_group) {
             $label = trim($settings_group['group_name'] ?? '');
             $coupon_ids = $settings_group['coupon_ids'] ?? [];
-            $group_color = sanitize_hex_color($settings_group['group_color'] ?? '') ?: $accent_color;
+            $group_color = sanitize_hex_color($settings_group['group_color'] ?? '') ?: '';
             $group_icon = $this->normalize_group_icon($settings_group['group_icon'] ?? []);
 
             if ($label === '') {
@@ -1728,7 +1732,7 @@ class Coupons extends Widget_Base
         return [
             'label' => $group['label'] ?? __('All', 'oyiso'),
             'items' => $group['items'] ?? [],
-            'color' => $coupon['group_color'] ?? ($group['color'] ?? '#e5702a'),
+            'color' => $coupon['group_color'] ?? '',
             'icon'  => $coupon['group_icon'] ?? ($group['icon'] ?? $this->get_default_group_icon()),
         ];
     }
@@ -2090,8 +2094,11 @@ class Coupons extends Widget_Base
         $scope = $coupon['scope'] ?? '';
         $remaining = $coupon['remaining'] ?? [];
         $validity = $coupon['validity'] ?? [];
+        $card_style = !empty($group['color'])
+            ? ' style="--oyiso-group-color: ' . esc_attr($group['color']) . ';"'
+            : '';
         ?>
-        <article class="oyiso-coupon-card" style="--oyiso-group-color: <?php echo esc_attr($group['color'] ?? '#e5702a'); ?>;">
+        <article class="oyiso-coupon-card"<?php echo $card_style; ?>>
             <div class="oyiso-coupon-card__icon" aria-hidden="true">
                 <?php
                 if (!empty($group['icon']['value'])) {
