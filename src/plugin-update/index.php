@@ -80,7 +80,6 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
         public static function init(): void {
             $instance = new self();
 
-            add_filter('site_transient_update_plugins', [$instance, 'hydrateRetrievedTransient']);
             add_filter('pre_set_site_transient_update_plugins', [$instance, 'injectUpdate']);
             add_filter('plugins_api', [$instance, 'injectPluginInfo'], 20, 3);
             add_action('upgrader_process_complete', [$instance, 'purgeCache'], 10, 2);
@@ -147,20 +146,16 @@ jQuery(function ($) {
 JS);
         }
 
-        public function hydrateRetrievedTransient($transient) {
-            if (!is_object($transient)) {
-                return $transient;
-            }
-
-            return $this->mergeReleaseIntoTransient($transient);
-        }
-
         public function injectUpdate($transient) {
-            if (!is_object($transient)) {
+            if (!is_object($transient) || empty($transient->checked)) {
                 return $transient;
             }
 
-            return $this->mergeReleaseIntoTransient($transient);
+            if (!is_admin() && !wp_doing_cron()) {
+                return $transient;
+            }
+
+            return $this->mergeReleaseIntoTransient($transient, true);
         }
 
         public function injectPluginInfo($result, $action, $args) {
