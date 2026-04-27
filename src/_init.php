@@ -100,6 +100,14 @@ if (class_exists('CSF')) {
                 opacity: 1;
                 transform: scaleY(1);
             }
+            .csf.csf-options .csf-nav > ul > li > a.csf-active {
+                background-color: #fff;
+                color: #1d1d1d;
+            }
+            .csf.csf-options .csf-nav > ul > li > a.csf-active::before {
+                opacity: 1;
+                transform: scaleY(1);
+            }
             /* ── 二级菜单 ── */
             .csf.csf-options .csf-nav > ul > li > ul > li > a {
                 position: relative;
@@ -179,21 +187,43 @@ if (class_exists('CSF')) {
 
                 function updateActiveParents(){
                     var $activeLinks = $nav.find("ul ul a.csf-active");
+                    var $activeTopLinks = $nav.find("> ul > li > a.csf-active");
 
                     if (!$activeLinks.length && window.location.hash.indexOf("tab=") !== -1) {
                         var tabId = window.location.hash.replace(/^#tab=/, "");
                         $activeLinks = $nav.find("ul ul a[data-tab-id=\"" + tabId + "\"]");
+                        $activeTopLinks = $nav.find("> ul > li > a[data-tab-id=\"" + tabId + "\"]");
                     }
 
-                    if (!$activeLinks.length) {
+                    if (!$activeLinks.length && !$activeTopLinks.length) {
                         var sectionId = $(".csf-section.csf-onload:not(.hidden), .csf-section:not(.hidden)").first().data("section-id");
                         if (sectionId) {
                             $activeLinks = $nav.find("ul ul a[data-tab-id=\"" + sectionId + "\"]");
+                            $activeTopLinks = $nav.find("> ul > li > a[data-tab-id=\"" + sectionId + "\"]");
                         }
                     }
 
                     $nav.find(".csf-tab-item").removeClass("csf-parent-active");
                     $activeLinks.closest(".csf-tab-item").addClass("csf-parent-active");
+                    $activeTopLinks.closest(".csf-tab-item").addClass("csf-parent-active");
+                }
+
+                function switchToSection(tabId) {
+                    if (!tabId) {
+                        return;
+                    }
+
+                    $(".csf-section").removeClass("csf-onload").addClass("hidden");
+                    var $section = $("[data-section-id=\"" + tabId + "\"]");
+
+                    if (!$section.length) {
+                        return;
+                    }
+
+                    $section.removeClass("hidden").addClass("csf-onload");
+                    $section.csf_reload_script();
+                    $(".csf-section-id").val($section.index() + 1);
+                    history.replaceState(null, null, "#tab=" + tabId);
                 }
 
                 updateActiveParents();
@@ -245,15 +275,27 @@ if (class_exists('CSF')) {
                     // 展开所属父级
                     $this.closest(".csf-tab-item").addClass("csf-tab-expanded").find("> ul").show();
 
-                    // 切换右侧面板
-                    $(".csf-section").removeClass("csf-onload").addClass("hidden");
-                    var $section = $("[data-section-id=\"" + tabId + "\"]");
-                    $section.removeClass("hidden").addClass("csf-onload");
-                    $section.csf_reload_script();
-                    $(".csf-section-id").val($section.index() + 1);
+                    switchToSection(tabId);
+                });
 
-                    // 更新 URL，不触发 hashchange
-                    history.replaceState(null, null, "#tab=" + tabId);
+                // 一级菜单点击：直接切换面板（无子菜单的入口）
+                $nav.on("click", "> ul > li > a", function(e){
+                    var $this = $(this);
+                    var $item = $this.closest(".csf-tab-item");
+                    var hasSubmenu = $item.find("> ul").length > 0;
+                    var tabId = $this.data("tab-id");
+
+                    if (hasSubmenu || !tabId) {
+                        return;
+                    }
+
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+
+                    $nav.find("a").removeClass("csf-active");
+                    $this.addClass("csf-active");
+                    updateActiveParents();
+                    switchToSection(tabId);
                 });
             });
             </script>',
