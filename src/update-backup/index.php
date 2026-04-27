@@ -6,7 +6,7 @@ if (class_exists('CSF')) {
     CSF::createSection($prefix, [
         'id'       => 'oyiso-update-backup',
         'title'    => '更新与备份',
-        'icon'     => 'fas fa-cloud-download-alt',
+        'icon'     => 'fas fa-hdd',
         'priority' => 50,
     ]);
 }
