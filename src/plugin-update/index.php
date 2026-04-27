@@ -33,7 +33,7 @@ if (!function_exists('oyiso_render_plugin_update_panel')) {
             <div class="oyiso-plugin-update-panel">
                 <p>当前插件已接入 GitHub Releases 在线更新。</p>
                 <p>仓库地址：<a href="https://github.com/kannafay/wp-plugin-oyiso" target="_blank" rel="noopener noreferrer">https://github.com/kannafay/wp-plugin-oyiso</a></p>
-                <p>发布新版本时，请在 GitHub Release 中上传你手动打包的插件 ZIP 附件，解压后的根目录必须为 <code>wp-plugin-oyiso/</code>。</p>
+                <p>如需手动更新，请下载最新 Release 安装包，并确保插件目录为 <code>wp-plugin-oyiso/</code>。</p>
                 <p>当前版本：<code>' . esc_html($currentVersion) . '</code></p>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <button type="button" class="button button-secondary" id="oyiso-plugin-update-check">检查更新</button>
