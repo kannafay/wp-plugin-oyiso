@@ -160,7 +160,7 @@ JS);
                 return $transient;
             }
 
-            return $this->mergeReleaseIntoTransient($transient, true);
+            return $this->mergeReleaseIntoTransient($transient);
         }
 
         public function injectPluginInfo($result, $action, $args) {
