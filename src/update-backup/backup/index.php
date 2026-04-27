@@ -165,8 +165,8 @@ if (!function_exists('oyiso_render_plugin_backup_list_html')) {
             $html .= '<div class="oyiso-backup-item__file"><code>' . esc_html($item['file']) . '</code></div>';
             $html .= '</div>';
             $html .= '<div class="oyiso-backup-item__actions">';
-            $html .= '<a class="button button-secondary" href="' . esc_url($downloadUrl) . '">下载</a>';
             $html .= '<button type="button" class="button button-primary oyiso-plugin-backup-restore-local" data-file="' . esc_attr($item['file']) . '">恢复</button>';
+            $html .= '<a class="button button-secondary oyiso-plugin-backup-download" href="' . esc_url($downloadUrl) . '">下载</a>';
             $html .= '<button type="button" class="button oyiso-plugin-backup-delete-local oyiso-button-danger" data-file="' . esc_attr($item['file']) . '">删除</button>';
             $html .= '</div>';
             $html .= '</div>';
@@ -226,6 +226,12 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                     .oyiso-plugin-backup-panel .oyiso-panel-text {
                         margin: 0;
                         color: var(--oyiso-backup-muted);
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-intro {
+                        margin: 0;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-intro + .oyiso-intro {
+                        margin-top: 12px;
                     }
                     .oyiso-plugin-backup-panel .oyiso-backup-list {
                         display: grid;
@@ -338,6 +344,7 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                         border: 0;
                         background: transparent;
                         color: #b32d2e;
+                        cursor: pointer;
                         line-height: 1.4;
                         text-decoration: none;
                         box-shadow: none;
@@ -360,6 +367,10 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                         color: #8a2424;
                         box-shadow: none;
                         outline: none;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-item__actions .is-disabled {
+                        pointer-events: none;
+                        opacity: 0.55;
                     }
                     @media only screen and (max-width: 960px) {
                         .oyiso-plugin-backup-panel .oyiso-backup-item {
@@ -391,8 +402,8 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                         }
                     }
                 </style>
-                <p>您可以在此备份或恢复插件配置。</p>
-                <p>备份文件将以 JSON 格式保存在站点本地，可创建多次并按需下载或恢复。</p>
+                <p class="oyiso-intro">您可以在此备份或恢复插件配置。</p>
+                <p class="oyiso-intro">备份文件将以 JSON 格式保存在站点本地，可创建多次并按需下载或恢复。</p>
 
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:16px;">
                     <div class="oyiso-panel-block">
@@ -694,6 +705,10 @@ jQuery(function ($) {
 
     function setLocalActionButtonsDisabled(disabled) {
         $('.oyiso-plugin-backup-restore-local, .oyiso-plugin-backup-delete-local').prop('disabled', disabled);
+        $('.oyiso-plugin-backup-download')
+            .toggleClass('is-disabled', disabled)
+            .attr('aria-disabled', disabled ? 'true' : 'false')
+            .attr('tabindex', disabled ? '-1' : '0');
     }
 
     function getSelectedImportFile() {
@@ -858,6 +873,7 @@ jQuery(function ($) {
 
     $import.on('click', function () {
         var file = getSelectedImportFile();
+        var keepDisabled = false;
 
         if (!file) {
             $file.trigger('click');
@@ -884,6 +900,7 @@ jQuery(function ($) {
             contentType: false
         }).done(function (response) {
             if (response && response.success && response.data && response.data.message) {
+                keepDisabled = true;
                 $status.html('<p style="margin:0;color:#15803d;">' + $('<div/>').text(response.data.message).html() + '</p>');
                 window.setTimeout(function () {
                     window.location.reload();
@@ -905,7 +922,9 @@ jQuery(function ($) {
 
             $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
         }).always(function () {
-            $import.prop('disabled', false);
+            if (!keepDisabled) {
+                $import.prop('disabled', false);
+            }
         });
     });
 
