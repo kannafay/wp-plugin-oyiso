@@ -301,42 +301,12 @@ if (class_exists('CSF')) {
             </script>',
     ]);
 
-    // 父级分类（仅导航，无字段）
-    CSF::createSection($prefix, [
-        'id'       => 'wp-optimize',
-        'title'    => 'WordPress 优化',
-        'icon'     => 'fab fa-wordpress',
-        'priority' => 10,
-    ]);
-
-    CSF::createSection($prefix, [
-        'id'       => 'seo-analytics',
-        'title'    => 'SEO 与统计',
-        'icon'     => 'fas fa-chart-bar',
-        'priority' => 20,
-    ]);
-
-    CSF::createSection($prefix, [
-        'id'       => 'notifications',
-        'title'    => '通知与集成',
-        'icon'     => 'fas fa-bell',
-        'priority' => 30,
-    ]);
-
-    CSF::createSection($prefix, [
-        'id'       => 'plugin-extensions',
-        'title'    => '插件扩展',
-        'icon'     => 'fas fa-puzzle-piece',
-        'priority' => 40,
-    ]);
-
 } // end CSF UI block
 
 // 加载模块（功能钩子在前后端均需注册，CSF 调用由模块内部自行 guard）
 $dir = plugin_dir_path(__FILE__);
-require_once $dir . 'gutenberg-editor/index.php';
-require_once $dir . 'wp-update/index.php';
-require_once $dir . '51la-analytics/index.php';
-require_once $dir . 'telegram/index.php';
-require_once $dir . 'elementor-widgets/index.php';
-require_once $dir . 'plugin-update/index.php';
+require_once $dir . 'wp-optimize/index.php';
+require_once $dir . 'seo-analytics/index.php';
+require_once $dir . 'notifications/index.php';
+require_once $dir . 'plugin-extensions/index.php';
+require_once $dir . 'update-backup/index.php';

@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 
 if (!function_exists('oyiso_get_plugin_update_main_file')) {
     function oyiso_get_plugin_update_main_file(): string {
-        return dirname(dirname(__DIR__)) . '/oyiso.php';
+        return dirname(dirname(dirname(__DIR__))) . '/oyiso.php';
     }
 }
 
@@ -520,10 +520,12 @@ JS);
 
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
+        'parent'   => 'oyiso-update-backup',
         'id'       => 'oyiso-update',
+        'tab_id'   => 'oyiso-update',
         'title'    => '在线更新',
         'icon'     => 'fas fa-cloud-download-alt',
-        'priority' => 50,
+        'priority' => 10,
         'fields'   => [
             [
                 'type'    => 'heading',

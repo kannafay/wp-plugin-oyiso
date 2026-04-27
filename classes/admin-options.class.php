@@ -539,7 +539,7 @@ if ( ! class_exists( 'CSF_Options' ) ) {
 
               foreach ( $this->pre_tabs as $tab ) {
 
-                $tab_id    = ( ! empty( $tab['id'] ) ) ? $tab['id'] : sanitize_title( $tab['title'] );
+                $tab_id    = ( ! empty( $tab['tab_id'] ) ) ? $tab['tab_id'] : ( ( ! empty( $tab['id'] ) ) ? $tab['id'] : sanitize_title( $tab['title'] ) );
                 $tab_error = $this->error_check( $tab );
                 $tab_icon  = ( ! empty( $tab['icon'] ) ) ? '<i class="csf-tab-icon '. esc_attr( $tab['icon'] ) .'"></i>' : '';
 
@@ -554,7 +554,7 @@ if ( ! class_exists( 'CSF_Options' ) ) {
                     foreach ( $tab['subs'] as $sub ) {
 
                       $sub_slug  = ( ! empty( $sub['id'] ) ) ? $sub['id'] : sanitize_title( $sub['title'] );
-                      $sub_id    = $tab_id .'/'. $sub_slug;
+                      $sub_id    = ( ! empty( $sub['tab_id'] ) ) ? $sub['tab_id'] : $tab_id .'/'. $sub_slug;
                       $sub_error = $this->error_check( $sub );
                       $sub_icon  = ( ! empty( $sub['icon'] ) ) ? '<i class="csf-tab-icon '. esc_attr( $sub['icon'] ) .'"></i>' : '';
 
@@ -590,8 +590,8 @@ if ( ! class_exists( 'CSF_Options' ) ) {
               $section_class  = ( ! empty( $section['class'] ) ) ? ' '. $section['class'] : '';
               $section_icon   = ( ! empty( $section['icon'] ) ) ? '<i class="csf-section-icon '. esc_attr( $section['icon'] ) .'"></i>' : '';
               $section_title  = ( ! empty( $section['title'] ) ) ? $section['title'] : '';
-              $section_parent = ( ! empty( $section['pid'] ) ) ? $section['pid'] .'/' : ( ( ! empty( $section['ptitle'] ) ) ? sanitize_title( $section['ptitle'] ) .'/' : '' );
-              $section_slug   = ( ! empty( $section['id'] ) ) ? $section['id'] : ( ( ! empty( $section['title'] ) ) ? sanitize_title( $section_title ) : '' );
+              $section_parent = ( ! empty( $section['tab_id'] ) ) ? '' : ( ( ! empty( $section['pid'] ) ) ? $section['pid'] .'/' : ( ( ! empty( $section['ptitle'] ) ) ? sanitize_title( $section['ptitle'] ) .'/' : '' ) );
+              $section_slug   = ( ! empty( $section['tab_id'] ) ) ? $section['tab_id'] : ( ( ! empty( $section['id'] ) ) ? $section['id'] : ( ( ! empty( $section['title'] ) ) ? sanitize_title( $section_title ) : '' ) );
 
               echo '<div class="csf-section hidden'. esc_attr( $section_onload . $section_class ) .'" data-section-id="'. esc_attr( $section_parent . $section_slug ) .'">';
               echo ( $has_nav ) ? '<div class="csf-section-title"><h3>'. $section_icon . $section_title .'</h3></div>' : '';
