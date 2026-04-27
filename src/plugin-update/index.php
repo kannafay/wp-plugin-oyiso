@@ -21,38 +21,13 @@ if (!function_exists('oyiso_get_plugin_update_plugin_data')) {
 if (!function_exists('oyiso_render_plugin_update_panel')) {
     function oyiso_render_plugin_update_panel(): void {
         $pluginData = oyiso_get_plugin_update_plugin_data();
-        $cached = get_transient(Oyiso_GitHub_Updater::CACHE_KEY);
         $currentVersion = (string) ($pluginData['Version'] ?? '');
-        $statusHtml = '<p style="margin:12px 0 0;color:#6b7280;">尚未检查 GitHub 更新。</p>';
-
-        if (is_array($cached)) {
-            $checkedAt = !empty($cached['checked_at'])
-                ? wp_date('Y-m-d H:i:s', (int) $cached['checked_at'])
-                : '';
-
-            if (($cached['_status'] ?? '') === 'success') {
-                $latestVersion = (string) ($cached['version'] ?? '');
-                $hasUpdate = $latestVersion !== '' && $currentVersion !== '' && version_compare($latestVersion, $currentVersion, '>');
-                $statusColor = $hasUpdate ? '#15803d' : '#6b7280';
-                $statusText = $hasUpdate
-                    ? sprintf('已检测到新版本 %1$s，当前版本为 %2$s。', $latestVersion, $currentVersion)
-                    : sprintf('当前已是最新版本 %s。', $currentVersion);
-
-                if ($checkedAt !== '') {
-                    $statusText .= ' 上次检查时间：' . $checkedAt . '。';
-                }
-
-                $statusHtml = '<p style="margin:12px 0 0;color:' . esc_attr($statusColor) . ';">' . esc_html($statusText) . '</p>';
-            } elseif (($cached['_status'] ?? '') === 'error') {
-                $message = '上次检查未成功，可点击按钮重试。';
-
-                if ($checkedAt !== '') {
-                    $message .= ' 最近一次尝试时间：' . $checkedAt . '。';
-                }
-
-                $statusHtml = '<p style="margin:12px 0 0;color:#6b7280;">' . esc_html($message) . '</p>';
-            }
-        }
+        $statusPayload = class_exists('Oyiso_GitHub_Updater')
+            ? (new Oyiso_GitHub_Updater())->buildStatusPayload()
+            : [
+                'status_html' => '<p style="margin:12px 0 0;color:#6b7280;">尚未检查 GitHub 更新。</p>',
+                'action_html' => '',
+            ];
 
         echo '
             <div class="oyiso-plugin-update-panel">
@@ -60,8 +35,11 @@ if (!function_exists('oyiso_render_plugin_update_panel')) {
                 <p>仓库地址：<a href="https://github.com/kannafay/wp-plugin-oyiso" target="_blank" rel="noopener noreferrer">https://github.com/kannafay/wp-plugin-oyiso</a></p>
                 <p>发布新版本时，请在 GitHub Release 中上传你手动打包的插件 ZIP 附件，解压后的根目录必须为 <code>wp-plugin-oyiso/</code>。</p>
                 <p>当前版本：<code>' . esc_html($currentVersion) . '</code></p>
-                <p><button type="button" class="button button-secondary" id="oyiso-plugin-update-check">检查更新</button></p>
-                <div id="oyiso-plugin-update-status">' . $statusHtml . '</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <button type="button" class="button button-secondary" id="oyiso-plugin-update-check">检查更新</button>
+                    <span id="oyiso-plugin-update-action">' . $statusPayload['action_html'] . '</span>
+                </div>
+                <div id="oyiso-plugin-update-status">' . $statusPayload['status_html'] . '</div>
             </div>
         ';
     }
@@ -106,22 +84,25 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
             wp_add_inline_script('oyiso-plugin-update', <<<'JS'
 jQuery(function ($) {
     var $button = $('#oyiso-plugin-update-check');
+    var $action = $('#oyiso-plugin-update-action');
     var $status = $('#oyiso-plugin-update-status');
 
-    if (!$button.length || !$status.length) {
+    if (!$button.length || !$action.length || !$status.length) {
         return;
     }
 
     $button.on('click', function () {
         $button.prop('disabled', true);
+        $action.empty();
         $status.html('<p style="margin:12px 0 0;color:#6b7280;">' + oyisoPluginUpdate.labels.checking + '</p>');
 
         $.post(oyisoPluginUpdate.ajaxUrl, {
             action: 'oyiso_plugin_update_check',
             nonce: oyisoPluginUpdate.nonce
         }).done(function (response) {
-            if (response && response.success && response.data && response.data.html) {
-                $status.html(response.data.html);
+            if (response && response.success && response.data && response.data.statusHtml !== undefined) {
+                $status.html(response.data.statusHtml);
+                $action.html(response.data.actionHtml || '');
                 return;
             }
 
@@ -214,46 +195,78 @@ JS);
                 ], 400);
             }
 
-            $transient = get_site_transient('update_plugins');
+            $statusPayload = $this->buildStatusPayload($release);
 
-            if (!is_object($transient)) {
-                $transient = (object) [
-                    'last_checked' => time(),
-                    'checked'      => [],
-                    'response'     => [],
-                    'translations' => [],
-                    'no_update'    => [],
+            wp_send_json_success([
+                'statusHtml' => $statusPayload['status_html'],
+                'actionHtml' => $statusPayload['action_html'],
+            ]);
+        }
+
+        public function buildStatusPayload(?array $cachedOverride = null): array {
+            $pluginData = oyiso_get_plugin_update_plugin_data();
+            $currentVersion = (string) ($pluginData['Version'] ?? '');
+            $cached = is_array($cachedOverride) ? $cachedOverride : get_transient(self::CACHE_KEY);
+
+            if (!is_array($cached)) {
+                return [
+                    'status_html' => '<p style="margin:12px 0 0;color:#6b7280;">尚未检查 GitHub 更新。</p>',
+                    'action_html' => '',
                 ];
             }
 
-            if (!isset($transient->checked) || !is_array($transient->checked)) {
-                $transient->checked = [];
+            $checkedAt = !empty($cached['checked_at'])
+                ? wp_date('Y-m-d H:i:s', (int) $cached['checked_at'])
+                : '';
+
+            if (($cached['_status'] ?? '') === 'success') {
+                $this->primeUpdateTransient($cached);
+
+                $latestVersion = (string) ($cached['version'] ?? '');
+                $hasUpdate = $latestVersion !== '' && $currentVersion !== '' && version_compare($latestVersion, $currentVersion, '>');
+                $statusColor = $hasUpdate ? '#15803d' : '#6b7280';
+                $statusText = $hasUpdate
+                    ? sprintf('已检测到新版本 %1$s，当前版本为 %2$s。', $latestVersion, $currentVersion)
+                    : sprintf('当前已是最新版本 %s。', $currentVersion);
+
+                if ($checkedAt !== '') {
+                    $statusText .= ' 上次检查时间：' . $checkedAt . '。';
+                }
+
+                $statusHtml = '<p style="margin:12px 0 0;color:' . esc_attr($statusColor) . ';">' . esc_html($statusText) . '</p>';
+                $actionHtml = '';
+
+                if ($hasUpdate) {
+                    $upgradeUrl = $this->getUpgradeUrl();
+
+                    if ($upgradeUrl !== '') {
+                        $actionHtml = '<a class="button button-primary" href="' . esc_url($upgradeUrl) . '">立即更新</a>';
+                    }
+                }
+
+                return [
+                    'status_html' => $statusHtml,
+                    'action_html' => $actionHtml,
+                ];
             }
 
-            $pluginFile = plugin_basename(oyiso_get_plugin_update_main_file());
-            $pluginData = oyiso_get_plugin_update_plugin_data();
-            $currentVersion = (string) ($pluginData['Version'] ?? '');
+            if (($cached['_status'] ?? '') === 'error') {
+                $message = '上次检查未成功，可点击按钮重试。';
 
-            $transient->checked[$pluginFile] = $currentVersion;
-            $transient->last_checked = time();
-            $transient = $this->mergeReleaseIntoTransient($transient, false, $release);
+                if ($checkedAt !== '') {
+                    $message .= ' 最近一次尝试时间：' . $checkedAt . '。';
+                }
 
-            set_site_transient('update_plugins', $transient);
-            wp_clean_plugins_cache(false);
+                return [
+                    'status_html' => '<p style="margin:12px 0 0;color:#6b7280;">' . esc_html($message) . '</p>',
+                    'action_html' => '',
+                ];
+            }
 
-            $checkedAt = wp_date('Y-m-d H:i:s', (int) ($release['checked_at'] ?? time()));
-            $hasUpdate = $currentVersion !== '' && version_compare($release['version'], $currentVersion, '>');
-            $message = $hasUpdate
-                ? sprintf('已检测到新版本 %1$s，当前版本为 %2$s。', $release['version'], $currentVersion)
-                : sprintf('当前已是最新版本 %s。', $currentVersion);
-
-            $html = '<p style="margin:12px 0 0;color:' . esc_attr($hasUpdate ? '#15803d' : '#6b7280') . ';">'
-                . esc_html($message . ' 本次检查时间：' . $checkedAt . '。')
-                . '</p>';
-
-            wp_send_json_success([
-                'html' => $html,
-            ]);
+            return [
+                'status_html' => '<p style="margin:12px 0 0;color:#6b7280;">尚未检查 GitHub 更新。</p>',
+                'action_html' => '',
+            ];
         }
 
         private function mergeReleaseIntoTransient($transient, bool $allowFetch = false, ?array $releaseOverride = null) {
@@ -310,6 +323,46 @@ JS);
             unset($transient->response[$pluginFile]);
 
             return $transient;
+        }
+
+        private function primeUpdateTransient(array $release): void {
+            $transient = get_site_transient('update_plugins');
+
+            if (!is_object($transient)) {
+                $transient = (object) [
+                    'last_checked' => time(),
+                    'checked'      => [],
+                    'response'     => [],
+                    'translations' => [],
+                    'no_update'    => [],
+                ];
+            }
+
+            if (!isset($transient->checked) || !is_array($transient->checked)) {
+                $transient->checked = [];
+            }
+
+            $pluginFile = plugin_basename(oyiso_get_plugin_update_main_file());
+            $pluginData = oyiso_get_plugin_update_plugin_data();
+            $currentVersion = (string) ($pluginData['Version'] ?? '');
+
+            $transient->checked[$pluginFile] = $currentVersion;
+            $transient->last_checked = !empty($release['checked_at']) ? (int) $release['checked_at'] : time();
+            $transient = $this->mergeReleaseIntoTransient($transient, false, $release);
+
+            set_site_transient('update_plugins', $transient);
+            wp_clean_plugins_cache(false);
+        }
+
+        private function getUpgradeUrl(): string {
+            if (!current_user_can('update_plugins')) {
+                return '';
+            }
+
+            $pluginFile = plugin_basename(oyiso_get_plugin_update_main_file());
+            $url = self_admin_url('update.php?action=upgrade-plugin&plugin=' . rawurlencode($pluginFile));
+
+            return wp_nonce_url($url, 'upgrade-plugin_' . $pluginFile);
         }
 
         private function getStoredRelease(): ?array {
