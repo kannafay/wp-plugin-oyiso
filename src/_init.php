@@ -3,6 +3,12 @@
 // 统一获取选项，子模块共享此变量
 $options = get_option('oyiso', []);
 
+if (!function_exists('oyiso_is_settings_page_hook')) {
+    function oyiso_is_settings_page_hook(string $hook): bool {
+        return (bool) preg_match('/(?:^|_)page_oyiso$/', $hook);
+    }
+}
+
 // CSF 后台 UI 定义（前端 class_exists('CSF') 为 false，整块跳过）
 if (class_exists('CSF')) {
 

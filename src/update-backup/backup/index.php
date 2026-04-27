@@ -8,10 +8,18 @@ if (!function_exists('oyiso_get_plugin_backup_option_name')) {
     }
 }
 
+if (!function_exists('oyiso_get_plugin_backup_site_id')) {
+    function oyiso_get_plugin_backup_site_id(): int {
+        return function_exists('get_current_blog_id') ? max(1, (int) get_current_blog_id()) : 1;
+    }
+}
+
 if (!function_exists('oyiso_get_plugin_backup_storage')) {
     function oyiso_get_plugin_backup_storage(): array {
+        $siteId = oyiso_get_plugin_backup_site_id();
+
         return [
-            'dir' => trailingslashit(WP_CONTENT_DIR) . 'oyiso-private/backups',
+            'dir' => trailingslashit(WP_CONTENT_DIR) . 'oyiso-private/backups/site-' . $siteId,
         ];
     }
 }
@@ -65,8 +73,10 @@ if (!function_exists('oyiso_get_plugin_backup_payload')) {
         return [
             'plugin'      => 'oyiso',
             'option_name' => oyiso_get_plugin_backup_option_name(),
+            'blog_id'     => oyiso_get_plugin_backup_site_id(),
             'version'     => (string) ($pluginData['Version'] ?? ''),
             'exported_at' => current_time('mysql'),
+            'site_url'    => home_url('/'),
             'data'        => get_option(oyiso_get_plugin_backup_option_name(), []),
         ];
     }
@@ -188,6 +198,19 @@ if (!function_exists('oyiso_import_plugin_backup_payload')) {
             return new WP_Error('oyiso_plugin_backup_invalid_plugin', '该备份文件不属于当前插件，无法恢复。');
         }
 
+        $currentBlogId = oyiso_get_plugin_backup_site_id();
+        $payloadBlogId = isset($payload['blog_id']) ? (int) $payload['blog_id'] : 0;
+
+        if (is_multisite()) {
+            if ($payloadBlogId <= 0) {
+                return new WP_Error('oyiso_plugin_backup_missing_blog', '该备份文件缺少站点标识，无法在多站点环境中恢复。');
+            }
+
+            if ($payloadBlogId !== $currentBlogId) {
+                return new WP_Error('oyiso_plugin_backup_blog_mismatch', '该备份文件属于其他站点，无法恢复到当前站点。');
+            }
+        }
+
         if (!array_key_exists('data', $payload) || !is_array($payload['data'])) {
             return new WP_Error('oyiso_plugin_backup_invalid_data', '备份文件中未找到有效的配置数据。');
         }
@@ -204,6 +227,9 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
         $backupLocation = !empty($storage['dir'])
             ? '<code>' . esc_html($storage['dir']) . '</code>'
             : 'WordPress 上传目录下的 <code>oyiso-backups</code> 文件夹';
+        $siteHint = is_multisite()
+            ? '当前站点 ID：<code>' . esc_html((string) oyiso_get_plugin_backup_site_id()) . '</code>。备份与恢复仅作用于当前站点。'
+            : '';
 
         echo '
             <div class="oyiso-plugin-backup-panel">
@@ -440,6 +466,7 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                 <div class="oyiso-panel-block">
                     <h3 class="oyiso-panel-title">说明</h3>
                     <p class="oyiso-panel-text">恢复配置将覆盖当前插件设置，建议在恢复前先创建一个新的本地备份。</p>
+                    ' . ($siteHint !== '' ? '<p style="margin:8px 0 0;color:#6b7280;">' . $siteHint . '</p>' : '') . '
                     <p style="margin:8px 0 0;color:#6b7280;">本地备份保存位置：' . $backupLocation . '</p>
                 </div>
             </div>
@@ -650,7 +677,7 @@ if (!function_exists('oyiso_handle_plugin_backup_delete_local')) {
 
 if (!function_exists('oyiso_enqueue_plugin_backup_assets')) {
     function oyiso_enqueue_plugin_backup_assets(string $hook): void {
-        if ($hook !== 'plugins_page_oyiso') {
+        if (!oyiso_is_settings_page_hook($hook)) {
             return;
         }
 

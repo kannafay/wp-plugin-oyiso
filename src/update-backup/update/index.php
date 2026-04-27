@@ -66,7 +66,7 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
         }
 
         public function enqueueAdminAssets(string $hook): void {
-            if ($hook !== 'plugins_page_oyiso') {
+            if (!oyiso_is_settings_page_hook($hook)) {
                 return;
             }
 
@@ -182,7 +182,7 @@ JS);
                 return;
             }
 
-            delete_transient(self::CACHE_KEY);
+            delete_site_transient(self::CACHE_KEY);
         }
 
         public function handleAjaxCheck(): void {
@@ -213,7 +213,7 @@ JS);
         public function buildStatusPayload(?array $cachedOverride = null): array {
             $pluginData = oyiso_get_plugin_update_plugin_data();
             $currentVersion = (string) ($pluginData['Version'] ?? '');
-            $cached = is_array($cachedOverride) ? $cachedOverride : get_transient(self::CACHE_KEY);
+            $cached = is_array($cachedOverride) ? $cachedOverride : get_site_transient(self::CACHE_KEY);
 
             if (!is_array($cached)) {
                 return [
@@ -373,7 +373,7 @@ JS);
         }
 
         private function getStoredRelease(): ?array {
-            $cached = get_transient(self::CACHE_KEY);
+            $cached = get_site_transient(self::CACHE_KEY);
 
             if (!is_array($cached) || ($cached['_status'] ?? '') !== 'success') {
                 return null;
@@ -384,7 +384,7 @@ JS);
 
         private function requestLatestRelease(bool $forceRefresh = false) {
             if (!$forceRefresh) {
-                $cached = get_transient(self::CACHE_KEY);
+                $cached = get_site_transient(self::CACHE_KEY);
 
                 if (is_array($cached)) {
                     if (($cached['_status'] ?? '') === 'success') {
@@ -452,13 +452,13 @@ JS);
                 'checked_at'   => time(),
             ];
 
-            set_transient(self::CACHE_KEY, $release, self::CACHE_TTL);
+            set_site_transient(self::CACHE_KEY, $release, self::CACHE_TTL);
 
             return $release;
         }
 
         private function storeReleaseError(string $message): WP_Error {
-            set_transient(self::CACHE_KEY, [
+            set_site_transient(self::CACHE_KEY, [
                 '_status'    => 'error',
                 'message'    => $message,
                 'checked_at' => time(),

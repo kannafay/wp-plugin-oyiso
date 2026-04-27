@@ -108,7 +108,7 @@ CSF::createSection($prefix, [
 }
 
 add_action('admin_enqueue_scripts', function ($hook) {
-    if ($hook !== 'plugins_page_oyiso') {
+    if (!oyiso_is_settings_page_hook($hook)) {
         return;
     }
 
