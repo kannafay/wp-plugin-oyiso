@@ -76,8 +76,9 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce'   => wp_create_nonce('oyiso_plugin_update_check'),
                 'labels'  => [
-                    'checking' => '正在检查 GitHub 更新...',
-                    'error'    => '检查失败，请稍后重试。',
+                    'checking'      => '正在检查 GitHub 更新...',
+                    'error'         => '检查失败，请稍后重试。',
+                    'confirmUpdate' => '确定立即更新插件吗？建议先备份站点数据。',
                 ],
             ]);
 
@@ -90,6 +91,12 @@ jQuery(function ($) {
     if (!$button.length || !$action.length || !$status.length) {
         return;
     }
+
+    $(document).on('click', '.oyiso-plugin-update-now', function (event) {
+        if (!window.confirm(oyisoPluginUpdate.labels.confirmUpdate)) {
+            event.preventDefault();
+        }
+    });
 
     $button.on('click', function () {
         $button.prop('disabled', true);
@@ -240,7 +247,7 @@ JS);
                     $upgradeUrl = $this->getUpgradeUrl();
 
                     if ($upgradeUrl !== '') {
-                        $actionHtml = '<a class="button button-primary" href="' . esc_url($upgradeUrl) . '">立即更新</a>';
+                        $actionHtml = '<a class="button button-primary oyiso-plugin-update-now" href="' . esc_url($upgradeUrl) . '">立即更新</a>';
                     }
                 }
 
