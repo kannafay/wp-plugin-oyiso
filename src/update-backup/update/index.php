@@ -249,11 +249,15 @@ JS);
                     if ($upgradeUrl !== '') {
                         $actionHtml = '<a class="button button-primary oyiso-plugin-update-now" href="' . esc_url($upgradeUrl) . '">立即更新</a>';
                     } elseif (is_multisite()) {
-                        $actionHtml = '<span class="button button-primary disabled" aria-disabled="true" style="pointer-events:none;opacity:.6;">立即更新</span>'
-                            . '<span style="color:#6b7280;font-size:12px;margin-left:8px;">仅超级管理员可操作</span>';
+                        $actionHtml = '<span style="display:inline-flex;align-items:center;gap:8px;">'
+                            . '<span class="button button-primary disabled" aria-disabled="true" style="pointer-events:none;opacity:.6;">立即更新</span>'
+                            . '<span style="color:#6b7280;font-size:12px;line-height:1.4;">仅超级管理员可操作</span>'
+                            . '</span>';
                     } else {
-                        $actionHtml = '<span class="button button-primary disabled" aria-disabled="true" style="pointer-events:none;opacity:.6;">立即更新</span>'
-                            . '<span style="color:#6b7280;font-size:12px;margin-left:8px;">当前账号无更新权限</span>';
+                        $actionHtml = '<span style="display:inline-flex;align-items:center;gap:8px;">'
+                            . '<span class="button button-primary disabled" aria-disabled="true" style="pointer-events:none;opacity:.6;">立即更新</span>'
+                            . '<span style="color:#6b7280;font-size:12px;line-height:1.4;">当前账号无更新权限</span>'
+                            . '</span>';
                     }
                 }
 
