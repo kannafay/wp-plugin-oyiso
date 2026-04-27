@@ -139,14 +139,7 @@ if (!function_exists('oyiso_render_plugin_backup_list_html')) {
             return '<p style="margin:0;color:#6b7280;">当前还没有本地备份记录。</p>';
         }
 
-        $html = '<div style="overflow:auto;"><table class="widefat striped" style="margin:0;">';
-        $html .= '<thead><tr>';
-        $html .= '<th>备份时间</th>';
-        $html .= '<th>版本</th>';
-        $html .= '<th>文件大小</th>';
-        $html .= '<th>文件名</th>';
-        $html .= '<th style="width:260px;">操作</th>';
-        $html .= '</tr></thead><tbody>';
+        $html = '<div class="oyiso-backup-list">';
 
         foreach ($items as $item) {
             $downloadUrl = wp_nonce_url(
@@ -160,21 +153,26 @@ if (!function_exists('oyiso_render_plugin_backup_list_html')) {
                 : wp_date('Y-m-d H:i:s', (int) $item['modified_at']);
 
             $version = $item['version'] !== '' ? $item['version'] : '-';
+            $size = size_format((int) $item['size']);
 
-            $html .= '<tr>';
-            $html .= '<td>' . esc_html($displayTime) . '</td>';
-            $html .= '<td>' . esc_html($version) . '</td>';
-            $html .= '<td>' . esc_html(size_format((int) $item['size'])) . '</td>';
-            $html .= '<td><code>' . esc_html($item['file']) . '</code></td>';
-            $html .= '<td>';
-            $html .= '<a class="button button-secondary" href="' . esc_url($downloadUrl) . '" style="margin-right:8px;">下载</a>';
-            $html .= '<button type="button" class="button button-primary oyiso-plugin-backup-restore-local" data-file="' . esc_attr($item['file']) . '" style="margin-right:8px;">恢复</button>';
+            $html .= '<div class="oyiso-backup-item">';
+            $html .= '<div class="oyiso-backup-item__main">';
+            $html .= '<div class="oyiso-backup-item__meta">';
+            $html .= '<span class="oyiso-backup-badge oyiso-backup-badge--time">' . esc_html($displayTime) . '</span>';
+            $html .= '<span class="oyiso-backup-badge">v' . esc_html($version) . '</span>';
+            $html .= '<span class="oyiso-backup-badge">' . esc_html($size) . '</span>';
+            $html .= '</div>';
+            $html .= '<div class="oyiso-backup-item__file"><code>' . esc_html($item['file']) . '</code></div>';
+            $html .= '</div>';
+            $html .= '<div class="oyiso-backup-item__actions">';
+            $html .= '<a class="button button-secondary" href="' . esc_url($downloadUrl) . '">下载</a>';
+            $html .= '<button type="button" class="button button-primary oyiso-plugin-backup-restore-local" data-file="' . esc_attr($item['file']) . '">恢复</button>';
             $html .= '<button type="button" class="button oyiso-plugin-backup-delete-local oyiso-button-danger" data-file="' . esc_attr($item['file']) . '">删除</button>';
-            $html .= '</td>';
-            $html .= '</tr>';
+            $html .= '</div>';
+            $html .= '</div>';
         }
 
-        $html .= '</tbody></table></div>';
+        $html .= '</div>';
 
         return $html;
     }
@@ -206,6 +204,91 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
         echo '
             <div class="oyiso-plugin-backup-panel">
                 <style>
+                    .oyiso-plugin-backup-panel {
+                        --oyiso-backup-border: #e5e7eb;
+                        --oyiso-backup-muted: #6b7280;
+                        --oyiso-backup-surface: #ffffff;
+                        --oyiso-backup-soft-surface: #f8fafc;
+                        --oyiso-backup-accent-soft: #eff6ff;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-panel-block {
+                        margin-top: 16px;
+                        padding: 16px 18px;
+                        background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+                        border: 1px solid var(--oyiso-backup-border);
+                        border-radius: 12px;
+                        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-panel-title {
+                        margin: 0 0 8px;
+                        font-size: 14px;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-panel-text {
+                        margin: 0;
+                        color: var(--oyiso-backup-muted);
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-list {
+                        display: grid;
+                        gap: 12px;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-item {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 18px;
+                        padding: 14px 16px;
+                        background: var(--oyiso-backup-surface);
+                        border: 1px solid #e6edf5;
+                        border-radius: 12px;
+                        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-item__main {
+                        min-width: 0;
+                        flex: 1;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-item__meta {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 8px;
+                        margin-bottom: 10px;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-badge {
+                        display: inline-flex;
+                        align-items: center;
+                        min-height: 24px;
+                        padding: 0 10px;
+                        border-radius: 999px;
+                        background: var(--oyiso-backup-soft-surface);
+                        border: 1px solid #e2e8f0;
+                        color: #475569;
+                        font-size: 12px;
+                        line-height: 1;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-badge--time {
+                        background: var(--oyiso-backup-accent-soft);
+                        border-color: #bfdbfe;
+                        color: #1d4ed8;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-item__file {
+                        color: #111827;
+                        line-height: 1.5;
+                        word-break: break-all;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-item__file code {
+                        display: inline-block;
+                        padding: 3px 8px;
+                        border-radius: 8px;
+                        background: #f3f4f6;
+                        color: #374151;
+                        font-size: 12px;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-backup-item__actions {
+                        display: flex;
+                        flex-wrap: wrap;
+                        justify-content: flex-end;
+                        gap: 8px;
+                        flex-shrink: 0;
+                    }
                     .oyiso-plugin-backup-panel .oyiso-button-danger {
                         border-color: #b32d2e;
                         color: #b32d2e;
@@ -214,19 +297,30 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                     .oyiso-plugin-backup-panel .oyiso-button-danger:focus {
                         border-color: #8a2424;
                         color: #8a2424;
+                        box-shadow: none;
+                        outline: none;
+                    }
+                    @media only screen and (max-width: 960px) {
+                        .oyiso-plugin-backup-panel .oyiso-backup-item {
+                            align-items: stretch;
+                            flex-direction: column;
+                        }
+                        .oyiso-plugin-backup-panel .oyiso-backup-item__actions {
+                            justify-content: flex-start;
+                        }
                     }
                 </style>
                 <p>您可以在此备份或恢复插件配置。</p>
                 <p>备份文件将以 JSON 格式保存在站点本地，可创建多次并按需下载或恢复。</p>
 
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:16px;">
-                    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;">
+                    <div class="oyiso-panel-block">
                         <h3 style="margin:0 0 8px;font-size:14px;">创建本地备份</h3>
                         <p style="margin:0 0 12px;color:#6b7280;">将当前插件配置保存为一个新的本地备份节点，便于后续下载或恢复。</p>
                         <button type="button" class="button button-secondary" id="oyiso-plugin-backup-create">创建备份</button>
                     </div>
 
-                    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;">
+                    <div class="oyiso-panel-block">
                         <h3 style="margin:0 0 8px;font-size:14px;">上传恢复</h3>
                         <p style="margin:0 0 12px;color:#6b7280;">如您已在本地保存过 JSON 备份文件，也可直接上传并恢复当前插件配置。</p>
                         <input type="file" id="oyiso-plugin-backup-file" accept=".json,application/json" style="display:block;margin:0 0 12px;width:100%;">
@@ -236,14 +330,14 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
 
                 <div id="oyiso-plugin-backup-status" style="margin-top:16px;"></div>
 
-                <div style="margin-top:16px;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
-                    <h3 style="margin:0 0 8px;font-size:14px;">本地备份记录</h3>
+                <div class="oyiso-panel-block">
+                    <h3 class="oyiso-panel-title">本地备份记录</h3>
                     <div id="oyiso-plugin-backup-list">' . oyiso_render_plugin_backup_list_html() . '</div>
                 </div>
 
-                <div style="margin-top:16px;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
-                    <h3 style="margin:0 0 8px;font-size:14px;">说明</h3>
-                    <p style="margin:0;color:#6b7280;">恢复配置将覆盖当前插件设置，建议在恢复前先创建一个新的本地备份。</p>
+                <div class="oyiso-panel-block">
+                    <h3 class="oyiso-panel-title">说明</h3>
+                    <p class="oyiso-panel-text">恢复配置将覆盖当前插件设置，建议在恢复前先创建一个新的本地备份。</p>
                     <p style="margin:8px 0 0;color:#6b7280;">本地备份保存位置：' . $backupLocation . '</p>
                 </div>
             </div>
