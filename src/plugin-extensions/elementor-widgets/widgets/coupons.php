@@ -1735,18 +1735,18 @@ class Coupons extends Widget_Base
 
     private function format_coupon_discount(\WC_Coupon $coupon)
     {
-        $amount = (float) $coupon->get_amount();
+        $amount = abs((float) $coupon->get_amount());
         $type = $coupon->get_discount_type();
 
         if ($type === 'percent') {
-            return rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.') . '%';
+            return '-' . rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.') . '%';
         }
 
         if (function_exists('wc_price')) {
-            return wp_strip_all_tags(wc_price($amount));
+            return '-' . wp_strip_all_tags(wc_price($amount));
         }
 
-        return (string) $amount;
+        return '-' . (string) $amount;
     }
 
     private function format_coupon_type_label(\WC_Coupon $coupon)
