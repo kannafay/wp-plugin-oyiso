@@ -5,7 +5,7 @@ defined('ABSPATH') || exit;
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
         'id'       => 'oyiso-update-backup',
-        'title'    => '更新与备份',
+        'title'    => '备份与更新',
         'icon'     => 'fas fa-hdd',
         'priority' => 50,
     ]);

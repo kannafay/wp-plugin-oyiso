@@ -523,13 +523,13 @@ if (class_exists('CSF')) {
         'parent'   => 'oyiso-update-backup',
         'id'       => 'oyiso-update',
         'tab_id'   => 'oyiso-update',
-        'title'    => '在线更新',
+        'title'    => '检查更新',
         'icon'     => 'fas fa-cloud-download-alt',
-        'priority' => 10,
+        'priority' => 20,
         'fields'   => [
             [
                 'type'    => 'heading',
-                'content' => '在线更新',
+                'content' => '检查更新',
             ],
             [
                 'type'     => 'callback',

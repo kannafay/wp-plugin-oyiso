@@ -948,7 +948,7 @@ if (class_exists('CSF')) {
         'tab_id'   => 'oyiso-backup',
         'title'    => '备份与恢复',
         'icon'     => 'fas fa-database',
-        'priority' => 20,
+        'priority' => 10,
         'fields'   => [
             [
                 'type'    => 'heading',
