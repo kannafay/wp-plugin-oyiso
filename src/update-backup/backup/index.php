@@ -2,28 +2,698 @@
 
 defined('ABSPATH') || exit;
 
+if (!function_exists('oyiso_get_plugin_backup_option_name')) {
+    function oyiso_get_plugin_backup_option_name(): string {
+        return 'oyiso';
+    }
+}
+
+if (!function_exists('oyiso_get_plugin_backup_storage')) {
+    function oyiso_get_plugin_backup_storage(): array {
+        $uploads = wp_upload_dir();
+
+        if (!empty($uploads['error'])) {
+            return [
+                'error' => (string) $uploads['error'],
+            ];
+        }
+
+        return [
+            'dir' => trailingslashit($uploads['basedir']) . 'oyiso-backups',
+            'url' => trailingslashit($uploads['baseurl']) . 'oyiso-backups',
+        ];
+    }
+}
+
+if (!function_exists('oyiso_ensure_plugin_backup_dir')) {
+    function oyiso_ensure_plugin_backup_dir(): array {
+        $storage = oyiso_get_plugin_backup_storage();
+
+        if (!empty($storage['error'])) {
+            return $storage;
+        }
+
+        if (!is_dir($storage['dir']) && !wp_mkdir_p($storage['dir'])) {
+            return [
+                'error' => '无法创建本地备份目录，请检查站点写入权限。',
+            ];
+        }
+
+        $indexFile = trailingslashit($storage['dir']) . 'index.php';
+
+        if (!is_file($indexFile)) {
+            file_put_contents($indexFile, "<?php\n");
+        }
+
+        return $storage;
+    }
+}
+
+if (!function_exists('oyiso_get_plugin_backup_payload')) {
+    function oyiso_get_plugin_backup_payload(): array {
+        if (!function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $pluginFile = dirname(dirname(dirname(__DIR__))) . '/oyiso.php';
+        $pluginData = get_plugin_data($pluginFile, false, false);
+
+        return [
+            'plugin'      => 'oyiso',
+            'option_name' => oyiso_get_plugin_backup_option_name(),
+            'version'     => (string) ($pluginData['Version'] ?? ''),
+            'exported_at' => current_time('mysql'),
+            'data'        => get_option(oyiso_get_plugin_backup_option_name(), []),
+        ];
+    }
+}
+
+if (!function_exists('oyiso_get_plugin_backup_file_path')) {
+    function oyiso_get_plugin_backup_file_path(string $file): string {
+        $storage = oyiso_ensure_plugin_backup_dir();
+
+        if (!empty($storage['error'])) {
+            return '';
+        }
+
+        $file = sanitize_file_name(wp_basename($file));
+
+        if ($file === '' || !preg_match('/\.json$/i', $file)) {
+            return '';
+        }
+
+        $path = trailingslashit($storage['dir']) . $file;
+
+        return is_file($path) ? $path : '';
+    }
+}
+
+if (!function_exists('oyiso_get_local_plugin_backups')) {
+    function oyiso_get_local_plugin_backups(): array {
+        $storage = oyiso_ensure_plugin_backup_dir();
+
+        if (!empty($storage['error'])) {
+            return [];
+        }
+
+        $items = [];
+        $files = glob(trailingslashit($storage['dir']) . '*.json') ?: [];
+
+        foreach ($files as $path) {
+            if (!is_file($path)) {
+                continue;
+            }
+
+            $contents = file_get_contents($path);
+            $payload = is_string($contents) ? json_decode($contents, true) : null;
+            $modifiedAt = filemtime($path) ?: time();
+
+            $items[] = [
+                'file'        => basename($path),
+                'size'        => filesize($path) ?: 0,
+                'modified_at' => $modifiedAt,
+                'exported_at' => is_array($payload) ? (string) ($payload['exported_at'] ?? '') : '',
+                'version'     => is_array($payload) ? (string) ($payload['version'] ?? '') : '',
+            ];
+        }
+
+        usort($items, static function (array $left, array $right): int {
+            return $right['modified_at'] <=> $left['modified_at'];
+        });
+
+        return $items;
+    }
+}
+
+if (!function_exists('oyiso_render_plugin_backup_list_html')) {
+    function oyiso_render_plugin_backup_list_html(): string {
+        $storage = oyiso_ensure_plugin_backup_dir();
+
+        if (!empty($storage['error'])) {
+            return '<p style="margin:0;color:#b91c1c;">' . esc_html($storage['error']) . '</p>';
+        }
+
+        $items = oyiso_get_local_plugin_backups();
+
+        if (empty($items)) {
+            return '<p style="margin:0;color:#6b7280;">当前还没有本地备份记录。</p>';
+        }
+
+        $html = '<div style="overflow:auto;"><table class="widefat striped" style="margin:0;">';
+        $html .= '<thead><tr>';
+        $html .= '<th>备份时间</th>';
+        $html .= '<th>版本</th>';
+        $html .= '<th>文件大小</th>';
+        $html .= '<th>文件名</th>';
+        $html .= '<th style="width:260px;">操作</th>';
+        $html .= '</tr></thead><tbody>';
+
+        foreach ($items as $item) {
+            $downloadUrl = wp_nonce_url(
+                admin_url('admin-ajax.php?action=oyiso_plugin_backup_download&file=' . rawurlencode($item['file'])),
+                'oyiso_plugin_backup_download_' . $item['file'],
+                'oyiso_backup_nonce'
+            );
+
+            $displayTime = $item['exported_at'] !== ''
+                ? $item['exported_at']
+                : wp_date('Y-m-d H:i:s', (int) $item['modified_at']);
+
+            $version = $item['version'] !== '' ? $item['version'] : '-';
+
+            $html .= '<tr>';
+            $html .= '<td>' . esc_html($displayTime) . '</td>';
+            $html .= '<td>' . esc_html($version) . '</td>';
+            $html .= '<td>' . esc_html(size_format((int) $item['size'])) . '</td>';
+            $html .= '<td><code>' . esc_html($item['file']) . '</code></td>';
+            $html .= '<td>';
+            $html .= '<a class="button button-secondary" href="' . esc_url($downloadUrl) . '" style="margin-right:8px;">下载</a>';
+            $html .= '<button type="button" class="button button-primary oyiso-plugin-backup-restore-local" data-file="' . esc_attr($item['file']) . '" style="margin-right:8px;">恢复</button>';
+            $html .= '<button type="button" class="button oyiso-plugin-backup-delete-local oyiso-button-danger" data-file="' . esc_attr($item['file']) . '">删除</button>';
+            $html .= '</td>';
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table></div>';
+
+        return $html;
+    }
+}
+
+if (!function_exists('oyiso_import_plugin_backup_payload')) {
+    function oyiso_import_plugin_backup_payload(array $payload) {
+        if (($payload['plugin'] ?? '') !== 'oyiso' || ($payload['option_name'] ?? '') !== oyiso_get_plugin_backup_option_name()) {
+            return new WP_Error('oyiso_plugin_backup_invalid_plugin', '该备份文件不属于当前插件，无法恢复。');
+        }
+
+        if (!array_key_exists('data', $payload) || !is_array($payload['data'])) {
+            return new WP_Error('oyiso_plugin_backup_invalid_data', '备份文件中未找到有效的配置数据。');
+        }
+
+        update_option(oyiso_get_plugin_backup_option_name(), $payload['data']);
+
+        return true;
+    }
+}
+
 if (!function_exists('oyiso_render_plugin_backup_panel')) {
     function oyiso_render_plugin_backup_panel(): void {
+        $storage = oyiso_get_plugin_backup_storage();
+        $backupLocation = !empty($storage['dir'])
+            ? '<code>' . esc_html($storage['dir']) . '</code>'
+            : 'WordPress 上传目录下的 <code>oyiso-backups</code> 文件夹';
+
         echo '
             <div class="oyiso-plugin-backup-panel">
-                <p>备份功能即将上线。</p>
+                <style>
+                    .oyiso-plugin-backup-panel .oyiso-button-danger {
+                        border-color: #b32d2e;
+                        color: #b32d2e;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-button-danger:hover,
+                    .oyiso-plugin-backup-panel .oyiso-button-danger:focus {
+                        border-color: #8a2424;
+                        color: #8a2424;
+                    }
+                </style>
+                <p>您可以在此备份或恢复插件配置。</p>
+                <p>备份文件将以 JSON 格式保存在站点本地，可创建多次并按需下载或恢复。</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:16px;">
+                    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;">
+                        <h3 style="margin:0 0 8px;font-size:14px;">创建本地备份</h3>
+                        <p style="margin:0 0 12px;color:#6b7280;">将当前插件配置保存为一个新的本地备份节点，便于后续下载或恢复。</p>
+                        <button type="button" class="button button-secondary" id="oyiso-plugin-backup-create">创建备份</button>
+                    </div>
+
+                    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;">
+                        <h3 style="margin:0 0 8px;font-size:14px;">上传恢复</h3>
+                        <p style="margin:0 0 12px;color:#6b7280;">如您已在本地保存过 JSON 备份文件，也可直接上传并恢复当前插件配置。</p>
+                        <input type="file" id="oyiso-plugin-backup-file" accept=".json,application/json" style="display:block;margin:0 0 12px;width:100%;">
+                        <button type="button" class="button button-primary" id="oyiso-plugin-backup-import">上传并恢复</button>
+                    </div>
+                </div>
+
+                <div id="oyiso-plugin-backup-status" style="margin-top:16px;"></div>
+
+                <div style="margin-top:16px;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+                    <h3 style="margin:0 0 8px;font-size:14px;">本地备份记录</h3>
+                    <div id="oyiso-plugin-backup-list">' . oyiso_render_plugin_backup_list_html() . '</div>
+                </div>
+
+                <div style="margin-top:16px;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+                    <h3 style="margin:0 0 8px;font-size:14px;">说明</h3>
+                    <p style="margin:0;color:#6b7280;">恢复配置将覆盖当前插件设置，建议在恢复前先创建一个新的本地备份。</p>
+                    <p style="margin:8px 0 0;color:#6b7280;">本地备份保存位置：' . $backupLocation . '</p>
+                </div>
             </div>
         ';
     }
 }
+
+if (!function_exists('oyiso_handle_plugin_backup_create')) {
+    function oyiso_handle_plugin_backup_create(): void {
+        check_ajax_referer('oyiso_plugin_backup_create', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error([
+                'message' => '无权限执行该操作',
+            ], 403);
+        }
+
+        $storage = oyiso_ensure_plugin_backup_dir();
+
+        if (!empty($storage['error'])) {
+            wp_send_json_error([
+                'message' => $storage['error'],
+            ], 500);
+        }
+
+        $payload = oyiso_get_plugin_backup_payload();
+        $encodedPayload = wp_json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+
+        if (!is_string($encodedPayload) || $encodedPayload === '') {
+            wp_send_json_error([
+                'message' => '备份数据生成失败，请稍后重试。',
+            ], 500);
+        }
+
+        $filename = sprintf(
+            'oyiso-config-backup-%s-%s.json',
+            wp_date('Ymd-His'),
+            strtolower(wp_generate_password(6, false, false))
+        );
+        $path = trailingslashit($storage['dir']) . $filename;
+
+        $saved = file_put_contents($path, $encodedPayload);
+
+        if ($saved === false) {
+            wp_send_json_error([
+                'message' => '本地备份创建失败，请检查目录写入权限。',
+            ], 500);
+        }
+
+        wp_send_json_success([
+            'message'  => '本地备份已创建。',
+            'listHtml' => oyiso_render_plugin_backup_list_html(),
+        ]);
+    }
+}
+
+if (!function_exists('oyiso_handle_plugin_backup_download')) {
+    function oyiso_handle_plugin_backup_download(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die('无权限下载该备份文件。');
+        }
+
+        $file = isset($_GET['file']) ? sanitize_file_name(wp_unslash((string) $_GET['file'])) : '';
+
+        check_admin_referer('oyiso_plugin_backup_download_' . $file, 'oyiso_backup_nonce');
+
+        $path = oyiso_get_plugin_backup_file_path($file);
+
+        if ($path === '') {
+            wp_die('未找到对应的备份文件。');
+        }
+
+        nocache_headers();
+        header('Content-Type: application/json; charset=' . get_option('blog_charset'));
+        header('Content-Disposition: attachment; filename=' . basename($path));
+        readfile($path);
+        exit;
+    }
+}
+
+if (!function_exists('oyiso_handle_plugin_backup_restore_local')) {
+    function oyiso_handle_plugin_backup_restore_local(): void {
+        check_ajax_referer('oyiso_plugin_backup_restore_local', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error([
+                'message' => '无权限执行该操作',
+            ], 403);
+        }
+
+        $file = isset($_POST['file']) ? sanitize_file_name(wp_unslash((string) $_POST['file'])) : '';
+        $path = oyiso_get_plugin_backup_file_path($file);
+
+        if ($path === '') {
+            wp_send_json_error([
+                'message' => '未找到所选的本地备份文件。',
+            ], 404);
+        }
+
+        $contents = file_get_contents($path);
+        $payload = is_string($contents) ? json_decode($contents, true) : null;
+
+        if (!is_array($payload)) {
+            wp_send_json_error([
+                'message' => '本地备份文件内容无效，无法恢复。',
+            ], 400);
+        }
+
+        $result = oyiso_import_plugin_backup_payload($payload);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error([
+                'message' => $result->get_error_message(),
+            ], 400);
+        }
+
+        wp_send_json_success([
+            'message' => '已从本地备份成功恢复插件配置。',
+        ]);
+    }
+}
+
+if (!function_exists('oyiso_handle_plugin_backup_import')) {
+    function oyiso_handle_plugin_backup_import(): void {
+        check_ajax_referer('oyiso_plugin_backup_import', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error([
+                'message' => '无权限执行该操作',
+            ], 403);
+        }
+
+        if (empty($_FILES['file']) || !is_array($_FILES['file'])) {
+            wp_send_json_error([
+                'message' => '请先选择要上传的 JSON 备份文件。',
+            ], 400);
+        }
+
+        $file = $_FILES['file'];
+
+        if (!empty($file['error'])) {
+            wp_send_json_error([
+                'message' => '备份文件上传失败，请重试。',
+            ], 400);
+        }
+
+        $contents = file_get_contents($file['tmp_name']);
+
+        if ($contents === false || trim($contents) === '') {
+            wp_send_json_error([
+                'message' => '未读取到有效的备份文件内容。',
+            ], 400);
+        }
+
+        $payload = json_decode($contents, true);
+
+        if (!is_array($payload)) {
+            wp_send_json_error([
+                'message' => '备份文件格式无效，请上传正确的 JSON 文件。',
+            ], 400);
+        }
+
+        $result = oyiso_import_plugin_backup_payload($payload);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error([
+                'message' => $result->get_error_message(),
+            ], 400);
+        }
+
+        wp_send_json_success([
+            'message' => '插件配置已成功恢复。',
+        ]);
+    }
+}
+
+if (!function_exists('oyiso_handle_plugin_backup_delete_local')) {
+    function oyiso_handle_plugin_backup_delete_local(): void {
+        check_ajax_referer('oyiso_plugin_backup_delete_local', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error([
+                'message' => '无权限执行该操作',
+            ], 403);
+        }
+
+        $file = isset($_POST['file']) ? sanitize_file_name(wp_unslash((string) $_POST['file'])) : '';
+        $path = oyiso_get_plugin_backup_file_path($file);
+
+        if ($path === '') {
+            wp_send_json_error([
+                'message' => '未找到所选的本地备份文件。',
+            ], 404);
+        }
+
+        if (!wp_delete_file($path) && is_file($path)) {
+            wp_send_json_error([
+                'message' => '备份文件删除失败，请检查目录写入权限。',
+            ], 500);
+        }
+
+        wp_send_json_success([
+            'message'  => '本地备份已删除。',
+            'listHtml' => oyiso_render_plugin_backup_list_html(),
+        ]);
+    }
+}
+
+if (!function_exists('oyiso_enqueue_plugin_backup_assets')) {
+    function oyiso_enqueue_plugin_backup_assets(string $hook): void {
+        if ($hook !== 'plugins_page_oyiso') {
+            return;
+        }
+
+        wp_register_script('oyiso-plugin-backup', '', ['jquery'], null, true);
+        wp_enqueue_script('oyiso-plugin-backup');
+        wp_localize_script('oyiso-plugin-backup', 'oyisoPluginBackup', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonces'  => [
+                'create'       => wp_create_nonce('oyiso_plugin_backup_create'),
+                'restoreLocal' => wp_create_nonce('oyiso_plugin_backup_restore_local'),
+                'import'       => wp_create_nonce('oyiso_plugin_backup_import'),
+                'deleteLocal'  => wp_create_nonce('oyiso_plugin_backup_delete_local'),
+            ],
+            'labels'  => [
+                'selectFile'     => '请先选择要上传的 JSON 备份文件。',
+                'creating'       => '正在创建本地备份，请稍候...',
+                'restoring'      => '正在恢复配置，请稍候...',
+                'deleting'       => '正在删除本地备份，请稍候...',
+                'error'          => '操作失败，请稍后重试。',
+                'confirmRestore' => '恢复配置将覆盖当前插件设置，确定继续吗？',
+                'confirmDelete'  => '删除后将无法恢复该备份文件，确定继续吗？',
+            ],
+        ]);
+
+        wp_add_inline_script('oyiso-plugin-backup', <<<'JS'
+jQuery(function ($) {
+    var $create = $('#oyiso-plugin-backup-create');
+    var $file = $('#oyiso-plugin-backup-file');
+    var $import = $('#oyiso-plugin-backup-import');
+    var $status = $('#oyiso-plugin-backup-status');
+    var $list = $('#oyiso-plugin-backup-list');
+    var $panel = $('.oyiso-plugin-backup-panel');
+
+    if (!$create.length || !$file.length || !$import.length || !$status.length || !$list.length || !$panel.length) {
+        return;
+    }
+
+    $panel.on('change keypress input', '#oyiso-plugin-backup-file', function (event) {
+        event.stopPropagation();
+    });
+
+    $create.on('click', function () {
+        $create.prop('disabled', true);
+        $status.html('<p style="margin:0;color:#6b7280;">' + oyisoPluginBackup.labels.creating + '</p>');
+
+        $.post(oyisoPluginBackup.ajaxUrl, {
+            action: 'oyiso_plugin_backup_create',
+            nonce: oyisoPluginBackup.nonces.create
+        }).done(function (response) {
+            if (response && response.success) {
+                if (response.data && response.data.listHtml !== undefined) {
+                    $list.html(response.data.listHtml);
+                }
+
+                var message = response.data && response.data.message ? response.data.message : '本地备份已创建。';
+                $status.html('<p style="margin:0;color:#15803d;">' + $('<div/>').text(message).html() + '</p>');
+                return;
+            }
+
+            var message = response && response.data && response.data.message
+                ? response.data.message
+                : oyisoPluginBackup.labels.error;
+
+            $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        }).fail(function (xhr) {
+            var message = oyisoPluginBackup.labels.error;
+
+            if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                message = xhr.responseJSON.data.message;
+            }
+
+            $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        }).always(function () {
+            $create.prop('disabled', false);
+        });
+    });
+
+    $(document).on('click', '.oyiso-plugin-backup-restore-local', function () {
+        var file = $(this).data('file');
+
+        if (!file) {
+            return;
+        }
+
+        if (!window.confirm(oyisoPluginBackup.labels.confirmRestore)) {
+            return;
+        }
+
+        $status.html('<p style="margin:0;color:#6b7280;">' + oyisoPluginBackup.labels.restoring + '</p>');
+
+        $.post(oyisoPluginBackup.ajaxUrl, {
+            action: 'oyiso_plugin_backup_restore_local',
+            nonce: oyisoPluginBackup.nonces.restoreLocal,
+            file: file
+        }).done(function (response) {
+            if (response && response.success && response.data && response.data.message) {
+                $status.html('<p style="margin:0;color:#15803d;">' + $('<div/>').text(response.data.message).html() + '</p>');
+                window.setTimeout(function () {
+                    window.location.reload();
+                }, 800);
+                return;
+            }
+
+            var message = response && response.data && response.data.message
+                ? response.data.message
+                : oyisoPluginBackup.labels.error;
+
+            $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        }).fail(function (xhr) {
+            var message = oyisoPluginBackup.labels.error;
+
+            if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                message = xhr.responseJSON.data.message;
+            }
+
+            $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        });
+    });
+
+    $(document).on('click', '.oyiso-plugin-backup-delete-local', function () {
+        var file = $(this).data('file');
+
+        if (!file) {
+            return;
+        }
+
+        if (!window.confirm(oyisoPluginBackup.labels.confirmDelete)) {
+            return;
+        }
+
+        $status.html('<p style="margin:0;color:#6b7280;">' + oyisoPluginBackup.labels.deleting + '</p>');
+
+        $.post(oyisoPluginBackup.ajaxUrl, {
+            action: 'oyiso_plugin_backup_delete_local',
+            nonce: oyisoPluginBackup.nonces.deleteLocal,
+            file: file
+        }).done(function (response) {
+            if (response && response.success) {
+                if (response.data && response.data.listHtml !== undefined) {
+                    $list.html(response.data.listHtml);
+                }
+
+                var message = response.data && response.data.message ? response.data.message : '本地备份已删除。';
+                $status.html('<p style="margin:0;color:#15803d;">' + $('<div/>').text(message).html() + '</p>');
+                return;
+            }
+
+            var message = response && response.data && response.data.message
+                ? response.data.message
+                : oyisoPluginBackup.labels.error;
+
+            $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        }).fail(function (xhr) {
+            var message = oyisoPluginBackup.labels.error;
+
+            if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                message = xhr.responseJSON.data.message;
+            }
+
+            $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        });
+    });
+
+    $import.on('click', function () {
+        var file = $file[0].files && $file[0].files[0] ? $file[0].files[0] : null;
+
+        if (!file) {
+            $status.html('<p style="margin:0;color:#b91c1c;">' + oyisoPluginBackup.labels.selectFile + '</p>');
+            return;
+        }
+
+        if (!window.confirm(oyisoPluginBackup.labels.confirmRestore)) {
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('action', 'oyiso_plugin_backup_import');
+        formData.append('nonce', oyisoPluginBackup.nonces.import);
+        formData.append('file', file);
+
+        $import.prop('disabled', true);
+        $status.html('<p style="margin:0;color:#6b7280;">' + oyisoPluginBackup.labels.restoring + '</p>');
+
+        $.ajax({
+            url: oyisoPluginBackup.ajaxUrl,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false
+        }).done(function (response) {
+            if (response && response.success && response.data && response.data.message) {
+                $status.html('<p style="margin:0;color:#15803d;">' + $('<div/>').text(response.data.message).html() + '</p>');
+                window.setTimeout(function () {
+                    window.location.reload();
+                }, 800);
+                return;
+            }
+
+            var message = response && response.data && response.data.message
+                ? response.data.message
+                : oyisoPluginBackup.labels.error;
+
+            $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        }).fail(function (xhr) {
+            var message = oyisoPluginBackup.labels.error;
+
+            if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                message = xhr.responseJSON.data.message;
+            }
+
+            $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        }).always(function () {
+            $import.prop('disabled', false);
+        });
+    });
+});
+JS);
+    }
+}
+
+add_action('admin_enqueue_scripts', 'oyiso_enqueue_plugin_backup_assets');
+add_action('wp_ajax_oyiso_plugin_backup_create', 'oyiso_handle_plugin_backup_create');
+add_action('wp_ajax_oyiso_plugin_backup_download', 'oyiso_handle_plugin_backup_download');
+add_action('wp_ajax_oyiso_plugin_backup_restore_local', 'oyiso_handle_plugin_backup_restore_local');
+add_action('wp_ajax_oyiso_plugin_backup_import', 'oyiso_handle_plugin_backup_import');
+add_action('wp_ajax_oyiso_plugin_backup_delete_local', 'oyiso_handle_plugin_backup_delete_local');
 
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
         'parent'   => 'oyiso-update-backup',
         'id'       => 'oyiso-backup',
         'tab_id'   => 'oyiso-backup',
-        'title'    => '备份',
+        'title'    => '备份与恢复',
         'icon'     => 'fas fa-database',
         'priority' => 20,
         'fields'   => [
             [
                 'type'    => 'heading',
-                'content' => '备份',
+                'content' => '备份与恢复',
             ],
             [
                 'type'     => 'callback',

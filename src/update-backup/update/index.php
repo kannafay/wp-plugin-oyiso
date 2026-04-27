@@ -78,7 +78,7 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
                 'labels'  => [
                     'checking'      => '正在检查 GitHub 更新...',
                     'error'         => '检查失败，请稍后重试。',
-                    'confirmUpdate' => '确定立即更新插件吗？建议先备份站点数据。',
+                    'confirmUpdate' => '确定立即更新插件吗？建议先备份插件数据。',
                 ],
             ]);
 
