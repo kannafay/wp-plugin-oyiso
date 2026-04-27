@@ -15,6 +15,14 @@ class Coupons extends Widget_Base
 {
     private function get_site_locale(): string
     {
+        if (function_exists('get_locale')) {
+            $locale = (string) get_locale();
+
+            if ($locale !== '') {
+                return $locale;
+            }
+        }
+
         $site_locale = is_multisite()
             ? (get_option('WPLANG') ?: get_site_option('WPLANG'))
             : get_option('WPLANG');
@@ -60,10 +68,8 @@ class Coupons extends Widget_Base
     private function get_site_default_text(string $text): string
     {
         $site_locale = $this->get_site_locale();
-        $fallback = translate($text, 'oyiso');
-        $translated = $this->translate_for_locale($text, $site_locale);
 
-        return $translated !== $text ? $translated : $fallback;
+        return $this->translate_for_locale($text, $site_locale);
     }
 
     public function get_name()
