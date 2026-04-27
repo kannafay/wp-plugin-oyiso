@@ -10,17 +10,8 @@ if (!function_exists('oyiso_get_plugin_backup_option_name')) {
 
 if (!function_exists('oyiso_get_plugin_backup_storage')) {
     function oyiso_get_plugin_backup_storage(): array {
-        $uploads = wp_upload_dir();
-
-        if (!empty($uploads['error'])) {
-            return [
-                'error' => (string) $uploads['error'],
-            ];
-        }
-
         return [
-            'dir' => trailingslashit($uploads['basedir']) . 'oyiso-backups',
-            'url' => trailingslashit($uploads['baseurl']) . 'oyiso-backups',
+            'dir' => trailingslashit(WP_CONTENT_DIR) . 'oyiso-private/backups',
         ];
     }
 }
@@ -40,9 +31,22 @@ if (!function_exists('oyiso_ensure_plugin_backup_dir')) {
         }
 
         $indexFile = trailingslashit($storage['dir']) . 'index.php';
+        $htaccessFile = trailingslashit($storage['dir']) . '.htaccess';
+        $webConfigFile = trailingslashit($storage['dir']) . 'web.config';
 
         if (!is_file($indexFile)) {
             file_put_contents($indexFile, "<?php\n");
+        }
+
+        if (!is_file($htaccessFile)) {
+            file_put_contents($htaccessFile, "Deny from all\n");
+        }
+
+        if (!is_file($webConfigFile)) {
+            file_put_contents(
+                $webConfigFile,
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<configuration>\n  <system.webServer>\n    <authorization>\n      <deny users=\"*\" />\n    </authorization>\n  </system.webServer>\n</configuration>\n"
+            );
         }
 
         return $storage;
