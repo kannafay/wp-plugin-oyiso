@@ -60,7 +60,7 @@ if (!function_exists('oyiso_render_plugin_update_panel')) {
                 <p>仓库地址：<a href="https://github.com/kannafay/wp-plugin-oyiso" target="_blank" rel="noopener noreferrer">https://github.com/kannafay/wp-plugin-oyiso</a></p>
                 <p>发布新版本时，请在 GitHub Release 中上传你手动打包的插件 ZIP 附件，解压后的根目录必须为 <code>wp-plugin-oyiso/</code>。</p>
                 <p>当前版本：<code>' . esc_html($currentVersion) . '</code></p>
-                <p><button type="button" class="button button-secondary" id="oyiso-plugin-update-check">立即检查更新</button></p>
+                <p><button type="button" class="button button-secondary" id="oyiso-plugin-update-check">检查更新</button></p>
                 <div id="oyiso-plugin-update-status">' . $statusHtml . '</div>
             </div>
         ';
@@ -461,13 +461,13 @@ JS);
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
         'id'       => 'plugin-update',
-        'title'    => '插件在线更新',
+        'title'    => '在线更新',
         'icon'     => 'fas fa-cloud-download-alt',
         'priority' => 50,
         'fields'   => [
             [
                 'type'    => 'heading',
-                'content' => '插件在线更新',
+                'content' => '在线更新',
             ],
             [
                 'type'     => 'callback',
