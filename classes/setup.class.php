@@ -67,8 +67,8 @@ if ( ! class_exists( 'CSF_Setup' ) ) {
       // Init action
       do_action( 'csf_init' );
 
-      // Setup textdomain
-      self::textdomain();
+      // Setup textdomain after WordPress resolves the active locale.
+      add_action( 'init', array( 'CSF', 'textdomain' ), 0 );
 
       add_action( 'after_setup_theme', array( 'CSF', 'setup' ) );
       add_action( 'init', array( 'CSF', 'setup' ) );
@@ -462,7 +462,29 @@ if ( ! class_exists( 'CSF_Setup' ) ) {
 
     // Setup textdomain
     public static function textdomain() {
-      load_textdomain( 'csf', self::$dir .'/languages/'. get_locale() .'.mo' );
+      unload_textdomain( 'csf' );
+
+      $locales = array();
+
+      if ( function_exists( 'determine_locale' ) ) {
+        $locales[] = determine_locale();
+      }
+
+      if ( function_exists( 'get_user_locale' ) ) {
+        $locales[] = get_user_locale();
+      }
+
+      $locales[] = get_locale();
+      $locales = array_unique( array_filter( $locales ) );
+
+      foreach ( $locales as $locale ) {
+        $mofile = self::$dir .'/languages/'. $locale .'.mo';
+
+        if ( file_exists( $mofile ) ) {
+          load_textdomain( 'csf', $mofile );
+          return;
+        }
+      }
     }
 
     // Set all of used fields
