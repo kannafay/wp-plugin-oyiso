@@ -1,0 +1,441 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Oyiso\n"
+"PO-Revision-Date: 2026-04-25 06:28+0000\n"
+"Language: pl_PL\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Codex\n"
+
+msgid "%1$d / %2$d"
+msgstr "%1$d / %2$d"
+
+msgid "%1$s - Offer Details"
+msgstr "%1$s - Szczegóły oferty"
+
+msgid "1 Column Grid"
+msgstr "Siatka 1 kolumny"
+
+msgid "2 Column Grid"
+msgstr "Siatka 2 kolumn"
+
+msgid "3 Column Grid"
+msgstr "Siatka 3 kolumn"
+
+msgid "Accent Color"
+msgstr "Kolor akcentu"
+
+msgid "Add a coupon group and choose WooCommerce coupons in the widget settings first."
+msgstr "Najpierw dodaj grupę kuponów i wybierz kupony WooCommerce w ustawieniach widgetu."
+
+msgid "All"
+msgstr "Wszystkie"
+
+msgid "Amount Size"
+msgstr "Rozmiar kwoty"
+
+msgid "Apply this code at checkout to claim the offer."
+msgstr "Użyj tego kodu przy kasie, aby skorzystać z oferty."
+
+msgid "Background Type"
+msgstr "Typ tła"
+
+msgid "Banner"
+msgstr "Baner"
+
+msgid "Banner Background"
+msgstr "Tło banera"
+
+msgid "Body Text Size"
+msgstr "Rozmiar tekstu opisu"
+
+msgid "Border Color"
+msgstr "Kolor obramowania"
+
+msgid "Bottom"
+msgstr "Dół"
+
+msgid "Bottom Spacing"
+msgstr "Dolny odstęp"
+
+msgid "Button Height"
+msgstr "Wysokość przycisku"
+
+msgid "Button Radius"
+msgstr "Zaokrąglenie przycisku"
+
+msgid "Card Background"
+msgstr "Tło karty"
+
+msgid "Card Gap"
+msgstr "Odstęp między kartami"
+
+msgid "Card Radius"
+msgstr "Zaokrąglenie karty"
+
+msgid "Card Shadow"
+msgstr "Cień karty"
+
+msgid "Center"
+msgstr "Do środka"
+
+msgid "Close"
+msgstr "Zamknij"
+
+msgid "Content Padding"
+msgstr "Wewnętrzny odstęp treści"
+
+msgid "Copied"
+msgstr "Skopiowano"
+
+msgid "Copy Code"
+msgstr "Kopiuj kod"
+
+msgid "Corner Radius"
+msgstr "Promień narożników"
+
+msgid "Cosmic Rewards"
+msgstr "Kosmiczne okazje"
+
+msgid "Coupon Cards"
+msgstr "Karty kuponów"
+
+msgid "Coupon Groups"
+msgstr "Grupy kuponów"
+
+msgid "Offer"
+msgstr "Oferta"
+
+msgid "Custom Background"
+msgstr "Własne tło"
+
+msgid "Custom Image"
+msgstr "Własny obraz"
+
+msgid "Description"
+msgstr "Opis"
+
+msgid "Description Size"
+msgstr "Rozmiar opisu"
+
+msgid "Details"
+msgstr "Szczegóły"
+
+msgid "Diamond Vault"
+msgstr "Skarbiec diamentów"
+
+msgid "Dot Accent"
+msgstr "Akcent z kropką"
+
+msgid "Applies to Categories"
+msgstr "Dotyczy kategorii"
+
+msgid "Applies to Brands"
+msgstr "Dotyczy marek"
+
+msgid "Applies to Products"
+msgstr "Dotyczy produktów"
+
+msgid "Browse current offers and quickly find the best savings for your order."
+msgstr "Przeglądaj aktualne oferty i szybko znajdź najlepszą zniżkę do swojego zamówienia."
+
+msgid "Featured Offers"
+msgstr "Polecane oferty"
+
+msgid "Free Shipping"
+msgstr "Darmowa dostawa"
+
+msgid "Excluded Products"
+msgstr "Wykluczone produkty"
+
+msgid "Excluded Categories"
+msgstr "Wykluczone kategorie"
+
+msgid "Excluded Brands"
+msgstr "Wykluczone marki"
+
+msgid "General"
+msgstr "Ogólne"
+
+msgid "Group %d"
+msgstr "Grupa %d"
+
+msgid "Group Color"
+msgstr "Kolor grupy"
+
+msgid "Group Icon"
+msgstr "Ikona grupy"
+
+msgid "Group List"
+msgstr "Lista grup"
+
+msgid "Group Name"
+msgstr "Nazwa grupy"
+
+msgid "Height"
+msgstr "Wysokość"
+
+msgid "Horizontal Alignment"
+msgstr "Wyrównanie w poziomie"
+
+msgid "Image"
+msgstr "Obraz"
+
+msgid "Inner Padding"
+msgstr "Wewnętrzny odstęp"
+
+msgid "Individual Use Only"
+msgstr "Tylko do pojedynczego użycia"
+
+msgid "Intro Label"
+msgstr "Etykieta nad tytułem"
+
+msgid "Layout"
+msgstr "Układ"
+
+msgid "Left"
+msgstr "Do lewej"
+
+msgid "Limited-Time Offers"
+msgstr "Oferty ograniczone czasowo"
+
+msgid "Mall Parade"
+msgstr "Galeria okazji"
+
+msgid "Maximum Spend"
+msgstr "Maksymalna kwota zamówienia"
+
+msgid "Minimum Spend"
+msgstr "Minimalna kwota zamówienia"
+
+msgid "Item Quantity Limit"
+msgstr "Limit liczby produktów"
+
+msgid "No"
+msgstr "Nie"
+
+msgid "No Expiry Date"
+msgstr "Brak daty ważności"
+
+msgid "No Expiration"
+msgstr "Bez terminu wygaśnięcia"
+
+msgid "Always Valid"
+msgstr "Bezterminowo"
+
+msgid "No Expiry"
+msgstr "Bezterminowo"
+
+msgid "None"
+msgstr "Brak"
+
+msgid "Ocean Treasure"
+msgstr "Morskie skarby"
+
+msgid "Offer Details"
+msgstr "Szczegóły oferty"
+
+msgid "Coupon Code"
+msgstr "Kod rabatowy"
+
+msgid "Eligibility"
+msgstr "Zakres zastosowania"
+
+msgid "Conditions"
+msgstr "Warunki użycia"
+
+msgid "Order Discount"
+msgstr "Zniżka na zamówienie"
+
+msgid "Exclude Sale Items"
+msgstr "Bez produktów promocyjnych"
+
+msgid "Oyiso"
+msgstr "Oyiso"
+
+msgid "Oyiso 信息卡片"
+msgstr "Oyiso karta informacyjna"
+
+msgid "Percentage Discount"
+msgstr "Zniżka procentowa"
+
+msgid "Pill Tabs"
+msgstr "Zakładki kapsułkowe"
+
+msgid "Enable WooCommerce before using the Coupons widget."
+msgstr "Włącz WooCommerce przed użyciem widgetu kuponów."
+
+msgid "Primary Text Color"
+msgstr "Główny kolor tekstu"
+
+msgid "Product Discount"
+msgstr "Zniżka na produkt"
+
+msgid "Remaining Uses"
+msgstr "Pozostałe użycia"
+
+msgid "Remaining Coupons"
+msgstr "Pozostała liczba kuponów"
+
+msgid "Remaining Quantity"
+msgstr "Pozostało"
+
+msgid "Right"
+msgstr "Do prawej"
+
+msgid "Section Spacing"
+msgstr "Odstęp sekcji"
+
+msgid "Segmented Tabs"
+msgstr "Zakładki segmentowe"
+
+msgid "Total Usage Limit"
+msgstr "Łączny limit użyć"
+
+msgid "Per-Customer Limit"
+msgstr "Limit na klienta"
+
+msgid "Usage Limits"
+msgstr "Limity użycia"
+
+msgid "All Brands"
+msgstr "Wszystkie marki"
+
+msgid "Select Coupons"
+msgstr "Wybierz kupony"
+
+msgid "Settings"
+msgstr "Ustawienia"
+
+msgid "Show Less"
+msgstr "Pokaż mniej"
+
+msgid "Show More"
+msgstr "Pokaż więcej"
+
+msgid "Style Preset"
+msgstr "Preset stylu"
+
+msgid "Theme"
+msgstr "Motyw"
+
+msgid "Light Theme"
+msgstr "Motyw jasny"
+
+msgid "Dark Theme"
+msgstr "Motyw ciemny"
+
+msgid "Tab Gap"
+msgstr "Odstęp zakładek"
+
+msgid "Tabs"
+msgstr "Zakładki"
+
+msgid "Text Only"
+msgstr "Sam tekst"
+
+msgid "Text Size"
+msgstr "Rozmiar tekstu"
+
+msgid "The frontend adds an \"All\" tab automatically. If a coupon appears in multiple groups, it will show only in the first matching group."
+msgstr "Frontend automatycznie dodaje zakładkę „Wszystkie”. Jeśli kupon pojawia się w kilku grupach, będzie widoczny tylko w pierwszej pasującej grupie."
+
+msgid "Title"
+msgstr "Tytuł"
+
+msgid "Title Size"
+msgstr "Rozmiar tytułu"
+
+msgid "Top"
+msgstr "Góra"
+
+msgid "Underline"
+msgstr "Podkreślenie"
+
+msgid "Unlimited"
+msgstr "Bez limitu"
+
+msgid "No Quantity Limit"
+msgstr "Bez limitu ilości"
+
+msgid "Use Default Style"
+msgstr "Użyj domyślnego stylu"
+
+msgid "Used for the \"All\" tab, dialog links, and as the fallback when a group has no custom color. Group colors override this setting."
+msgstr "Używany dla zakładki „Wszystkie”, linków w oknie dialogowym oraz jako kolor domyślny, gdy grupa nie ma własnego koloru. Kolory grup mają pierwszeństwo."
+
+msgid "Expiry Date"
+msgstr "Data ważności"
+
+msgid "Expiration"
+msgstr "Termin wygaśnięcia"
+
+msgid "Valid Until"
+msgstr "Ważny do"
+
+msgid "Vertical Alignment"
+msgstr "Wyrównanie w pionie"
+
+msgid "Turn this on to preview the plugin default style. Turn it off to restore your current custom settings."
+msgstr "Włącz tę opcję, aby podejrzeć domyślny styl wtyczki. Wyłącz ją, aby przywrócić bieżące ustawienia własne."
+
+msgid "Wrap"
+msgstr "Zawijanie"
+
+msgid "Yes"
+msgstr "Tak"
+
+msgid "e.g. Featured Offers"
+msgstr "np. Polecane oferty"
+
+msgid "了解更多"
+msgstr "Dowiedz się więcej"
+
+msgid "你的卡片标题"
+msgstr "Tytuł karty"
+
+msgid "内容"
+msgstr "Treść"
+
+msgid "强调色"
+msgstr "Kolor akcentu"
+
+msgid "按钮文字"
+msgstr "Tekst przycisku"
+
+msgid "描述"
+msgstr "Opis"
+
+msgid "标题"
+msgstr "Tytuł"
+
+msgid "标题排版"
+msgstr "Typografia tytułu"
+
+msgid "样式"
+msgstr "Styl"
+
+msgid "请输入描述"
+msgstr "Wpisz opis"
+
+msgid "请输入标题"
+msgstr "Wpisz tytuł"
+
+msgid "这里是一段可在 Elementor 中编辑的描述内容。"
+msgstr "To jest przykładowy opis, który możesz edytować w Elementorze."
+
+msgid "链接"
+msgstr "Link"
+
+msgid "All Categories"
+msgstr "Wszystkie kategorie"
+
+msgid "All Products"
+msgstr "Wszystkie produkty"
+
+msgid "No Maximum"
+msgstr "Bez maksimum"
+
+msgid "No Minimum"
+msgstr "Bez minimum"
