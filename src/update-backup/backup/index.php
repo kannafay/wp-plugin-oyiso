@@ -289,6 +289,20 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                         gap: 8px;
                         flex-shrink: 0;
                     }
+                    .oyiso-plugin-backup-panel .oyiso-upload-inline {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        flex-wrap: wrap;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-upload-inline input[type="file"] {
+                        flex: 1;
+                        min-width: 220px;
+                        margin: 0;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-upload-inline .button {
+                        flex-shrink: 0;
+                    }
                     .oyiso-plugin-backup-panel .oyiso-button-danger {
                         border-color: #b32d2e;
                         color: #b32d2e;
@@ -323,8 +337,10 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                     <div class="oyiso-panel-block">
                         <h3 style="margin:0 0 8px;font-size:14px;">上传恢复</h3>
                         <p style="margin:0 0 12px;color:#6b7280;">如您已在本地保存过 JSON 备份文件，也可直接上传并恢复当前插件配置。</p>
-                        <input type="file" id="oyiso-plugin-backup-file" accept=".json,application/json" style="display:block;margin:0 0 12px;width:100%;">
-                        <button type="button" class="button button-primary" id="oyiso-plugin-backup-import">上传并恢复</button>
+                        <div class="oyiso-upload-inline">
+                            <input type="file" id="oyiso-plugin-backup-file" accept=".json,application/json">
+                            <button type="button" class="button button-primary" id="oyiso-plugin-backup-import">上传并恢复</button>
+                        </div>
                     </div>
                 </div>
 
@@ -590,6 +606,10 @@ jQuery(function ($) {
         event.stopPropagation();
     });
 
+    function setLocalActionButtonsDisabled(disabled) {
+        $('.oyiso-plugin-backup-restore-local, .oyiso-plugin-backup-delete-local').prop('disabled', disabled);
+    }
+
     $create.on('click', function () {
         $create.prop('disabled', true);
         $status.html('<p style="margin:0;color:#6b7280;">' + oyisoPluginBackup.labels.creating + '</p>');
@@ -628,6 +648,7 @@ jQuery(function ($) {
 
     $(document).on('click', '.oyiso-plugin-backup-restore-local', function () {
         var file = $(this).data('file');
+        var keepDisabled = false;
 
         if (!file) {
             return;
@@ -637,6 +658,7 @@ jQuery(function ($) {
             return;
         }
 
+        setLocalActionButtonsDisabled(true);
         $status.html('<p style="margin:0;color:#6b7280;">' + oyisoPluginBackup.labels.restoring + '</p>');
 
         $.post(oyisoPluginBackup.ajaxUrl, {
@@ -645,6 +667,7 @@ jQuery(function ($) {
             file: file
         }).done(function (response) {
             if (response && response.success && response.data && response.data.message) {
+                keepDisabled = true;
                 $status.html('<p style="margin:0;color:#15803d;">' + $('<div/>').text(response.data.message).html() + '</p>');
                 window.setTimeout(function () {
                     window.location.reload();
@@ -665,6 +688,10 @@ jQuery(function ($) {
             }
 
             $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        }).always(function () {
+            if (!keepDisabled) {
+                setLocalActionButtonsDisabled(false);
+            }
         });
     });
 
@@ -679,6 +706,7 @@ jQuery(function ($) {
             return;
         }
 
+        setLocalActionButtonsDisabled(true);
         $status.html('<p style="margin:0;color:#6b7280;">' + oyisoPluginBackup.labels.deleting + '</p>');
 
         $.post(oyisoPluginBackup.ajaxUrl, {
@@ -709,6 +737,8 @@ jQuery(function ($) {
             }
 
             $status.html('<p style="margin:0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
+        }).always(function () {
+            setLocalActionButtonsDisabled(false);
         });
     });
 
