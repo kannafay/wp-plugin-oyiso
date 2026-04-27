@@ -243,14 +243,18 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                         box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
                     }
                     .oyiso-plugin-backup-panel .oyiso-backup-item__main {
+                        display: flex;
+                        align-items: center;
+                        gap: 14px;
                         min-width: 0;
                         flex: 1;
                     }
                     .oyiso-plugin-backup-panel .oyiso-backup-item__meta {
                         display: flex;
-                        flex-wrap: wrap;
+                        flex-wrap: nowrap;
                         gap: 8px;
-                        margin-bottom: 10px;
+                        margin-bottom: 0;
+                        flex-shrink: 0;
                     }
                     .oyiso-plugin-backup-panel .oyiso-backup-badge {
                         display: inline-flex;
@@ -270,38 +274,81 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                         color: #1d4ed8;
                     }
                     .oyiso-plugin-backup-panel .oyiso-backup-item__file {
+                        min-width: 0;
                         color: #111827;
-                        line-height: 1.5;
-                        word-break: break-all;
+                        line-height: 1.4;
+                        max-width: 100%;
                     }
                     .oyiso-plugin-backup-panel .oyiso-backup-item__file code {
                         display: inline-block;
+                        max-width: 100%;
                         padding: 3px 8px;
                         border-radius: 8px;
                         background: #f3f4f6;
                         color: #374151;
                         font-size: 12px;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
                     }
                     .oyiso-plugin-backup-panel .oyiso-backup-item__actions {
                         display: flex;
                         flex-wrap: wrap;
                         justify-content: flex-end;
                         gap: 8px;
+                        margin-left: auto;
                         flex-shrink: 0;
                     }
                     .oyiso-plugin-backup-panel .oyiso-upload-inline {
-                        display: flex;
+                        display: grid;
+                        grid-template-columns: auto minmax(0, 1fr);
                         align-items: center;
                         gap: 10px;
-                        flex-wrap: wrap;
                     }
                     .oyiso-plugin-backup-panel .oyiso-upload-inline input[type="file"] {
-                        flex: 1;
-                        min-width: 220px;
-                        margin: 0;
+                        display: none;
                     }
                     .oyiso-plugin-backup-panel .oyiso-upload-inline .button {
                         flex-shrink: 0;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-upload-file {
+                        display: none;
+                        align-items: center;
+                        gap: 10px;
+                        min-width: 0;
+                        max-width: 100%;
+                        justify-self: start;
+                        color: #64748b;
+                        font-size: 12px;
+                        line-height: 1.4;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-upload-file.is-visible {
+                        display: inline-flex;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-upload-file__name {
+                        min-width: 0;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-upload-file__remove {
+                        flex-shrink: 0;
+                        padding: 0;
+                        min-height: auto;
+                        border: 0;
+                        background: transparent;
+                        color: #b32d2e;
+                        line-height: 1.4;
+                        text-decoration: none;
+                        box-shadow: none;
+                    }
+                    .oyiso-plugin-backup-panel .oyiso-upload-file__remove:hover,
+                    .oyiso-plugin-backup-panel .oyiso-upload-file__remove:focus {
+                        color: #8a2424;
+                        background: transparent;
+                        border: 0;
+                        box-shadow: none;
+                        outline: none;
                     }
                     .oyiso-plugin-backup-panel .oyiso-button-danger {
                         border-color: #b32d2e;
@@ -319,8 +366,28 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                             align-items: stretch;
                             flex-direction: column;
                         }
+                        .oyiso-plugin-backup-panel .oyiso-backup-item__main {
+                            display: block;
+                        }
+                        .oyiso-plugin-backup-panel .oyiso-backup-item__meta {
+                            flex-wrap: wrap;
+                            margin-bottom: 10px;
+                        }
+                        .oyiso-plugin-backup-panel .oyiso-backup-item__file,
+                        .oyiso-plugin-backup-panel .oyiso-backup-item__file code {
+                            white-space: normal;
+                            overflow: visible;
+                            text-overflow: clip;
+                            word-break: break-all;
+                        }
                         .oyiso-plugin-backup-panel .oyiso-backup-item__actions {
                             justify-content: flex-start;
+                        }
+                    }
+                    @media only screen and (max-width: 640px) {
+                        .oyiso-plugin-backup-panel .oyiso-upload-inline {
+                            grid-template-columns: 1fr;
+                            align-items: stretch;
                         }
                     }
                 </style>
@@ -339,7 +406,11 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                         <p style="margin:0 0 12px;color:#6b7280;">如您已在本地保存过 JSON 备份文件，也可直接上传并恢复当前插件配置。</p>
                         <div class="oyiso-upload-inline">
                             <input type="file" id="oyiso-plugin-backup-file" accept=".json,application/json">
-                            <button type="button" class="button button-primary" id="oyiso-plugin-backup-import">上传并恢复</button>
+                            <button type="button" class="button button-primary" id="oyiso-plugin-backup-import">选择文件</button>
+                            <div class="oyiso-upload-file" id="oyiso-plugin-backup-file-meta">
+                                <div class="oyiso-upload-file__name" id="oyiso-plugin-backup-file-name"></div>
+                                <button type="button" class="oyiso-upload-file__remove" id="oyiso-plugin-backup-file-remove">删除</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -580,6 +651,8 @@ if (!function_exists('oyiso_enqueue_plugin_backup_assets')) {
             ],
             'labels'  => [
                 'selectFile'     => '请先选择要上传的 JSON 备份文件。',
+                'chooseFile'     => '选择文件',
+                'importFile'     => '上传并恢复',
                 'creating'       => '正在创建本地备份，请稍候...',
                 'restoring'      => '正在恢复配置，请稍候...',
                 'deleting'       => '正在删除本地备份，请稍候...',
@@ -594,11 +667,24 @@ jQuery(function ($) {
     var $create = $('#oyiso-plugin-backup-create');
     var $file = $('#oyiso-plugin-backup-file');
     var $import = $('#oyiso-plugin-backup-import');
+    var $fileMeta = $('#oyiso-plugin-backup-file-meta');
+    var $fileName = $('#oyiso-plugin-backup-file-name');
+    var $fileRemove = $('#oyiso-plugin-backup-file-remove');
     var $status = $('#oyiso-plugin-backup-status');
     var $list = $('#oyiso-plugin-backup-list');
     var $panel = $('.oyiso-plugin-backup-panel');
 
-    if (!$create.length || !$file.length || !$import.length || !$status.length || !$list.length || !$panel.length) {
+    if (
+        !$create.length ||
+        !$file.length ||
+        !$import.length ||
+        !$fileMeta.length ||
+        !$fileName.length ||
+        !$fileRemove.length ||
+        !$status.length ||
+        !$list.length ||
+        !$panel.length
+    ) {
         return;
     }
 
@@ -608,6 +694,25 @@ jQuery(function ($) {
 
     function setLocalActionButtonsDisabled(disabled) {
         $('.oyiso-plugin-backup-restore-local, .oyiso-plugin-backup-delete-local').prop('disabled', disabled);
+    }
+
+    function getSelectedImportFile() {
+        return $file[0].files && $file[0].files[0] ? $file[0].files[0] : null;
+    }
+
+    function renderSelectedImportFile() {
+        var selectedFile = getSelectedImportFile();
+
+        if (!selectedFile) {
+            $fileName.text('');
+            $fileMeta.removeClass('is-visible');
+            $import.text(oyisoPluginBackup.labels.chooseFile);
+            return;
+        }
+
+        $fileName.text(selectedFile.name);
+        $fileMeta.addClass('is-visible');
+        $import.text(oyisoPluginBackup.labels.importFile);
     }
 
     $create.on('click', function () {
@@ -644,6 +749,15 @@ jQuery(function ($) {
         }).always(function () {
             $create.prop('disabled', false);
         });
+    });
+
+    $file.on('change', function () {
+        renderSelectedImportFile();
+    });
+
+    $fileRemove.on('click', function () {
+        $file.val('');
+        renderSelectedImportFile();
     });
 
     $(document).on('click', '.oyiso-plugin-backup-restore-local', function () {
@@ -743,10 +857,10 @@ jQuery(function ($) {
     });
 
     $import.on('click', function () {
-        var file = $file[0].files && $file[0].files[0] ? $file[0].files[0] : null;
+        var file = getSelectedImportFile();
 
         if (!file) {
-            $status.html('<p style="margin:0;color:#b91c1c;">' + oyisoPluginBackup.labels.selectFile + '</p>');
+            $file.trigger('click');
             return;
         }
 
@@ -794,6 +908,8 @@ jQuery(function ($) {
             $import.prop('disabled', false);
         });
     });
+
+    renderSelectedImportFile();
 });
 JS);
     }
