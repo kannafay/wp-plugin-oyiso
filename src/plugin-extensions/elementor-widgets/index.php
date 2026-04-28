@@ -34,6 +34,72 @@ if (!$oyiso_elementor_widgets_enabled) {
     return;
 }
 
+if (!function_exists('oyiso_get_site_locale')) {
+    function oyiso_get_site_locale(): string
+    {
+        $site_locale = is_multisite()
+            ? (get_option('WPLANG') ?: get_site_option('WPLANG'))
+            : get_option('WPLANG');
+
+        if (!$site_locale && function_exists('get_bloginfo')) {
+            $site_language = (string) get_bloginfo('language');
+
+            if ($site_language !== '') {
+                $site_locale = str_replace('-', '_', $site_language);
+            }
+        }
+
+        return $site_locale ?: 'en_US';
+    }
+}
+
+if (!function_exists('oyiso_translate_for_site_locale')) {
+    function oyiso_translate_for_site_locale(string $text): string
+    {
+        static $catalogs = [];
+
+        $locale = oyiso_get_site_locale();
+        $mofile = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'languages' . DIRECTORY_SEPARATOR . 'oyiso-' . $locale . '.mo';
+
+        if (!is_readable($mofile)) {
+            return $text;
+        }
+
+        if (!array_key_exists($locale, $catalogs)) {
+            if (!class_exists('\MO')) {
+                require_once ABSPATH . WPINC . '/pomo/mo.php';
+            }
+
+            $mo = new \MO();
+            $catalogs[$locale] = $mo->import_from_file($mofile) ? $mo : false;
+        }
+
+        if (!$catalogs[$locale]) {
+            return $text;
+        }
+
+        $translated = $catalogs[$locale]->translate($text);
+
+        return is_string($translated) && $translated !== '' ? $translated : $text;
+    }
+}
+
+if (!function_exists('oyiso_t')) {
+    function oyiso_t(string $text): string
+    {
+        return oyiso_translate_for_site_locale($text);
+    }
+}
+
+if (!function_exists('oyiso_t_sprintf')) {
+    function oyiso_t_sprintf(string $text, ...$args): string
+    {
+        return sprintf(oyiso_t($text), ...$args);
+    }
+}
+
+require_once __DIR__ . '/coupon-lottery-module.php';
+
 if (!function_exists('oyiso_promote_elementor_category')) {
     function oyiso_promote_elementor_category($elements_manager) {
         if (!is_object($elements_manager)) {
@@ -83,6 +149,7 @@ add_action('elementor/frontend/after_register_styles', function () {
 
 add_action('elementor/frontend/after_register_scripts', function () {
     $script_path = __DIR__ . '/assets/js/coupon-tabs.js';
+    $lottery_script_path = __DIR__ . '/assets/js/coupon-lottery.js';
 
     wp_register_script(
         'oyiso-coupon-tabs',
@@ -100,6 +167,36 @@ add_action('elementor/frontend/after_register_scripts', function () {
         'scopeTitle'         => __('Offer Details', 'oyiso'),
         'scopeTitleWithCode' => __('%1$s - Offer Details', 'oyiso'),
         'closeLabel'         => __('Close', 'oyiso'),
+    ]);
+
+    wp_register_script(
+        'oyiso-coupon-lottery',
+        plugins_url('assets/js/coupon-lottery.js', __FILE__),
+        [],
+        file_exists($lottery_script_path) ? filemtime($lottery_script_path) : '1.0.0',
+        true
+    );
+
+    wp_localize_script('oyiso-coupon-lottery', 'oyisoCouponLotteryI18n', [
+        'ajaxUrl'         => admin_url('admin-ajax.php'),
+        'nonce'           => wp_create_nonce('oyiso_coupon_lottery_nonce'),
+        'loading'         => oyiso_t('Processing, please wait...'),
+        'loadFailed'      => oyiso_t('Action failed. Please try again later.'),
+        'availableNow'    => oyiso_t('You can join the draw now.'),
+        'totalRemaining'  => oyiso_t('Total remaining: %d'),
+        'dailyRemaining'  => oyiso_t("Today's remaining: %d"),
+        'copy'            => oyiso_t('Copy Coupon Code'),
+        'copied'          => oyiso_t('Copied'),
+        'myRecords'       => oyiso_t('My Records'),
+        'allRecords'      => oyiso_t('All Records'),
+        'emptyRecords'    => oyiso_t('No records yet.'),
+        'claimButton'     => oyiso_t('Claim Coupon'),
+        'editButton'      => oyiso_t('Edit'),
+        'userLabel'       => oyiso_t('User'),
+        'timeLabel'       => oyiso_t('Time'),
+        'couponLabel'     => oyiso_t('Coupon Code'),
+        'statusLabel'     => oyiso_t('Status'),
+        'resultLabel'     => oyiso_t('Result'),
     ]);
 });
 
@@ -121,7 +218,9 @@ add_action('elementor/widgets/register', function ($widgets_manager) {
 
     require_once __DIR__ . '/widgets/info-card.php';
     require_once __DIR__ . '/widgets/coupons.php';
+    require_once __DIR__ . '/widgets/coupon-lottery.php';
 
     $widgets_manager->register(new \Oyiso\ElementorWidgets\Info_Card());
     $widgets_manager->register(new \Oyiso\ElementorWidgets\Coupons());
+    $widgets_manager->register(new \Oyiso\ElementorWidgets\Coupon_Lottery());
 });

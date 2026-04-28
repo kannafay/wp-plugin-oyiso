@@ -15,14 +15,6 @@ class Coupons extends Widget_Base
 {
     private function get_site_locale(): string
     {
-        if (function_exists('get_locale')) {
-            $locale = (string) get_locale();
-
-            if ($locale !== '') {
-                return $locale;
-            }
-        }
-
         $site_locale = is_multisite()
             ? (get_option('WPLANG') ?: get_site_option('WPLANG'))
             : get_option('WPLANG');
@@ -67,6 +59,10 @@ class Coupons extends Widget_Base
 
     private function get_site_default_text(string $text): string
     {
+        if (function_exists('oyiso_t')) {
+            return oyiso_t($text);
+        }
+
         $site_locale = $this->get_site_locale();
 
         return $this->translate_for_locale($text, $site_locale);
@@ -79,7 +75,7 @@ class Coupons extends Widget_Base
 
     public function get_title()
     {
-        return 'Oyiso 优惠券';
+        return __('Oyiso Coupons', 'oyiso');
     }
 
     public function get_icon()

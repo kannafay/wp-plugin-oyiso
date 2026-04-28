@@ -440,3 +440,366 @@ msgstr "这里是一段可在 Elementor 中编辑的描述内容。"
 
 msgid "链接"
 msgstr "链接"
+
+msgid "Oyiso 优惠券抽奖"
+msgstr "Oyiso 优惠券抽奖"
+
+msgid "优惠券抽奖"
+msgstr "优惠券抽奖"
+
+msgid "登录后即可参与抽奖，抽中后点击领取即可生成专属优惠券。"
+msgstr "登录后即可参与抽奖，抽中后点击领取即可生成专属优惠券。"
+
+msgid "立即抽奖"
+msgstr "立即抽奖"
+
+msgid "领取优惠券"
+msgstr "领取优惠券"
+
+msgid "抽奖记录"
+msgstr "抽奖记录"
+
+msgid "谢谢参与"
+msgstr "谢谢参与"
+
+msgid "请先登录后再参与抽奖。"
+msgstr "请先登录后再参与抽奖。"
+
+msgid "当前可参与抽奖。"
+msgstr "当前可参与抽奖。"
+
+msgid "剩余总次数：%d"
+msgstr "剩余总次数：%d"
+
+msgid "今日剩余次数：%d"
+msgstr "今日剩余次数：%d"
+
+msgid "抽奖结果"
+msgstr "抽奖结果"
+
+msgid "本次结果"
+msgstr "本次结果"
+
+msgid "复制优惠码"
+msgstr "复制优惠码"
+
+msgid "处理中，请稍候..."
+msgstr "处理中，请稍候..."
+
+msgid "操作失败，请稍后重试。"
+msgstr "操作失败，请稍后重试。"
+
+msgid "我的记录"
+msgstr "我的记录"
+
+msgid "全部记录"
+msgstr "全部记录"
+
+msgid "暂无记录。"
+msgstr "暂无记录。"
+
+msgid "中奖"
+msgstr "中奖"
+
+msgid "未中奖"
+msgstr "未中奖"
+
+msgid "已领取"
+msgstr "已领取"
+
+msgid "待领取"
+msgstr "待领取"
+
+msgid "已完成"
+msgstr "已完成"
+
+msgid "用户"
+msgstr "用户"
+
+msgid "时间"
+msgstr "时间"
+
+msgid "优惠码"
+msgstr "优惠码"
+
+msgid "状态"
+msgstr "状态"
+
+msgid "结果"
+msgstr "结果"
+
+msgid "当前未配置可用的抽奖奖项。"
+msgstr "当前未配置可用的抽奖奖项。"
+
+msgid "抽奖记录写入失败，请稍后重试。"
+msgstr "抽奖记录写入失败，请稍后重试。"
+
+msgid "恭喜抽中 %s。"
+msgstr "恭喜抽中 %s。"
+
+msgid "谢谢参与，祝你下次好运。"
+msgstr "谢谢参与，祝你下次好运。"
+
+msgid "请先登录后再领取优惠券。"
+msgstr "请先登录后再领取优惠券。"
+
+msgid "领取参数无效。"
+msgstr "领取参数无效。"
+
+msgid "抽奖记录不存在。"
+msgstr "抽奖记录不存在。"
+
+msgid "无权领取该优惠券。"
+msgstr "无权领取该优惠券。"
+
+msgid "该记录未中奖，无法领取优惠券。"
+msgstr "该记录未中奖，无法领取优惠券。"
+
+msgid "优惠券已领取，可直接复制使用。"
+msgstr "优惠券已领取，可直接复制使用。"
+
+msgid "领取成功，优惠券已生成。"
+msgstr "领取成功，优惠券已生成。"
+
+msgid "请先登录后再查看抽奖记录。"
+msgstr "请先登录后再查看抽奖记录。"
+
+msgid "抽奖活动标识无效。"
+msgstr "抽奖活动标识无效。"
+
+msgid "抽奖配置缺失，请刷新页面后重试。"
+msgstr "抽奖配置缺失，请刷新页面后重试。"
+
+msgid "抽奖配置解析失败。"
+msgstr "抽奖配置解析失败。"
+
+msgid "抽奖配置校验失败，请刷新页面后重试。"
+msgstr "抽奖配置校验失败，请刷新页面后重试。"
+
+msgid "抽奖配置格式无效。"
+msgstr "抽奖配置格式无效。"
+
+msgid "活动尚未开始。"
+msgstr "活动尚未开始。"
+
+msgid "活动已结束。"
+msgstr "活动已结束。"
+
+msgid "已达到可参与次数上限。"
+msgstr "已达到可参与次数上限。"
+
+msgid "今日抽奖次数已用完。"
+msgstr "今日抽奖次数已用完。"
+
+msgid "抽奖领取：%s"
+msgstr "抽奖领取：%s"
+
+msgid "当前用户信息无效，无法生成优惠券。"
+msgstr "当前用户信息无效，无法生成优惠券。"
+
+msgid "当前奖项金额无效，无法生成优惠券。"
+msgstr "当前奖项金额无效，无法生成优惠券。"
+
+msgid "优惠券生成失败，请稍后重试。"
+msgstr "优惠券生成失败，请稍后重试。"
+
+msgid "Oyiso Info Card"
+msgstr "Oyiso 信息卡片"
+
+msgid "Your Card Title"
+msgstr "你的卡片标题"
+
+msgid "Enter a title"
+msgstr "请输入标题"
+
+msgid "This is a description you can edit in Elementor."
+msgstr "这里是一段可在 Elementor 中编辑的描述内容。"
+
+msgid "Enter a description"
+msgstr "请输入描述"
+
+msgid "Learn More"
+msgstr "了解更多"
+
+msgid "Oyiso Coupon Lottery"
+msgstr "Oyiso 优惠券抽奖"
+
+msgid "Oyiso Coupons"
+msgstr "Oyiso 优惠券"
+
+msgid "Coupon Lottery"
+msgstr "优惠券抽奖"
+
+msgid "Log in to join the draw. If you win, click claim to generate your exclusive coupon."
+msgstr "登录后即可参与抽奖，抽中后点击领取即可生成专属优惠券。"
+
+msgid "Draw Now"
+msgstr "立即抽奖"
+
+msgid "Claim Coupon"
+msgstr "领取优惠券"
+
+msgid "Draw Records"
+msgstr "抽奖记录"
+
+msgid "Thanks for participating"
+msgstr "谢谢参与"
+
+msgid "This lottery is only available to logged-in users."
+msgstr "该抽奖活动仅允许登录用户参与。"
+
+msgid "All winning tiers share the same WooCommerce coupon settings. The coupon is generated only after the winner clicks claim."
+msgstr "所有中奖档位共用同一套 WooCommerce 优惠券参数；中奖后点击领取才会生成优惠券。"
+
+msgid "Leave blank to use the winning message automatically"
+msgstr "留空则自动使用中奖文案"
+
+msgid "Please enable WooCommerce first."
+msgstr "请先启用 WooCommerce。"
+
+msgid "Please log in before joining the draw."
+msgstr "请先登录后再参与抽奖。"
+
+msgid "Total remaining: %d"
+msgstr "剩余总次数：%d"
+
+msgid "Today's remaining: %d"
+msgstr "今日剩余次数：%d"
+
+msgid "You can join the draw now."
+msgstr "当前可参与抽奖。"
+
+msgid "Draw Result"
+msgstr "抽奖结果"
+
+msgid "This Result"
+msgstr "本次结果"
+
+msgid "Copy Coupon Code"
+msgstr "复制优惠码"
+
+msgid "Processing, please wait..."
+msgstr "处理中，请稍候..."
+
+msgid "Action failed. Please try again later."
+msgstr "操作失败，请稍后重试。"
+
+msgid "My Records"
+msgstr "我的记录"
+
+msgid "All Records"
+msgstr "全部记录"
+
+msgid "No records yet."
+msgstr "暂无记录。"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "User"
+msgstr "用户"
+
+msgid "Time"
+msgstr "时间"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Result"
+msgstr "结果"
+
+msgid "No available lottery prizes are configured right now."
+msgstr "当前未配置可用的抽奖奖项。"
+
+msgid "Failed to save the draw record. Please try again later."
+msgstr "抽奖记录写入失败，请稍后重试。"
+
+msgid "Congratulations, you won %s."
+msgstr "恭喜抽中 %s。"
+
+msgid "Thanks for participating. Better luck next time."
+msgstr "谢谢参与，祝你下次好运。"
+
+msgid "Please log in before claiming the coupon."
+msgstr "请先登录后再领取优惠券。"
+
+msgid "Invalid claim parameters."
+msgstr "领取参数无效。"
+
+msgid "The draw record does not exist."
+msgstr "抽奖记录不存在。"
+
+msgid "You are not allowed to claim this coupon."
+msgstr "无权领取该优惠券。"
+
+msgid "This record did not win, so the coupon cannot be claimed."
+msgstr "该记录未中奖，无法领取优惠券。"
+
+msgid "The coupon has already been claimed and can be copied directly."
+msgstr "优惠券已领取，可直接复制使用。"
+
+msgid "Claim successful. Your coupon has been generated."
+msgstr "领取成功，优惠券已生成。"
+
+msgid "Please log in before viewing draw records."
+msgstr "请先登录后再查看抽奖记录。"
+
+msgid "Invalid lottery identifier."
+msgstr "抽奖活动标识无效。"
+
+msgid "Lottery configuration is missing. Refresh the page and try again."
+msgstr "抽奖配置缺失，请刷新页面后重试。"
+
+msgid "Failed to parse the lottery configuration."
+msgstr "抽奖配置解析失败。"
+
+msgid "Lottery configuration validation failed. Refresh the page and try again."
+msgstr "抽奖配置校验失败，请刷新页面后重试。"
+
+msgid "The lottery configuration format is invalid."
+msgstr "抽奖配置格式无效。"
+
+msgid "The event has not started yet."
+msgstr "活动尚未开始。"
+
+msgid "The event has ended."
+msgstr "活动已结束。"
+
+msgid "You have reached the participation limit."
+msgstr "已达到可参与次数上限。"
+
+msgid "Your draw chances for today have been used up."
+msgstr "今日抽奖次数已用完。"
+
+msgid "%s discount rate"
+msgstr "%s折"
+
+msgid "%s%% off"
+msgstr "%s%% off"
+
+msgid "The current user information is invalid, so the coupon could not be generated."
+msgstr "当前用户信息无效，无法生成优惠券。"
+
+msgid "The current prize amount is invalid, so the coupon could not be generated."
+msgstr "当前奖项金额无效，无法生成优惠券。"
+
+msgid "Lottery Claim: %s"
+msgstr "抽奖领取：%s"
+
+msgid "Failed to generate the coupon. Please try again later."
+msgstr "优惠券生成失败，请稍后重试。"
+
+msgid "Won"
+msgstr "中奖"
+
+msgid "Not Won"
+msgstr "未中奖"
+
+msgid "Claimed"
+msgstr "已领取"
+
+msgid "Pending Claim"
+msgstr "待领取"
+
+msgid "Completed"
+msgstr "已完成"

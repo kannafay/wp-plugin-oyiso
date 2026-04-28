@@ -14,14 +14,6 @@ class Info_Card extends Widget_Base
 {
     private function get_site_locale(): string
     {
-        if (function_exists('get_locale')) {
-            $locale = (string) get_locale();
-
-            if ($locale !== '') {
-                return $locale;
-            }
-        }
-
         $site_locale = is_multisite()
             ? (get_option('WPLANG') ?: get_site_option('WPLANG'))
             : get_option('WPLANG');
@@ -66,6 +58,10 @@ class Info_Card extends Widget_Base
 
     private function get_site_default_text(string $text): string
     {
+        if (function_exists('oyiso_t')) {
+            return oyiso_t($text);
+        }
+
         return $this->translate_for_locale($text, $this->get_site_locale());
     }
 
@@ -76,7 +72,7 @@ class Info_Card extends Widget_Base
 
     public function get_title()
     {
-        return __('Oyiso 信息卡片', 'oyiso');
+        return __('Oyiso Info Card', 'oyiso');
     }
 
     public function get_icon()
@@ -104,15 +100,15 @@ class Info_Card extends Widget_Base
         $this->add_control('title', [
             'label'       => __('标题', 'oyiso'),
             'type'        => Controls_Manager::TEXT,
-            'default'     => $this->get_site_default_text('你的卡片标题'),
-            'placeholder' => $this->get_site_default_text('请输入标题'),
+            'default'     => $this->get_site_default_text('Your Card Title'),
+            'placeholder' => $this->get_site_default_text('Enter a title'),
         ]);
 
         $this->add_control('description', [
             'label'       => __('描述', 'oyiso'),
             'type'        => Controls_Manager::TEXTAREA,
-            'default'     => $this->get_site_default_text('这里是一段可在 Elementor 中编辑的描述内容。'),
-            'placeholder' => $this->get_site_default_text('请输入描述'),
+            'default'     => $this->get_site_default_text('This is a description you can edit in Elementor.'),
+            'placeholder' => $this->get_site_default_text('Enter a description'),
         ]);
 
         $this->add_control('link', [
@@ -124,7 +120,7 @@ class Info_Card extends Widget_Base
         $this->add_control('button_text', [
             'label'   => __('按钮文字', 'oyiso'),
             'type'    => Controls_Manager::TEXT,
-            'default' => $this->get_site_default_text('了解更多'),
+            'default' => $this->get_site_default_text('Learn More'),
         ]);
 
         $this->add_responsive_control('content_alignment', [
