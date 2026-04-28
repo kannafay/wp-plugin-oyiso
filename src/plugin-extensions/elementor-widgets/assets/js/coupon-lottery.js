@@ -267,6 +267,10 @@
             parts.push(formatLabel(oyisoCouponLotteryI18n.dailyRemaining, availability.daily_remaining));
         }
 
+        if (availability.prize_pool_remaining !== null) {
+            parts.push(formatLabel(oyisoCouponLotteryI18n.prizePoolRemaining, availability.prize_pool_remaining));
+        }
+
         setStatus(widget, parts.length ? parts.join(' / ') : oyisoCouponLotteryI18n.availableNow, false);
     }
 

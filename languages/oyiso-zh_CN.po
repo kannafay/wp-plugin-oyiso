@@ -654,6 +654,9 @@ msgstr "领取优惠券"
 msgid "Draw Records"
 msgstr "抽奖记录"
 
+msgid "Lottery Rules"
+msgstr "抽奖规则"
+
 msgid "Thanks for participating"
 msgstr "谢谢参与"
 
@@ -677,6 +680,9 @@ msgstr "剩余总次数：%d"
 
 msgid "Today's remaining: %d"
 msgstr "今日剩余次数：%d"
+
+msgid "Prize pool remaining: %d"
+msgstr "奖池剩余：%d"
 
 msgid "You can join the draw now."
 msgstr "当前可参与抽奖。"
@@ -782,6 +788,51 @@ msgstr "活动尚未开始。"
 
 msgid "The event has ended."
 msgstr "活动已结束。"
+
+msgid "The prize pool has been exhausted. The draw has ended."
+msgstr "奖池已抽完，抽奖已结束。"
+
+msgid "Participation Rules"
+msgstr "参与规则"
+
+msgid "Participants"
+msgstr "参与对象"
+
+msgid "Logged-in users only"
+msgstr "仅限登录用户"
+
+msgid "Per-Person Total Draws"
+msgstr "每人总抽奖次数"
+
+msgid "Per-Person Daily Draws"
+msgstr "每人每日抽奖次数"
+
+msgid "Prize Pool"
+msgstr "奖池"
+
+msgid "Start Time"
+msgstr "开始时间"
+
+msgid "End Time"
+msgstr "结束时间"
+
+msgid "Coupon Type"
+msgstr "优惠类型"
+
+msgid "Percentage Discount"
+msgstr "百分比折扣"
+
+msgid "Fixed Amount Discount"
+msgstr "固定金额优惠"
+
+msgid "Validity Period"
+msgstr "有效期"
+
+msgid "Prize Settings"
+msgstr "奖项设置"
+
+msgid "Prize Rules"
+msgstr "奖项规则"
 
 msgid "You have reached the participation limit."
 msgstr "已达到可参与次数上限。"

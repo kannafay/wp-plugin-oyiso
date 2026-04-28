@@ -80,6 +80,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                     'reason'         => oyiso_t('Please log in before joining the draw.'),
                     'total_remaining'=> null,
                     'daily_remaining'=> null,
+                    'prize_pool_remaining' => null,
                 ];
             }
 
@@ -410,6 +411,8 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 'end_at'               => sanitize_text_field((string) ($payload['end_at'] ?? '')),
                 'daily_limit'          => max(0, (int) ($payload['daily_limit'] ?? 0)),
                 'total_limit'          => max(0, (int) ($payload['total_limit'] ?? 1)),
+                'prize_pool_mode'      => ($payload['prize_pool_mode'] ?? 'unlimited') === 'limited' ? 'limited' : 'unlimited',
+                'prize_pool_limit'     => max(1, (int) ($payload['prize_pool_limit'] ?? 100)),
                 'coupon_prefix'        => strtoupper(sanitize_key((string) ($payload['coupon_prefix'] ?? 'OYL'))),
                 'coupon_description'   => sanitize_textarea_field((string) ($payload['coupon_description'] ?? '')),
                 'expiry_days'          => max(0, (int) ($payload['expiry_days'] ?? 7)),
@@ -545,6 +548,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                     'reason'          => oyiso_t('The event has not started yet.'),
                     'total_remaining' => null,
                     'daily_remaining' => null,
+                    'prize_pool_remaining' => null,
                 ];
             }
 
@@ -554,16 +558,32 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                     'reason'          => oyiso_t('The event has ended.'),
                     'total_remaining' => 0,
                     'daily_remaining' => 0,
+                    'prize_pool_remaining' => null,
                 ];
             }
 
             $widget_key = $payload['widget_key'] ?? '';
             $total_limit = (int) ($payload['total_limit'] ?? 0);
             $daily_limit = (int) ($payload['daily_limit'] ?? 0);
+            $prize_pool_limit = ($payload['prize_pool_mode'] ?? 'unlimited') === 'limited'
+                ? max(1, (int) ($payload['prize_pool_limit'] ?? 100))
+                : 0;
             $total_count = self::countUserRecords($user_id, $widget_key);
             $daily_count = self::countUserRecords($user_id, $widget_key, current_time('Y-m-d'));
+            $prize_pool_count = $prize_pool_limit > 0 ? self::countWinningRecords($widget_key) : 0;
             $total_remaining = $total_limit > 0 ? max(0, $total_limit - $total_count) : null;
             $daily_remaining = $daily_limit > 0 ? max(0, $daily_limit - $daily_count) : null;
+            $prize_pool_remaining = $prize_pool_limit > 0 ? max(0, $prize_pool_limit - $prize_pool_count) : null;
+
+            if ($prize_pool_limit > 0 && $prize_pool_count >= $prize_pool_limit) {
+                return [
+                    'allowed'         => false,
+                    'reason'          => oyiso_t('The prize pool has been exhausted. The draw has ended.'),
+                    'total_remaining' => $total_remaining,
+                    'daily_remaining' => $daily_remaining,
+                    'prize_pool_remaining' => $prize_pool_remaining,
+                ];
+            }
 
             if ($total_limit > 0 && $total_count >= $total_limit) {
                 return [
@@ -571,6 +591,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                     'reason'          => oyiso_t('You have reached the participation limit.'),
                     'total_remaining' => $total_remaining,
                     'daily_remaining' => $daily_remaining,
+                    'prize_pool_remaining' => $prize_pool_remaining,
                 ];
             }
 
@@ -580,6 +601,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                     'reason'          => oyiso_t('Your draw chances for today have been used up.'),
                     'total_remaining' => $total_remaining,
                     'daily_remaining' => $daily_remaining,
+                    'prize_pool_remaining' => $prize_pool_remaining,
                 ];
             }
 
@@ -588,6 +610,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 'reason'          => '',
                 'total_remaining' => $total_remaining,
                 'daily_remaining' => $daily_remaining,
+                'prize_pool_remaining' => $prize_pool_remaining,
             ];
         }
 
@@ -1088,6 +1111,19 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             return (int) $wpdb->get_var($wpdb->prepare($sql, $params));
         }
 
+        private static function countWinningRecords(string $widget_key): int {
+            global $wpdb;
+
+            return (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    'SELECT COUNT(id) FROM ' . self::getTableName() . ' WHERE blog_id = %d AND widget_key = %s AND result_type = %s',
+                    get_current_blog_id(),
+                    $widget_key,
+                    'win'
+                )
+            );
+        }
+
         private static function queryRecords(array $args): array {
             global $wpdb;
 
@@ -1358,10 +1394,122 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             ]);
         }
 
+        public static function formatLotteryRulesFromPayload(array $payload): string {
+            $payload = self::sanitizeLotteryPayload($payload);
+            $range_type = ($payload['range_type'] ?? 'percent') === 'amount' ? 'amount' : 'percent';
+            $prize_rules = is_array($payload['prize_rules'] ?? null) ? $payload['prize_rules'] : [];
+            $total_probability = 0.0;
+            $participation_rows = [
+                self::formatScopeRow(
+                    oyiso_t('Participants'),
+                    esc_html(oyiso_t('Logged-in users only'))
+                ),
+                self::formatScopeRow(
+                    oyiso_t('Per-Person Total Draws'),
+                    esc_html(self::formatLotteryLimitValue((int) ($payload['total_limit'] ?? 0)))
+                ),
+                self::formatScopeRow(
+                    oyiso_t('Per-Person Daily Draws'),
+                    esc_html(self::formatLotteryLimitValue((int) ($payload['daily_limit'] ?? 0)))
+                ),
+                self::formatScopeRow(
+                    oyiso_t('Prize Pool'),
+                    esc_html(
+                        ($payload['prize_pool_mode'] ?? 'unlimited') === 'limited'
+                            ? (string) max(1, (int) ($payload['prize_pool_limit'] ?? 100))
+                            : oyiso_t('Unlimited')
+                    )
+                ),
+            ];
+
+            if (!empty($payload['start_at'])) {
+                $participation_rows[] = self::formatScopeRow(
+                    oyiso_t('Start Time'),
+                    esc_html(self::formatSiteDateTime((string) $payload['start_at']))
+                );
+            }
+
+            if (!empty($payload['end_at'])) {
+                $participation_rows[] = self::formatScopeRow(
+                    oyiso_t('End Time'),
+                    esc_html(self::formatSiteDateTime((string) $payload['end_at']))
+                );
+            }
+
+            $prize_rows = [
+                self::formatScopeRow(
+                    oyiso_t('Coupon Type'),
+                    esc_html($range_type === 'percent' ? oyiso_t('Percentage Discount') : oyiso_t('Fixed Amount Discount'))
+                ),
+                self::formatScopeRow(
+                    oyiso_t('Validity Period'),
+                    esc_html(
+                        (int) ($payload['expiry_days'] ?? 0) > 0
+                            ? oyiso_t_sprintf('%s days after winning', (string) (int) $payload['expiry_days'])
+                            : oyiso_t('No Expiry Date')
+                    )
+                ),
+            ];
+
+            $prize_rule_rows = [];
+
+            foreach ($prize_rules as $rule) {
+                if (!is_array($rule)) {
+                    continue;
+                }
+
+                $probability = (float) ($rule['probability'] ?? 0);
+
+                if ($probability <= 0) {
+                    continue;
+                }
+
+                $total_probability += $probability;
+                $prize_rule_rows[] = self::formatScopeRow(
+                    self::formatLotteryRuleLabel($rule, $range_type),
+                    esc_html((string) (int) round($probability) . '%')
+                );
+            }
+
+            if (!empty($payload['enable_thanks']) && $total_probability < 100) {
+                $prize_rule_rows[] = self::formatScopeRow(
+                    oyiso_t('Thanks for participating'),
+                    esc_html((string) max(0, (int) round(100 - $total_probability)) . '%')
+                );
+            }
+
+            return implode('', [
+                self::formatScopeSection(oyiso_t('Participation Rules'), $participation_rows),
+                self::formatScopeSection(oyiso_t('Prize Settings'), $prize_rows),
+                self::formatScopeSection(oyiso_t('Prize Rules'), $prize_rule_rows),
+            ]);
+        }
+
         private static function currentUserCanManageCoupons(): bool {
             return current_user_can('manage_woocommerce')
                 || current_user_can('edit_shop_coupons')
                 || current_user_can('manage_options');
+        }
+
+        private static function formatLotteryLimitValue(int $limit): string {
+            return $limit > 0 ? (string) $limit : oyiso_t('Unlimited');
+        }
+
+        private static function formatLotteryRuleLabel(array $rule, string $range_type): string {
+            $mode = ($rule['mode'] ?? 'range') === 'single' ? 'single' : 'range';
+
+            if ($mode === 'single') {
+                return self::formatPrizeLabel(isset($rule['value']) ? (float) $rule['value'] : null, $range_type);
+            }
+
+            $start_value = isset($rule['start_value']) ? (float) $rule['start_value'] : 0.0;
+            $end_value = isset($rule['end_value']) ? (float) $rule['end_value'] : 0.0;
+
+            if ($start_value > $end_value) {
+                [$start_value, $end_value] = [$end_value, $start_value];
+            }
+
+            return self::formatPrizeLabel($start_value, $range_type) . ' - ' . self::formatPrizeLabel($end_value, $range_type);
         }
 
         private static function formatScopeRow(string $label, string $value_html): string {

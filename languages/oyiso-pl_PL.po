@@ -653,6 +653,9 @@ msgstr "Odbierz kupon"
 msgid "Draw Records"
 msgstr "Historia losowań"
 
+msgid "Lottery Rules"
+msgstr "Zasady losowania"
+
 msgid "Thanks for participating"
 msgstr "Dziękujemy za udział"
 
@@ -676,6 +679,9 @@ msgstr "Pozostała liczba prób: %d"
 
 msgid "Today's remaining: %d"
 msgstr "Pozostało prób na dziś: %d"
+
+msgid "Prize pool remaining: %d"
+msgstr "Pozostało w puli nagród: %d"
 
 msgid "You can join the draw now."
 msgstr "Możesz teraz wziąć udział w losowaniu."
@@ -781,6 +787,51 @@ msgstr "Akcja jeszcze się nie rozpoczęła."
 
 msgid "The event has ended."
 msgstr "Akcja została zakończona."
+
+msgid "The prize pool has been exhausted. The draw has ended."
+msgstr "Pula nagród została wyczerpana. Losowanie zostało zakończone."
+
+msgid "Participation Rules"
+msgstr "Zasady udziału"
+
+msgid "Participants"
+msgstr "Uczestnicy"
+
+msgid "Logged-in users only"
+msgstr "Tylko dla zalogowanych użytkowników"
+
+msgid "Per-Person Total Draws"
+msgstr "Łączna liczba losowań na osobę"
+
+msgid "Per-Person Daily Draws"
+msgstr "Dzienna liczba losowań na osobę"
+
+msgid "Prize Pool"
+msgstr "Pula nagród"
+
+msgid "Start Time"
+msgstr "Czas rozpoczęcia"
+
+msgid "End Time"
+msgstr "Czas zakończenia"
+
+msgid "Coupon Type"
+msgstr "Typ kuponu"
+
+msgid "Percentage Discount"
+msgstr "Rabat procentowy"
+
+msgid "Fixed Amount Discount"
+msgstr "Rabat kwotowy"
+
+msgid "Validity Period"
+msgstr "Okres ważności"
+
+msgid "Prize Settings"
+msgstr "Ustawienia nagród"
+
+msgid "Prize Rules"
+msgstr "Zasady nagród"
 
 msgid "You have reached the participation limit."
 msgstr "Osiągnięto limit udziałów."

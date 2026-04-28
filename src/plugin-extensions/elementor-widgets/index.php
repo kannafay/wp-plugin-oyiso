@@ -184,6 +184,7 @@ add_action('elementor/frontend/after_register_scripts', function () {
         'availableNow'    => oyiso_t('You can join the draw now.'),
         'totalRemaining'  => oyiso_t('Total remaining: %d'),
         'dailyRemaining'  => oyiso_t("Today's remaining: %d"),
+        'prizePoolRemaining' => oyiso_t('Prize pool remaining: %d'),
         'copy'            => oyiso_t('Copy Coupon Code'),
         'copied'          => oyiso_t('Copied'),
         'myRecords'       => oyiso_t('My Records'),

@@ -388,6 +388,27 @@ class Coupon_Lottery extends Widget_Base
             'description' => __('填 0 表示不限制。', 'oyiso'),
         ]);
 
+        $this->add_control('prize_pool_mode', [
+            'label'   => __('奖池', 'oyiso'),
+            'type'    => Controls_Manager::SELECT,
+            'default' => 'unlimited',
+            'options' => [
+                'unlimited' => __('不限量', 'oyiso'),
+                'limited'   => __('限量', 'oyiso'),
+            ],
+        ]);
+
+        $this->add_control('prize_pool_limit', [
+            'label'       => __('奖池总张数', 'oyiso'),
+            'type'        => Controls_Manager::NUMBER,
+            'default'     => 100,
+            'min'         => 1,
+            'description' => __('按中奖次数扣减。抽完后将停止抽奖，但已中奖用户仍可在到期前正常领取和使用。', 'oyiso'),
+            'condition'   => [
+                'prize_pool_mode' => 'limited',
+            ],
+        ]);
+
         $this->add_control('start_at', [
             'label' => __('开始时间', 'oyiso'),
             'type'  => Controls_Manager::DATE_TIME,
@@ -756,6 +777,8 @@ class Coupon_Lottery extends Widget_Base
             'end_at'                => $settings['end_at'] ?? '',
             'daily_limit'           => $settings['daily_limit'] ?? 0,
             'total_limit'           => $settings['total_limit'] ?? 1,
+            'prize_pool_mode'       => $settings['prize_pool_mode'] ?? 'unlimited',
+            'prize_pool_limit'      => $settings['prize_pool_limit'] ?? 100,
             'coupon_prefix'         => $settings['coupon_prefix'] ?? 'OYL',
             'coupon_description'    => $settings['coupon_description'] ?? '',
             'expiry_days'           => $settings['expiry_days'] ?? 7,
@@ -772,6 +795,7 @@ class Coupon_Lottery extends Widget_Base
             'records_per_tab'       => $settings['records_per_tab'] ?? 20,
         ];
         $scope_html = \Oyiso_Coupon_Lottery_Module::formatScopeFromPayload($payload);
+        $lottery_rules_html = \Oyiso_Coupon_Lottery_Module::formatLotteryRulesFromPayload($payload);
         $signed_payload = \Oyiso_Coupon_Lottery_Module::buildSignedPayload($payload);
         $availability = \Oyiso_Coupon_Lottery_Module::getCurrentAvailability($payload);
         $is_logged_in = is_user_logged_in();
@@ -815,6 +839,10 @@ class Coupon_Lottery extends Widget_Base
                                 $parts[] = oyiso_t_sprintf("Today's remaining: %d", (int) $availability['daily_remaining']);
                             }
 
+                            if ($availability['prize_pool_remaining'] !== null) {
+                                $parts[] = oyiso_t_sprintf('Prize pool remaining: %d', (int) $availability['prize_pool_remaining']);
+                            }
+
                             echo esc_html($parts ? implode(' / ', $parts) : oyiso_t('You can join the draw now.'));
                         }
                         ?>
@@ -830,26 +858,38 @@ class Coupon_Lottery extends Widget_Base
                         >
                             <span class="oyiso-coupon-lottery__button-shine" aria-hidden="true"></span>
                             <span class="oyiso-coupon-lottery__button-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                    <path d="M12 2.75a1 1 0 0 1 .9.57l2.03 4.18 4.62.68a1 1 0 0 1 .56 1.7l-3.34 3.3.79 4.66a1 1 0 0 1-1.45 1.03L12 16.71l-4.11 2.16a1 1 0 0 1-1.45-1.03l.79-4.66-3.34-3.3a1 1 0 0 1 .56-1.7l4.62-.68 2.03-4.18a1 1 0 0 1 .9-.57Z" fill="currentColor"/>
-                                </svg>
+                                <i class="eicon-star" aria-hidden="true"></i>
                             </span>
                             <span class="oyiso-coupon-lottery__button-label"><?php echo esc_html(oyiso_t('Draw Now')); ?></span>
                         </button>
+                    </div>
+
+                    <div class="oyiso-coupon-lottery__meta-actions">
+                        <?php if ($lottery_rules_html !== '') : ?>
+                            <button
+                                type="button"
+                                class="oyiso-coupon-lottery__text-action"
+                                data-coupon-scope="<?php echo esc_attr($lottery_rules_html); ?>"
+                                data-coupon-scope-title="<?php echo esc_attr(oyiso_t('Lottery Rules')); ?>"
+                            >
+                                <span class="oyiso-coupon-lottery__text-action-label"><?php echo esc_html(oyiso_t('Lottery Rules')); ?></span>
+                            </button>
+                        <?php endif; ?>
 
                         <?php if ($scope_html !== '') : ?>
                             <button
                                 type="button"
-                                class="oyiso-coupon-lottery__button oyiso-coupon-lottery__button--secondary"
+                                class="oyiso-coupon-lottery__text-action"
                                 data-coupon-scope="<?php echo esc_attr($scope_html); ?>"
+                                data-coupon-scope-title="<?php echo esc_attr(oyiso_t('Coupon Details')); ?>"
                             >
-                                <?php echo esc_html(oyiso_t('Coupon Details')); ?>
+                                <span class="oyiso-coupon-lottery__text-action-label"><?php echo esc_html(oyiso_t('Coupon Details')); ?></span>
                             </button>
                         <?php endif; ?>
 
                         <?php if ($is_logged_in) : ?>
-                            <button type="button" class="oyiso-coupon-lottery__button oyiso-coupon-lottery__button--secondary" data-lottery-records>
-                                <?php echo esc_html(oyiso_t('Draw Records')); ?>
+                            <button type="button" class="oyiso-coupon-lottery__text-action" data-lottery-records>
+                                <span class="oyiso-coupon-lottery__text-action-label"><?php echo esc_html(oyiso_t('Draw Records')); ?></span>
                             </button>
                         <?php endif; ?>
                     </div>

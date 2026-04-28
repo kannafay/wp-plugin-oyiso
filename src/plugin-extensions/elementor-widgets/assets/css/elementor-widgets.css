@@ -351,15 +351,18 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     align-items: center;
     width: fit-content;
     max-width: 100%;
-    padding: 12px 16px;
-    border: 1px solid var(--oyiso-lottery-status-border);
+    padding: 8px 13px;
+    border: 1px solid color-mix(in srgb, var(--oyiso-lottery-status-border), #ffffff 24%);
     border-radius: 999px;
-    background: var(--oyiso-lottery-status-bg);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 248, 241, 0.52));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.84),
+        0 6px 18px rgba(205, 131, 72, 0.05);
     color: var(--oyiso-lottery-status-color);
     font-size: 12px;
-    font-weight: 700;
-    line-height: 1.5;
+    font-weight: 600;
+    line-height: 1.35;
 }
 
 .oyiso-coupon-lottery__status.is-error {
@@ -375,6 +378,61 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     align-items: center;
 }
 
+.oyiso-coupon-lottery__meta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    align-items: center;
+    width: auto;
+    max-width: 100%;
+}
+
+body .oyiso-coupon-lottery .oyiso-coupon-lottery__text-action {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    margin: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: color-mix(in srgb, var(--oyiso-lottery-description-color), #2b170d 12%);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+    font-family: inherit;
+    text-decoration: none;
+    text-align: left;
+    text-transform: none !important;
+    letter-spacing: 0;
+    cursor: pointer;
+    box-shadow: none;
+    backdrop-filter: none;
+    opacity: 0.86;
+    transition: color .18s ease, opacity .18s ease;
+}
+
+body .oyiso-coupon-lottery .oyiso-coupon-lottery__text-action-label {
+    display: inline;
+    min-width: 0;
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, currentColor, transparent 60%);
+}
+
+body .oyiso-coupon-lottery .oyiso-coupon-lottery__text-action:hover,
+body .oyiso-coupon-lottery .oyiso-coupon-lottery__text-action:focus {
+    color: var(--oyiso-lottery-text-strong);
+    opacity: 1;
+}
+
+body .oyiso-coupon-lottery .oyiso-coupon-lottery__text-action:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+
 body .oyiso-coupon-lottery .oyiso-coupon-lottery__button,
 body .oyiso-coupon-lottery .oyiso-coupon-lottery__inline-button,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button,
@@ -384,11 +442,11 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__inline-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 7px;
     min-width: 0;
     min-height: 44px;
     margin: 0;
-    padding: 10px 16px;
+    padding: 10px 15px;
     appearance: none;
     -webkit-appearance: none;
     border: 1px solid var(--oyiso-lottery-line);
@@ -487,15 +545,77 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:focus
     position: relative;
     z-index: 1;
     display: inline-flex;
-    width: 16px;
-    height: 16px;
-    flex: 0 0 16px;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    font-size: 18px;
+    line-height: 1;
 }
 
 .oyiso-coupon-lottery__button-icon svg {
     display: block;
     width: 100%;
     height: 100%;
+    overflow: visible;
+}
+
+.oyiso-coupon-lottery__button-icon i {
+    display: block;
+    width: 100%;
+    height: 100%;
+    font-size: inherit;
+    line-height: 1;
+}
+
+.oyiso-coupon-lottery__button-icon .eicon-star::before {
+    display: block;
+    font-family: eicons !important;
+}
+
+body .oyiso-coupon-lottery .oyiso-coupon-lottery__button--primary .oyiso-coupon-lottery__button-icon,
+body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary .oyiso-coupon-lottery__button-icon {
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+    font-size: 15px;
+    animation: oyisoLotteryButtonIconFloat 2.8s ease-in-out infinite;
+    transition: transform .18s ease, filter .18s ease;
+}
+
+body .oyiso-coupon-lottery .oyiso-coupon-lottery__button--primary:hover .oyiso-coupon-lottery__button-icon,
+body .oyiso-coupon-lottery .oyiso-coupon-lottery__button--primary:focus .oyiso-coupon-lottery__button-icon,
+body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary:hover .oyiso-coupon-lottery__button-icon,
+body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary:focus .oyiso-coupon-lottery__button-icon {
+    transform: translateY(-1px) scale(1.06);
+    filter: drop-shadow(0 3px 10px color-mix(in srgb, currentColor, transparent 72%));
+}
+
+.oyiso-coupon-lottery__button-ticket {
+    fill: color-mix(in srgb, currentColor, transparent 84%);
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linejoin: round;
+}
+
+.oyiso-coupon-lottery__button-ticket-mark {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    opacity: 0.92;
+}
+
+.oyiso-coupon-lottery__button-spark {
+    fill: currentColor;
+    opacity: 0.96;
+    transform-origin: 15.7px 5.45px;
+    animation: oyisoLotteryButtonSpark 2.4s ease-in-out infinite;
+}
+
+.oyiso-coupon-lottery__button-spark--mini {
+    opacity: 0.7;
+    transform-origin: 13.55px 5.8px;
+    animation-delay: -.8s;
 }
 
 body .oyiso-coupon-lottery .oyiso-coupon-lottery__button:disabled,
@@ -1165,6 +1285,30 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__record-actions .oyiso-c
     }
 }
 
+@keyframes oyisoLotteryButtonIconFloat {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-1px);
+    }
+}
+
+@keyframes oyisoLotteryButtonSpark {
+    0%,
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 0.78;
+    }
+
+    50% {
+        transform: scale(1.1) rotate(6deg);
+        opacity: 1;
+    }
+}
+
 @media only screen and (max-width: 767px) {
     .oyiso-coupon-lottery {
         padding: 20px;
@@ -1193,6 +1337,23 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__record-actions .oyiso-c
     .oyiso-coupon-lottery__button,
     .oyiso-coupon-lottery__inline-button {
         width: 100%;
+    }
+
+    .oyiso-coupon-lottery__meta-actions {
+        gap: 6px 14px;
+        width: auto;
+        max-width: 100%;
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+
+    body .oyiso-coupon-lottery .oyiso-coupon-lottery__text-action {
+        font-size: 11px;
+    }
+
+    .oyiso-coupon-lottery__status {
+        padding: 7px 12px;
+        font-size: 11px;
     }
 
     .oyiso-coupon-lottery__modal {
