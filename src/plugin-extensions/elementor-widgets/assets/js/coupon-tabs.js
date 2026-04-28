@@ -330,7 +330,7 @@
         var title = dialog.querySelector('[data-coupon-scope-title]');
         var content = dialog.querySelector('[data-coupon-scope-content]');
         var code = button.getAttribute('data-coupon-code') || '';
-        var root = button.closest('[data-oyiso-coupons]');
+        var root = button.closest('[data-oyiso-coupons], [data-oyiso-coupon-lottery]');
         var card = button.closest('.oyiso-coupon-card');
         var accentColor = root ? window.getComputedStyle(root).getPropertyValue('--oyiso-coupon-accent').trim() : '';
         var groupColor = card ? window.getComputedStyle(card).getPropertyValue('--oyiso-group-color').trim() : '';

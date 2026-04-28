@@ -37,9 +37,7 @@ if (!$oyiso_elementor_widgets_enabled) {
 if (!function_exists('oyiso_get_site_locale')) {
     function oyiso_get_site_locale(): string
     {
-        $site_locale = is_multisite()
-            ? (get_option('WPLANG') ?: get_site_option('WPLANG'))
-            : get_option('WPLANG');
+        $site_locale = function_exists('get_locale') ? (string) get_locale() : '';
 
         if (!$site_locale && function_exists('get_bloginfo')) {
             $site_language = (string) get_bloginfo('language');
@@ -181,6 +179,7 @@ add_action('elementor/frontend/after_register_scripts', function () {
         'ajaxUrl'         => admin_url('admin-ajax.php'),
         'nonce'           => wp_create_nonce('oyiso_coupon_lottery_nonce'),
         'loading'         => oyiso_t('Processing, please wait...'),
+        'drawLoading'     => oyiso_t('Drawing...'),
         'loadFailed'      => oyiso_t('Action failed. Please try again later.'),
         'availableNow'    => oyiso_t('You can join the draw now.'),
         'totalRemaining'  => oyiso_t('Total remaining: %d'),
@@ -190,13 +189,19 @@ add_action('elementor/frontend/after_register_scripts', function () {
         'myRecords'       => oyiso_t('My Records'),
         'allRecords'      => oyiso_t('All Records'),
         'emptyRecords'    => oyiso_t('No records yet.'),
+        'loadMore'        => oyiso_t('Load More'),
+        'loadingMore'     => oyiso_t('Loading...'),
         'claimButton'     => oyiso_t('Claim Coupon'),
         'editButton'      => oyiso_t('Edit'),
+        'scopeButton'     => oyiso_t('Coupon Details'),
+        'recordScopeButton' => oyiso_t('Details'),
+        'recordCopy'      => oyiso_t('Copy'),
         'userLabel'       => oyiso_t('User'),
         'timeLabel'       => oyiso_t('Time'),
         'couponLabel'     => oyiso_t('Coupon Code'),
         'statusLabel'     => oyiso_t('Status'),
         'resultLabel'     => oyiso_t('Result'),
+        'claimedLabel'    => oyiso_t('Claimed'),
     ]);
 });
 

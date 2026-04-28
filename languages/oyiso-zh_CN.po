@@ -89,6 +89,9 @@ msgstr "内容内边距"
 msgid "Copied"
 msgstr "已复制"
 
+msgid "Copy"
+msgstr "复制"
+
 msgid "Copy Code"
 msgstr "复制优惠码"
 
@@ -331,6 +334,15 @@ msgstr "每位顾客限用次数"
 
 msgid "Usage Limits"
 msgstr "使用次数限制"
+
+msgid "Coupon Usage Limits"
+msgstr "优惠券使用限制"
+
+msgid "Per-Coupon Total Usage Limit"
+msgstr "单张优惠券总使用次数"
+
+msgid "Per-Coupon Per-Customer Limit"
+msgstr "单张优惠券每位顾客限用次数"
 
 msgid "Select Coupons"
 msgstr "选择优惠券"
@@ -681,6 +693,9 @@ msgstr "复制优惠码"
 msgid "Processing, please wait..."
 msgstr "处理中，请稍候..."
 
+msgid "Drawing..."
+msgstr "抽奖中..."
+
 msgid "Action failed. Please try again later."
 msgstr "操作失败，请稍后重试。"
 
@@ -716,6 +731,9 @@ msgstr "抽奖记录写入失败，请稍后重试。"
 
 msgid "Congratulations, you won %s."
 msgstr "恭喜抽中 %s。"
+
+msgid "Congratulations. Claim to generate your coupon."
+msgstr "恭喜中奖，点击领取即可生成优惠券。"
 
 msgid "Thanks for participating. Better luck next time."
 msgstr "谢谢参与，祝你下次好运。"
@@ -775,7 +793,7 @@ msgid "%s discount rate"
 msgstr "%s折"
 
 msgid "%s%% off"
-msgstr "%s%% off"
+msgstr "减%s%%"
 
 msgid "The current user information is invalid, so the coupon could not be generated."
 msgstr "当前用户信息无效，无法生成优惠券。"
@@ -803,3 +821,342 @@ msgstr "待领取"
 
 msgid "Completed"
 msgstr "已完成"
+
+msgid "百分比"
+msgstr "百分比"
+
+msgid "固定金额"
+msgstr "固定金额"
+
+msgid "折扣值"
+msgstr "折扣值"
+
+msgid "最小值"
+msgstr "最小值"
+
+msgid "最大值"
+msgstr "最大值"
+
+msgid "25 / 50 / 20"
+msgstr "25 / 50 / 20"
+
+msgid "百分比类型填减免百分比，如 25 表示减 25%；固定金额类型填优惠金额，如 20。"
+msgstr "百分比类型填减免百分比，如 25 表示减 25%；固定金额类型填优惠金额，如 20。"
+
+msgid "先选优惠类型，再选择奖项生成方式。百分比按 WooCommerce 规则填写，例如 25 表示减 25%。"
+msgstr "先选优惠类型，再选择奖项生成方式。百分比按 WooCommerce 规则填写，例如 25 表示减 25%。"
+
+msgid "优惠类型"
+msgstr "优惠类型"
+
+msgid "奖项设置方式"
+msgstr "奖项设置方式"
+
+msgid "按区间自动生成"
+msgstr "按区间自动生成"
+
+msgid "手动添加奖项"
+msgstr "手动添加奖项"
+
+msgid "不确定怎么配时，建议使用“按区间自动生成”；想精确控制每个奖项时，再使用“手动添加奖项”。"
+msgstr "不确定怎么配时，建议使用“按区间自动生成”；想精确控制每个奖项时，再使用“手动添加奖项”。"
+
+msgid "自动生成奖项"
+msgstr "自动生成奖项"
+
+msgid "系统会按照最小值到最大值自动生成所有奖项。你也可以单独提高或降低某些奖项的抽中概率。"
+msgstr "系统会按照最小值到最大值自动生成所有奖项。你也可以单独提高或降低某些奖项的抽中概率。"
+
+msgid "起始值"
+msgstr "起始值"
+
+msgid "结束值"
+msgstr "结束值"
+
+msgid "百分比填减免百分比，例如 10 表示减 10%；固定金额填优惠金额，例如 20。"
+msgstr "百分比填减免百分比，例如 10 表示减 10%；固定金额填优惠金额，例如 20。"
+
+msgid "百分比填减免百分比，例如 50 表示减 50%；固定金额填优惠金额，例如 50。"
+msgstr "百分比填减免百分比，例如 50 表示减 50%；固定金额填优惠金额，例如 50。"
+
+msgid "默认抽中权重"
+msgstr "默认抽中权重"
+
+msgid "数字越大越容易抽中。未单独设置的奖项都会使用这个值。"
+msgstr "数字越大越容易抽中。未单独设置的奖项都会使用这个值。"
+
+msgid "填写要单独调整的那个奖项值。"
+msgstr "填写要单独调整的那个奖项值。"
+
+msgid "抽中权重"
+msgstr "抽中权重"
+
+msgid "数字越大越容易抽中。"
+msgstr "数字越大越容易抽中。"
+
+msgid "单独调整部分奖项"
+msgstr "单独调整部分奖项"
+
+msgid "例如默认权重是 1，你可以把 50% 的权重改成 0.5，把 20% 的权重改成 3。"
+msgstr "例如默认权重是 1，你可以把 50% 的权重改成 0.5，把 20% 的权重改成 3。"
+
+msgid "只有你手动添加的奖项才会参与抽奖。适合精确控制固定几个折扣，例如 10%、20%、50%。"
+msgstr "只有你手动添加的奖项才会参与抽奖。适合精确控制固定几个折扣，例如 10%、20%、50%。"
+
+msgid "百分比填减免百分比，例如 25；固定金额填优惠金额，例如 20。"
+msgstr "百分比填减免百分比，例如 25；固定金额填优惠金额，例如 20。"
+
+msgid "每一项都是一个可抽中的奖项。没有添加的值不会参与抽奖。"
+msgstr "每一项都是一个可抽中的奖项。没有添加的值不会参与抽奖。"
+
+msgid "未中奖设置"
+msgstr "未中奖设置"
+
+msgid "加入未中奖结果"
+msgstr "加入未中奖结果"
+
+msgid "关闭后，用户每次都会抽中某个奖项。"
+msgstr "关闭后，用户每次都会抽中某个奖项。"
+
+msgid "未中奖提示"
+msgstr "未中奖提示"
+
+msgid "数字越大，越容易抽到未中奖。"
+msgstr "数字越大，越容易抽到未中奖。"
+
+msgid "每条规则填写一个概率。开启参与奖时，剩余概率会自动归入参与奖；关闭时，系统会把所有中奖规则按比例补足到 100%。"
+msgstr "每条规则填写一个概率。开启参与奖时，剩余概率会自动归入参与奖；关闭时，系统会把所有中奖规则按比例补足到 100%。"
+
+msgid "规则类型"
+msgstr "规则类型"
+
+msgid "区间"
+msgstr "区间"
+
+msgid "单个值"
+msgstr "单个值"
+
+msgid "区间起点。百分比填减免百分比，例如 10 表示减 10%。"
+msgstr "区间起点。百分比填减免百分比，例如 10 表示减 10%。"
+
+msgid "区间终点。系统会自动生成这个范围内的所有奖项。"
+msgstr "区间终点。系统会自动生成这个范围内的所有奖项。"
+
+msgid "单个奖项的值。百分比填减免百分比，例如 25；固定金额填优惠金额，例如 20。"
+msgstr "单个奖项的值。百分比填减免百分比，例如 25；固定金额填优惠金额，例如 20。"
+
+msgid "概率（%）"
+msgstr "概率（%）"
+
+msgid "这条规则占用的总概率。区间规则会把这部分概率平均分给区间内每个奖项。"
+msgstr "这条规则占用的总概率。区间规则会把这部分概率平均分给区间内每个奖项。"
+
+msgid "奖项规则"
+msgstr "奖项规则"
+
+msgid "可以混合配置区间和单个值。例如 10-30 填 30%，31-50 填 10%。"
+msgstr "可以混合配置区间和单个值。例如 10-30 填 30%，31-50 填 10%。"
+
+msgid "参与奖"
+msgstr "参与奖"
+
+msgid "启用参与奖"
+msgstr "启用参与奖"
+
+msgid "启用后，剩余概率会自动归入参与奖。"
+msgstr "启用后，剩余概率会自动归入参与奖。"
+
+msgid "参与奖文案"
+msgstr "参与奖文案"
+
+msgid "单个奖项的值。百分比填减免百分比，例如 25 表示减 25%。"
+msgstr "单个奖项的值。百分比填减免百分比，例如 25 表示减 25%。"
+
+msgid "区间起点。固定金额模式下直接填写优惠金额。"
+msgstr "区间起点。固定金额模式下直接填写优惠金额。"
+
+msgid "单个奖项的值。固定金额模式下直接填写优惠金额，例如 20。"
+msgstr "单个奖项的值。固定金额模式下直接填写优惠金额，例如 20。"
+
+msgid "可以混合配置区间和单个值。例如 10-30 填 30%，50 填 10%。"
+msgstr "可以混合配置区间和单个值。例如 10-30 填 30%，50 填 10%。"
+
+msgid "抽奖说明"
+msgstr "抽奖说明"
+
+msgid "优惠券详情"
+msgstr "优惠券详情"
+
+msgid "留空则不展示优惠券详情"
+msgstr "留空则不展示优惠券详情"
+
+msgid "会显示在抽奖结果弹窗中，并写入生成的优惠券。"
+msgstr "会显示在抽奖结果弹窗中，并写入生成的优惠券。"
+
+msgid "Invalid record tab."
+msgstr "记录标签无效。"
+
+msgid "Load More"
+msgstr "加载更多"
+
+msgid "Loading..."
+msgstr "加载中..."
+
+msgid "主按钮文字"
+msgstr "主按钮文字"
+
+msgid "主按钮背景"
+msgstr "主按钮背景"
+
+msgid "仅百分比优惠券生效。"
+msgstr "仅百分比优惠券生效。"
+
+msgid "仅限单独使用"
+msgstr "仅限单独使用"
+
+msgid "优惠券前缀"
+msgstr "优惠券前缀"
+
+msgid "优惠券参数"
+msgstr "优惠券参数"
+
+msgid "允许免运费"
+msgstr "允许免运费"
+
+msgid "内边距"
+msgstr "内边距"
+
+msgid "参与规则"
+msgstr "参与规则"
+
+msgid "否"
+msgstr "否"
+
+msgid "圆角"
+msgstr "圆角"
+
+msgid "基础底色"
+msgstr "基础底色"
+
+msgid "填 0 表示不限制。"
+msgstr "填 0 表示不限制。"
+
+msgid "开始时间"
+msgstr "开始时间"
+
+msgid "抽奖按钮"
+msgstr "抽奖按钮"
+
+msgid "抽奖设置"
+msgstr "抽奖设置"
+
+msgid "指定分类"
+msgstr "指定分类"
+
+msgid "指定商品"
+msgstr "指定商品"
+
+msgid "按钮"
+msgstr "按钮"
+
+msgid "排除分类"
+msgstr "排除分类"
+
+msgid "排除商品"
+msgstr "排除商品"
+
+msgid "排除特价商品"
+msgstr "排除特价商品"
+
+msgid "提示文字"
+msgstr "提示文字"
+
+msgid "提示背景"
+msgstr "提示背景"
+
+msgid "是"
+msgstr "是"
+
+msgid "最低消费"
+msgstr "最低消费"
+
+msgid "最高折扣金额"
+msgstr "最高折扣金额"
+
+msgid "最高消费"
+msgstr "最高消费"
+
+msgid "有效天数"
+msgstr "有效天数"
+
+msgid "标题与文字"
+msgstr "标题与文字"
+
+msgid "标题颜色"
+msgstr "标题颜色"
+
+msgid "次按钮文字"
+msgstr "次按钮文字"
+
+msgid "次按钮背景"
+msgstr "次按钮背景"
+
+msgid "正文颜色"
+msgstr "正文颜色"
+
+msgid "每人总次数"
+msgstr "每人总次数"
+
+msgid "每人每日次数"
+msgstr "每人每日次数"
+
+msgid "浅色底色"
+msgstr "浅色底色"
+
+msgid "状态提示"
+msgstr "状态提示"
+
+msgid "结束时间"
+msgstr "结束时间"
+
+msgid "背景颜色"
+msgstr "背景颜色"
+
+msgid "记录与弹窗"
+msgstr "记录与弹窗"
+
+msgid "记录卡背景"
+msgstr "记录卡背景"
+
+msgid "记录卡边框"
+msgstr "记录卡边框"
+
+msgid "记录按钮"
+msgstr "记录按钮"
+
+msgid "记录数量"
+msgstr "记录数量"
+
+msgid "说明颜色"
+msgstr "说明颜色"
+
+msgid "辅助文字颜色"
+msgstr "辅助文字颜色"
+
+msgid "边线颜色"
+msgstr "边线颜色"
+
+msgid "领取按钮"
+msgstr "领取按钮"
+
+msgid "Expired"
+msgstr "已过期"
+
+msgid "This coupon claim has expired and can no longer be generated."
+msgstr "该优惠券领取已过期，无法再生成。"
+
+msgid "Coupon Details"
+msgstr "优惠券详情"
+
+msgid "%s days after winning"
+msgstr "中奖后 %s 天内有效"

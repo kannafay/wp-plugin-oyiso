@@ -89,9 +89,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
         }
 
         private static function getSiteLocale(): string {
-            $site_locale = is_multisite()
-                ? (get_option('WPLANG') ?: get_site_option('WPLANG'))
-                : get_option('WPLANG');
+            $site_locale = function_exists('get_locale') ? (string) get_locale() : '';
 
             if (!$site_locale && function_exists('get_bloginfo')) {
                 $site_language = (string) get_bloginfo('language');
@@ -147,10 +145,11 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 'resultType'    => $is_win ? 'win' : 'lose',
                 'prizeLabel'    => $selected['label'],
                 'message'       => $is_win
-                    ? oyiso_t_sprintf('Congratulations, you won %s.', $selected['label'])
-                    : ($payload['thanks_label'] ?: oyiso_t('Thanks for participating. Better luck next time.')),
+                    ? oyiso_t('Congratulations. Claim to generate your coupon.')
+                    : oyiso_t('Thanks for participating. Better luck next time.'),
+                'couponDescription' => $is_win ? trim((string) ($payload['coupon_description'] ?? '')) : '',
                 'claimable'     => $is_win,
-                'claimButton'   => $payload['claim_button_text'] ?: oyiso_t('Claim Coupon'),
+                'claimButton'   => oyiso_t('Claim Coupon'),
                 'availability'  => self::evaluateAvailability($user_id, $payload),
             ]);
         }
@@ -200,11 +199,19 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             }
 
             if (($record['status'] ?? '') === 'claimed' && !empty($record['coupon_code'])) {
+                $latest_record = self::getRecord($record_id);
                 wp_send_json_success([
                     'couponId'   => (int) $record['coupon_id'],
                     'couponCode' => (string) $record['coupon_code'],
                     'message'    => oyiso_t('The coupon has already been claimed and can be copied directly.'),
+                    'record'     => $latest_record ? self::formatRecordRow($latest_record) : null,
                 ]);
+            }
+
+            if (self::hasRecordClaimExpired($record, $payload)) {
+                wp_send_json_error([
+                    'message' => oyiso_t('This coupon claim has expired and can no longer be generated.'),
+                ], 400);
             }
 
             $coupon = self::createCouponForRecord($record, $payload);
@@ -215,10 +222,12 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 ], 400);
             }
 
+            $latest_record = self::getRecord($record_id);
             wp_send_json_success([
                 'couponId'   => (int) $coupon['coupon_id'],
                 'couponCode' => (string) $coupon['coupon_code'],
                 'message'    => oyiso_t('Claim successful. Your coupon has been generated.'),
+                'record'     => $latest_record ? self::formatRecordRow($latest_record) : null,
             ]);
         }
 
@@ -240,18 +249,53 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 ], 400);
             }
 
+            $limit = max(1, min(100, (int) ($payload['records_per_tab'] ?? 20)));
+            $tab = isset($_POST['tab']) ? sanitize_key((string) wp_unslash($_POST['tab'])) : '';
+            $offset = isset($_POST['offset']) ? max(0, (int) wp_unslash($_POST['offset'])) : 0;
+
+            if ($tab !== '') {
+                if ($tab === 'mine') {
+                    wp_send_json_success([
+                        'tab' => 'mine',
+                        'data' => self::queryRecords([
+                            'widget_key' => $widget_key,
+                            'user_id'    => get_current_user_id(),
+                            'limit'      => $limit,
+                            'offset'     => $offset,
+                        ]),
+                    ]);
+                }
+
+                if ($tab === 'all' && self::currentUserCanManageCoupons()) {
+                    wp_send_json_success([
+                        'tab' => 'all',
+                        'data' => self::queryRecords([
+                            'widget_key' => $widget_key,
+                            'limit'      => $limit,
+                            'offset'     => $offset,
+                        ]),
+                    ]);
+                }
+
+                wp_send_json_error([
+                    'message' => oyiso_t('Invalid record tab.'),
+                ], 400);
+            }
+
             $records = [
                 'mine' => self::queryRecords([
                     'widget_key' => $widget_key,
                     'user_id'    => get_current_user_id(),
-                    'limit'      => (int) ($payload['records_per_tab'] ?? 20),
+                    'limit'      => $limit,
+                    'offset'     => 0,
                 ]),
             ];
 
             if (self::currentUserCanManageCoupons()) {
                 $records['all'] = self::queryRecords([
                     'widget_key' => $widget_key,
-                    'limit'      => (int) ($payload['records_per_tab'] ?? 20),
+                    'limit'      => $limit,
+                    'offset'     => 0,
                 ]);
             }
 
@@ -299,9 +343,10 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
 
         private static function sanitizeLotteryPayload(array $payload): array {
             $range_type = ($payload['range_type'] ?? 'percent') === 'amount' ? 'amount' : 'percent';
-            $allow_decimals = !empty($payload['allow_decimals']);
-            $min_value = self::sanitizeRangeValue($payload['min_value'] ?? 0, $allow_decimals);
-            $max_value = self::sanitizeRangeValue($payload['max_value'] ?? 0, $allow_decimals);
+            $prize_rules = self::sanitizePrizeRules($payload['prize_rules'] ?? [], $range_type);
+            $draw_value_mode = ($payload['draw_value_mode'] ?? 'range') === 'custom' ? 'custom' : 'range';
+            $min_value = self::sanitizeRangeValue($payload['min_value'] ?? 0, $range_type);
+            $max_value = self::sanitizeRangeValue($payload['max_value'] ?? 0, $range_type);
 
             if ($min_value > $max_value) {
                 [$min_value, $max_value] = [$max_value, $min_value];
@@ -311,7 +356,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
 
             if (!empty($payload['probability_map']) && is_array($payload['probability_map'])) {
                 foreach ($payload['probability_map'] as $item) {
-                    $value_key = self::normalizeRangeValueString($item['value'] ?? '', $allow_decimals);
+                    $value_key = self::normalizeRangeValueString($item['value'] ?? '', $range_type);
                     $weight = isset($item['weight']) ? (float) $item['weight'] : 0;
 
                     if ($value_key === '' || $weight < 0) {
@@ -319,6 +364,25 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                     }
 
                     $probability_map[$value_key] = $weight;
+                }
+            }
+
+            $custom_prizes = [];
+
+            if (!empty($payload['custom_prizes']) && is_array($payload['custom_prizes'])) {
+                foreach ($payload['custom_prizes'] as $item) {
+                    $value_key = self::normalizeRangeValueString($item['value'] ?? '', $range_type);
+                    $weight = isset($item['weight']) ? (float) $item['weight'] : 0;
+
+                    if ($value_key === '' || $weight <= 0) {
+                        continue;
+                    }
+
+                    $numeric_value = $range_type === 'percent' ? (float) (int) $value_key : (float) $value_key;
+                    $custom_prizes[$value_key] = [
+                        'value'  => $numeric_value,
+                        'weight' => $weight,
+                    ];
                 }
             }
 
@@ -332,24 +396,22 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 'post_id'              => absint($payload['post_id'] ?? 0),
                 'title'                => sanitize_text_field((string) ($payload['title'] ?? '')),
                 'description'          => sanitize_textarea_field((string) ($payload['description'] ?? '')),
-                'draw_button_text'     => sanitize_text_field((string) ($payload['draw_button_text'] ?? '')),
-                'claim_button_text'    => sanitize_text_field((string) ($payload['claim_button_text'] ?? '')),
-                'records_button_text'  => sanitize_text_field((string) ($payload['records_button_text'] ?? '')),
                 'range_type'           => $range_type,
-                'allow_decimals'       => $allow_decimals,
+                'prize_rules'          => $prize_rules,
+                'draw_value_mode'      => $draw_value_mode,
                 'min_value'            => $min_value,
                 'max_value'            => $max_value,
                 'default_weight'       => max(0, (float) ($payload['default_weight'] ?? 1)),
                 'probability_map'      => $probability_map,
+                'custom_prizes'        => array_values($custom_prizes),
                 'enable_thanks'        => !empty($payload['enable_thanks']),
                 'thanks_weight'        => max(0, (float) ($payload['thanks_weight'] ?? 0)),
-                'thanks_label'         => sanitize_text_field((string) ($payload['thanks_label'] ?? oyiso_t('Thanks for participating'))),
                 'start_at'             => sanitize_text_field((string) ($payload['start_at'] ?? '')),
                 'end_at'               => sanitize_text_field((string) ($payload['end_at'] ?? '')),
                 'daily_limit'          => max(0, (int) ($payload['daily_limit'] ?? 0)),
                 'total_limit'          => max(0, (int) ($payload['total_limit'] ?? 1)),
                 'coupon_prefix'        => strtoupper(sanitize_key((string) ($payload['coupon_prefix'] ?? 'OYL'))),
-                'coupon_description'   => sanitize_text_field((string) ($payload['coupon_description'] ?? '')),
+                'coupon_description'   => sanitize_textarea_field((string) ($payload['coupon_description'] ?? '')),
                 'expiry_days'          => max(0, (int) ($payload['expiry_days'] ?? 7)),
                 'minimum_amount'       => self::sanitizeMoneyValue($payload['minimum_amount'] ?? ''),
                 'maximum_amount'       => self::sanitizeMoneyValue($payload['maximum_amount'] ?? ''),
@@ -365,14 +427,79 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             ];
         }
 
-        private static function sanitizeRangeValue($value, bool $allow_decimals): float {
-            $number = (float) $value;
-
-            if ($allow_decimals) {
-                return round($number, 1);
+        private static function sanitizePrizeRules($rules, string $range_type): array {
+            if (!is_array($rules)) {
+                return [];
             }
 
-            return (float) round($number);
+            $normalized_rules = [];
+
+            foreach ($rules as $rule) {
+                if (!is_array($rule)) {
+                    continue;
+                }
+
+                $mode = ($rule['mode'] ?? 'range') === 'single' ? 'single' : 'range';
+                $probability = self::sanitizeProbability($rule['probability'] ?? 0);
+
+                if ($probability <= 0) {
+                    continue;
+                }
+
+                if ($mode === 'single') {
+                    $value_key = self::normalizeRangeValueString($rule['value'] ?? '', $range_type);
+
+                    if ($value_key === '') {
+                        continue;
+                    }
+
+                    $normalized_rules[] = [
+                        'mode'        => 'single',
+                        'value'       => $range_type === 'percent' ? (float) (int) $value_key : (float) $value_key,
+                        'probability' => $probability,
+                    ];
+
+                    continue;
+                }
+
+                $start_value = self::sanitizeRangeValue($rule['start_value'] ?? 0, $range_type);
+                $end_value = self::sanitizeRangeValue($rule['end_value'] ?? 0, $range_type);
+
+                if ($start_value > $end_value) {
+                    [$start_value, $end_value] = [$end_value, $start_value];
+                }
+
+                $normalized_rules[] = [
+                    'mode'        => 'range',
+                    'start_value' => $start_value,
+                    'end_value'   => $end_value,
+                    'probability' => $probability,
+                ];
+            }
+
+            return $normalized_rules;
+        }
+
+        private static function sanitizeRangeValue($value, string $range_type): float {
+            if (is_array($value)) {
+                $value = $value['size'] ?? 0;
+            }
+
+            $number = max(0, (float) $value);
+
+            if ($range_type === 'percent') {
+                return (float) min(100, (int) round($number));
+            }
+
+            return round($number, 1);
+        }
+
+        private static function sanitizeProbability($value): float {
+            if (is_array($value)) {
+                $value = $value['size'] ?? 0;
+            }
+
+            return (float) max(0, min(100, (int) round((float) $value)));
         }
 
         private static function sanitizeMoneyValue($value): string {
@@ -391,16 +518,20 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             return array_values(array_filter(array_map('absint', $value)));
         }
 
-        private static function normalizeRangeValueString($value, bool $allow_decimals): string {
+        private static function normalizeRangeValueString($value, string $range_type): string {
             $value = trim((string) $value);
 
             if ($value === '') {
                 return '';
             }
 
-            $number = self::sanitizeRangeValue($value, $allow_decimals);
+            $number = self::sanitizeRangeValue($value, $range_type);
 
-            return $allow_decimals ? number_format($number, 1, '.', '') : (string) (int) round($number);
+            if ($range_type === 'percent') {
+                return (string) (int) round($number);
+            }
+
+            return self::formatDecimalValue($number, 1);
         }
 
         private static function evaluateAvailability(int $user_id, array $payload): array {
@@ -465,36 +596,135 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 return 0;
             }
 
-            $timestamp = strtotime($value);
+            $timezone = wp_timezone();
+            $datetime = \DateTimeImmutable::createFromFormat('Y-m-d H:i', $value, $timezone);
 
-            return $timestamp ?: 0;
+            if (!$datetime) {
+                $datetime = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value, $timezone);
+            }
+
+            if (!$datetime) {
+                try {
+                    $datetime = new \DateTimeImmutable($value, $timezone);
+                } catch (\Exception $exception) {
+                    return 0;
+                }
+            }
+
+            return $datetime->getTimestamp();
         }
 
         private static function buildPrizePool(array $payload): array {
-            $values = self::generateRangeValues(
-                (float) $payload['min_value'],
-                (float) $payload['max_value'],
-                !empty($payload['allow_decimals'])
-            );
-            $default_weight = (float) ($payload['default_weight'] ?? 1);
-            $map = $payload['probability_map'] ?? [];
+            if (!empty($payload['prize_rules']) && is_array($payload['prize_rules'])) {
+                return self::buildPrizePoolFromRules($payload);
+            }
+
+            return self::buildLegacyPrizePool($payload);
+        }
+
+        private static function buildPrizePoolFromRules(array $payload): array {
             $prizes = [];
+            $total_win_probability = 0.0;
 
-            foreach ($values as $value) {
-                $value_key = self::normalizeRangeValueString($value, !empty($payload['allow_decimals']));
-                $weight = array_key_exists($value_key, $map) ? (float) $map[$value_key] : $default_weight;
-
-                if ($weight <= 0) {
+            foreach (($payload['prize_rules'] ?? []) as $rule) {
+                if (!is_array($rule)) {
                     continue;
                 }
 
-                $prizes[] = [
-                    'type'        => 'win',
-                    'weight'      => $weight,
-                    'value'       => $value,
-                    'label'       => self::formatPrizeLabel($value, $payload['range_type']),
-                    'probability' => $weight,
-                ];
+                $probability = isset($rule['probability']) ? (float) $rule['probability'] : 0.0;
+
+                if ($probability <= 0) {
+                    continue;
+                }
+
+                if (($rule['mode'] ?? 'range') === 'single') {
+                    $value = isset($rule['value']) ? (float) $rule['value'] : 0.0;
+
+                    $prizes[] = [
+                        'type'        => 'win',
+                        'weight'      => $probability,
+                        'value'       => $value,
+                        'label'       => self::formatPrizeLabel($value, $payload['range_type']),
+                        'probability' => $probability,
+                    ];
+                    $total_win_probability += $probability;
+                    continue;
+                }
+
+                $values = self::generateRangeValues(
+                    (float) ($rule['start_value'] ?? 0),
+                    (float) ($rule['end_value'] ?? 0),
+                    $payload['range_type']
+                );
+                $count = count($values);
+
+                if ($count <= 0) {
+                    continue;
+                }
+
+                $per_probability = $probability / $count;
+
+                foreach ($values as $value) {
+                    $prizes[] = [
+                        'type'        => 'win',
+                        'weight'      => $per_probability,
+                        'value'       => $value,
+                        'label'       => self::formatPrizeLabel($value, $payload['range_type']),
+                        'probability' => $per_probability,
+                    ];
+                }
+
+                $total_win_probability += $probability;
+            }
+
+            return self::finalizePrizePool($prizes, $payload, $total_win_probability);
+        }
+
+        private static function buildLegacyPrizePool(array $payload): array {
+            $prizes = [];
+
+            if (($payload['draw_value_mode'] ?? 'range') === 'custom') {
+                foreach (($payload['custom_prizes'] ?? []) as $item) {
+                    $value = isset($item['value']) ? (float) $item['value'] : 0.0;
+                    $weight = isset($item['weight']) ? (float) $item['weight'] : 0.0;
+
+                    if ($weight <= 0) {
+                        continue;
+                    }
+
+                    $prizes[] = [
+                        'type'        => 'win',
+                        'weight'      => $weight,
+                        'value'       => $value,
+                        'label'       => self::formatPrizeLabel($value, $payload['range_type']),
+                        'probability' => $weight,
+                    ];
+                }
+            } else {
+                $values = self::generateRangeValues(
+                    (float) $payload['min_value'],
+                    (float) $payload['max_value'],
+                    $payload['range_type']
+                );
+                $default_weight = (float) ($payload['default_weight'] ?? 1);
+                $map = $payload['probability_map'] ?? [];
+
+                foreach ($values as $value) {
+                    $value_key = self::normalizeRangeValueString($value, $payload['range_type']);
+                    $weight = array_key_exists($value_key, $map) ? (float) $map[$value_key] : $default_weight;
+
+                    if ($weight <= 0) {
+                        continue;
+                    }
+
+                    $prizes[] = [
+                        'type'        => 'win',
+                        'weight'      => $weight,
+                        'value'       => $value,
+                        'label'       => self::formatPrizeLabel($value, $payload['range_type']),
+                        'probability' => $weight,
+                    ];
+                }
             }
 
             if (!empty($payload['enable_thanks']) && (float) ($payload['thanks_weight'] ?? 0) > 0) {
@@ -502,7 +732,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                     'type'        => 'lose',
                     'weight'      => (float) $payload['thanks_weight'],
                     'value'       => null,
-                    'label'       => $payload['thanks_label'] ?: oyiso_t('Thanks for participating'),
+                    'label'       => oyiso_t('Thanks for participating'),
                     'probability' => (float) $payload['thanks_weight'],
                 ];
             }
@@ -510,8 +740,72 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             return $prizes;
         }
 
-        private static function generateRangeValues(float $min, float $max, bool $allow_decimals): array {
-            if ($allow_decimals) {
+        private static function finalizePrizePool(array $prizes, array $payload, float $total_win_probability): array {
+            if (empty($prizes)) {
+                if (!empty($payload['enable_thanks'])) {
+                    return [[
+                        'type'        => 'lose',
+                        'weight'      => 100.0,
+                        'value'       => null,
+                        'label'       => oyiso_t('Thanks for participating'),
+                        'probability' => 100.0,
+                    ]];
+                }
+
+                return [];
+            }
+
+            if (!empty($payload['enable_thanks'])) {
+                if ($total_win_probability < 100) {
+                    $remaining = 100 - $total_win_probability;
+                    $prizes[] = [
+                        'type'        => 'lose',
+                        'weight'      => $remaining,
+                        'value'       => null,
+                        'label'       => oyiso_t('Thanks for participating'),
+                        'probability' => $remaining,
+                    ];
+
+                    return $prizes;
+                }
+
+                if ($total_win_probability <= 0) {
+                    return [[
+                        'type'        => 'lose',
+                        'weight'      => 100.0,
+                        'value'       => null,
+                        'label'       => oyiso_t('Thanks for participating'),
+                        'probability' => 100.0,
+                    ]];
+                }
+            }
+
+            if ($total_win_probability <= 0) {
+                return [];
+            }
+
+            if (abs($total_win_probability - 100.0) < 0.0001) {
+                return $prizes;
+            }
+
+            $scale = 100 / $total_win_probability;
+
+            foreach ($prizes as &$prize) {
+                if (($prize['type'] ?? 'win') !== 'win') {
+                    continue;
+                }
+
+                $scaled_probability = (float) ($prize['probability'] ?? 0) * $scale;
+                $prize['weight'] = $scaled_probability;
+                $prize['probability'] = $scaled_probability;
+            }
+            unset($prize);
+
+            return $prizes;
+        }
+
+        private static function generateRangeValues(float $min, float $max, string $range_type): array {
+            if ($range_type === 'amount') {
                 $start = (int) round($min * 10);
                 $end = (int) round($max * 10);
                 $values = [];
@@ -540,20 +834,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             }
 
             if ($range_type === 'percent') {
-                $text = ((int) $value === (float) $value)
-                    ? (string) (int) $value
-                    : number_format($value, 1, '.', '');
-
-                if (!str_starts_with(self::getSiteLocale(), 'zh_')) {
-                    $discount = max(0, min(100, 100 - ((float) $value * 10)));
-                    $discount_text = ((int) $discount === (float) $discount)
-                        ? (string) (int) $discount
-                        : number_format($discount, 1, '.', '');
-
-                    return oyiso_t_sprintf('%s%% off', $discount_text);
-                }
-
-                return oyiso_t_sprintf('%s discount rate', $text);
+                return oyiso_t_sprintf('%s%% off', (string) (int) round($value));
             }
 
             if (function_exists('wc_price')) {
@@ -647,7 +928,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
 
             $prize_value = isset($record['prize_value']) ? (float) $record['prize_value'] : 0.0;
             $coupon_amount = $payload['range_type'] === 'percent'
-                ? max(0, round(100 - ($prize_value * 10), 1))
+                ? max(0, min(100, (int) round($prize_value)))
                 : round($prize_value, 2);
 
             if ($coupon_amount <= 0) {
@@ -658,7 +939,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             $coupon_code = self::generateCouponCode($payload['coupon_prefix'] ?? 'OYL');
             $coupon_description = $payload['coupon_description'] !== ''
                 ? $payload['coupon_description']
-                : oyiso_t_sprintf('Lottery Claim: %s', $record['prize_label']);
+                : self::buildInternalCouponDescription($payload, $coupon_amount);
 
             $coupon->set_code($coupon_code);
             $coupon->set_description($coupon_description);
@@ -695,9 +976,9 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 $coupon->set_excluded_product_categories($payload['excluded_category_ids']);
             }
 
-            if ((int) $payload['expiry_days'] > 0) {
-                $expires = new WC_DateTime('now', new DateTimeZone(wp_timezone_string()));
-                $expires->modify('+' . (int) $payload['expiry_days'] . ' days');
+            $expires = self::resolveRecordExpiryDateTime($record, $payload);
+
+            if ($expires instanceof WC_DateTime) {
                 $coupon->set_date_expires($expires);
             }
 
@@ -741,6 +1022,31 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 'coupon_id'   => $coupon_id,
                 'coupon_code' => $coupon_code,
             ];
+        }
+
+        private static function buildInternalCouponDescription(array $payload, float $coupon_amount): string {
+            $range_type = ($payload['range_type'] ?? 'percent') === 'amount' ? 'amount' : 'percent';
+            $type_label = $range_type === 'percent' ? '百分比折扣' : '固定金额';
+
+            return sprintf('抽奖领取 - %s %s', $type_label, self::formatInternalCouponAmount($range_type, $coupon_amount));
+        }
+
+        private static function formatInternalCouponAmount(string $range_type, float $coupon_amount): string {
+            if ($range_type === 'percent') {
+                return (string) (int) round($coupon_amount) . '%';
+            }
+
+            $decimals = function_exists('wc_get_price_decimals') ? max(0, (int) wc_get_price_decimals()) : 2;
+            $amount_text = number_format($coupon_amount, $decimals, '.', '');
+            $symbol = function_exists('get_woocommerce_currency_symbol') ? get_woocommerce_currency_symbol() : '';
+
+            return $symbol . $amount_text;
+        }
+
+        private static function formatDecimalValue(float $value, int $scale = 1): string {
+            $formatted = number_format($value, $scale, '.', '');
+
+            return rtrim(rtrim($formatted, '0'), '.');
         }
 
         private static function generateCouponCode(string $prefix): string {
@@ -795,54 +1101,367 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
 
             $limit = !empty($args['limit']) ? (int) $args['limit'] : 20;
             $limit = max(1, min(100, $limit));
-            $params[] = $limit;
+            $offset = !empty($args['offset']) ? (int) $args['offset'] : 0;
+            $offset = max(0, $offset);
+            $params[] = $limit + 1;
+            $params[] = $offset;
 
-            $sql = 'SELECT * FROM ' . self::getTableName() . ' WHERE ' . implode(' AND ', $where) . ' ORDER BY id DESC LIMIT %d';
+            $sql = 'SELECT * FROM ' . self::getTableName() . ' WHERE ' . implode(' AND ', $where) . ' ORDER BY id DESC LIMIT %d OFFSET %d';
             $rows = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
 
             if (!is_array($rows)) {
-                return [];
-            }
-
-            $formatted = [];
-
-            foreach ($rows as $row) {
-                $user_name = '';
-
-                if (!empty($row['user_id'])) {
-                    $user = get_userdata((int) $row['user_id']);
-                    $user_name = $user ? $user->display_name : '';
-                }
-
-                $formatted[] = [
-                    'id'           => (int) $row['id'],
-                    'resultType'   => (string) $row['result_type'],
-                    'resultLabel'  => $row['result_type'] === 'win' ? oyiso_t('Won') : oyiso_t('Not Won'),
-                    'status'       => (string) $row['status'],
-                    'statusLabel'  => $row['status'] === 'claimed'
-                        ? oyiso_t('Claimed')
-                        : ($row['result_type'] === 'win' ? oyiso_t('Pending Claim') : oyiso_t('Completed')),
-                    'prizeLabel'   => (string) $row['prize_label'],
-                    'couponId'     => (int) $row['coupon_id'],
-                    'couponCode'   => (string) $row['coupon_code'],
-                    'createdAt'    => !empty($row['created_at']) ? wp_date('Y-m-d H:i:s', strtotime((string) $row['created_at'])) : '',
-                    'claimedAt'    => !empty($row['claimed_at']) ? wp_date('Y-m-d H:i:s', strtotime((string) $row['claimed_at'])) : '',
-                    'isOwner'      => (int) $row['user_id'] === get_current_user_id(),
-                    'canClaim'     => $row['result_type'] === 'win' && $row['status'] === 'pending' && (int) $row['user_id'] === get_current_user_id(),
-                    'editUrl'      => !empty($row['coupon_id']) && self::currentUserCanManageCoupons()
-                        ? admin_url('post.php?post=' . (int) $row['coupon_id'] . '&action=edit')
-                        : '',
-                    'userName'     => $user_name,
+                return [
+                    'items'      => [],
+                    'hasMore'    => false,
+                    'nextOffset' => $offset,
                 ];
             }
 
-            return $formatted;
+            $has_more = count($rows) > $limit;
+
+            if ($has_more) {
+                array_pop($rows);
+            }
+
+            $items = array_map([self::class, 'formatRecordRow'], $rows);
+
+            return [
+                'items'      => $items,
+                'hasMore'    => $has_more,
+                'nextOffset' => $offset + count($items),
+            ];
+        }
+
+        private static function formatRecordRow(array $row): array {
+            $user_name = '';
+            $record_payload = self::extractRecordPayload($row);
+            $is_claim_expired = self::hasRecordClaimExpired($row, $record_payload);
+
+            if (!empty($row['user_id'])) {
+                $user = get_userdata((int) $row['user_id']);
+                $user_name = $user ? $user->display_name : '';
+            }
+
+            return [
+                'id'           => (int) $row['id'],
+                'resultType'   => (string) $row['result_type'],
+                'resultLabel'  => $row['result_type'] === 'win' ? oyiso_t('Won') : oyiso_t('Not Won'),
+                'status'       => (string) $row['status'],
+                'statusLabel'  => $row['status'] === 'claimed'
+                    ? oyiso_t('Claimed')
+                    : ($row['result_type'] === 'win'
+                        ? ($is_claim_expired ? oyiso_t('Expired') : oyiso_t('Pending Claim'))
+                        : oyiso_t('Completed')),
+                'prizeLabel'   => self::resolveRecordPrizeLabel($row),
+                'couponId'     => (int) $row['coupon_id'],
+                'couponCode'   => (string) $row['coupon_code'],
+                'scopeHtml'    => $row['result_type'] === 'win' ? self::formatScopeFromPayload($record_payload, $row) : '',
+                'createdAt'    => self::formatSiteDateTime((string) ($row['created_at'] ?? '')),
+                'claimedAt'    => self::formatSiteDateTime((string) ($row['claimed_at'] ?? '')),
+                'isOwner'      => (int) $row['user_id'] === get_current_user_id(),
+                'canClaim'     => $row['result_type'] === 'win' && $row['status'] === 'pending' && !$is_claim_expired && (int) $row['user_id'] === get_current_user_id(),
+                'editUrl'      => !empty($row['coupon_id']) && self::currentUserCanManageCoupons()
+                    ? admin_url('post.php?post=' . (int) $row['coupon_id'] . '&action=edit')
+                    : '',
+                'userName'     => $user_name,
+            ];
+        }
+
+        private static function resolveRecordPrizeLabel(array $row): string {
+            $result_type = (string) ($row['result_type'] ?? '');
+            $range_type = (string) ($row['range_type'] ?? 'percent');
+            $prize_value = $row['prize_value'] ?? null;
+
+            if ($result_type === 'win' && $prize_value !== null && $prize_value !== '') {
+                return self::formatPrizeLabel((float) $prize_value, $range_type);
+            }
+
+            if ($result_type !== 'win') {
+                return oyiso_t('Thanks for participating');
+            }
+
+            return (string) ($row['prize_label'] ?? '');
+        }
+
+        private static function formatSiteDateTime(string $value): string {
+            if ($value === '') {
+                return '';
+            }
+
+            $timezone = wp_timezone();
+            $datetime = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value, $timezone);
+
+            if (!$datetime) {
+                try {
+                    $datetime = new \DateTimeImmutable($value, $timezone);
+                } catch (\Exception $exception) {
+                    return $value;
+                }
+            }
+
+            return $datetime->format('Y-m-d H:i:s');
+        }
+
+        private static function hasRecordClaimExpired(array $record, array $payload): bool {
+            if (($record['result_type'] ?? '') !== 'win' || ($record['status'] ?? '') === 'claimed') {
+                return false;
+            }
+
+            $expires_at = self::resolveRecordExpiryDateTime($record, $payload);
+
+            return $expires_at instanceof WC_DateTime
+                && $expires_at->getTimestamp() < time();
+        }
+
+        private static function resolveRecordExpiryDateTime(array $record, array $payload): ?WC_DateTime {
+            $expiry_days = isset($payload['expiry_days']) ? (int) $payload['expiry_days'] : 0;
+
+            if ($expiry_days <= 0) {
+                return null;
+            }
+
+            $created_at = (string) ($record['created_at'] ?? '');
+
+            if ($created_at === '') {
+                return null;
+            }
+
+            try {
+                $timezone = new DateTimeZone(wp_timezone_string());
+                $expires_at = new WC_DateTime($created_at, $timezone);
+                $expires_at->modify('+' . $expiry_days . ' days');
+
+                return $expires_at;
+            } catch (\Exception $exception) {
+                return null;
+            }
+        }
+
+        private static function extractRecordPayload(array $record): array {
+            $payload = $record['payload'] ?? '';
+
+            if (!is_string($payload) || $payload === '') {
+                return [];
+            }
+
+            $decoded = json_decode($payload, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        public static function formatScopeFromPayload(array $payload, ?array $record = null): string {
+            $product_ids = self::sanitizeIdList($payload['product_ids'] ?? []);
+            $excluded_product_ids = self::sanitizeIdList($payload['excluded_product_ids'] ?? []);
+            $category_ids = self::sanitizeIdList($payload['category_ids'] ?? []);
+            $excluded_category_ids = self::sanitizeIdList($payload['excluded_category_ids'] ?? []);
+            $product_links = self::getScopeProductLinks($product_ids);
+            $excluded_product_links = self::getScopeProductLinks($excluded_product_ids);
+            $category_links = self::getScopeTermLinks($category_ids, 'product_cat');
+            $excluded_category_links = self::getScopeTermLinks($excluded_category_ids, 'product_cat');
+            $minimum_amount = isset($payload['minimum_amount']) && $payload['minimum_amount'] !== '' ? (float) $payload['minimum_amount'] : 0.0;
+            $maximum_amount = isset($payload['maximum_amount']) && $payload['maximum_amount'] !== '' ? (float) $payload['maximum_amount'] : 0.0;
+            $expiry_days = isset($payload['expiry_days']) ? (int) $payload['expiry_days'] : 0;
+            $record_expires_at = $record ? self::resolveRecordExpiryDateTime($record, $payload) : null;
+            $eligibility_rows = [];
+
+            if (!empty($product_links)) {
+                $eligibility_rows[] = self::formatScopeRow(
+                    oyiso_t('Applies to Products'),
+                    self::formatScopeCollection($product_links, '')
+                );
+            }
+
+            if (!empty($category_links)) {
+                $eligibility_rows[] = self::formatScopeRow(
+                    oyiso_t('Applies to Categories'),
+                    self::formatScopeCollection($category_links, '')
+                );
+            }
+
+            if (!empty($excluded_category_links)) {
+                $eligibility_rows[] = self::formatScopeRow(
+                    oyiso_t('Excluded Categories'),
+                    self::formatScopeCollection($excluded_category_links, '')
+                );
+            }
+
+            if (!empty($excluded_product_links)) {
+                $eligibility_rows[] = self::formatScopeRow(
+                    oyiso_t('Excluded Products'),
+                    self::formatScopeCollection($excluded_product_links, '')
+                );
+            }
+
+            $conditions_rows = [];
+
+            if ($minimum_amount > 0) {
+                $conditions_rows[] = self::formatScopeRow(
+                    oyiso_t('Minimum Spend'),
+                    esc_html(self::formatScopeMoney($minimum_amount))
+                );
+            }
+
+            if ($maximum_amount > 0) {
+                $conditions_rows[] = self::formatScopeRow(
+                    oyiso_t('Maximum Spend'),
+                    esc_html(self::formatScopeMoney($maximum_amount))
+                );
+            }
+
+            if (!empty($payload['free_shipping'])) {
+                $conditions_rows[] = self::formatScopeRow(
+                    oyiso_t('Free Shipping'),
+                    esc_html(oyiso_t('Yes'))
+                );
+            }
+
+            if (!empty($payload['individual_use'])) {
+                $conditions_rows[] = self::formatScopeRow(
+                    oyiso_t('Individual Use Only'),
+                    esc_html(oyiso_t('Yes'))
+                );
+            }
+
+            if (!empty($payload['exclude_sale_items'])) {
+                $conditions_rows[] = self::formatScopeRow(
+                    oyiso_t('Exclude Sale Items'),
+                    esc_html(oyiso_t('Yes'))
+                );
+            }
+
+            if ($expiry_days > 0) {
+                $conditions_rows[] = self::formatScopeRow(
+                    oyiso_t('Valid Until'),
+                    esc_html(
+                        $record_expires_at instanceof WC_DateTime
+                            ? wp_date('Y-m-d H:i:s', $record_expires_at->getTimestamp(), wp_timezone())
+                            : oyiso_t_sprintf('%s days after winning', (string) $expiry_days)
+                    )
+                );
+            }
+
+            $limit_rows = [
+                self::formatScopeRow(
+                    oyiso_t('Per-Coupon Total Usage Limit'),
+                    esc_html('1')
+                ),
+                self::formatScopeRow(
+                    oyiso_t('Per-Coupon Per-Customer Limit'),
+                    esc_html('1')
+                ),
+            ];
+
+            return implode('', [
+                self::formatScopeSection(oyiso_t('Eligibility'), $eligibility_rows),
+                self::formatScopeSection(oyiso_t('Conditions'), $conditions_rows),
+                self::formatScopeSection(oyiso_t('Coupon Usage Limits'), $limit_rows),
+            ]);
         }
 
         private static function currentUserCanManageCoupons(): bool {
             return current_user_can('manage_woocommerce')
                 || current_user_can('edit_shop_coupons')
                 || current_user_can('manage_options');
+        }
+
+        private static function formatScopeRow(string $label, string $value_html): string {
+            return sprintf(
+                '<div class="oyiso-scope-dialog__row"><div class="oyiso-scope-dialog__label">%1$s</div><div class="oyiso-scope-dialog__value">%2$s</div></div>',
+                esc_html($label),
+                $value_html
+            );
+        }
+
+        private static function formatScopeSection(string $title, array $rows): string {
+            $rows = array_filter($rows);
+
+            if (empty($rows)) {
+                return '';
+            }
+
+            return sprintf(
+                '<section class="oyiso-scope-dialog__section"><h4 class="oyiso-scope-dialog__section-title">%1$s</h4><div class="oyiso-scope-dialog__section-card"><div class="oyiso-scope-dialog__section-body">%2$s</div></div></section>',
+                esc_html($title),
+                implode('', $rows)
+            );
+        }
+
+        private static function formatScopeCollection(array $items, string $fallback): string {
+            if (empty($items)) {
+                $items = [esc_html($fallback)];
+            }
+
+            $entries = array_map(static function ($item) {
+                return sprintf('<div class="oyiso-scope-dialog__list-item">%s</div>', $item);
+            }, $items);
+
+            return '<div class="oyiso-scope-dialog__list">' . implode('', $entries) . '</div>';
+        }
+
+        private static function getScopeProductLinks($product_ids): array {
+            $links = [];
+            $product_ids = self::sanitizeIdList($product_ids);
+
+            foreach (array_filter(array_map('absint', $product_ids)) as $product_id) {
+                $product = wc_get_product($product_id);
+
+                if (!$product) {
+                    continue;
+                }
+
+                $url = get_permalink($product_id);
+
+                if ($url) {
+                    $links[] = sprintf(
+                        '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
+                        esc_url($url),
+                        esc_html($product->get_name())
+                    );
+                } else {
+                    $links[] = esc_html($product->get_name());
+                }
+            }
+
+            return $links;
+        }
+
+        private static function getScopeTermLinks($term_ids, string $taxonomy): array {
+            $links = [];
+            $term_ids = self::sanitizeIdList($term_ids);
+
+            if (!taxonomy_exists($taxonomy)) {
+                return $links;
+            }
+
+            foreach (array_filter(array_map('absint', $term_ids)) as $term_id) {
+                $term = get_term($term_id, $taxonomy);
+
+                if (!$term || is_wp_error($term)) {
+                    continue;
+                }
+
+                $url = get_term_link($term);
+
+                if (!is_wp_error($url) && $url) {
+                    $links[] = sprintf(
+                        '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
+                        esc_url($url),
+                        esc_html($term->name)
+                    );
+                } else {
+                    $links[] = esc_html($term->name);
+                }
+            }
+
+            return $links;
+        }
+
+        private static function formatScopeMoney(float $amount): string {
+            if (function_exists('wc_price')) {
+                return wp_strip_all_tags(wc_price($amount));
+            }
+
+            return rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.');
         }
 
         private static function getTableName(): string {

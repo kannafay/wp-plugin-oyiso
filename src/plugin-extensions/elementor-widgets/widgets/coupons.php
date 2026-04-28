@@ -15,9 +15,7 @@ class Coupons extends Widget_Base
 {
     private function get_site_locale(): string
     {
-        $site_locale = is_multisite()
-            ? (get_option('WPLANG') ?: get_site_option('WPLANG'))
-            : get_option('WPLANG');
+        $site_locale = function_exists('get_locale') ? (string) get_locale() : '';
 
         if (!$site_locale && function_exists('get_bloginfo')) {
             $site_language = (string) get_bloginfo('language');
