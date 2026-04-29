@@ -255,9 +255,14 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
 .oyiso-coupon-lottery {
     --oyiso-lottery-accent: #e5702a;
     --oyiso-lottery-panel-bg:
-        radial-gradient(circle at top left, rgba(255, 227, 193, 0.68), transparent 34%),
+        radial-gradient(circle at top left, color-mix(in srgb, var(--oyiso-lottery-accent), #ffffff 84%), transparent 34%),
         radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--oyiso-lottery-accent), transparent 88%), transparent 24%),
-        linear-gradient(145deg, #fff8f0, #fffefb 46%, #fff9f4);
+        linear-gradient(
+            145deg,
+            color-mix(in srgb, var(--oyiso-lottery-accent), #ffffff 96%),
+            #fffefb 46%,
+            color-mix(in srgb, var(--oyiso-lottery-accent), #ffffff 95%)
+        );
     --oyiso-lottery-surface: #ffffff;
     --oyiso-lottery-surface-soft: #fafbfc;
     --oyiso-lottery-line: #e6ebf1;
@@ -267,7 +272,7 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     --oyiso-lottery-text-muted: #64748b;
     --oyiso-lottery-status-bg: color-mix(in srgb, var(--oyiso-lottery-accent), #fff 92%);
     --oyiso-lottery-status-border: color-mix(in srgb, var(--oyiso-lottery-accent), #fff 82%);
-    --oyiso-lottery-status-color: #835033;
+    --oyiso-lottery-status-color: color-mix(in srgb, var(--oyiso-lottery-accent), #2c170b 36%);
     --oyiso-lottery-status-error-bg: #fff3f2;
     --oyiso-lottery-status-error-border: rgba(180, 35, 24, 0.16);
     --oyiso-lottery-status-error-color: #b42318;
@@ -283,11 +288,11 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     isolation: isolate;
     overflow: hidden;
     padding: 30px 30px 30px 42px;
-    border: 1px solid rgba(212, 163, 115, 0.28);
+    border: 1px solid color-mix(in srgb, var(--oyiso-lottery-accent), #ffffff 74%);
     border-radius: 28px;
     background: var(--oyiso-lottery-panel-bg);
     box-shadow:
-        0 28px 70px rgba(87, 46, 15, 0.08),
+        0 28px 70px color-mix(in srgb, var(--oyiso-lottery-accent), transparent 92%),
         inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
@@ -302,15 +307,15 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     background:
         radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.72), transparent 18%),
         radial-gradient(circle at 76% 30%, color-mix(in srgb, var(--oyiso-lottery-accent), transparent 86%), transparent 20%),
-        radial-gradient(circle at 84% 78%, rgba(140, 94, 54, 0.1), transparent 18%);
+        radial-gradient(circle at 84% 78%, color-mix(in srgb, var(--oyiso-lottery-accent), transparent 90%), transparent 18%);
     opacity: 0.95;
 }
 
 .oyiso-coupon-lottery__grain {
     opacity: 0.18;
     background-image:
-        linear-gradient(rgba(137, 92, 54, 0.12) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(137, 92, 54, 0.12) 1px, transparent 1px);
+        linear-gradient(color-mix(in srgb, var(--oyiso-lottery-accent), transparent 86%) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--oyiso-lottery-accent), transparent 86%) 1px, transparent 1px);
     background-size: 18px 18px;
     mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent);
 }
@@ -355,10 +360,14 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     border: 1px solid color-mix(in srgb, var(--oyiso-lottery-status-border), #ffffff 24%);
     border-radius: 999px;
     background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 248, 241, 0.52));
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, #ffffff, var(--oyiso-lottery-status-bg) 18%),
+            color-mix(in srgb, var(--oyiso-lottery-status-bg), #ffffff 26%)
+        );
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.84),
-        0 6px 18px rgba(205, 131, 72, 0.05);
+        0 6px 18px color-mix(in srgb, var(--oyiso-lottery-accent), transparent 94%);
     color: var(--oyiso-lottery-status-color);
     font-size: 12px;
     font-weight: 600;
@@ -398,7 +407,7 @@ body .oyiso-coupon-lottery .oyiso-coupon-lottery__text-action {
     border: 0;
     border-radius: 0;
     background: transparent;
-    color: color-mix(in srgb, var(--oyiso-lottery-description-color), #2b170d 12%);
+    color: color-mix(in srgb, var(--oyiso-lottery-accent), var(--oyiso-lottery-description-color) 74%);
     font-size: 12px;
     font-weight: 500;
     line-height: 1.3;
@@ -672,7 +681,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:disab
 
 .oyiso-coupon-lottery__seal-ring--middle {
     inset: 18px;
-    border: 1px dashed rgba(183, 130, 86, 0.26);
+    border: 1px dashed color-mix(in srgb, var(--oyiso-lottery-accent), transparent 78%);
     animation: oyisoLotterySpin 22s linear infinite;
 }
 
@@ -689,15 +698,15 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:disab
         linear-gradient(135deg, color-mix(in srgb, var(--oyiso-lottery-accent), #fff 66%), color-mix(in srgb, var(--oyiso-lottery-accent), #000 8%));
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.7),
-        0 20px 36px rgba(170, 89, 35, 0.22);
+        0 20px 36px color-mix(in srgb, var(--oyiso-lottery-accent), transparent 78%);
 }
 
 .oyiso-coupon-lottery__seal-star {
     inset: auto;
     width: 10px;
     height: 10px;
-    background: #fff2de;
-    box-shadow: 0 0 0 8px rgba(255, 247, 236, 0.12);
+    background: color-mix(in srgb, var(--oyiso-lottery-accent), #ffffff 82%);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--oyiso-lottery-accent), transparent 90%);
     clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%);
     animation: oyisoLotteryPulse 3.2s ease-in-out infinite;
 }
@@ -722,7 +731,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:disab
 
 .oyiso-coupon-lottery__orbit {
     border-radius: 999px;
-    border: 1px solid rgba(183, 130, 86, 0.12);
+    border: 1px solid color-mix(in srgb, var(--oyiso-lottery-accent), transparent 88%);
 }
 
 .oyiso-coupon-lottery__orbit--one {
@@ -749,7 +758,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:disab
     left: 14%;
     width: 92px;
     height: 92px;
-    background: rgba(255, 224, 189, 0.45);
+    background: color-mix(in srgb, var(--oyiso-lottery-accent), transparent 82%);
 }
 
 .oyiso-coupon-lottery__glow--two {
@@ -762,7 +771,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:disab
 
 .oyiso-coupon-lottery.is-drawing {
     box-shadow:
-        0 34px 80px rgba(217, 104, 40, 0.12),
+        0 34px 80px color-mix(in srgb, var(--oyiso-lottery-accent), transparent 86%),
         inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
