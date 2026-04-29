@@ -493,6 +493,46 @@ if (!function_exists('oyiso_release_new_order_notification_lock')) {
     }
 }
 
+if (!function_exists('oyiso_get_new_order_notification_target_statuses')) {
+    function oyiso_get_new_order_notification_target_statuses(): array {
+        return ['processing', 'on-hold', 'completed'];
+    }
+}
+
+if (!function_exists('oyiso_should_send_new_order_notification_for_status_change')) {
+    function oyiso_should_send_new_order_notification_for_status_change(string $old_status, string $new_status, WC_Order $order): bool {
+        if ($order->get_meta(OYISO_TG_ORDER_NOTIFIED_META_KEY, true)) {
+            return false;
+        }
+
+        $targetStatuses = oyiso_get_new_order_notification_target_statuses();
+
+        if (!in_array($new_status, $targetStatuses, true)) {
+            return false;
+        }
+
+        if (in_array($old_status, $targetStatuses, true)) {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+if (!function_exists('oyiso_should_skip_order_status_change_notification')) {
+    function oyiso_should_skip_order_status_change_notification(
+        string $old_status,
+        string $new_status,
+        bool $newOrderNotificationHandled
+    ): bool {
+        if ($newOrderNotificationHandled) {
+            return true;
+        }
+
+        return $old_status === 'checkout-draft' && $new_status === 'pending';
+    }
+}
+
 if (!function_exists('oyiso_send_new_order_notification')) {
     function oyiso_send_new_order_notification(int $order_id): void {
         $bot = oyiso_get_tg_bot();
@@ -620,25 +660,37 @@ if ($notify_options['woo_cart_quantity_change'] ?? false) {
 }
 
 /**
- * WooCommerce 新订单通知
- */
-if ($notify_options['woo_new_order'] ?? false) {
-    add_action('woocommerce_thankyou', function ($order_id) {
-        oyiso_send_new_order_notification((int) $order_id);
-    }, 10, 1);
-}
-
-/**
  * WooCommerce 订单状态变更通知
  */
-if ($notify_options['woo_order_status_change'] ?? false) {
-    add_action('woocommerce_order_status_changed', function ($order_id, $old_status, $new_status, $order) {
+if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_status_change'] ?? false)) {
+    add_action('woocommerce_order_status_changed', function ($order_id, $old_status, $new_status, $order) use ($notify_options) {
+        if (!$order instanceof WC_Order) {
+            $order = wc_get_order($order_id);
+        }
+
+        if (!$order instanceof WC_Order) {
+            return;
+        }
+
+        $isNewOrderNotificationEnabled = (bool) ($notify_options['woo_new_order'] ?? false);
+        $isOrderStatusChangeNotificationEnabled = (bool) ($notify_options['woo_order_status_change'] ?? false);
+        $newOrderNotificationHandled = false;
+
         if (
-            ($old_status === 'pending' && $new_status === 'processing')
-            || ($old_status === 'checkout-draft' && $new_status === 'pending')
+            $isNewOrderNotificationEnabled
+            && oyiso_should_send_new_order_notification_for_status_change($old_status, $new_status, $order)
+        ) {
+            oyiso_send_new_order_notification((int) $order_id);
+            $newOrderNotificationHandled = true;
+        }
+
+        if (
+            !$isOrderStatusChangeNotificationEnabled
+            || oyiso_should_skip_order_status_change_notification($old_status, $new_status, $newOrderNotificationHandled)
         ) {
             return;
         }
+
         $siteName = get_bloginfo('name');
         $siteUrl = get_bloginfo('url');
         $operatorName = oyiso_get_order_status_operator_name($order_id);
