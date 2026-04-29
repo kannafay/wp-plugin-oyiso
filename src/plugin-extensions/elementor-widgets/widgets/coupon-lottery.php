@@ -858,7 +858,9 @@ class Coupon_Lottery extends Widget_Base
                         >
                             <span class="oyiso-coupon-lottery__button-shine" aria-hidden="true"></span>
                             <span class="oyiso-coupon-lottery__button-icon" aria-hidden="true">
-                                <i class="eicon-star" aria-hidden="true"></i>
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <path d="M12 2.75l2.77 5.61 6.19.9-4.48 4.37 1.06 6.17L12 16.89 6.46 19.8l1.06-6.17L3.04 9.26l6.19-.9L12 2.75z" fill="currentColor"></path>
+                                </svg>
                             </span>
                             <span class="oyiso-coupon-lottery__button-label"><?php echo esc_html(oyiso_t('Draw Now')); ?></span>
                         </button>

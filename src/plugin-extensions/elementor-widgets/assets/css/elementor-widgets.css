@@ -282,7 +282,7 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     position: relative;
     isolation: isolate;
     overflow: hidden;
-    padding: 30px;
+    padding: 30px 30px 30px 42px;
     border: 1px solid rgba(212, 163, 115, 0.28);
     border-radius: 28px;
     background: var(--oyiso-lottery-panel-bg);
@@ -385,6 +385,7 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     align-items: center;
     width: auto;
     max-width: 100%;
+    margin-top: 6px;
 }
 
 body .oyiso-coupon-lottery .oyiso-coupon-lottery__text-action {
@@ -493,6 +494,7 @@ body .oyiso-coupon-lottery .oyiso-coupon-lottery__button--primary,
 body .oyiso-coupon-lottery .oyiso-coupon-lottery__inline-button--primary,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__inline-button--primary {
+    gap: 4px;
     min-width: 132px;
     border-color: var(--oyiso-lottery-primary-border);
     background: var(--oyiso-lottery-primary-bg);
@@ -539,12 +541,16 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:focus
 .oyiso-coupon-lottery__button-label {
     position: relative;
     z-index: 1;
+    display: inline-flex;
+    align-items: center;
 }
 
 .oyiso-coupon-lottery__button-icon {
     position: relative;
     z-index: 1;
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 18px;
     height: 18px;
     flex: 0 0 18px;
@@ -559,25 +565,12 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:focus
     overflow: visible;
 }
 
-.oyiso-coupon-lottery__button-icon i {
-    display: block;
-    width: 100%;
-    height: 100%;
-    font-size: inherit;
-    line-height: 1;
-}
-
-.oyiso-coupon-lottery__button-icon .eicon-star::before {
-    display: block;
-    font-family: eicons !important;
-}
-
 body .oyiso-coupon-lottery .oyiso-coupon-lottery__button--primary .oyiso-coupon-lottery__button-icon,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary .oyiso-coupon-lottery__button-icon {
-    width: 15px;
-    height: 15px;
-    flex-basis: 15px;
-    font-size: 15px;
+    width: 17px;
+    height: 17px;
+    flex-basis: 17px;
+    font-size: 17px;
     animation: oyisoLotteryButtonIconFloat 2.8s ease-in-out infinite;
     transition: transform .18s ease, filter .18s ease;
 }
@@ -1344,6 +1337,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__record-actions .oyiso-c
         width: auto;
         max-width: 100%;
         justify-content: center;
+        margin-top: 8px;
         margin-bottom: 8px;
     }
 
