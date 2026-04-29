@@ -828,6 +828,24 @@ msgstr "每人每日抽奖次数"
 msgid "Per-Person Total Wins"
 msgstr "每人总中奖次数"
 
+msgid "Enter 0 for no limit."
+msgstr "填 0 表示不限制。"
+
+msgid "After-Win Restriction"
+msgstr "中奖后限制"
+
+msgid "No Restriction"
+msgstr "不限制"
+
+msgid "Stop for Today Only"
+msgstr "仅停止当天"
+
+msgid "Stop Permanently"
+msgstr "永久停止"
+
+msgid "Stop for today: after winning today, the user cannot continue and will automatically recover tomorrow. Stop permanently: after winning, the user cannot participate in this draw again."
+msgstr "当天停止：当天中奖后不可继续参与，次日自动恢复；永久停止：中奖后不可再次参与当前抽奖。"
+
 msgid "Prize Pool"
 msgstr "奖池"
 
@@ -854,6 +872,9 @@ msgstr "奖项设置"
 
 msgid "Prize Rules"
 msgstr "奖项规则"
+
+msgid "Probability"
+msgstr "概率"
 
 msgid "You have reached the participation limit."
 msgstr "已达到可参与次数上限。"
@@ -1271,3 +1292,219 @@ msgstr "当天不可继续抽奖"
 
 msgid "Draw Again"
 msgstr "再抽一次"
+
+msgid "Content"
+msgstr "内容"
+
+msgid "Link"
+msgstr "链接"
+
+msgid "Button Text"
+msgstr "按钮文字"
+
+msgid "Content Alignment"
+msgstr "内容对齐"
+
+msgid "Card"
+msgstr "卡片"
+
+msgid "Background Color"
+msgstr "背景颜色"
+
+msgid "Padding"
+msgstr "内边距"
+
+msgid "Text Color"
+msgstr "文字颜色"
+
+msgid "Title Typography"
+msgstr "标题排版"
+
+msgid "Description Typography"
+msgstr "描述排版"
+
+msgid "Button"
+msgstr "按钮"
+
+msgid "Button Typography"
+msgstr "按钮排版"
+
+msgid "Normal"
+msgstr "正常"
+
+msgid "Hover"
+msgstr "悬停"
+
+msgid "Top Spacing"
+msgstr "顶部间距"
+
+msgid "Lottery Description"
+msgstr "抽奖说明"
+
+msgid "Lottery Settings"
+msgstr "抽奖设置"
+
+msgid "Set a probability for each rule. When \"Thanks for Participating\" is enabled, any remaining probability will automatically go to it. When disabled, the system will proportionally fill all winning rules up to 100%."
+msgstr "每条规则填写一个概率。开启“谢谢参与”后，剩余概率会自动归入“谢谢参与”；关闭时，系统会把所有中奖规则按比例补足到 100%。"
+
+msgid "Limited"
+msgstr "限量"
+
+msgid "Total Prize Pool Quantity"
+msgstr "奖池总张数"
+
+msgid "It decreases by the number of wins. Once exhausted, the draw will stop, but users who have already won can still claim and use their coupon before it expires."
+msgstr "按中奖次数扣减。抽完后将停止抽奖，但已中奖用户仍可在到期前正常领取和使用。"
+
+msgid "Discount Type"
+msgstr "优惠类型"
+
+msgid "Fixed Amount"
+msgstr "固定金额"
+
+msgid "Rule Type"
+msgstr "规则类型"
+
+msgid "Range"
+msgstr "区间"
+
+msgid "Single Value"
+msgstr "单个值"
+
+msgid "Start Value"
+msgstr "起始值"
+
+msgid "The start of the range. For percentage discounts, enter the discount percentage. For example, 10 means 10% off."
+msgstr "区间起点。百分比填减免百分比，例如 10 表示减 10%。"
+
+msgid "End Value"
+msgstr "结束值"
+
+msgid "The end of the range. The system will automatically generate all prize values within this range."
+msgstr "区间终点。系统会自动生成这个范围内的所有奖项。"
+
+msgid "Discount Value"
+msgstr "折扣值"
+
+msgid "The value of a single prize. For percentage discounts, enter the discount percentage. For example, 25 means 25% off."
+msgstr "单个奖项的值。百分比填减免百分比，例如 25 表示减 25%。"
+
+msgid "Probability (%)"
+msgstr "概率（%）"
+
+msgid "This is the total probability occupied by this rule. Range rules will distribute this probability evenly across all prizes in the range."
+msgstr "这条规则占用的总概率。区间规则会把这部分概率平均分给区间内每个奖项。"
+
+msgid "You can mix ranges and single values. For example, set 10-30 to 30%, and 31-50 to 10%."
+msgstr "可以混合配置区间和单个值。例如 10-30 填 30%，31-50 填 10%。"
+
+msgid "The start of the range. In fixed amount mode, enter the discount amount directly."
+msgstr "区间起点。固定金额模式下直接填写优惠金额。"
+
+msgid "The value of a single prize. In fixed amount mode, enter the discount amount directly, for example 20."
+msgstr "单个奖项的值。固定金额模式下直接填写优惠金额，例如 20。"
+
+msgid "You can mix ranges and single values. For example, set 10-30 to 30%, and 50 to 10%."
+msgstr "可以混合配置区间和单个值。例如 10-30 填 30%，50 填 10%。"
+
+msgid "Thanks for Participating"
+msgstr "谢谢参与"
+
+msgid "Enable \"Thanks for Participating\""
+msgstr "启用“谢谢参与”"
+
+msgid "When enabled, any remaining probability will automatically go to \"Thanks for Participating\"."
+msgstr "启用后，剩余概率会自动归入“谢谢参与”。"
+
+msgid "Enter 0 for no limit. Once reached, the user can no longer participate in this draw."
+msgstr "填 0 表示不限制。达到后将不能继续参与当前抽奖。"
+
+msgid "Records Per Tab"
+msgstr "记录数量"
+
+msgid "Coupon Settings"
+msgstr "优惠券参数"
+
+msgid "Coupon Prefix"
+msgstr "优惠券前缀"
+
+msgid "Leave empty to hide coupon details"
+msgstr "留空则不展示优惠券详情"
+
+msgid "It will be shown in the draw result dialog and written into the generated coupon."
+msgstr "会显示在抽奖结果弹窗中，并写入生成的优惠券。"
+
+msgid "Valid Days"
+msgstr "有效天数"
+
+msgid "Maximum Discount Amount"
+msgstr "最高折扣金额"
+
+msgid "Only applies to percentage coupons."
+msgstr "仅百分比优惠券生效。"
+
+msgid "Allow Free Shipping"
+msgstr "允许免运费"
+
+msgid "Products"
+msgstr "指定商品"
+
+msgid "Categories"
+msgstr "指定分类"
+
+msgid "Style"
+msgstr "样式"
+
+msgid "Base Surface"
+msgstr "基础底色"
+
+msgid "Soft Surface"
+msgstr "浅色底色"
+
+msgid "Title and Text"
+msgstr "标题与文字"
+
+msgid "Title Color"
+msgstr "标题颜色"
+
+msgid "Description Color"
+msgstr "说明颜色"
+
+msgid "Body Text Color"
+msgstr "正文颜色"
+
+msgid "Muted Text Color"
+msgstr "辅助文字颜色"
+
+msgid "Status Notice"
+msgstr "状态提示"
+
+msgid "Notice Background"
+msgstr "提示背景"
+
+msgid "Notice Text"
+msgstr "提示文字"
+
+msgid "Buttons"
+msgstr "按钮"
+
+msgid "Primary Button Background"
+msgstr "主按钮背景"
+
+msgid "Primary Button Text"
+msgstr "主按钮文字"
+
+msgid "Secondary Button Background"
+msgstr "次按钮背景"
+
+msgid "Secondary Button Text"
+msgstr "次按钮文字"
+
+msgid "Records and Dialogs"
+msgstr "记录与弹窗"
+
+msgid "Record Card Background"
+msgstr "记录卡背景"
+
+msgid "Record Card Border"
+msgstr "记录卡边框"

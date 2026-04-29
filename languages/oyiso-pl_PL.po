@@ -827,6 +827,27 @@ msgstr "Dzienna liczba losowań na osobę"
 msgid "Per-Person Total Wins"
 msgstr "Łączna liczba wygranych na osobę"
 
+msgid "Enter 0 for no limit."
+msgstr "Wpisz 0, aby wyłączyć limit."
+
+msgid "Once reached, the user can no longer participate in this draw."
+msgstr "Po osiągnięciu limitu użytkownik nie może już brać udziału w tym losowaniu."
+
+msgid "After-Win Restriction"
+msgstr "Ograniczenie po wygranej"
+
+msgid "No Restriction"
+msgstr "Bez ograniczeń"
+
+msgid "Stop for Today Only"
+msgstr "Zatrzymaj tylko na dziś"
+
+msgid "Stop Permanently"
+msgstr "Zatrzymaj na stałe"
+
+msgid "Stop for today: after winning today, the user cannot continue and will automatically recover tomorrow. Stop permanently: after winning, the user cannot participate in this draw again."
+msgstr "Zatrzymaj na dziś: po dzisiejszej wygranej użytkownik nie może kontynuować i odzyska możliwość jutro. Zatrzymaj na stałe: po wygranej użytkownik nie może ponownie brać udziału w tym losowaniu."
+
 msgid "Prize Pool"
 msgstr "Pula nagród"
 
@@ -853,6 +874,9 @@ msgstr "Ustawienia nagród"
 
 msgid "Prize Rules"
 msgstr "Zasady nagród"
+
+msgid "Probability"
+msgstr "Prawdopodobieństwo"
 
 msgid "You have reached the participation limit."
 msgstr "Osiągnięto limit udziałów."
@@ -1270,3 +1294,219 @@ msgstr "Dalsze losowania w tym dniu są niedozwolone"
 
 msgid "Draw Again"
 msgstr "Losuj ponownie"
+
+msgid "Content"
+msgstr "Treść"
+
+msgid "Link"
+msgstr "Link"
+
+msgid "Button Text"
+msgstr "Tekst przycisku"
+
+msgid "Content Alignment"
+msgstr "Wyrównanie treści"
+
+msgid "Card"
+msgstr "Karta"
+
+msgid "Background Color"
+msgstr "Kolor tła"
+
+msgid "Padding"
+msgstr "Wewnętrzny odstęp"
+
+msgid "Text Color"
+msgstr "Kolor tekstu"
+
+msgid "Title Typography"
+msgstr "Typografia tytułu"
+
+msgid "Description Typography"
+msgstr "Typografia opisu"
+
+msgid "Button"
+msgstr "Przycisk"
+
+msgid "Button Typography"
+msgstr "Typografia przycisku"
+
+msgid "Normal"
+msgstr "Normalny"
+
+msgid "Hover"
+msgstr "Po najechaniu"
+
+msgid "Top Spacing"
+msgstr "Górny odstęp"
+
+msgid "Lottery Description"
+msgstr "Opis losowania"
+
+msgid "Lottery Settings"
+msgstr "Ustawienia losowania"
+
+msgid "Set a probability for each rule. When \"Thanks for Participating\" is enabled, any remaining probability will automatically go to it. When disabled, the system will proportionally fill all winning rules up to 100%."
+msgstr "Ustaw prawdopodobieństwo dla każdej reguły. Gdy włączone jest „Dziękujemy za udział”, pozostałe prawdopodobieństwo zostanie przypisane właśnie do niego. Gdy opcja jest wyłączona, system proporcjonalnie uzupełni wszystkie wygrywające reguły do 100%."
+
+msgid "Limited"
+msgstr "Limitowane"
+
+msgid "Total Prize Pool Quantity"
+msgstr "Łączna liczba nagród w puli"
+
+msgid "It decreases by the number of wins. Once exhausted, the draw will stop, but users who have already won can still claim and use their coupon before it expires."
+msgstr "Pula zmniejsza się wraz z liczbą wygranych. Po wyczerpaniu losowanie zostanie zatrzymane, ale użytkownicy, którzy już wygrali, nadal mogą odebrać i wykorzystać kupon przed jego wygaśnięciem."
+
+msgid "Discount Type"
+msgstr "Typ rabatu"
+
+msgid "Fixed Amount"
+msgstr "Stała kwota"
+
+msgid "Rule Type"
+msgstr "Typ reguły"
+
+msgid "Range"
+msgstr "Zakres"
+
+msgid "Single Value"
+msgstr "Pojedyncza wartość"
+
+msgid "Start Value"
+msgstr "Wartość początkowa"
+
+msgid "The start of the range. For percentage discounts, enter the discount percentage. For example, 10 means 10% off."
+msgstr "Początek zakresu. W przypadku rabatów procentowych wpisz wartość procentową zniżki. Na przykład 10 oznacza 10% zniżki."
+
+msgid "End Value"
+msgstr "Wartość końcowa"
+
+msgid "The end of the range. The system will automatically generate all prize values within this range."
+msgstr "Koniec zakresu. System automatycznie wygeneruje wszystkie wartości nagród w tym zakresie."
+
+msgid "Discount Value"
+msgstr "Wartość rabatu"
+
+msgid "The value of a single prize. For percentage discounts, enter the discount percentage. For example, 25 means 25% off."
+msgstr "Wartość pojedynczej nagrody. W przypadku rabatów procentowych wpisz wartość procentową zniżki. Na przykład 25 oznacza 25% zniżki."
+
+msgid "Probability (%)"
+msgstr "Prawdopodobieństwo (%)"
+
+msgid "This is the total probability occupied by this rule. Range rules will distribute this probability evenly across all prizes in the range."
+msgstr "To łączne prawdopodobieństwo przypisane do tej reguły. Reguły zakresu rozdzielą je równomiernie pomiędzy wszystkie nagrody w danym zakresie."
+
+msgid "You can mix ranges and single values. For example, set 10-30 to 30%, and 31-50 to 10%."
+msgstr "Możesz łączyć zakresy i pojedyncze wartości. Na przykład ustaw 10-30 na 30%, a 31-50 na 10%."
+
+msgid "The start of the range. In fixed amount mode, enter the discount amount directly."
+msgstr "Początek zakresu. W trybie stałej kwoty wpisz bezpośrednio wartość rabatu."
+
+msgid "The value of a single prize. In fixed amount mode, enter the discount amount directly, for example 20."
+msgstr "Wartość pojedynczej nagrody. W trybie stałej kwoty wpisz bezpośrednio wartość rabatu, na przykład 20."
+
+msgid "You can mix ranges and single values. For example, set 10-30 to 30%, and 50 to 10%."
+msgstr "Możesz łączyć zakresy i pojedyncze wartości. Na przykład ustaw 10-30 na 30%, a 50 na 10%."
+
+msgid "Thanks for Participating"
+msgstr "Dziękujemy za udział"
+
+msgid "Enable \"Thanks for Participating\""
+msgstr "Włącz „Dziękujemy za udział”"
+
+msgid "When enabled, any remaining probability will automatically go to \"Thanks for Participating\"."
+msgstr "Po włączeniu całe pozostałe prawdopodobieństwo zostanie automatycznie przypisane do „Dziękujemy za udział”."
+
+msgid "Enter 0 for no limit. Once reached, the user can no longer participate in this draw."
+msgstr "Wpisz 0, aby nie ustawiać limitu. Po osiągnięciu tego limitu użytkownik nie będzie mógł dalej brać udziału w tym losowaniu."
+
+msgid "Records Per Tab"
+msgstr "Liczba rekordów na kartę"
+
+msgid "Coupon Settings"
+msgstr "Ustawienia kuponu"
+
+msgid "Coupon Prefix"
+msgstr "Prefiks kuponu"
+
+msgid "Leave empty to hide coupon details"
+msgstr "Pozostaw puste, aby ukryć szczegóły kuponu"
+
+msgid "It will be shown in the draw result dialog and written into the generated coupon."
+msgstr "Treść zostanie pokazana w oknie wyniku losowania i zapisana w wygenerowanym kuponie."
+
+msgid "Valid Days"
+msgstr "Liczba dni ważności"
+
+msgid "Maximum Discount Amount"
+msgstr "Maksymalna kwota rabatu"
+
+msgid "Only applies to percentage coupons."
+msgstr "Dotyczy tylko kuponów procentowych."
+
+msgid "Allow Free Shipping"
+msgstr "Zezwól na darmową wysyłkę"
+
+msgid "Products"
+msgstr "Produkty"
+
+msgid "Categories"
+msgstr "Kategorie"
+
+msgid "Style"
+msgstr "Styl"
+
+msgid "Base Surface"
+msgstr "Bazowa powierzchnia"
+
+msgid "Soft Surface"
+msgstr "Miękka powierzchnia"
+
+msgid "Title and Text"
+msgstr "Tytuł i tekst"
+
+msgid "Title Color"
+msgstr "Kolor tytułu"
+
+msgid "Description Color"
+msgstr "Kolor opisu"
+
+msgid "Body Text Color"
+msgstr "Kolor tekstu głównego"
+
+msgid "Muted Text Color"
+msgstr "Kolor tekstu pomocniczego"
+
+msgid "Status Notice"
+msgstr "Komunikat statusu"
+
+msgid "Notice Background"
+msgstr "Tło komunikatu"
+
+msgid "Notice Text"
+msgstr "Tekst komunikatu"
+
+msgid "Buttons"
+msgstr "Przyciski"
+
+msgid "Primary Button Background"
+msgstr "Tło głównego przycisku"
+
+msgid "Primary Button Text"
+msgstr "Tekst głównego przycisku"
+
+msgid "Secondary Button Background"
+msgstr "Tło drugiego przycisku"
+
+msgid "Secondary Button Text"
+msgstr "Tekst drugiego przycisku"
+
+msgid "Records and Dialogs"
+msgstr "Rekordy i okna dialogowe"
+
+msgid "Record Card Background"
+msgstr "Tło karty rekordu"
+
+msgid "Record Card Border"
+msgstr "Obramowanie karty rekordu"

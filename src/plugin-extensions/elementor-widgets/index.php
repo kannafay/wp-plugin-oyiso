@@ -96,6 +96,58 @@ if (!function_exists('oyiso_t_sprintf')) {
     }
 }
 
+if (!function_exists('oyiso_get_editor_locale')) {
+    function oyiso_get_editor_locale(): string
+    {
+        if (function_exists('get_user_locale')) {
+            $locale = (string) get_user_locale();
+
+            if ($locale !== '') {
+                return $locale;
+            }
+        }
+
+        if (function_exists('determine_locale')) {
+            $locale = (string) determine_locale();
+
+            if ($locale !== '') {
+                return $locale;
+            }
+        }
+
+        return function_exists('get_locale') ? (string) get_locale() : 'en_US';
+    }
+}
+
+if (!function_exists('oyiso_editor_t')) {
+    function oyiso_editor_t(string $english, string $legacy = ''): string
+    {
+        $translated = __($english, 'oyiso');
+
+        if ($translated !== $english) {
+            return $translated;
+        }
+
+        if ($legacy === '') {
+            return $english;
+        }
+
+        $locale = oyiso_get_editor_locale();
+
+        if (stripos($locale, 'en_') === 0 || strtolower($locale) === 'en') {
+            return $english;
+        }
+
+        $legacy_translated = __($legacy, 'oyiso');
+
+        if ($legacy_translated !== $legacy) {
+            return $legacy_translated;
+        }
+
+        return $english;
+    }
+}
+
 if (!function_exists('oyiso_coupon_lottery_normalize_slider_setting')) {
     function oyiso_coupon_lottery_normalize_slider_setting($value, int $min, int $max = 100): array
     {

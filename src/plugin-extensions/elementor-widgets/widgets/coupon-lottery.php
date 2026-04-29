@@ -71,7 +71,7 @@ class Coupon_Lottery extends Widget_Base
 
     public function get_title()
     {
-        return __('Oyiso Coupon Lottery', 'oyiso');
+        return function_exists('oyiso_editor_t') ? oyiso_editor_t('Oyiso Coupon Lottery') : __('Oyiso Coupon Lottery', 'oyiso');
     }
 
     public function get_icon()
@@ -96,19 +96,21 @@ class Coupon_Lottery extends Widget_Base
 
     protected function register_controls()
     {
+        $probability_title = esc_js(oyiso_editor_t('Probability', '概率'));
+
         $this->start_controls_section('content_section', [
-            'label' => __('内容', 'oyiso'),
+            'label' => oyiso_editor_t('Content', '内容'),
             'tab'   => Controls_Manager::TAB_CONTENT,
         ]);
 
         $this->add_control('title', [
-            'label'   => __('标题', 'oyiso'),
+            'label'   => oyiso_editor_t('Title', '标题'),
             'type'    => Controls_Manager::TEXT,
             'default' => $this->get_site_default_text('Coupon Lottery'),
         ]);
 
         $this->add_control('description', [
-            'label'   => __('抽奖说明', 'oyiso'),
+            'label'   => oyiso_editor_t('Lottery Description', '抽奖说明'),
             'type'    => Controls_Manager::TEXTAREA,
             'default' => $this->get_site_default_text('Enter the draw now to unlock this event\'s exclusive offer. If you win, you can claim it right away.'),
         ]);
@@ -116,60 +118,60 @@ class Coupon_Lottery extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('lottery_section', [
-            'label' => __('抽奖设置', 'oyiso'),
+            'label' => oyiso_editor_t('Lottery Settings', '抽奖设置'),
             'tab'   => Controls_Manager::TAB_CONTENT,
         ]);
 
         $this->add_control('lottery_intro', [
             'type'            => Controls_Manager::RAW_HTML,
-            'raw'             => esc_html__('每条规则填写一个概率。开启“谢谢参与”后，剩余概率会自动归入“谢谢参与”；关闭时，系统会把所有中奖规则按比例补足到 100%。', 'oyiso'),
+            'raw'             => esc_html(oyiso_editor_t('Set a probability for each rule. When "Thanks for Participating" is enabled, any remaining probability will automatically go to it. When disabled, the system will proportionally fill all winning rules up to 100%.', '每条规则填写一个概率。开启“谢谢参与”后，剩余概率会自动归入“谢谢参与”；关闭时，系统会把所有中奖规则按比例补足到 100%。')),
             'content_classes' => 'elementor-descriptor',
         ]);
 
         $this->add_control('prize_pool_mode', [
-            'label'   => __('奖池', 'oyiso'),
+            'label'   => oyiso_editor_t('Prize Pool', '奖池'),
             'type'    => Controls_Manager::SELECT,
             'default' => 'unlimited',
             'options' => [
-                'unlimited' => __('不限量', 'oyiso'),
-                'limited'   => __('限量', 'oyiso'),
+                'unlimited' => oyiso_editor_t('Unlimited', '不限量'),
+                'limited'   => oyiso_editor_t('Limited', '限量'),
             ],
         ]);
 
         $this->add_control('prize_pool_limit', [
-            'label'       => __('奖池总张数', 'oyiso'),
+            'label'       => oyiso_editor_t('Total Prize Pool Quantity', '奖池总张数'),
             'type'        => Controls_Manager::NUMBER,
             'default'     => 100,
             'min'         => 1,
-            'description' => __('按中奖次数扣减。抽完后将停止抽奖，但已中奖用户仍可在到期前正常领取和使用。', 'oyiso'),
+            'description' => oyiso_editor_t('It decreases by the number of wins. Once exhausted, the draw will stop, but users who have already won can still claim and use their coupon before it expires.', '按中奖次数扣减。抽完后将停止抽奖，但已中奖用户仍可在到期前正常领取和使用。'),
             'condition'   => [
                 'prize_pool_mode' => 'limited',
             ],
         ]);
 
         $this->add_control('range_type', [
-            'label'   => __('优惠类型', 'oyiso'),
+            'label'   => oyiso_editor_t('Discount Type', '优惠类型'),
             'type'    => Controls_Manager::SELECT,
             'default' => 'percent',
             'options' => [
-                'percent' => __('百分比折扣', 'oyiso'),
-                'amount'  => __('固定金额', 'oyiso'),
+                'percent' => oyiso_editor_t('Percentage Discount', '百分比折扣'),
+                'amount'  => oyiso_editor_t('Fixed Amount', '固定金额'),
             ],
         ]);
 
         $percent_rule_repeater = new Repeater();
         $percent_rule_repeater->add_control('mode', [
-            'label'   => __('规则类型', 'oyiso'),
+            'label'   => oyiso_editor_t('Rule Type', '规则类型'),
             'type'    => Controls_Manager::SELECT,
             'default' => 'range',
             'options' => [
-                'range'  => __('区间', 'oyiso'),
-                'single' => __('单个值', 'oyiso'),
+                'range'  => oyiso_editor_t('Range', '区间'),
+                'single' => oyiso_editor_t('Single Value', '单个值'),
             ],
         ]);
 
         $percent_rule_repeater->add_control('start_percent', [
-            'label'       => __('起始值', 'oyiso'),
+            'label'       => oyiso_editor_t('Start Value', '起始值'),
             'type'        => Controls_Manager::SLIDER,
             'size_units'  => ['%'],
             'default'     => [
@@ -183,14 +185,14 @@ class Coupon_Lottery extends Widget_Base
                     'step' => 1,
                 ],
             ],
-            'description' => __('区间起点。百分比填减免百分比，例如 10 表示减 10%。', 'oyiso'),
+            'description' => oyiso_editor_t('The start of the range. For percentage discounts, enter the discount percentage. For example, 10 means 10% off.', '区间起点。百分比填减免百分比，例如 10 表示减 10%。'),
             'condition' => [
                 'mode' => 'range',
             ],
         ]);
 
         $percent_rule_repeater->add_control('end_percent', [
-            'label'       => __('结束值', 'oyiso'),
+            'label'       => oyiso_editor_t('End Value', '结束值'),
             'type'        => Controls_Manager::SLIDER,
             'size_units'  => ['%'],
             'default'     => [
@@ -204,14 +206,14 @@ class Coupon_Lottery extends Widget_Base
                     'step' => 1,
                 ],
             ],
-            'description' => __('区间终点。系统会自动生成这个范围内的所有奖项。', 'oyiso'),
+            'description' => oyiso_editor_t('The end of the range. The system will automatically generate all prize values within this range.', '区间终点。系统会自动生成这个范围内的所有奖项。'),
             'condition' => [
                 'mode' => 'range',
             ],
         ]);
 
         $percent_rule_repeater->add_control('value_percent', [
-            'label'       => __('折扣值', 'oyiso'),
+            'label'       => oyiso_editor_t('Discount Value', '折扣值'),
             'type'        => Controls_Manager::SLIDER,
             'size_units'  => ['%'],
             'default'     => [
@@ -225,14 +227,14 @@ class Coupon_Lottery extends Widget_Base
                     'step' => 1,
                 ],
             ],
-            'description' => __('单个奖项的值。百分比填减免百分比，例如 25 表示减 25%。', 'oyiso'),
+            'description' => oyiso_editor_t('The value of a single prize. For percentage discounts, enter the discount percentage. For example, 25 means 25% off.', '单个奖项的值。百分比填减免百分比，例如 25 表示减 25%。'),
             'condition'   => [
                 'mode' => 'single',
             ],
         ]);
 
         $percent_rule_repeater->add_control('probability', [
-            'label'       => __('概率（%）', 'oyiso'),
+            'label'       => oyiso_editor_t('Probability (%)', '概率（%）'),
             'type'        => Controls_Manager::SLIDER,
             'size_units'  => ['%'],
             'default'     => [
@@ -246,14 +248,14 @@ class Coupon_Lottery extends Widget_Base
                     'step' => 1,
                 ],
             ],
-            'description' => __('这条规则占用的总概率。区间规则会把这部分概率平均分给区间内每个奖项。', 'oyiso'),
+            'description' => oyiso_editor_t('This is the total probability occupied by this rule. Range rules will distribute this probability evenly across all prizes in the range.', '这条规则占用的总概率。区间规则会把这部分概率平均分给区间内每个奖项。'),
         ]);
 
         $this->add_control('percent_rules', [
-            'label'       => __('奖项规则', 'oyiso'),
+            'label'       => oyiso_editor_t('Prize Rules', '奖项规则'),
             'type'        => Controls_Manager::REPEATER,
             'fields'      => $percent_rule_repeater->get_controls(),
-            'title_field' => '{{{ mode === "range" ? "减" + start_percent.size + "% - 减" + end_percent.size + "%" : "减" + value_percent.size + "%" }}} · 概率 {{{ probability.size }}}%',
+            'title_field' => '{{{ mode === "range" ? start_percent.size + "% - " + end_percent.size + "%" : value_percent.size + "%" }}} · ' . $probability_title . ' {{{ probability.size }}}%',
             'default'     => [
                 [
                     'mode'        => 'range',
@@ -271,7 +273,7 @@ class Coupon_Lottery extends Widget_Base
                     ],
                 ],
             ],
-            'description' => __('可以混合配置区间和单个值。例如 10-30 填 30%，31-50 填 10%。', 'oyiso'),
+            'description' => oyiso_editor_t('You can mix ranges and single values. For example, set 10-30 to 30%, and 31-50 to 10%.', '可以混合配置区间和单个值。例如 10-30 填 30%，31-50 填 10%。'),
             'condition'   => [
                 'range_type' => 'percent',
             ],
@@ -279,53 +281,53 @@ class Coupon_Lottery extends Widget_Base
 
         $amount_rule_repeater = new Repeater();
         $amount_rule_repeater->add_control('mode', [
-            'label'   => __('规则类型', 'oyiso'),
+            'label'   => oyiso_editor_t('Rule Type', '规则类型'),
             'type'    => Controls_Manager::SELECT,
             'default' => 'range',
             'options' => [
-                'range'  => __('区间', 'oyiso'),
-                'single' => __('单个值', 'oyiso'),
+                'range'  => oyiso_editor_t('Range', '区间'),
+                'single' => oyiso_editor_t('Single Value', '单个值'),
             ],
         ]);
 
         $amount_rule_repeater->add_control('start_amount', [
-            'label'       => __('起始值', 'oyiso'),
+            'label'       => oyiso_editor_t('Start Value', '起始值'),
             'type'        => Controls_Manager::NUMBER,
             'default'     => 10,
             'step'        => 0.1,
             'min'         => 0.1,
-            'description' => __('区间起点。固定金额模式下直接填写优惠金额。', 'oyiso'),
+            'description' => oyiso_editor_t('The start of the range. In fixed amount mode, enter the discount amount directly.', '区间起点。固定金额模式下直接填写优惠金额。'),
             'condition'   => [
                 'mode' => 'range',
             ],
         ]);
 
         $amount_rule_repeater->add_control('end_amount', [
-            'label'       => __('结束值', 'oyiso'),
+            'label'       => oyiso_editor_t('End Value', '结束值'),
             'type'        => Controls_Manager::NUMBER,
             'default'     => 50,
             'step'        => 0.1,
             'min'         => 0.1,
-            'description' => __('区间终点。系统会自动生成这个范围内的所有奖项。', 'oyiso'),
+            'description' => oyiso_editor_t('The end of the range. The system will automatically generate all prize values within this range.', '区间终点。系统会自动生成这个范围内的所有奖项。'),
             'condition'   => [
                 'mode' => 'range',
             ],
         ]);
 
         $amount_rule_repeater->add_control('value_amount', [
-            'label'       => __('折扣值', 'oyiso'),
+            'label'       => oyiso_editor_t('Discount Value', '折扣值'),
             'type'        => Controls_Manager::NUMBER,
             'default'     => 20,
             'step'        => 0.1,
             'min'         => 0.1,
-            'description' => __('单个奖项的值。固定金额模式下直接填写优惠金额，例如 20。', 'oyiso'),
+            'description' => oyiso_editor_t('The value of a single prize. In fixed amount mode, enter the discount amount directly, for example 20.', '单个奖项的值。固定金额模式下直接填写优惠金额，例如 20。'),
             'condition'   => [
                 'mode' => 'single',
             ],
         ]);
 
         $amount_rule_repeater->add_control('probability', [
-            'label'       => __('概率（%）', 'oyiso'),
+            'label'       => oyiso_editor_t('Probability (%)', '概率（%）'),
             'type'        => Controls_Manager::SLIDER,
             'size_units'  => ['%'],
             'default'     => [
@@ -339,14 +341,14 @@ class Coupon_Lottery extends Widget_Base
                     'step' => 1,
                 ],
             ],
-            'description' => __('这条规则占用的总概率。区间规则会把这部分概率平均分给区间内每个奖项。', 'oyiso'),
+            'description' => oyiso_editor_t('This is the total probability occupied by this rule. Range rules will distribute this probability evenly across all prizes in the range.', '这条规则占用的总概率。区间规则会把这部分概率平均分给区间内每个奖项。'),
         ]);
 
         $this->add_control('amount_rules', [
-            'label'       => __('奖项规则', 'oyiso'),
+            'label'       => oyiso_editor_t('Prize Rules', '奖项规则'),
             'type'        => Controls_Manager::REPEATER,
             'fields'      => $amount_rule_repeater->get_controls(),
-            'title_field' => '{{{ mode === "range" ? start_amount + " - " + end_amount : value_amount }}} · 概率 {{{ probability.size }}}%',
+            'title_field' => '{{{ mode === "range" ? start_amount + " - " + end_amount : value_amount }}} · ' . $probability_title . ' {{{ probability.size }}}%',
             'default'     => [
                 [
                     'mode'         => 'range',
@@ -358,89 +360,89 @@ class Coupon_Lottery extends Widget_Base
                     ],
                 ],
             ],
-            'description' => __('可以混合配置区间和单个值。例如 10-30 填 30%，50 填 10%。', 'oyiso'),
+            'description' => oyiso_editor_t('You can mix ranges and single values. For example, set 10-30 to 30%, and 50 to 10%.', '可以混合配置区间和单个值。例如 10-30 填 30%，50 填 10%。'),
             'condition'   => [
                 'range_type' => 'amount',
             ],
         ]);
 
         $this->add_control('thanks_heading', [
-            'label'     => __('谢谢参与', 'oyiso'),
+            'label'     => oyiso_editor_t('Thanks for Participating', '谢谢参与'),
             'type'      => Controls_Manager::HEADING,
             'separator' => 'before',
         ]);
 
         $this->add_control('enable_thanks', [
-            'label'        => __('启用“谢谢参与”', 'oyiso'),
+            'label'        => oyiso_editor_t('Enable "Thanks for Participating"', '启用“谢谢参与”'),
             'type'         => Controls_Manager::SWITCHER,
-            'label_on'     => __('是', 'oyiso'),
-            'label_off'    => __('否', 'oyiso'),
+            'label_on'     => oyiso_editor_t('Yes', '是'),
+            'label_off'    => oyiso_editor_t('No', '否'),
             'return_value' => 'yes',
             'default'      => 'yes',
-            'description'  => __('启用后，剩余概率会自动归入“谢谢参与”。', 'oyiso'),
+            'description'  => oyiso_editor_t('When enabled, any remaining probability will automatically go to "Thanks for Participating".', '启用后，剩余概率会自动归入“谢谢参与”。'),
         ]);
 
         $this->end_controls_section();
 
         $this->start_controls_section('rules_section', [
-            'label' => __('参与规则', 'oyiso'),
+            'label' => oyiso_editor_t('Participation Rules', '参与规则'),
             'tab'   => Controls_Manager::TAB_CONTENT,
         ]);
 
         $this->add_control('rules_notice', [
             'type'            => Controls_Manager::RAW_HTML,
-            'raw'             => esc_html__('This lottery is only available to logged-in users.', 'oyiso'),
+            'raw'             => esc_html(oyiso_editor_t('This lottery is only available to logged-in users.')),
             'content_classes' => 'elementor-descriptor',
         ]);
 
         $this->add_control('total_limit', [
-            'label'       => __('每人总次数', 'oyiso'),
+            'label'       => oyiso_editor_t('Per-Person Total Draws', '每人总次数'),
             'type'        => Controls_Manager::NUMBER,
             'default'     => 1,
             'min'         => 0,
-            'description' => __('填 0 表示不限制。', 'oyiso'),
+            'description' => oyiso_editor_t('Enter 0 for no limit.', '填 0 表示不限制。'),
         ]);
 
         $this->add_control('daily_limit', [
-            'label'       => __('每人每日次数', 'oyiso'),
+            'label'       => oyiso_editor_t('Per-Person Daily Draws', '每人每日次数'),
             'type'        => Controls_Manager::NUMBER,
             'default'     => 0,
             'min'         => 0,
-            'description' => __('填 0 表示不限制。', 'oyiso'),
+            'description' => oyiso_editor_t('Enter 0 for no limit.', '填 0 表示不限制。'),
         ]);
 
         $this->add_control('win_limit', [
-            'label'       => __('每人总中奖次数', 'oyiso'),
+            'label'       => oyiso_editor_t('Per-Person Total Wins', '每人总中奖次数'),
             'type'        => Controls_Manager::NUMBER,
             'default'     => 1,
             'min'         => 0,
-            'description' => __('填 0 表示不限制。达到后将不能继续参与当前抽奖。', 'oyiso'),
+            'description' => oyiso_editor_t('Enter 0 for no limit. Once reached, the user can no longer participate in this draw.', '填 0 表示不限制。达到后将不能继续参与当前抽奖。'),
         ]);
 
         $this->add_control('win_after_mode', [
-            'label'       => __('中奖后限制', 'oyiso'),
+            'label'       => oyiso_editor_t('After-Win Restriction', '中奖后限制'),
             'type'        => Controls_Manager::SELECT,
             'default'     => 'none',
             'options'     => [
-                'none'              => __('不限制', 'oyiso'),
-                'daily_after_win'   => __('仅停止当天', 'oyiso'),
-                'forever_after_win' => __('永久停止', 'oyiso'),
+                'none'              => oyiso_editor_t('No Restriction', '不限制'),
+                'daily_after_win'   => oyiso_editor_t('Stop for Today Only', '仅停止当天'),
+                'forever_after_win' => oyiso_editor_t('Stop Permanently', '永久停止'),
             ],
-            'description' => __('当天停止：当天中奖后不可继续参与，次日自动恢复；永久停止：中奖后不可再次参与当前抽奖。', 'oyiso'),
+            'description' => oyiso_editor_t('Stop for today: after winning today, the user cannot continue and will automatically recover tomorrow. Stop permanently: after winning, the user cannot participate in this draw again.', '当天停止：当天中奖后不可继续参与，次日自动恢复；永久停止：中奖后不可再次参与当前抽奖。'),
         ]);
 
         $this->add_control('start_at', [
-            'label' => __('开始时间', 'oyiso'),
+            'label' => oyiso_editor_t('Start Time', '开始时间'),
             'type'  => Controls_Manager::DATE_TIME,
         ]);
 
         $this->add_control('end_at', [
-            'label' => __('结束时间', 'oyiso'),
+            'label' => oyiso_editor_t('End Time', '结束时间'),
             'type'  => Controls_Manager::DATE_TIME,
         ]);
 
         $this->add_control('records_per_tab', [
-            'label'   => __('记录数量', 'oyiso'),
+            'label'   => oyiso_editor_t('Records Per Tab', '记录数量'),
             'type'    => Controls_Manager::NUMBER,
             'default' => 20,
             'min'     => 1,
@@ -450,84 +452,84 @@ class Coupon_Lottery extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('coupon_section', [
-            'label' => __('优惠券参数', 'oyiso'),
+            'label' => oyiso_editor_t('Coupon Settings', '优惠券参数'),
             'tab'   => Controls_Manager::TAB_CONTENT,
         ]);
 
         $this->add_control('coupon_template_notice', [
             'type'            => Controls_Manager::RAW_HTML,
-            'raw'             => esc_html__('All winning tiers share the same WooCommerce coupon settings. The coupon is generated only after the winner clicks claim.', 'oyiso'),
+            'raw'             => esc_html(oyiso_editor_t('All winning tiers share the same WooCommerce coupon settings. The coupon is generated only after the winner clicks claim.')),
             'content_classes' => 'elementor-descriptor',
         ]);
 
         $this->add_control('coupon_prefix', [
-            'label'   => __('优惠券前缀', 'oyiso'),
+            'label'   => oyiso_editor_t('Coupon Prefix', '优惠券前缀'),
             'type'    => Controls_Manager::TEXT,
             'default' => 'OYL',
         ]);
 
         $this->add_control('coupon_description', [
-            'label'       => __('优惠券详情', 'oyiso'),
+            'label'       => oyiso_editor_t('Coupon Details', '优惠券详情'),
             'type'        => Controls_Manager::TEXTAREA,
-            'placeholder' => __('留空则不展示优惠券详情', 'oyiso'),
-            'description' => __('会显示在抽奖结果弹窗中，并写入生成的优惠券。', 'oyiso'),
+            'placeholder' => oyiso_editor_t('Leave empty to hide coupon details', '留空则不展示优惠券详情'),
+            'description' => oyiso_editor_t('It will be shown in the draw result dialog and written into the generated coupon.', '会显示在抽奖结果弹窗中，并写入生成的优惠券。'),
         ]);
 
         $this->add_control('expiry_days', [
-            'label'   => __('有效天数', 'oyiso'),
+            'label'   => oyiso_editor_t('Valid Days', '有效天数'),
             'type'    => Controls_Manager::NUMBER,
             'default' => 7,
             'min'     => 0,
         ]);
 
         $this->add_control('minimum_amount', [
-            'label' => __('最低消费', 'oyiso'),
+            'label' => oyiso_editor_t('Minimum Spend', '最低消费'),
             'type'  => Controls_Manager::NUMBER,
             'step'  => 0.01,
             'min'   => 0,
         ]);
 
         $this->add_control('maximum_amount', [
-            'label' => __('最高消费', 'oyiso'),
+            'label' => oyiso_editor_t('Maximum Spend', '最高消费'),
             'type'  => Controls_Manager::NUMBER,
             'step'  => 0.01,
             'min'   => 0,
         ]);
 
         $this->add_control('maximum_discount', [
-            'label'       => __('最高折扣金额', 'oyiso'),
+            'label'       => oyiso_editor_t('Maximum Discount Amount', '最高折扣金额'),
             'type'        => Controls_Manager::NUMBER,
             'step'        => 0.01,
             'min'         => 0,
-            'description' => __('仅百分比优惠券生效。', 'oyiso'),
+            'description' => oyiso_editor_t('Only applies to percentage coupons.', '仅百分比优惠券生效。'),
             'condition'   => [
                 'range_type' => 'percent',
             ],
         ]);
 
         $this->add_control('individual_use', [
-            'label'        => __('仅限单独使用', 'oyiso'),
+            'label'        => oyiso_editor_t('Individual Use Only', '仅限单独使用'),
             'type'         => Controls_Manager::SWITCHER,
             'return_value' => 'yes',
             'default'      => 'yes',
         ]);
 
         $this->add_control('exclude_sale_items', [
-            'label'        => __('排除特价商品', 'oyiso'),
+            'label'        => oyiso_editor_t('Exclude Sale Items', '排除特价商品'),
             'type'         => Controls_Manager::SWITCHER,
             'return_value' => 'yes',
             'default'      => '',
         ]);
 
         $this->add_control('free_shipping', [
-            'label'        => __('允许免运费', 'oyiso'),
+            'label'        => oyiso_editor_t('Allow Free Shipping', '允许免运费'),
             'type'         => Controls_Manager::SWITCHER,
             'return_value' => 'yes',
             'default'      => '',
         ]);
 
         $this->add_control('product_ids', [
-            'label'       => __('指定商品', 'oyiso'),
+            'label'       => oyiso_editor_t('Products', '指定商品'),
             'type'        => Controls_Manager::SELECT2,
             'multiple'    => true,
             'label_block' => true,
@@ -535,7 +537,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('excluded_product_ids', [
-            'label'       => __('排除商品', 'oyiso'),
+            'label'       => oyiso_editor_t('Excluded Products', '排除商品'),
             'type'        => Controls_Manager::SELECT2,
             'multiple'    => true,
             'label_block' => true,
@@ -543,7 +545,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('category_ids', [
-            'label'       => __('指定分类', 'oyiso'),
+            'label'       => oyiso_editor_t('Categories', '指定分类'),
             'type'        => Controls_Manager::SELECT2,
             'multiple'    => true,
             'label_block' => true,
@@ -551,7 +553,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('excluded_category_ids', [
-            'label'       => __('排除分类', 'oyiso'),
+            'label'       => oyiso_editor_t('Excluded Categories', '排除分类'),
             'type'        => Controls_Manager::SELECT2,
             'multiple'    => true,
             'label_block' => true,
@@ -561,12 +563,12 @@ class Coupon_Lottery extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('style_section', [
-            'label' => __('样式', 'oyiso'),
+            'label' => oyiso_editor_t('Style', '样式'),
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_control('accent_color', [
-            'label'     => __('强调色', 'oyiso'),
+            'label'     => oyiso_editor_t('Accent Color', '强调色'),
             'type'      => Controls_Manager::COLOR,
             'default'   => '#e5702a',
             'selectors' => [
@@ -575,7 +577,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('panel_background', [
-            'label'     => __('背景颜色', 'oyiso'),
+            'label'     => oyiso_editor_t('Background Color', '背景颜色'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-panel-bg: {{VALUE}};',
@@ -583,7 +585,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('surface_color', [
-            'label'     => __('基础底色', 'oyiso'),
+            'label'     => oyiso_editor_t('Base Surface', '基础底色'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-surface: {{VALUE}};',
@@ -591,7 +593,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('surface_soft_color', [
-            'label'     => __('浅色底色', 'oyiso'),
+            'label'     => oyiso_editor_t('Soft Surface', '浅色底色'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-surface-soft: {{VALUE}};',
@@ -599,7 +601,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('line_color', [
-            'label'     => __('边线颜色', 'oyiso'),
+            'label'     => oyiso_editor_t('Border Color', '边线颜色'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-line: {{VALUE}};',
@@ -612,7 +614,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_responsive_control('panel_radius', [
-            'label'      => __('圆角', 'oyiso'),
+            'label'      => oyiso_editor_t('Corner Radius', '圆角'),
             'type'       => Controls_Manager::DIMENSIONS,
             'size_units' => ['px', '%', 'em', 'rem'],
             'selectors'  => [
@@ -621,7 +623,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_responsive_control('panel_padding', [
-            'label'      => __('内边距', 'oyiso'),
+            'label'      => oyiso_editor_t('Padding', '内边距'),
             'type'       => Controls_Manager::DIMENSIONS,
             'size_units' => ['px', '%', 'em', 'rem'],
             'selectors'  => [
@@ -635,13 +637,13 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('text_heading', [
-            'label'     => __('标题与文字', 'oyiso'),
+            'label'     => oyiso_editor_t('Title and Text', '标题与文字'),
             'type'      => Controls_Manager::HEADING,
             'separator' => 'before',
         ]);
 
         $this->add_control('title_color', [
-            'label'     => __('标题颜色', 'oyiso'),
+            'label'     => oyiso_editor_t('Title Color', '标题颜色'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-title-color: {{VALUE}};',
@@ -654,7 +656,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('description_color', [
-            'label'     => __('说明颜色', 'oyiso'),
+            'label'     => oyiso_editor_t('Description Color', '说明颜色'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-description-color: {{VALUE}};',
@@ -667,7 +669,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('text_color', [
-            'label'     => __('正文颜色', 'oyiso'),
+            'label'     => oyiso_editor_t('Body Text Color', '正文颜色'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-text-strong: {{VALUE}};',
@@ -675,7 +677,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('muted_text_color', [
-            'label'     => __('辅助文字颜色', 'oyiso'),
+            'label'     => oyiso_editor_t('Muted Text Color', '辅助文字颜色'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-text-muted: {{VALUE}};',
@@ -683,13 +685,13 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('status_heading', [
-            'label'     => __('状态提示', 'oyiso'),
+            'label'     => oyiso_editor_t('Status Notice', '状态提示'),
             'type'      => Controls_Manager::HEADING,
             'separator' => 'before',
         ]);
 
         $this->add_control('status_background_color', [
-            'label'     => __('提示背景', 'oyiso'),
+            'label'     => oyiso_editor_t('Notice Background', '提示背景'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-status-bg: {{VALUE}};',
@@ -697,7 +699,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('status_text_color', [
-            'label'     => __('提示文字', 'oyiso'),
+            'label'     => oyiso_editor_t('Notice Text', '提示文字'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-status-color: {{VALUE}};',
@@ -705,13 +707,13 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('button_heading', [
-            'label'     => __('按钮', 'oyiso'),
+            'label'     => oyiso_editor_t('Buttons', '按钮'),
             'type'      => Controls_Manager::HEADING,
             'separator' => 'before',
         ]);
 
         $this->add_control('primary_button_background', [
-            'label'     => __('主按钮背景', 'oyiso'),
+            'label'     => oyiso_editor_t('Primary Button Background', '主按钮背景'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-primary-bg: {{VALUE}}; --oyiso-lottery-primary-border: {{VALUE}};',
@@ -719,7 +721,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('primary_button_text', [
-            'label'     => __('主按钮文字', 'oyiso'),
+            'label'     => oyiso_editor_t('Primary Button Text', '主按钮文字'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-primary-text: {{VALUE}};',
@@ -727,7 +729,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('secondary_button_background', [
-            'label'     => __('次按钮背景', 'oyiso'),
+            'label'     => oyiso_editor_t('Secondary Button Background', '次按钮背景'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-secondary-bg: {{VALUE}};',
@@ -735,7 +737,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('secondary_button_text', [
-            'label'     => __('次按钮文字', 'oyiso'),
+            'label'     => oyiso_editor_t('Secondary Button Text', '次按钮文字'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-secondary-text: {{VALUE}};',
@@ -743,13 +745,13 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('record_heading', [
-            'label'     => __('记录与弹窗', 'oyiso'),
+            'label'     => oyiso_editor_t('Records and Dialogs', '记录与弹窗'),
             'type'      => Controls_Manager::HEADING,
             'separator' => 'before',
         ]);
 
         $this->add_control('record_background_color', [
-            'label'     => __('记录卡背景', 'oyiso'),
+            'label'     => oyiso_editor_t('Record Card Background', '记录卡背景'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-record-bg: {{VALUE}};',
@@ -757,7 +759,7 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('record_border_color', [
-            'label'     => __('记录卡边框', 'oyiso'),
+            'label'     => oyiso_editor_t('Record Card Border', '记录卡边框'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => '--oyiso-lottery-record-border: {{VALUE}};',

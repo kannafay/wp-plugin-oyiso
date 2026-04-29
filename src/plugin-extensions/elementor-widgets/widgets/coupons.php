@@ -73,7 +73,7 @@ class Coupons extends Widget_Base
 
     public function get_title()
     {
-        return __('Oyiso Coupons', 'oyiso');
+        return function_exists('oyiso_editor_t') ? oyiso_editor_t('Oyiso Coupons') : __('Oyiso Coupons', 'oyiso');
     }
 
     public function get_icon()
@@ -99,12 +99,12 @@ class Coupons extends Widget_Base
     protected function register_controls()
     {
         $this->start_controls_section('banner_section', [
-            'label' => __('Banner', 'oyiso'),
+            'label' => oyiso_editor_t('Banner'),
             'tab'   => Controls_Manager::TAB_CONTENT,
         ]);
 
         $this->add_control('banner_background', [
-            'label'   => __('Banner Background', 'oyiso'),
+            'label'   => oyiso_editor_t('Banner Background'),
             'type'    => Controls_Manager::SELECT,
             'default' => 'none',
             'options' => $this->get_banner_background_options(),
@@ -112,7 +112,7 @@ class Coupons extends Widget_Base
 
         $this->add_group_control(Group_Control_Background::get_type(), [
             'name'           => 'banner_custom_background',
-            'label'          => __('Custom Background', 'oyiso'),
+            'label'          => oyiso_editor_t('Custom Background'),
             'types'          => ['classic', 'gradient'],
             'selector'       => '{{WRAPPER}} .oyiso-coupons__banner',
             'condition'      => [
@@ -120,11 +120,11 @@ class Coupons extends Widget_Base
             ],
             'fields_options' => [
                 'background' => [
-                    'label'   => __('Background Type', 'oyiso'),
+                    'label'   => oyiso_editor_t('Background Type'),
                     'default' => 'classic',
                 ],
                 'image'      => [
-                    'label' => __('Image', 'oyiso'),
+                    'label' => oyiso_editor_t('Image'),
                 ],
                 'position'   => [
                     'default' => 'center center',
@@ -149,19 +149,19 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_control('banner_kicker', [
-            'label'   => __('Intro Label', 'oyiso'),
+            'label'   => oyiso_editor_t('Intro Label'),
             'type'    => Controls_Manager::TEXT,
             'default' => $this->get_site_default_text('Featured Offers'),
         ]);
 
         $this->add_control('banner_title', [
-            'label'   => __('Title', 'oyiso'),
+            'label'   => oyiso_editor_t('Title'),
             'type'    => Controls_Manager::TEXT,
             'default' => $this->get_site_default_text('Limited-Time Offers'),
         ]);
 
         $this->add_control('banner_description', [
-            'label'   => __('Description', 'oyiso'),
+            'label'   => oyiso_editor_t('Description'),
             'type'    => Controls_Manager::TEXTAREA,
             'default' => $this->get_site_default_text('Browse current offers and quickly find the best savings for your order.'),
         ]);
@@ -169,21 +169,21 @@ class Coupons extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('coupons_section', [
-            'label' => __('Coupon Groups', 'oyiso'),
+            'label' => oyiso_editor_t('Coupon Groups'),
             'tab'   => Controls_Manager::TAB_CONTENT,
         ]);
 
         $repeater = new Repeater();
 
         $repeater->add_control('group_name', [
-            'label'       => __('Group Name', 'oyiso'),
+            'label'       => oyiso_editor_t('Group Name'),
             'type'        => Controls_Manager::TEXT,
             'default'     => $this->get_site_default_text('Featured Offers'),
             'placeholder' => $this->get_site_default_text('e.g. Featured Offers'),
         ]);
 
         $repeater->add_control('coupon_ids', [
-            'label'       => __('Select Coupons', 'oyiso'),
+            'label'       => oyiso_editor_t('Select Coupons'),
             'type'        => Controls_Manager::SELECT2,
             'multiple'    => true,
             'label_block' => true,
@@ -191,13 +191,13 @@ class Coupons extends Widget_Base
         ]);
 
         $repeater->add_control('group_color', [
-            'label'   => __('Group Color', 'oyiso'),
+            'label'   => oyiso_editor_t('Group Color'),
             'type'    => Controls_Manager::COLOR,
             'default' => '',
         ]);
 
         $repeater->add_control('group_icon', [
-            'label'   => __('Group Icon', 'oyiso'),
+            'label'   => oyiso_editor_t('Group Icon'),
             'type'    => Controls_Manager::ICONS,
             'default' => [
                 'value'   => 'fas fa-ticket-alt',
@@ -206,7 +206,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_control('coupon_groups', [
-            'label'       => __('Group List', 'oyiso'),
+            'label'       => oyiso_editor_t('Group List'),
             'type'        => Controls_Manager::REPEATER,
             'fields'      => $repeater->get_controls(),
             'title_field' => '{{{ group_name }}}',
@@ -221,41 +221,41 @@ class Coupons extends Widget_Base
 
         $this->add_control('coupon_group_notice', [
             'type'            => Controls_Manager::RAW_HTML,
-            'raw'             => __('The frontend adds an "All" tab automatically. If a coupon appears in multiple groups, it will show only in the first matching group.', 'oyiso'),
+            'raw'             => oyiso_editor_t('The frontend adds an "All" tab automatically. If a coupon appears in multiple groups, it will show only in the first matching group.'),
             'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
         ]);
 
         $this->end_controls_section();
 
         $this->start_controls_section('style_basic_section', [
-            'label' => __('General', 'oyiso'),
+            'label' => oyiso_editor_t('General'),
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_control('theme_mode', [
-            'label'        => __('Theme', 'oyiso'),
+            'label'        => oyiso_editor_t('Theme'),
             'type'         => Controls_Manager::SELECT,
             'default'      => 'light',
             'options'      => [
-                'light' => __('Light Theme', 'oyiso'),
-                'dark'  => __('Dark Theme', 'oyiso'),
+                'light' => oyiso_editor_t('Light Theme'),
+                'dark'  => oyiso_editor_t('Dark Theme'),
             ],
             'prefix_class' => 'oyiso-coupons-theme-',
         ]);
 
         $this->add_control('accent_color', [
-            'label'       => __('Accent Color', 'oyiso'),
+            'label'       => oyiso_editor_t('Accent Color'),
             'type'        => Controls_Manager::COLOR,
             'default'     => '#e5702a',
             'placeholder' => '#e5702a',
-            'description' => __('Used for the "All" tab, dialog links, and as the fallback when a group has no custom color. Group colors override this setting.', 'oyiso'),
+            'description' => oyiso_editor_t('Used for the "All" tab, dialog links, and as the fallback when a group has no custom color. Group colors override this setting.'),
             'selectors'   => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupon-accent: {{VALUE}};',
             ],
         ]);
 
         $this->add_control('dark_color', [
-            'label'     => __('Primary Text Color', 'oyiso'),
+            'label'     => oyiso_editor_t('Primary Text Color'),
             'type'      => Controls_Manager::COLOR,
             'default'   => '#1f2937',
             'placeholder' => '#1f2937',
@@ -265,7 +265,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_control('line_color', [
-            'label'     => __('Border Color', 'oyiso'),
+            'label'     => oyiso_editor_t('Border Color'),
             'type'      => Controls_Manager::COLOR,
             'default'   => '#e7e2dc',
             'placeholder' => '#e7e2dc',
@@ -275,7 +275,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('section_gap', [
-            'label'      => __('Section Spacing', 'oyiso'),
+            'label'      => oyiso_editor_t('Section Spacing'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -300,12 +300,12 @@ class Coupons extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('style_banner_section', [
-            'label' => __('Banner', 'oyiso'),
+            'label' => oyiso_editor_t('Banner'),
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_responsive_control('banner_min_height', [
-            'label'          => __('Height', 'oyiso'),
+            'label'          => oyiso_editor_t('Height'),
             'type'           => Controls_Manager::SLIDER,
             'size_units'     => ['px'],
             'range'          => [
@@ -340,7 +340,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('banner_padding', [
-            'label'          => __('Inner Padding', 'oyiso'),
+            'label'          => oyiso_editor_t('Inner Padding'),
             'type'           => Controls_Manager::SLIDER,
             'size_units'     => ['px'],
             'range'          => [
@@ -375,20 +375,20 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('banner_horizontal_align', [
-            'label'                => __('Horizontal Alignment', 'oyiso'),
+            'label'                => oyiso_editor_t('Horizontal Alignment'),
             'type'                 => Controls_Manager::CHOOSE,
             'default'              => 'left',
             'options'              => [
                 'left'   => [
-                    'title' => __('Left', 'oyiso'),
+                    'title' => oyiso_editor_t('Left'),
                     'icon'  => 'eicon-text-align-left',
                 ],
                 'center' => [
-                    'title' => __('Center', 'oyiso'),
+                    'title' => oyiso_editor_t('Center'),
                     'icon'  => 'eicon-text-align-center',
                 ],
                 'right'  => [
-                    'title' => __('Right', 'oyiso'),
+                    'title' => oyiso_editor_t('Right'),
                     'icon'  => 'eicon-text-align-right',
                 ],
             ],
@@ -404,20 +404,20 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('banner_vertical_align', [
-            'label'                => __('Vertical Alignment', 'oyiso'),
+            'label'                => oyiso_editor_t('Vertical Alignment'),
             'type'                 => Controls_Manager::CHOOSE,
             'default'              => 'bottom',
             'options'              => [
                 'top'    => [
-                    'title' => __('Top', 'oyiso'),
+                    'title' => oyiso_editor_t('Top'),
                     'icon'  => 'eicon-v-align-top',
                 ],
                 'middle' => [
-                    'title' => __('Center', 'oyiso'),
+                    'title' => oyiso_editor_t('Center'),
                     'icon'  => 'eicon-v-align-middle',
                 ],
                 'bottom' => [
-                    'title' => __('Bottom', 'oyiso'),
+                    'title' => oyiso_editor_t('Bottom'),
                     'icon'  => 'eicon-v-align-bottom',
                 ],
             ],
@@ -433,7 +433,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('banner_radius', [
-            'label'      => __('Corner Radius', 'oyiso'),
+            'label'      => oyiso_editor_t('Corner Radius'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -456,7 +456,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('banner_title_size', [
-            'label'          => __('Title Size', 'oyiso'),
+            'label'          => oyiso_editor_t('Title Size'),
             'type'           => Controls_Manager::SLIDER,
             'size_units'     => ['px'],
             'range'          => [
@@ -491,7 +491,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('banner_description_size', [
-            'label'      => __('Description Size', 'oyiso'),
+            'label'      => oyiso_editor_t('Description Size'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -528,20 +528,20 @@ class Coupons extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('style_tabs_section', [
-            'label' => __('Tabs', 'oyiso'),
+            'label' => oyiso_editor_t('Tabs'),
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_control('tabs_style_preset', [
-            'label'                => __('Style Preset', 'oyiso'),
+            'label'                => oyiso_editor_t('Style Preset'),
             'type'                 => Controls_Manager::SELECT,
             'default'              => 'default',
             'options'              => [
-                'default'   => __('Dot Accent', 'oyiso'),
-                'pills'     => __('Pill Tabs', 'oyiso'),
-                'segmented' => __('Segmented Tabs', 'oyiso'),
-                'underline' => __('Underline', 'oyiso'),
-                'minimal'   => __('Text Only', 'oyiso'),
+                'default'   => oyiso_editor_t('Dot Accent'),
+                'pills'     => oyiso_editor_t('Pill Tabs'),
+                'segmented' => oyiso_editor_t('Segmented Tabs'),
+                'underline' => oyiso_editor_t('Underline'),
+                'minimal'   => oyiso_editor_t('Text Only'),
             ],
             'prefix_class'         => 'oyiso-coupons-tabs-style-',
             'selectors_dictionary' => [
@@ -557,7 +557,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('tabs_layout', [
-            'label'                => __('Layout', 'oyiso'),
+            'label'                => oyiso_editor_t('Layout'),
             'type'                 => Controls_Manager::SELECT,
             'default'              => 'wrap',
             'tablet_default'       => 'wrap',
@@ -572,10 +572,10 @@ class Coupons extends Widget_Base
                 ],
             ],
             'options'              => [
-                'wrap'   => __('Wrap', 'oyiso'),
-                'grid_1' => __('1 Column Grid', 'oyiso'),
-                'grid_2' => __('2 Column Grid', 'oyiso'),
-                'grid_3' => __('3 Column Grid', 'oyiso'),
+                'wrap'   => oyiso_editor_t('Wrap'),
+                'grid_1' => oyiso_editor_t('1 Column Grid'),
+                'grid_2' => oyiso_editor_t('2 Column Grid'),
+                'grid_3' => oyiso_editor_t('3 Column Grid'),
             ],
             'selectors_dictionary' => [
                 'wrap'   => '--oyiso-tabs-display: flex; --oyiso-tabs-columns: none; --oyiso-tabs-wrap: wrap; --oyiso-tabs-segmented-width: fit-content;',
@@ -589,7 +589,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('tabs_gap', [
-            'label'      => __('Tab Gap', 'oyiso'),
+            'label'      => oyiso_editor_t('Tab Gap'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -612,7 +612,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('tabs_bottom_spacing', [
-            'label'      => __('Bottom Spacing', 'oyiso'),
+            'label'      => oyiso_editor_t('Bottom Spacing'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -635,7 +635,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('tab_min_height', [
-            'label'      => __('Button Height', 'oyiso'),
+            'label'      => oyiso_editor_t('Button Height'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -658,7 +658,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('tab_radius', [
-            'label'      => __('Button Radius', 'oyiso'),
+            'label'      => oyiso_editor_t('Button Radius'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -681,7 +681,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('tab_font_size', [
-            'label'      => __('Text Size', 'oyiso'),
+            'label'      => oyiso_editor_t('Text Size'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -706,12 +706,12 @@ class Coupons extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('style_coupon_section', [
-            'label' => __('Coupon Cards', 'oyiso'),
+            'label' => oyiso_editor_t('Coupon Cards'),
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_control('card_background_color', [
-            'label'     => __('Card Background', 'oyiso'),
+            'label'     => oyiso_editor_t('Card Background'),
             'type'      => Controls_Manager::COLOR,
             'default'   => '#ffffff',
             'placeholder' => '#ffffff',
@@ -721,7 +721,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('coupon_grid_gap', [
-            'label'      => __('Card Gap', 'oyiso'),
+            'label'      => oyiso_editor_t('Card Gap'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -744,7 +744,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('card_radius', [
-            'label'      => __('Card Radius', 'oyiso'),
+            'label'      => oyiso_editor_t('Card Radius'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -768,7 +768,7 @@ class Coupons extends Widget_Base
 
         $this->add_group_control(Group_Control_Box_Shadow::get_type(), [
             'name'           => 'card_box_shadow',
-            'label'          => __('Card Shadow', 'oyiso'),
+            'label'          => oyiso_editor_t('Card Shadow'),
             'selector'       => '{{WRAPPER}} .oyiso-coupon-card',
             'fields_options' => [
                 'box_shadow_type' => [
@@ -787,7 +787,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('card_content_padding', [
-            'label'      => __('Content Padding', 'oyiso'),
+            'label'      => oyiso_editor_t('Content Padding'),
             'type'       => Controls_Manager::DIMENSIONS,
             'size_units' => ['px'],
             'default'    => [
@@ -810,7 +810,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('card_discount_size', [
-            'label'      => __('Amount Size', 'oyiso'),
+            'label'      => oyiso_editor_t('Amount Size'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -833,7 +833,7 @@ class Coupons extends Widget_Base
         ]);
 
         $this->add_responsive_control('card_text_size', [
-            'label'      => __('Body Text Size', 'oyiso'),
+            'label'      => oyiso_editor_t('Body Text Size'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px'],
             'range'      => [
@@ -861,8 +861,8 @@ class Coupons extends Widget_Base
     private function get_banner_background_options()
     {
         $options = [
-            'none' => __('None', 'oyiso'),
-            'auto' => __('Custom Image', 'oyiso'),
+            'none' => oyiso_editor_t('None'),
+            'auto' => oyiso_editor_t('Custom Image'),
         ];
 
         foreach ($this->get_banner_background_presets() as $key => $preset) {
@@ -876,16 +876,16 @@ class Coupons extends Widget_Base
     {
         return [
             'cosmic_sale' => [
-                'label' => __('Cosmic Rewards', 'oyiso'),
+                'label' => oyiso_editor_t('Cosmic Rewards'),
             ],
             'ocean_treasure' => [
-                'label' => __('Ocean Treasure', 'oyiso'),
+                'label' => oyiso_editor_t('Ocean Treasure'),
             ],
             'diamond_vault' => [
-                'label' => __('Diamond Vault', 'oyiso'),
+                'label' => oyiso_editor_t('Diamond Vault'),
             ],
             'mall_parade' => [
-                'label' => __('Mall Parade', 'oyiso'),
+                'label' => oyiso_editor_t('Mall Parade'),
             ],
         ];
     }
