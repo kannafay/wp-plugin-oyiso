@@ -671,6 +671,9 @@ msgstr "Pozostaw puste, aby automatycznie użyć komunikatu o wygranej"
 msgid "Please enable WooCommerce first."
 msgstr "Najpierw włącz WooCommerce."
 
+msgid "Enter the draw now to unlock this event's exclusive offer. If you win, you can claim it right away."
+msgstr "Weź udział w losowaniu już teraz i odblokuj ekskluzyjną ofertę tej akcji. Jeśli wygrasz, możesz odebrać ją od razu."
+
 msgid "Please log in before joining the draw."
 msgstr "Zaloguj się, aby wziąć udział w losowaniu."
 
@@ -681,10 +684,19 @@ msgid "Today's remaining: %d"
 msgstr "Pozostała liczba Twoich losowań dzisiaj: %d"
 
 msgid "Your remaining draws: %d"
-msgstr "Pozostała liczba Twoich losowań: %d"
+msgstr "Pozostało prób: %d"
 
 msgid "Your remaining draws today: %d"
-msgstr "Pozostała liczba Twoich losowań dzisiaj: %d"
+msgstr "Dziś pozostało: %d"
+
+msgid "Your draws left: %d"
+msgstr "Pozostało prób: %d"
+
+msgid "Today left: %d"
+msgstr "Dziś pozostało: %d"
+
+msgid "Total left: %d"
+msgstr "Łącznie pozostało: %d"
 
 msgid "Prize pool remaining: %d"
 msgstr "Pozostało w puli nagród: %d"
@@ -812,6 +824,9 @@ msgstr "Łączna liczba losowań na osobę"
 msgid "Per-Person Daily Draws"
 msgstr "Dzienna liczba losowań na osobę"
 
+msgid "Per-Person Total Wins"
+msgstr "Łączna liczba wygranych na osobę"
+
 msgid "Prize Pool"
 msgstr "Pula nagród"
 
@@ -841,6 +856,9 @@ msgstr "Zasady nagród"
 
 msgid "You have reached the participation limit."
 msgstr "Osiągnięto limit udziałów."
+
+msgid "You have reached the winning limit for this draw."
+msgstr "Osiągnięto limit wygranych dla tego losowania."
 
 msgid "Your draw chances for today have been used up."
 msgstr "Dzisiejszy limit losowań został wykorzystany."
@@ -998,8 +1016,8 @@ msgstr "Komunikat przy braku wygranej"
 msgid "数字越大，越容易抽到未中奖。"
 msgstr "Im większa liczba, tym łatwiej wylosować brak wygranej."
 
-msgid "每条规则填写一个概率。开启参与奖时，剩余概率会自动归入参与奖；关闭时，系统会把所有中奖规则按比例补足到 100%。"
-msgstr "Każda reguła ma własne prawdopodobieństwo. Po włączeniu nagrody pocieszenia pozostałe prawdopodobieństwo trafi automatycznie do niej; po wyłączeniu system proporcjonalnie dopełni wszystkie wygrywające reguły do 100%."
+msgid "每条规则填写一个概率。开启“谢谢参与”后，剩余概率会自动归入“谢谢参与”；关闭时，系统会把所有中奖规则按比例补足到 100%。"
+msgstr "Każda reguła ma własne prawdopodobieństwo. Po włączeniu opcji „Dziękujemy za udział” pozostałe prawdopodobieństwo trafi automatycznie do niej; po wyłączeniu system proporcjonalnie dopełni wszystkie wygrywające reguły do 100%."
 
 msgid "规则类型"
 msgstr "Typ reguły"
@@ -1031,14 +1049,14 @@ msgstr "Reguły nagród"
 msgid "可以混合配置区间和单个值。例如 10-30 填 30%，31-50 填 10%。"
 msgstr "Możesz łączyć zakresy i pojedyncze wartości. Na przykład 10-30 ustaw na 30%, a 31-50 na 10%."
 
-msgid "参与奖"
-msgstr "Nagroda pocieszenia"
+msgid "谢谢参与"
+msgstr "Dziękujemy za udział"
 
-msgid "启用参与奖"
-msgstr "Włącz nagrodę pocieszenia"
+msgid "启用“谢谢参与”"
+msgstr "Włącz „Dziękujemy za udział”"
 
-msgid "启用后，剩余概率会自动归入参与奖。"
-msgstr "Po włączeniu pozostałe prawdopodobieństwo automatycznie trafi do nagrody pocieszenia."
+msgid "启用后，剩余概率会自动归入“谢谢参与”。"
+msgstr "Po włączeniu pozostałe prawdopodobieństwo automatycznie trafi do opcji „Dziękujemy za udział”."
 
 msgid "参与奖文案"
 msgstr "Tekst nagrody pocieszenia"
@@ -1243,6 +1261,12 @@ msgstr "Po wygranej"
 
 msgid "No further draws allowed"
 msgstr "Dalsze losowania są niedozwolone"
+
+msgid "You have already won today and can join again tomorrow."
+msgstr "Dziś już wygrano i ponowny udział będzie możliwy jutro."
+
+msgid "No further draws allowed today"
+msgstr "Dalsze losowania w tym dniu są niedozwolone"
 
 msgid "Draw Again"
 msgstr "Losuj ponownie"

@@ -110,7 +110,7 @@ class Coupon_Lottery extends Widget_Base
         $this->add_control('description', [
             'label'   => __('抽奖说明', 'oyiso'),
             'type'    => Controls_Manager::TEXTAREA,
-            'default' => $this->get_site_default_text('Log in to join the draw. If you win, click claim to generate your exclusive coupon.'),
+            'default' => $this->get_site_default_text('Enter the draw now to unlock this event\'s exclusive offer. If you win, you can claim it right away.'),
         ]);
 
         $this->end_controls_section();
@@ -122,8 +122,29 @@ class Coupon_Lottery extends Widget_Base
 
         $this->add_control('lottery_intro', [
             'type'            => Controls_Manager::RAW_HTML,
-            'raw'             => esc_html__('每条规则填写一个概率。开启参与奖时，剩余概率会自动归入参与奖；关闭时，系统会把所有中奖规则按比例补足到 100%。', 'oyiso'),
+            'raw'             => esc_html__('每条规则填写一个概率。开启“谢谢参与”后，剩余概率会自动归入“谢谢参与”；关闭时，系统会把所有中奖规则按比例补足到 100%。', 'oyiso'),
             'content_classes' => 'elementor-descriptor',
+        ]);
+
+        $this->add_control('prize_pool_mode', [
+            'label'   => __('奖池', 'oyiso'),
+            'type'    => Controls_Manager::SELECT,
+            'default' => 'unlimited',
+            'options' => [
+                'unlimited' => __('不限量', 'oyiso'),
+                'limited'   => __('限量', 'oyiso'),
+            ],
+        ]);
+
+        $this->add_control('prize_pool_limit', [
+            'label'       => __('奖池总张数', 'oyiso'),
+            'type'        => Controls_Manager::NUMBER,
+            'default'     => 100,
+            'min'         => 1,
+            'description' => __('按中奖次数扣减。抽完后将停止抽奖，但已中奖用户仍可在到期前正常领取和使用。', 'oyiso'),
+            'condition'   => [
+                'prize_pool_mode' => 'limited',
+            ],
         ]);
 
         $this->add_control('range_type', [
@@ -131,7 +152,7 @@ class Coupon_Lottery extends Widget_Base
             'type'    => Controls_Manager::SELECT,
             'default' => 'percent',
             'options' => [
-                'percent' => __('百分比', 'oyiso'),
+                'percent' => __('百分比折扣', 'oyiso'),
                 'amount'  => __('固定金额', 'oyiso'),
             ],
         ]);
@@ -157,7 +178,7 @@ class Coupon_Lottery extends Widget_Base
             ],
             'range'       => [
                 '%' => [
-                    'min'  => 0,
+                    'min'  => 1,
                     'max'  => 100,
                     'step' => 1,
                 ],
@@ -178,7 +199,7 @@ class Coupon_Lottery extends Widget_Base
             ],
             'range'       => [
                 '%' => [
-                    'min'  => 0,
+                    'min'  => 1,
                     'max'  => 100,
                     'step' => 1,
                 ],
@@ -199,7 +220,7 @@ class Coupon_Lottery extends Widget_Base
             ],
             'range'       => [
                 '%' => [
-                    'min'  => 0,
+                    'min'  => 1,
                     'max'  => 100,
                     'step' => 1,
                 ],
@@ -220,7 +241,7 @@ class Coupon_Lottery extends Widget_Base
             ],
             'range'       => [
                 '%' => [
-                    'min'  => 0,
+                    'min'  => 1,
                     'max'  => 100,
                     'step' => 1,
                 ],
@@ -232,7 +253,7 @@ class Coupon_Lottery extends Widget_Base
             'label'       => __('奖项规则', 'oyiso'),
             'type'        => Controls_Manager::REPEATER,
             'fields'      => $percent_rule_repeater->get_controls(),
-            'title_field' => '{{{ mode === "range" ? "区间" : "单个值" }}} · {{{ mode === "range" ? start_percent.size + "-" + end_percent.size : value_percent.size }}} · {{{ probability.size }}}%',
+            'title_field' => '{{{ mode === "range" ? "减" + start_percent.size + "% - 减" + end_percent.size + "%" : "减" + value_percent.size + "%" }}} · 概率 {{{ probability.size }}}%',
             'default'     => [
                 [
                     'mode'        => 'range',
@@ -272,7 +293,7 @@ class Coupon_Lottery extends Widget_Base
             'type'        => Controls_Manager::NUMBER,
             'default'     => 10,
             'step'        => 0.1,
-            'min'         => 0,
+            'min'         => 0.1,
             'description' => __('区间起点。固定金额模式下直接填写优惠金额。', 'oyiso'),
             'condition'   => [
                 'mode' => 'range',
@@ -284,7 +305,7 @@ class Coupon_Lottery extends Widget_Base
             'type'        => Controls_Manager::NUMBER,
             'default'     => 50,
             'step'        => 0.1,
-            'min'         => 0,
+            'min'         => 0.1,
             'description' => __('区间终点。系统会自动生成这个范围内的所有奖项。', 'oyiso'),
             'condition'   => [
                 'mode' => 'range',
@@ -296,7 +317,7 @@ class Coupon_Lottery extends Widget_Base
             'type'        => Controls_Manager::NUMBER,
             'default'     => 20,
             'step'        => 0.1,
-            'min'         => 0,
+            'min'         => 0.1,
             'description' => __('单个奖项的值。固定金额模式下直接填写优惠金额，例如 20。', 'oyiso'),
             'condition'   => [
                 'mode' => 'single',
@@ -313,7 +334,7 @@ class Coupon_Lottery extends Widget_Base
             ],
             'range'       => [
                 '%' => [
-                    'min'  => 0,
+                    'min'  => 1,
                     'max'  => 100,
                     'step' => 1,
                 ],
@@ -325,7 +346,7 @@ class Coupon_Lottery extends Widget_Base
             'label'       => __('奖项规则', 'oyiso'),
             'type'        => Controls_Manager::REPEATER,
             'fields'      => $amount_rule_repeater->get_controls(),
-            'title_field' => '{{{ mode === "range" ? "区间" : "单个值" }}} · {{{ mode === "range" ? start_amount + "-" + end_amount : value_amount }}} · {{{ probability.size }}}%',
+            'title_field' => '{{{ mode === "range" ? start_amount + " - " + end_amount : value_amount }}} · 概率 {{{ probability.size }}}%',
             'default'     => [
                 [
                     'mode'         => 'range',
@@ -344,32 +365,19 @@ class Coupon_Lottery extends Widget_Base
         ]);
 
         $this->add_control('thanks_heading', [
-            'label'     => __('参与奖', 'oyiso'),
+            'label'     => __('谢谢参与', 'oyiso'),
             'type'      => Controls_Manager::HEADING,
             'separator' => 'before',
         ]);
 
         $this->add_control('enable_thanks', [
-            'label'        => __('启用参与奖', 'oyiso'),
+            'label'        => __('启用“谢谢参与”', 'oyiso'),
             'type'         => Controls_Manager::SWITCHER,
             'label_on'     => __('是', 'oyiso'),
             'label_off'    => __('否', 'oyiso'),
             'return_value' => 'yes',
-            'default'      => '',
-            'description'  => __('启用后，剩余概率会自动归入参与奖。', 'oyiso'),
-        ]);
-
-        $this->add_control('stop_after_win_with_thanks', [
-            'label'        => __('中奖后停止抽奖', 'oyiso'),
-            'type'         => Controls_Manager::SWITCHER,
-            'label_on'     => __('是', 'oyiso'),
-            'label_off'    => __('否', 'oyiso'),
-            'return_value' => 'yes',
-            'default'      => '',
-            'description'  => __('启用后，在存在参与奖时，用户一旦中奖便不可继续参与当前抽奖。', 'oyiso'),
-            'condition'    => [
-                'enable_thanks' => 'yes',
-            ],
+            'default'      => 'yes',
+            'description'  => __('启用后，剩余概率会自动归入“谢谢参与”。', 'oyiso'),
         ]);
 
         $this->end_controls_section();
@@ -401,25 +409,24 @@ class Coupon_Lottery extends Widget_Base
             'description' => __('填 0 表示不限制。', 'oyiso'),
         ]);
 
-        $this->add_control('prize_pool_mode', [
-            'label'   => __('奖池', 'oyiso'),
-            'type'    => Controls_Manager::SELECT,
-            'default' => 'unlimited',
-            'options' => [
-                'unlimited' => __('不限量', 'oyiso'),
-                'limited'   => __('限量', 'oyiso'),
-            ],
+        $this->add_control('win_limit', [
+            'label'       => __('每人总中奖次数', 'oyiso'),
+            'type'        => Controls_Manager::NUMBER,
+            'default'     => 1,
+            'min'         => 0,
+            'description' => __('填 0 表示不限制。达到后将不能继续参与当前抽奖。', 'oyiso'),
         ]);
 
-        $this->add_control('prize_pool_limit', [
-            'label'       => __('奖池总张数', 'oyiso'),
-            'type'        => Controls_Manager::NUMBER,
-            'default'     => 100,
-            'min'         => 1,
-            'description' => __('按中奖次数扣减。抽完后将停止抽奖，但已中奖用户仍可在到期前正常领取和使用。', 'oyiso'),
-            'condition'   => [
-                'prize_pool_mode' => 'limited',
+        $this->add_control('win_after_mode', [
+            'label'       => __('中奖后限制', 'oyiso'),
+            'type'        => Controls_Manager::SELECT,
+            'default'     => 'none',
+            'options'     => [
+                'none'              => __('不限制', 'oyiso'),
+                'daily_after_win'   => __('仅停止当天', 'oyiso'),
+                'forever_after_win' => __('永久停止', 'oyiso'),
             ],
+            'description' => __('当天停止：当天中奖后不可继续参与，次日自动恢复；永久停止：中奖后不可再次参与当前抽奖。', 'oyiso'),
         ]);
 
         $this->add_control('start_at', [
@@ -786,11 +793,12 @@ class Coupon_Lottery extends Widget_Base
             'probability_map'       => $settings['probability_map'] ?? [],
             'custom_prizes'         => $settings['custom_prizes'] ?? [],
             'enable_thanks'         => ($settings['enable_thanks'] ?? '') === 'yes',
-            'stop_after_win_with_thanks' => ($settings['stop_after_win_with_thanks'] ?? '') === 'yes',
+            'win_after_mode'        => $this->normalize_win_after_mode_from_settings($settings),
             'start_at'              => $settings['start_at'] ?? '',
             'end_at'                => $settings['end_at'] ?? '',
             'daily_limit'           => $settings['daily_limit'] ?? 0,
             'total_limit'           => $settings['total_limit'] ?? 1,
+            'win_limit'             => $settings['win_limit'] ?? 1,
             'prize_pool_mode'       => $settings['prize_pool_mode'] ?? 'unlimited',
             'prize_pool_limit'      => $settings['prize_pool_limit'] ?? 100,
             'coupon_prefix'         => $settings['coupon_prefix'] ?? 'OYL',
@@ -849,11 +857,11 @@ class Coupon_Lottery extends Widget_Base
 
                     if ($is_logged_in && $availability['allowed']) {
                         if ($availability['total_remaining'] !== null) {
-                            $status_parts[] = oyiso_t_sprintf('Your remaining draws: %d', (int) $availability['total_remaining']);
+                            $status_parts[] = oyiso_t_sprintf('Total left: %d', (int) $availability['total_remaining']);
                         }
 
                         if ($availability['daily_remaining'] !== null) {
-                            $status_parts[] = oyiso_t_sprintf('Your remaining draws today: %d', (int) $availability['daily_remaining']);
+                            $status_parts[] = oyiso_t_sprintf('Today left: %d', (int) $availability['daily_remaining']);
                         }
 
                         if ($status_parts) {
@@ -1061,6 +1069,17 @@ class Coupon_Lottery extends Widget_Base
         }
 
         return $normalized;
+    }
+
+    private function normalize_win_after_mode_from_settings(array $settings): string
+    {
+        $mode = (string) ($settings['win_after_mode'] ?? '');
+
+        if (in_array($mode, ['none', 'daily_after_win', 'forever_after_win'], true)) {
+            return $mode;
+        }
+
+        return ($settings['stop_after_win_with_thanks'] ?? '') === 'yes' ? 'forever_after_win' : 'none';
     }
 
     private function get_product_options(): array

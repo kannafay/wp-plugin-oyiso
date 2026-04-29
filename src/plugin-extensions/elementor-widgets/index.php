@@ -96,6 +96,112 @@ if (!function_exists('oyiso_t_sprintf')) {
     }
 }
 
+if (!function_exists('oyiso_coupon_lottery_normalize_slider_setting')) {
+    function oyiso_coupon_lottery_normalize_slider_setting($value, int $min, int $max = 100): array
+    {
+        $normalized = is_array($value) ? $value : [];
+        $raw_size = is_array($value) && array_key_exists('size', $value) ? $value['size'] : $value;
+        $size = is_numeric($raw_size) ? (float) $raw_size : (float) $min;
+        $size = max((float) $min, min((float) $max, $size));
+
+        $normalized['unit'] = !empty($normalized['unit']) ? (string) $normalized['unit'] : '%';
+        $normalized['size'] = (int) round($size);
+
+        return $normalized;
+    }
+}
+
+if (!function_exists('oyiso_coupon_lottery_normalize_number_setting')) {
+    function oyiso_coupon_lottery_normalize_number_setting($value, float $min): float
+    {
+        $numeric = is_numeric($value) ? (float) $value : $min;
+        $numeric = max($min, $numeric);
+
+        return round($numeric, 1);
+    }
+}
+
+if (!function_exists('oyiso_coupon_lottery_sanitize_rule')) {
+    function oyiso_coupon_lottery_sanitize_rule(array $rule, string $range_type): array
+    {
+        $mode = ($rule['mode'] ?? 'range') === 'single' ? 'single' : 'range';
+        $rule['mode'] = $mode;
+        $rule['probability'] = oyiso_coupon_lottery_normalize_slider_setting($rule['probability'] ?? null, 1, 100);
+
+        if ($range_type === 'amount') {
+            if ($mode === 'range') {
+                $rule['start_amount'] = oyiso_coupon_lottery_normalize_number_setting($rule['start_amount'] ?? null, 0.1);
+                $rule['end_amount'] = oyiso_coupon_lottery_normalize_number_setting($rule['end_amount'] ?? null, 0.1);
+            } else {
+                $rule['value_amount'] = oyiso_coupon_lottery_normalize_number_setting($rule['value_amount'] ?? null, 0.1);
+            }
+
+            return $rule;
+        }
+
+        if ($mode === 'range') {
+            $rule['start_percent'] = oyiso_coupon_lottery_normalize_slider_setting($rule['start_percent'] ?? null, 1, 100);
+            $rule['end_percent'] = oyiso_coupon_lottery_normalize_slider_setting($rule['end_percent'] ?? null, 1, 100);
+        } else {
+            $rule['value_percent'] = oyiso_coupon_lottery_normalize_slider_setting($rule['value_percent'] ?? null, 1, 100);
+        }
+
+        return $rule;
+    }
+}
+
+if (!function_exists('oyiso_coupon_lottery_sanitize_widget_settings')) {
+    function oyiso_coupon_lottery_sanitize_widget_settings(array $settings): array
+    {
+        if (isset($settings['percent_rules']) && is_array($settings['percent_rules'])) {
+            foreach ($settings['percent_rules'] as $index => $rule) {
+                if (!is_array($rule)) {
+                    continue;
+                }
+
+                $settings['percent_rules'][$index] = oyiso_coupon_lottery_sanitize_rule($rule, 'percent');
+            }
+        }
+
+        if (isset($settings['amount_rules']) && is_array($settings['amount_rules'])) {
+            foreach ($settings['amount_rules'] as $index => $rule) {
+                if (!is_array($rule)) {
+                    continue;
+                }
+
+                $settings['amount_rules'][$index] = oyiso_coupon_lottery_sanitize_rule($rule, 'amount');
+            }
+        }
+
+        return $settings;
+    }
+}
+
+if (!function_exists('oyiso_coupon_lottery_sanitize_element_data')) {
+    function oyiso_coupon_lottery_sanitize_element_data(array $element): array
+    {
+        if (
+            ($element['elType'] ?? '') === 'widget'
+            && ($element['widgetType'] ?? '') === 'oyiso_coupon_lottery'
+            && is_array($element['settings'] ?? null)
+        ) {
+            $element['settings'] = oyiso_coupon_lottery_sanitize_widget_settings($element['settings']);
+        }
+
+        if (!empty($element['elements']) && is_array($element['elements'])) {
+            foreach ($element['elements'] as $index => $child) {
+                if (!is_array($child)) {
+                    continue;
+                }
+
+                $element['elements'][$index] = oyiso_coupon_lottery_sanitize_element_data($child);
+            }
+        }
+
+        return $element;
+    }
+}
+
 require_once __DIR__ . '/coupon-lottery-module.php';
 
 if (!function_exists('oyiso_promote_elementor_category')) {
@@ -182,8 +288,8 @@ add_action('elementor/frontend/after_register_scripts', function () {
         'drawLoading'     => oyiso_t('Drawing...'),
         'loadFailed'      => oyiso_t('Action failed. Please try again later.'),
         'availableNow'    => oyiso_t('You can join the draw now.'),
-        'totalRemaining'  => oyiso_t('Your remaining draws: %d'),
-        'dailyRemaining'  => oyiso_t('Your remaining draws today: %d'),
+        'totalRemaining'  => oyiso_t('Total left: %d'),
+        'dailyRemaining'  => oyiso_t('Today left: %d'),
         'prizePoolRemaining' => oyiso_t('Prize pool remaining: %d'),
         'copy'            => oyiso_t('Copy Coupon Code'),
         'copied'          => oyiso_t('Copied'),
@@ -206,6 +312,34 @@ add_action('elementor/frontend/after_register_scripts', function () {
         'claimedLabel'    => oyiso_t('Claimed'),
     ]);
 });
+
+add_action('elementor/editor/after_enqueue_scripts', function () {
+    $editor_script_path = __DIR__ . '/assets/js/coupon-lottery-editor.js';
+
+    wp_enqueue_script(
+        'oyiso-coupon-lottery-editor',
+        plugins_url('assets/js/coupon-lottery-editor.js', __FILE__),
+        ['elementor-editor'],
+        file_exists($editor_script_path) ? filemtime($editor_script_path) : '1.0.0',
+        true
+    );
+});
+
+add_filter('elementor/document/save/data', function ($data) {
+    if (!is_array($data) || empty($data['elements']) || !is_array($data['elements'])) {
+        return $data;
+    }
+
+    foreach ($data['elements'] as $index => $element) {
+        if (!is_array($element)) {
+            continue;
+        }
+
+        $data['elements'][$index] = oyiso_coupon_lottery_sanitize_element_data($element);
+    }
+
+    return $data;
+}, 10, 2);
 
 add_action('elementor/elements/categories_registered', function ($elements_manager) {
     $elements_manager->add_category('oyiso', [

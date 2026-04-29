@@ -547,12 +547,13 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 'probability_map'      => $probability_map,
                 'custom_prizes'        => array_values($custom_prizes),
                 'enable_thanks'        => !empty($payload['enable_thanks']),
-                'stop_after_win_with_thanks' => !empty($payload['stop_after_win_with_thanks']),
+                'win_after_mode'       => self::sanitizeWinAfterMode($payload),
                 'thanks_weight'        => max(0, (float) ($payload['thanks_weight'] ?? 0)),
                 'start_at'             => sanitize_text_field((string) ($payload['start_at'] ?? '')),
                 'end_at'               => sanitize_text_field((string) ($payload['end_at'] ?? '')),
                 'daily_limit'          => max(0, (int) ($payload['daily_limit'] ?? 0)),
                 'total_limit'          => max(0, (int) ($payload['total_limit'] ?? 1)),
+                'win_limit'            => max(0, (int) ($payload['win_limit'] ?? 1)),
                 'prize_pool_mode'      => ($payload['prize_pool_mode'] ?? 'unlimited') === 'limited' ? 'limited' : 'unlimited',
                 'prize_pool_limit'     => max(1, (int) ($payload['prize_pool_limit'] ?? 100)),
                 'coupon_prefix'        => strtoupper(sanitize_key((string) ($payload['coupon_prefix'] ?? 'OYL'))),
@@ -630,7 +631,8 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 $value = $value['size'] ?? 0;
             }
 
-            $number = max(0, (float) $value);
+            $minimum = $range_type === 'percent' ? 1.0 : 0.1;
+            $number = max($minimum, (float) $value);
 
             if ($range_type === 'percent') {
                 return (float) min(100, (int) round($number));
@@ -644,7 +646,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 $value = $value['size'] ?? 0;
             }
 
-            return (float) max(0, min(100, (int) round((float) $value)));
+            return (float) max(1, min(100, (int) round((float) $value)));
         }
 
         private static function sanitizeMoneyValue($value): string {
@@ -653,6 +655,16 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             }
 
             return (string) max(0, round((float) $value, 2));
+        }
+
+        private static function sanitizeWinAfterMode(array $payload): string {
+            $mode = (string) ($payload['win_after_mode'] ?? '');
+
+            if (in_array($mode, ['none', 'daily_after_win', 'forever_after_win'], true)) {
+                return $mode;
+            }
+
+            return !empty($payload['stop_after_win_with_thanks']) ? 'forever_after_win' : 'none';
         }
 
         private static function sanitizeIdList($value): array {
@@ -707,21 +719,34 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             $widget_key = $payload['widget_key'] ?? '';
             $total_limit = (int) ($payload['total_limit'] ?? 0);
             $daily_limit = (int) ($payload['daily_limit'] ?? 0);
+            $win_limit = (int) ($payload['win_limit'] ?? 0);
             $prize_pool_limit = ($payload['prize_pool_mode'] ?? 'unlimited') === 'limited'
                 ? max(1, (int) ($payload['prize_pool_limit'] ?? 100))
                 : 0;
             $total_count = self::countUserRecords($user_id, $widget_key);
             $daily_count = self::countUserRecords($user_id, $widget_key, current_time('Y-m-d'));
             $winning_count = self::countUserWinningRecords($user_id, $widget_key);
+            $daily_winning_count = self::countUserWinningRecords($user_id, $widget_key, current_time('Y-m-d'));
             $prize_pool_count = $prize_pool_limit > 0 ? self::countWinningRecords($widget_key) : 0;
             $total_remaining = $total_limit > 0 ? max(0, $total_limit - $total_count) : null;
             $daily_remaining = $daily_limit > 0 ? max(0, $daily_limit - $daily_count) : null;
             $prize_pool_remaining = $prize_pool_limit > 0 ? max(0, $prize_pool_limit - $prize_pool_count) : null;
+            $win_after_mode = ($payload['win_after_mode'] ?? 'none');
 
-            if (!empty($payload['enable_thanks']) && !empty($payload['stop_after_win_with_thanks']) && $winning_count > 0) {
+            if ($win_after_mode === 'forever_after_win' && $winning_count > 0) {
                 return [
                     'allowed'         => false,
                     'reason'          => oyiso_t('You have already won this draw and cannot participate again.'),
+                    'total_remaining' => $total_remaining,
+                    'daily_remaining' => $daily_remaining,
+                    'prize_pool_remaining' => $prize_pool_remaining,
+                ];
+            }
+
+            if ($win_after_mode === 'daily_after_win' && $daily_winning_count > 0) {
+                return [
+                    'allowed'         => false,
+                    'reason'          => oyiso_t('You have already won today and can join again tomorrow.'),
                     'total_remaining' => $total_remaining,
                     'daily_remaining' => $daily_remaining,
                     'prize_pool_remaining' => $prize_pool_remaining,
@@ -732,6 +757,16 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 return [
                     'allowed'         => false,
                     'reason'          => oyiso_t('The prize pool has been exhausted. The draw has ended.'),
+                    'total_remaining' => $total_remaining,
+                    'daily_remaining' => $daily_remaining,
+                    'prize_pool_remaining' => $prize_pool_remaining,
+                ];
+            }
+
+            if ($win_limit > 0 && $winning_count >= $win_limit) {
+                return [
+                    'allowed'         => false,
+                    'reason'          => oyiso_t('You have reached the winning limit for this draw.'),
                     'total_remaining' => $total_remaining,
                     'daily_remaining' => $daily_remaining,
                     'prize_pool_remaining' => $prize_pool_remaining,
@@ -1268,18 +1303,18 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             );
         }
 
-        private static function countUserWinningRecords(int $user_id, string $widget_key): int {
+        private static function countUserWinningRecords(int $user_id, string $widget_key, string $date = ''): int {
             global $wpdb;
 
-            return (int) $wpdb->get_var(
-                $wpdb->prepare(
-                    'SELECT COUNT(id) FROM ' . self::getTableName() . ' WHERE blog_id = %d AND user_id = %d AND widget_key = %s AND result_type = %s',
-                    get_current_blog_id(),
-                    $user_id,
-                    $widget_key,
-                    'win'
-                )
-            );
+            $sql = 'SELECT COUNT(id) FROM ' . self::getTableName() . ' WHERE blog_id = %d AND user_id = %d AND widget_key = %s AND result_type = %s';
+            $params = [get_current_blog_id(), $user_id, $widget_key, 'win'];
+
+            if ($date !== '') {
+                $sql .= ' AND DATE(created_at) = %s';
+                $params[] = $date;
+            }
+
+            return (int) $wpdb->get_var($wpdb->prepare($sql, $params));
         }
 
         private static function queryRecords(array $args): array {
@@ -1571,6 +1606,10 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                     esc_html(self::formatLotteryLimitValue((int) ($payload['daily_limit'] ?? 0)))
                 ),
                 self::formatScopeRow(
+                    oyiso_t('Per-Person Total Wins'),
+                    esc_html(self::formatLotteryLimitValue((int) ($payload['win_limit'] ?? 0)))
+                ),
+                self::formatScopeRow(
                     oyiso_t('Prize Pool'),
                     esc_html(
                         ($payload['prize_pool_mode'] ?? 'unlimited') === 'limited'
@@ -1594,7 +1633,14 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 );
             }
 
-            if (!empty($payload['enable_thanks']) && !empty($payload['stop_after_win_with_thanks'])) {
+            if (($payload['win_after_mode'] ?? 'none') === 'daily_after_win') {
+                $participation_rows[] = self::formatScopeRow(
+                    oyiso_t('After Winning'),
+                    esc_html(oyiso_t('No further draws allowed today'))
+                );
+            }
+
+            if (($payload['win_after_mode'] ?? 'none') === 'forever_after_win') {
                 $participation_rows[] = self::formatScopeRow(
                     oyiso_t('After Winning'),
                     esc_html(oyiso_t('No further draws allowed'))

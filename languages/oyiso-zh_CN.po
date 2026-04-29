@@ -672,6 +672,9 @@ msgstr "留空则自动使用中奖文案"
 msgid "Please enable WooCommerce first."
 msgstr "请先启用 WooCommerce。"
 
+msgid "Enter the draw now to unlock this event's exclusive offer. If you win, you can claim it right away."
+msgstr "立即参与抽奖，解锁本次活动专属优惠，中奖后可马上领取。"
+
 msgid "Please log in before joining the draw."
 msgstr "请先登录后再参与抽奖。"
 
@@ -682,10 +685,19 @@ msgid "Today's remaining: %d"
 msgstr "今日个人剩余抽奖次数：%d"
 
 msgid "Your remaining draws: %d"
-msgstr "个人剩余抽奖次数：%d"
+msgstr "剩余次数：%d"
 
 msgid "Your remaining draws today: %d"
-msgstr "今日个人剩余抽奖次数：%d"
+msgstr "今日剩余：%d"
+
+msgid "Your draws left: %d"
+msgstr "剩余次数：%d"
+
+msgid "Today left: %d"
+msgstr "今日剩余：%d"
+
+msgid "Total left: %d"
+msgstr "总剩余次数：%d"
 
 msgid "Prize pool remaining: %d"
 msgstr "奖池剩余：%d"
@@ -813,6 +825,9 @@ msgstr "每人总抽奖次数"
 msgid "Per-Person Daily Draws"
 msgstr "每人每日抽奖次数"
 
+msgid "Per-Person Total Wins"
+msgstr "每人总中奖次数"
+
 msgid "Prize Pool"
 msgstr "奖池"
 
@@ -842,6 +857,9 @@ msgstr "奖项规则"
 
 msgid "You have reached the participation limit."
 msgstr "已达到可参与次数上限。"
+
+msgid "You have reached the winning limit for this draw."
+msgstr "已达到该抽奖的中奖次数上限。"
 
 msgid "Your draw chances for today have been used up."
 msgstr "今日抽奖次数已用完。"
@@ -999,8 +1017,8 @@ msgstr "未中奖提示"
 msgid "数字越大，越容易抽到未中奖。"
 msgstr "数字越大，越容易抽到未中奖。"
 
-msgid "每条规则填写一个概率。开启参与奖时，剩余概率会自动归入参与奖；关闭时，系统会把所有中奖规则按比例补足到 100%。"
-msgstr "每条规则填写一个概率。开启参与奖时，剩余概率会自动归入参与奖；关闭时，系统会把所有中奖规则按比例补足到 100%。"
+msgid "每条规则填写一个概率。开启“谢谢参与”后，剩余概率会自动归入“谢谢参与”；关闭时，系统会把所有中奖规则按比例补足到 100%。"
+msgstr "每条规则填写一个概率。开启“谢谢参与”后，剩余概率会自动归入“谢谢参与”；关闭时，系统会把所有中奖规则按比例补足到 100%。"
 
 msgid "规则类型"
 msgstr "规则类型"
@@ -1032,14 +1050,14 @@ msgstr "奖项规则"
 msgid "可以混合配置区间和单个值。例如 10-30 填 30%，31-50 填 10%。"
 msgstr "可以混合配置区间和单个值。例如 10-30 填 30%，31-50 填 10%。"
 
-msgid "参与奖"
-msgstr "参与奖"
+msgid "谢谢参与"
+msgstr "谢谢参与"
 
-msgid "启用参与奖"
-msgstr "启用参与奖"
+msgid "启用“谢谢参与”"
+msgstr "启用“谢谢参与”"
 
-msgid "启用后，剩余概率会自动归入参与奖。"
-msgstr "启用后，剩余概率会自动归入参与奖。"
+msgid "启用后，剩余概率会自动归入“谢谢参与”。"
+msgstr "启用后，剩余概率会自动归入“谢谢参与”。"
 
 msgid "参与奖文案"
 msgstr "参与奖文案"
@@ -1244,6 +1262,12 @@ msgstr "中奖后"
 
 msgid "No further draws allowed"
 msgstr "不可继续抽奖"
+
+msgid "You have already won today and can join again tomorrow."
+msgstr "您今天已中奖，请明天再来参与抽奖。"
+
+msgid "No further draws allowed today"
+msgstr "当天不可继续抽奖"
 
 msgid "Draw Again"
 msgstr "再抽一次"
