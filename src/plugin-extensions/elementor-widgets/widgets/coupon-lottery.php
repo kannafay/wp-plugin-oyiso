@@ -617,6 +617,14 @@ class Coupon_Lottery extends Widget_Base
             'label'      => oyiso_editor_t('Corner Radius', '圆角'),
             'type'       => Controls_Manager::DIMENSIONS,
             'size_units' => ['px', '%', 'em', 'rem'],
+            'default'    => [
+                'top'      => 12,
+                'right'    => 12,
+                'bottom'   => 12,
+                'left'     => 12,
+                'unit'     => 'px',
+                'isLinked' => true,
+            ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupon-lottery' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
             ],

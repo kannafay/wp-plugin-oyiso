@@ -754,11 +754,11 @@ class Coupons extends Widget_Base
                 ],
             ],
             'default'    => [
-                'size' => 8,
+                'size' => 12,
                 'unit' => 'px',
             ],
             'placeholder' => [
-                'size' => 8,
+                'size' => 12,
                 'unit' => 'px',
             ],
             'selectors'  => [

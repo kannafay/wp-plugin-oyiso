@@ -2,7 +2,7 @@
     --oyiso-accent-color: #e5702a;
     padding: 24px;
     border: 1px solid #ececec;
-    border-radius: 8px;
+    border-radius: 12px;
     background: #fff;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
@@ -289,7 +289,7 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     overflow: hidden;
     padding: 30px 30px 30px 42px;
     border: 1px solid color-mix(in srgb, var(--oyiso-lottery-accent), #ffffff 74%);
-    border-radius: 28px;
+    border-radius: 12px;
     background: var(--oyiso-lottery-panel-bg);
     box-shadow:
         0 20px 44px color-mix(in srgb, var(--oyiso-lottery-accent), transparent 95%),
@@ -527,7 +527,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__inline-button {
     appearance: none;
     -webkit-appearance: none;
     border: 1px solid var(--oyiso-lottery-line);
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--oyiso-lottery-secondary-bg);
     color: var(--oyiso-lottery-secondary-text);
     font-size: 13px;
@@ -572,6 +572,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__inline-button--primary {
     gap: 4px;
     min-width: 132px;
+    font-size: 14px;
     border-color: var(--oyiso-lottery-primary-border);
     background: var(--oyiso-lottery-primary-bg);
     color: var(--oyiso-lottery-primary-text);
@@ -643,10 +644,10 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:focus
 
 body .oyiso-coupon-lottery .oyiso-coupon-lottery__button--primary .oyiso-coupon-lottery__button-icon,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary .oyiso-coupon-lottery__button-icon {
-    width: 17px;
-    height: 17px;
-    flex-basis: 17px;
-    font-size: 17px;
+    width: 19px;
+    height: 19px;
+    flex-basis: 19px;
+    font-size: 19px;
     animation: oyisoLotteryButtonIconFloat 2.8s ease-in-out infinite;
     transition: transform .18s ease, filter .18s ease;
 }
@@ -748,7 +749,8 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--secondary:disab
 
 .oyiso-coupon-lottery__seal-ring--middle {
     inset: 18px;
-    border: 1px dashed color-mix(in srgb, var(--oyiso-lottery-accent), transparent 78%);
+    border: 1px dashed color-mix(in srgb, var(--oyiso-lottery-accent), transparent 74%);
+    opacity: 0.9;
     animation: oyisoLotterySpin 22s linear infinite;
 }
 
@@ -1349,7 +1351,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__record-actions .oyiso-c
 @media only screen and (max-width: 767px) {
     .oyiso-coupon-lottery {
         padding: 20px;
-        border-radius: 22px;
+        border-radius: 12px;
     }
 
     .oyiso-coupon-lottery__badge {
@@ -1360,16 +1362,71 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__record-actions .oyiso-c
 
     .oyiso-coupon-lottery__hero {
         grid-template-columns: minmax(0, 1fr);
-        gap: 14px;
+        gap: 0;
+        padding-top: 98px;
     }
 
     .oyiso-coupon-lottery__hero-art {
-        min-height: 220px;
-        order: -1;
+        position: absolute;
+        top: -46px;
+        left: 50%;
+        width: 100%;
+        min-height: 180px;
+        transform: translateX(-50%);
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .oyiso-coupon-lottery__seal {
+        width: min(176px, 100%);
+    }
+
+    .oyiso-coupon-lottery__seal-ring--middle {
+        inset: 12px;
+    }
+
+    .oyiso-coupon-lottery__seal-ring--inner {
+        inset: 30px;
+    }
+
+    .oyiso-coupon-lottery__seal-core {
+        inset: 50px;
+    }
+
+    .oyiso-coupon-lottery__orbit--one {
+        width: 124px;
+        height: 124px;
+    }
+
+    .oyiso-coupon-lottery__orbit--two {
+        width: 92px;
+        height: 92px;
+    }
+
+    .oyiso-coupon-lottery__glow--one {
+        width: 62px;
+        height: 62px;
+    }
+
+    .oyiso-coupon-lottery__glow--two {
+        width: 50px;
+        height: 50px;
     }
 
     .oyiso-coupon-lottery__title {
-        font-size: 28px;
+        font-size: 24px;
+        line-height: 1.12;
+    }
+
+    .oyiso-coupon-lottery__hero-copy {
+        position: relative;
+        z-index: 1;
+        margin-top: 0;
+    }
+
+    .oyiso-coupon-lottery__description {
+        font-size: 14px;
+        line-height: 1.55;
     }
 
     .oyiso-coupon-lottery__actions,
@@ -1380,6 +1437,11 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__record-actions .oyiso-c
     .oyiso-coupon-lottery__button,
     .oyiso-coupon-lottery__inline-button {
         width: 100%;
+    }
+
+    .oyiso-coupon-lottery__button--primary,
+    .oyiso-coupon-lottery__inline-button--primary {
+        font-size: 15px;
     }
 
     .oyiso-coupon-lottery__meta-actions {
@@ -1553,7 +1615,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__record-actions .oyiso-c
     --oyiso-tab-count-font-size: 9px;
     --oyiso-card-bg: #fff;
     --oyiso-card-gap: 18px;
-    --oyiso-card-radius: 8px;
+    --oyiso-card-radius: 12px;
     --oyiso-card-columns: 86px minmax(0, 1fr);
     --oyiso-card-icon-justify: center;
     --oyiso-card-icon-min-height: auto;
@@ -1608,7 +1670,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__record-actions .oyiso-c
     --oyiso-tab-count-font-size: 9px !important;
     --oyiso-card-bg: #fff !important;
     --oyiso-card-gap: 18px !important;
-    --oyiso-card-radius: 8px !important;
+    --oyiso-card-radius: 12px !important;
     --oyiso-card-content-padding: 18px !important;
     --oyiso-card-discount-size: 32px !important;
     --oyiso-card-text-size: 14px !important;
@@ -3191,7 +3253,7 @@ body.oyiso-scope-dialog-open {
     position: relative;
     z-index: 1;
     width: min(460px, calc(100vw - 36px));
-    max-height: calc(100vh - 36px);
+    max-height: calc(100vh - 96px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
