@@ -243,16 +243,17 @@
         resultPanel.classList.add(resultType === 'win' ? 'is-win' : 'is-lose');
     }
 
-    function updateAvailability(widget, availability) {
+    function updateAvailability(widget, availability, options) {
         if (!availability) {
             return;
         }
 
         var drawButton = widget.querySelector('[data-lottery-draw]');
         var parts = [];
+        var useErrorStyle = !!(options && options.isError);
 
         if (!availability.allowed && availability.reason) {
-            setStatus(widget, availability.reason, true);
+            setStatus(widget, availability.reason, useErrorStyle);
             widget._oyisoDrawAvailabilityDisabled = true;
             if (drawButton) {
                 drawButton.disabled = true;
@@ -628,6 +629,9 @@
                 if (!response || !response.success) {
                     if (response && response.data && response.data.availability) {
                         updateAvailability(widget, response.data.availability);
+                        var handledAvailabilityError = new Error(response && response.data && response.data.message ? response.data.message : oyisoCouponLotteryI18n.loadFailed);
+                        handledAvailabilityError.oyisoHandledAvailability = true;
+                        throw handledAvailabilityError;
                     }
                     throw new Error(response && response.data && response.data.message ? response.data.message : oyisoCouponLotteryI18n.loadFailed);
                 }
@@ -679,15 +683,17 @@
                 }
 
                 applyResultState(widget, response.data.resultType || 'lose');
-                updateAvailability(widget, response.data.availability || null);
 
                 window.setTimeout(function () {
                     syncWidgetModals(widget);
                     openModal(resultModal);
+                    updateAvailability(widget, response.data.availability || null);
                     finishDrawingState(widget);
                 }, 920);
             }).catch(function (error) {
-                setStatus(widget, error.message || oyisoCouponLotteryI18n.loadFailed, true);
+                if (!error || !error.oyisoHandledAvailability) {
+                    setStatus(widget, error.message || oyisoCouponLotteryI18n.loadFailed, true);
+                }
                 finishDrawingState(widget);
             });
 
