@@ -353,16 +353,6 @@
         }, 180);
     }
 
-    function hideModalImmediately(modal) {
-        if (!modal) {
-            return;
-        }
-
-        modal.hidden = true;
-        modal.classList.remove('is-closing');
-        document.body.classList.remove('oyiso-lottery-modal-open');
-    }
-
     function renderRecordList(widget, key, records) {
         if (!records.length) {
             return '<div class="oyiso-coupon-lottery__empty">' + escapeHtml(oyisoCouponLotteryI18n.emptyRecords) + '</div>';
@@ -785,8 +775,10 @@
                 return;
             }
 
-            hideModalImmediately(getResultModal(drawAgainWidget));
-            startDraw(drawAgainWidget);
+            closeModal(getResultModal(drawAgainWidget));
+            window.setTimeout(function () {
+                startDraw(drawAgainWidget);
+            }, 180);
             return;
         }
 

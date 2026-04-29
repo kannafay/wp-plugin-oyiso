@@ -849,11 +849,11 @@ class Coupon_Lottery extends Widget_Base
 
                     if ($is_logged_in && $availability['allowed']) {
                         if ($availability['total_remaining'] !== null) {
-                            $status_parts[] = oyiso_t_sprintf('Total remaining: %d', (int) $availability['total_remaining']);
+                            $status_parts[] = oyiso_t_sprintf('Your remaining draws: %d', (int) $availability['total_remaining']);
                         }
 
                         if ($availability['daily_remaining'] !== null) {
-                            $status_parts[] = oyiso_t_sprintf("Today's remaining: %d", (int) $availability['daily_remaining']);
+                            $status_parts[] = oyiso_t_sprintf('Your remaining draws today: %d', (int) $availability['daily_remaining']);
                         }
 
                         if ($status_parts) {

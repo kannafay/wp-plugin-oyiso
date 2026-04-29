@@ -675,10 +675,16 @@ msgid "Please log in before joining the draw."
 msgstr "Zaloguj się, aby wziąć udział w losowaniu."
 
 msgid "Total remaining: %d"
-msgstr "Pozostała liczba prób: %d"
+msgstr "Pozostała liczba Twoich losowań: %d"
 
 msgid "Today's remaining: %d"
-msgstr "Pozostało prób na dziś: %d"
+msgstr "Pozostała liczba Twoich losowań dzisiaj: %d"
+
+msgid "Your remaining draws: %d"
+msgstr "Pozostała liczba Twoich losowań: %d"
+
+msgid "Your remaining draws today: %d"
+msgstr "Pozostała liczba Twoich losowań dzisiaj: %d"
 
 msgid "Prize pool remaining: %d"
 msgstr "Pozostało w puli nagród: %d"
