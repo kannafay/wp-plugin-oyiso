@@ -1228,3 +1228,12 @@ msgstr "Szczegóły kuponu"
 
 msgid "%s days after winning"
 msgstr "Ważne przez %s dni od wygranej"
+
+msgid "You have already won this draw and cannot participate again."
+msgstr "To losowanie zostało już wygrane i nie można wziąć w nim udziału ponownie."
+
+msgid "After Winning"
+msgstr "Po wygranej"
+
+msgid "No further draws allowed"
+msgstr "Dalsze losowania są niedozwolone"

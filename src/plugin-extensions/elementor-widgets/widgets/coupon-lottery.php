@@ -359,6 +359,19 @@ class Coupon_Lottery extends Widget_Base
             'description'  => __('启用后，剩余概率会自动归入参与奖。', 'oyiso'),
         ]);
 
+        $this->add_control('stop_after_win_with_thanks', [
+            'label'        => __('中奖后停止抽奖', 'oyiso'),
+            'type'         => Controls_Manager::SWITCHER,
+            'label_on'     => __('是', 'oyiso'),
+            'label_off'    => __('否', 'oyiso'),
+            'return_value' => 'yes',
+            'default'      => '',
+            'description'  => __('启用后，在存在参与奖时，用户一旦中奖便不可继续参与当前抽奖。', 'oyiso'),
+            'condition'    => [
+                'enable_thanks' => 'yes',
+            ],
+        ]);
+
         $this->end_controls_section();
 
         $this->start_controls_section('rules_section', [
@@ -773,6 +786,7 @@ class Coupon_Lottery extends Widget_Base
             'probability_map'       => $settings['probability_map'] ?? [],
             'custom_prizes'         => $settings['custom_prizes'] ?? [],
             'enable_thanks'         => ($settings['enable_thanks'] ?? '') === 'yes',
+            'stop_after_win_with_thanks' => ($settings['stop_after_win_with_thanks'] ?? '') === 'yes',
             'start_at'              => $settings['start_at'] ?? '',
             'end_at'                => $settings['end_at'] ?? '',
             'daily_limit'           => $settings['daily_limit'] ?? 0,

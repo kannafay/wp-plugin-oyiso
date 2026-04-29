@@ -1229,3 +1229,12 @@ msgstr "优惠券详情"
 
 msgid "%s days after winning"
 msgstr "中奖后 %s 天内有效"
+
+msgid "You have already won this draw and cannot participate again."
+msgstr "您已中奖，不能再次参与抽奖。"
+
+msgid "After Winning"
+msgstr "中奖后"
+
+msgid "No further draws allowed"
+msgstr "不可继续抽奖"

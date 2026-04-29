@@ -9,6 +9,37 @@ if (!function_exists('oyiso_is_settings_page_hook')) {
     }
 }
 
+if (!function_exists('oyiso_get_settings_page_url')) {
+    function oyiso_get_settings_page_url(): string {
+        return admin_url('plugins.php?page=oyiso');
+    }
+}
+
+if (!function_exists('oyiso_can_access_settings_page')) {
+    function oyiso_can_access_settings_page(): bool {
+        return current_user_can('manage_options');
+    }
+}
+
+if (!function_exists('oyiso_register_admin_bar_menu')) {
+    function oyiso_register_admin_bar_menu(WP_Admin_Bar $admin_bar): void {
+        if (!is_admin_bar_showing() || !oyiso_can_access_settings_page()) {
+            return;
+        }
+
+        $admin_bar->add_node([
+            'id'    => 'oyiso',
+            'title' => '橘子猫头',
+            'href'  => oyiso_get_settings_page_url(),
+            'meta'  => [
+                'title' => '橘子猫头',
+            ],
+        ]);
+    }
+}
+
+add_action('admin_bar_menu', 'oyiso_register_admin_bar_menu', 90);
+
 // CSF 后台 UI 定义（前端 class_exists('CSF') 为 false，整块跳过）
 if (class_exists('CSF')) {
 

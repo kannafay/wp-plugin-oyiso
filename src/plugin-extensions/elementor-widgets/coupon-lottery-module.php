@@ -547,6 +547,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 'probability_map'      => $probability_map,
                 'custom_prizes'        => array_values($custom_prizes),
                 'enable_thanks'        => !empty($payload['enable_thanks']),
+                'stop_after_win_with_thanks' => !empty($payload['stop_after_win_with_thanks']),
                 'thanks_weight'        => max(0, (float) ($payload['thanks_weight'] ?? 0)),
                 'start_at'             => sanitize_text_field((string) ($payload['start_at'] ?? '')),
                 'end_at'               => sanitize_text_field((string) ($payload['end_at'] ?? '')),
@@ -711,10 +712,21 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 : 0;
             $total_count = self::countUserRecords($user_id, $widget_key);
             $daily_count = self::countUserRecords($user_id, $widget_key, current_time('Y-m-d'));
+            $winning_count = self::countUserWinningRecords($user_id, $widget_key);
             $prize_pool_count = $prize_pool_limit > 0 ? self::countWinningRecords($widget_key) : 0;
             $total_remaining = $total_limit > 0 ? max(0, $total_limit - $total_count) : null;
             $daily_remaining = $daily_limit > 0 ? max(0, $daily_limit - $daily_count) : null;
             $prize_pool_remaining = $prize_pool_limit > 0 ? max(0, $prize_pool_limit - $prize_pool_count) : null;
+
+            if (!empty($payload['enable_thanks']) && !empty($payload['stop_after_win_with_thanks']) && $winning_count > 0) {
+                return [
+                    'allowed'         => false,
+                    'reason'          => oyiso_t('You have already won this draw and cannot participate again.'),
+                    'total_remaining' => $total_remaining,
+                    'daily_remaining' => $daily_remaining,
+                    'prize_pool_remaining' => $prize_pool_remaining,
+                ];
+            }
 
             if ($prize_pool_limit > 0 && $prize_pool_count >= $prize_pool_limit) {
                 return [
@@ -1256,6 +1268,20 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             );
         }
 
+        private static function countUserWinningRecords(int $user_id, string $widget_key): int {
+            global $wpdb;
+
+            return (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    'SELECT COUNT(id) FROM ' . self::getTableName() . ' WHERE blog_id = %d AND user_id = %d AND widget_key = %s AND result_type = %s',
+                    get_current_blog_id(),
+                    $user_id,
+                    $widget_key,
+                    'win'
+                )
+            );
+        }
+
         private static function queryRecords(array $args): array {
             global $wpdb;
 
@@ -1565,6 +1591,13 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 $participation_rows[] = self::formatScopeRow(
                     oyiso_t('End Time'),
                     esc_html(self::formatSiteDateTime((string) $payload['end_at']))
+                );
+            }
+
+            if (!empty($payload['enable_thanks']) && !empty($payload['stop_after_win_with_thanks'])) {
+                $participation_rows[] = self::formatScopeRow(
+                    oyiso_t('After Winning'),
+                    esc_html(oyiso_t('No further draws allowed'))
                 );
             }
 
