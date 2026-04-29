@@ -44,6 +44,15 @@ add_action('admin_bar_menu', 'oyiso_register_admin_bar_menu', 90);
 if (class_exists('CSF')) {
 
     $prefix = 'oyiso';
+    $oyiso_plugin_version = '';
+    $oyiso_plugin_file = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'oyiso.php';
+
+    if (is_readable($oyiso_plugin_file) && function_exists('get_file_data')) {
+        $oyiso_plugin_meta = get_file_data($oyiso_plugin_file, [
+            'Version' => 'Version',
+        ]);
+        $oyiso_plugin_version = (string) ($oyiso_plugin_meta['Version'] ?? '');
+    }
 
     CSF::createOptions($prefix, [
         'menu_title' => '橘子猫头',
@@ -51,6 +60,7 @@ if (class_exists('CSF')) {
         'menu_type' => 'submenu',
         'menu_parent' => 'plugins.php',
         'theme' => 'light',
+        'footer_text' => '感谢您使用橘子猫头插件' . ($oyiso_plugin_version !== '' ? ' · 当前版本 v' . esc_html($oyiso_plugin_version) : ''),
         'footer_after' => '
             <style>
             .csf-nav-options .csf-tab-item > ul {
