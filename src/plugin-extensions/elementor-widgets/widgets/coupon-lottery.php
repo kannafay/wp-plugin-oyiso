@@ -826,6 +826,13 @@ class Coupon_Lottery extends Widget_Base
         >
             <div class="oyiso-coupon-lottery__aurora" aria-hidden="true"></div>
             <div class="oyiso-coupon-lottery__grain" aria-hidden="true"></div>
+            <?php if ($is_logged_in && $availability['allowed'] && $availability['prize_pool_remaining'] !== null) : ?>
+                <div class="oyiso-coupon-lottery__badge" data-lottery-status-featured>
+                    <?php echo esc_html(oyiso_t_sprintf('Prize pool remaining: %d', (int) $availability['prize_pool_remaining'])); ?>
+                </div>
+            <?php else : ?>
+                <div class="oyiso-coupon-lottery__badge" data-lottery-status-featured hidden></div>
+            <?php endif; ?>
             <div class="oyiso-coupon-lottery__hero">
                 <div class="oyiso-coupon-lottery__hero-copy">
                     <?php if (!empty($settings['title'])) : ?>
@@ -836,28 +843,42 @@ class Coupon_Lottery extends Widget_Base
                         <p class="oyiso-coupon-lottery__description"><?php echo esc_html($settings['description']); ?></p>
                     <?php endif; ?>
 
-                    <div class="oyiso-coupon-lottery__status" data-lottery-status>
+                    <?php
+                    $status_classes = ['oyiso-coupon-lottery__status'];
+                    $status_parts = [];
+
+                    if ($is_logged_in && $availability['allowed']) {
+                        if ($availability['total_remaining'] !== null) {
+                            $status_parts[] = oyiso_t_sprintf('Total remaining: %d', (int) $availability['total_remaining']);
+                        }
+
+                        if ($availability['daily_remaining'] !== null) {
+                            $status_parts[] = oyiso_t_sprintf("Today's remaining: %d", (int) $availability['daily_remaining']);
+                        }
+
+                        if ($status_parts) {
+                            $status_classes[] = 'is-grouped';
+                        }
+                    }
+                    ?>
+                    <div class="<?php echo esc_attr(implode(' ', $status_classes)); ?>" data-lottery-status>
                         <?php
                         if (!$is_logged_in) {
                             echo esc_html(oyiso_t('Please log in before joining the draw.'));
                         } elseif (!$availability['allowed']) {
                             echo esc_html($availability['reason']);
                         } else {
-                            $parts = [];
+                            if ($status_parts) {
+                                echo '<span class="oyiso-coupon-lottery__status-pills">';
 
-                            if ($availability['total_remaining'] !== null) {
-                                $parts[] = oyiso_t_sprintf('Total remaining: %d', (int) $availability['total_remaining']);
+                                foreach ($status_parts as $part) {
+                                    echo '<span class="oyiso-coupon-lottery__status-pill">' . esc_html($part) . '</span>';
+                                }
+
+                                echo '</span>';
+                            } else {
+                                echo esc_html(oyiso_t('You can join the draw now.'));
                             }
-
-                            if ($availability['daily_remaining'] !== null) {
-                                $parts[] = oyiso_t_sprintf("Today's remaining: %d", (int) $availability['daily_remaining']);
-                            }
-
-                            if ($availability['prize_pool_remaining'] !== null) {
-                                $parts[] = oyiso_t_sprintf('Prize pool remaining: %d', (int) $availability['prize_pool_remaining']);
-                            }
-
-                            echo esc_html($parts ? implode(' / ', $parts) : oyiso_t('You can join the draw now.'));
                         }
                         ?>
                     </div>
@@ -970,6 +991,9 @@ class Coupon_Lottery extends Widget_Base
                             </button>
                             <button type="button" class="oyiso-coupon-lottery__button oyiso-coupon-lottery__button--primary" data-lottery-claim-copy hidden>
                                 <?php echo esc_html(oyiso_t('Copy Coupon Code')); ?>
+                            </button>
+                            <button type="button" class="oyiso-coupon-lottery__button oyiso-coupon-lottery__button--primary" data-lottery-draw-again hidden>
+                                <?php echo esc_html(oyiso_t('Draw Again')); ?>
                             </button>
                         </div>
                     </div>

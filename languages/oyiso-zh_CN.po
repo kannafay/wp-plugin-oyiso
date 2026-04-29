@@ -1238,3 +1238,6 @@ msgstr "中奖后"
 
 msgid "No further draws allowed"
 msgstr "不可继续抽奖"
+
+msgid "Draw Again"
+msgstr "再抽一次"

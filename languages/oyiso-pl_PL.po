@@ -1237,3 +1237,6 @@ msgstr "Po wygranej"
 
 msgid "No further draws allowed"
 msgstr "Dalsze losowania są niedozwolone"
+
+msgid "Draw Again"
+msgstr "Losuj ponownie"

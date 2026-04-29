@@ -197,6 +197,7 @@ add_action('elementor/frontend/after_register_scripts', function () {
         'scopeButton'     => oyiso_t('Coupon Details'),
         'recordScopeButton' => oyiso_t('Details'),
         'recordCopy'      => oyiso_t('Copy'),
+        'drawAgain'       => oyiso_t('Draw Again'),
         'userLabel'       => oyiso_t('User'),
         'timeLabel'       => oyiso_t('Time'),
         'couponLabel'     => oyiso_t('Coupon Code'),

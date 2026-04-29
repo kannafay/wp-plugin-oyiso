@@ -100,6 +100,32 @@
 
         target.textContent = text || '';
         target.classList.toggle('is-error', !!isError);
+        target.classList.remove('is-grouped');
+    }
+
+    function setFeaturedStatus(widget, text) {
+        var target = widget.querySelector('[data-lottery-status-featured]');
+
+        if (!target) {
+            return;
+        }
+
+        target.textContent = text || '';
+        target.hidden = !text;
+    }
+
+    function setStatusPills(widget, items) {
+        var target = widget.querySelector('[data-lottery-status]');
+
+        if (!target) {
+            return;
+        }
+
+        target.innerHTML = '<span class="oyiso-coupon-lottery__status-pills">' + (items || []).map(function (item) {
+            return '<span class="oyiso-coupon-lottery__status-pill">' + escapeHtml(item) + '</span>';
+        }).join('') + '</span>';
+        target.classList.remove('is-error');
+        target.classList.toggle('is-grouped', !!(items && items.length));
     }
 
     function formatLabel(template, value) {
@@ -249,10 +275,12 @@
         }
 
         var drawButton = widget.querySelector('[data-lottery-draw]');
+        var featured = '';
         var parts = [];
         var useErrorStyle = !!(options && options.isError);
 
         if (!availability.allowed && availability.reason) {
+            setFeaturedStatus(widget, '');
             setStatus(widget, availability.reason, useErrorStyle);
             widget._oyisoDrawAvailabilityDisabled = true;
             if (drawButton) {
@@ -263,6 +291,12 @@
 
         widget._oyisoDrawAvailabilityDisabled = false;
 
+        if (availability.prize_pool_remaining !== null) {
+            featured = formatLabel(oyisoCouponLotteryI18n.prizePoolRemaining, availability.prize_pool_remaining);
+        }
+
+        setFeaturedStatus(widget, featured);
+
         if (availability.total_remaining !== null) {
             parts.push(formatLabel(oyisoCouponLotteryI18n.totalRemaining, availability.total_remaining));
         }
@@ -271,11 +305,24 @@
             parts.push(formatLabel(oyisoCouponLotteryI18n.dailyRemaining, availability.daily_remaining));
         }
 
-        if (availability.prize_pool_remaining !== null) {
-            parts.push(formatLabel(oyisoCouponLotteryI18n.prizePoolRemaining, availability.prize_pool_remaining));
+        if (parts.length) {
+            setStatusPills(widget, parts);
+            return;
         }
 
-        setStatus(widget, parts.length ? parts.join(' / ') : oyisoCouponLotteryI18n.availableNow, false);
+        setStatus(widget, oyisoCouponLotteryI18n.availableNow, false);
+    }
+
+    function toggleDrawAgainButton(widget, visible) {
+        var drawAgainButton = getResultElement(widget, '[data-lottery-draw-again]');
+
+        if (!drawAgainButton) {
+            return;
+        }
+
+        drawAgainButton.hidden = !visible;
+        drawAgainButton.disabled = false;
+        drawAgainButton.textContent = oyisoCouponLotteryI18n.drawAgain;
     }
 
     function openModal(modal) {
@@ -304,6 +351,16 @@
             modal.hidden = true;
             modal.classList.remove('is-closing');
         }, 180);
+    }
+
+    function hideModalImmediately(modal) {
+        if (!modal) {
+            return;
+        }
+
+        modal.hidden = true;
+        modal.classList.remove('is-closing');
+        document.body.classList.remove('oyiso-lottery-modal-open');
     }
 
     function renderRecordList(widget, key, records) {
@@ -526,6 +583,99 @@
             claimCopyButton.hidden = !data.couponCode;
             claimCopyButton.dataset.lotteryCopy = data.couponCode || '';
         }
+
+        toggleDrawAgainButton(widget, false);
+    }
+
+    function handleDrawSuccess(widget, response) {
+        var resultModal = getResultModal(widget);
+        var resultLabel = getResultElement(widget, '[data-lottery-result-label]');
+        var resultMessage = getResultElement(widget, '[data-lottery-result-message]');
+        var resultDetails = getResultElement(widget, '[data-lottery-result-details]');
+        var resultDetailsContent = getResultElement(widget, '[data-lottery-result-details-content]');
+        var claimBtn = getResultElement(widget, '[data-lottery-claim]');
+        var claimCopyBtn = getResultElement(widget, '[data-lottery-claim-copy]');
+        var successBlock = getResultElement(widget, '[data-lottery-claim-success]');
+        var codeTarget = getResultElement(widget, '[data-lottery-coupon-code]');
+        var canDrawAgain = (response.data.resultType || 'lose') === 'lose'
+            && !!(response.data.availability && response.data.availability.allowed);
+
+        if (resultLabel) {
+            resultLabel.textContent = response.data.prizeLabel || '';
+        }
+
+        if (resultMessage) {
+            resultMessage.textContent = response.data.message || '';
+        }
+
+        if (resultDetailsContent) {
+            resultDetailsContent.textContent = response.data.couponDescription || '';
+        }
+
+        if (resultDetails) {
+            resultDetails.hidden = !response.data.claimable || !(response.data.couponDescription || '');
+        }
+
+        if (successBlock) {
+            successBlock.hidden = true;
+        }
+
+        if (codeTarget) {
+            codeTarget.textContent = '';
+        }
+
+        if (claimBtn) {
+            claimBtn.hidden = !response.data.claimable;
+            claimBtn.disabled = false;
+            claimBtn.dataset.recordId = response.data.recordId || '';
+            claimBtn.textContent = response.data.claimButton || oyisoCouponLotteryI18n.claimButton;
+        }
+
+        if (claimCopyBtn) {
+            claimCopyBtn.hidden = true;
+            claimCopyBtn.dataset.lotteryCopy = '';
+        }
+
+        toggleDrawAgainButton(widget, canDrawAgain);
+        applyResultState(widget, response.data.resultType || 'lose');
+
+        window.setTimeout(function () {
+            syncWidgetModals(widget);
+            openModal(resultModal);
+            updateAvailability(widget, response.data.availability || null);
+            finishDrawingState(widget);
+        }, 920);
+    }
+
+    function startDraw(widget) {
+        var drawButton = widget ? widget.querySelector('[data-lottery-draw]') : null;
+
+        if (!widget || !drawButton) {
+            return;
+        }
+
+        drawButton.disabled = true;
+        toggleDrawAgainButton(widget, false);
+        setDrawingState(widget, true);
+
+        post('oyiso_coupon_lottery_draw', widget, {}).then(function (response) {
+            if (!response || !response.success) {
+                if (response && response.data && response.data.availability) {
+                    updateAvailability(widget, response.data.availability);
+                    var handledAvailabilityError = new Error(response && response.data && response.data.message ? response.data.message : oyisoCouponLotteryI18n.loadFailed);
+                    handledAvailabilityError.oyisoHandledAvailability = true;
+                    throw handledAvailabilityError;
+                }
+                throw new Error(response && response.data && response.data.message ? response.data.message : oyisoCouponLotteryI18n.loadFailed);
+            }
+
+            handleDrawSuccess(widget, response);
+        }).catch(function (error) {
+            if (!error || !error.oyisoHandledAvailability) {
+                setStatus(widget, error.message || oyisoCouponLotteryI18n.loadFailed, true);
+            }
+            finishDrawingState(widget);
+        });
     }
 
     function loadRecords(widget) {
@@ -604,6 +754,7 @@
 
     document.addEventListener('click', function (event) {
         var drawButton = event.target.closest('[data-lottery-draw]');
+        var drawAgainButton = event.target.closest('[data-lottery-draw-again]');
         var claimButton = event.target.closest('[data-lottery-claim]');
         var recordsButton = event.target.closest('[data-lottery-records]');
         var closeButton = event.target.closest('[data-lottery-close]');
@@ -622,81 +773,20 @@
                 return;
             }
 
-            drawButton.disabled = true;
-            setDrawingState(widget, true);
+            startDraw(widget);
 
-            post('oyiso_coupon_lottery_draw', widget, {}).then(function (response) {
-                if (!response || !response.success) {
-                    if (response && response.data && response.data.availability) {
-                        updateAvailability(widget, response.data.availability);
-                        var handledAvailabilityError = new Error(response && response.data && response.data.message ? response.data.message : oyisoCouponLotteryI18n.loadFailed);
-                        handledAvailabilityError.oyisoHandledAvailability = true;
-                        throw handledAvailabilityError;
-                    }
-                    throw new Error(response && response.data && response.data.message ? response.data.message : oyisoCouponLotteryI18n.loadFailed);
-                }
+            return;
+        }
 
-                var resultModal = getResultModal(widget);
-                var resultLabel = getResultElement(widget, '[data-lottery-result-label]');
-                var resultMessage = getResultElement(widget, '[data-lottery-result-message]');
-                var resultDetails = getResultElement(widget, '[data-lottery-result-details]');
-                var resultDetailsContent = getResultElement(widget, '[data-lottery-result-details-content]');
-                var claimBtn = getResultElement(widget, '[data-lottery-claim]');
-                var claimCopyBtn = getResultElement(widget, '[data-lottery-claim-copy]');
-                var successBlock = getResultElement(widget, '[data-lottery-claim-success]');
-                var codeTarget = getResultElement(widget, '[data-lottery-coupon-code]');
+        if (drawAgainButton) {
+            var drawAgainWidget = getWidgetFromNode(drawAgainButton);
 
-                if (resultLabel) {
-                    resultLabel.textContent = response.data.prizeLabel || '';
-                }
+            if (!drawAgainWidget) {
+                return;
+            }
 
-                if (resultMessage) {
-                    resultMessage.textContent = response.data.message || '';
-                }
-
-                if (resultDetailsContent) {
-                    resultDetailsContent.textContent = response.data.couponDescription || '';
-                }
-
-                if (resultDetails) {
-                    resultDetails.hidden = !response.data.claimable || !(response.data.couponDescription || '');
-                }
-
-                if (successBlock) {
-                    successBlock.hidden = true;
-                }
-
-                if (codeTarget) {
-                    codeTarget.textContent = '';
-                }
-
-                if (claimBtn) {
-                    claimBtn.hidden = !response.data.claimable;
-                    claimBtn.disabled = false;
-                    claimBtn.dataset.recordId = response.data.recordId || '';
-                    claimBtn.textContent = response.data.claimButton || oyisoCouponLotteryI18n.claimButton;
-                }
-
-                if (claimCopyBtn) {
-                    claimCopyBtn.hidden = true;
-                    claimCopyBtn.dataset.lotteryCopy = '';
-                }
-
-                applyResultState(widget, response.data.resultType || 'lose');
-
-                window.setTimeout(function () {
-                    syncWidgetModals(widget);
-                    openModal(resultModal);
-                    updateAvailability(widget, response.data.availability || null);
-                    finishDrawingState(widget);
-                }, 920);
-            }).catch(function (error) {
-                if (!error || !error.oyisoHandledAvailability) {
-                    setStatus(widget, error.message || oyisoCouponLotteryI18n.loadFailed, true);
-                }
-                finishDrawingState(widget);
-            });
-
+            hideModalImmediately(getResultModal(drawAgainWidget));
+            startDraw(drawAgainWidget);
             return;
         }
 
