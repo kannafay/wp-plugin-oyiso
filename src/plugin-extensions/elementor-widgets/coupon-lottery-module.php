@@ -122,6 +122,8 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 ], 400);
             }
 
+            self::assertCurrentWidgetConfigRevision($payload);
+
             $lock_name = self::buildAdvisoryLockName('draw', [get_current_blog_id(), $widget_key]);
 
             if (!self::acquireAdvisoryLock($lock_name)) {
@@ -536,6 +538,8 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             return [
                 'widget_key'           => sanitize_text_field((string) ($payload['widget_key'] ?? '')),
                 'post_id'              => absint($payload['post_id'] ?? 0),
+                'widget_id'            => sanitize_key((string) ($payload['widget_id'] ?? '')),
+                'config_revision'      => sanitize_text_field((string) ($payload['config_revision'] ?? '')),
                 'title'                => sanitize_text_field((string) ($payload['title'] ?? '')),
                 'description'          => sanitize_textarea_field((string) ($payload['description'] ?? '')),
                 'range_type'           => $range_type,
@@ -571,6 +575,118 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 'excluded_category_ids'=> $excluded_category_ids,
                 'records_per_tab'      => max(1, min(100, (int) ($payload['records_per_tab'] ?? 20))),
             ];
+        }
+
+        private static function assertCurrentWidgetConfigRevision(array $payload): void {
+            $post_id = (int) ($payload['post_id'] ?? 0);
+            $widget_id = sanitize_key((string) ($payload['widget_id'] ?? ''));
+            $widget_key = sanitize_text_field((string) ($payload['widget_key'] ?? ''));
+            $posted_revision = sanitize_text_field((string) ($payload['config_revision'] ?? ''));
+
+            if ($widget_id === '') {
+                $widget_id = self::extractWidgetIdFromWidgetKey($widget_key, $post_id);
+            }
+
+            if ($post_id <= 0 || $widget_id === '') {
+                wp_send_json_error([
+                    'message' => oyiso_t('Lottery configuration validation failed. Refresh the page and try again.'),
+                ], 409);
+            }
+
+            $current_revision = self::getCurrentWidgetConfigRevision($post_id, $widget_id);
+
+            if ($current_revision === '') {
+                return;
+            }
+
+            if ($posted_revision === '' || !hash_equals($current_revision, $posted_revision)) {
+                wp_send_json_error([
+                    'message' => oyiso_t('Lottery configuration validation failed. Refresh the page and try again.'),
+                ], 409);
+            }
+        }
+
+        private static function getCurrentWidgetConfigRevision(int $post_id, string $widget_id): string {
+            $element_data = self::getElementorDocumentData($post_id);
+
+            if (empty($element_data)) {
+                return '';
+            }
+
+            $settings = self::findLotteryWidgetSettings($element_data, $widget_id);
+
+            if (empty($settings) || !is_array($settings)) {
+                return '';
+            }
+
+            return sanitize_text_field((string) ($settings['config_revision'] ?? ''));
+        }
+
+        private static function getElementorDocumentData(int $post_id): array {
+            static $cache = [];
+
+            if ($post_id <= 0) {
+                return [];
+            }
+
+            if (array_key_exists($post_id, $cache)) {
+                return $cache[$post_id];
+            }
+
+            $raw_data = get_post_meta($post_id, '_elementor_data', true);
+
+            if (is_string($raw_data) && $raw_data !== '') {
+                $decoded = json_decode($raw_data, true);
+                $cache[$post_id] = is_array($decoded) ? $decoded : [];
+
+                return $cache[$post_id];
+            }
+
+            $cache[$post_id] = is_array($raw_data) ? $raw_data : [];
+
+            return $cache[$post_id];
+        }
+
+        private static function findLotteryWidgetSettings(array $elements, string $widget_id): array {
+            foreach ($elements as $element) {
+                if (!is_array($element)) {
+                    continue;
+                }
+
+                if (
+                    ($element['elType'] ?? '') === 'widget'
+                    && ($element['widgetType'] ?? '') === 'oyiso_coupon_lottery'
+                    && (string) ($element['id'] ?? '') === $widget_id
+                ) {
+                    $settings = $element['settings'] ?? [];
+
+                    return is_array($settings) ? $settings : [];
+                }
+
+                if (!empty($element['elements']) && is_array($element['elements'])) {
+                    $settings = self::findLotteryWidgetSettings($element['elements'], $widget_id);
+
+                    if (!empty($settings)) {
+                        return $settings;
+                    }
+                }
+            }
+
+            return [];
+        }
+
+        private static function extractWidgetIdFromWidgetKey(string $widget_key, int $post_id): string {
+            if ($widget_key === '' || $post_id <= 0) {
+                return '';
+            }
+
+            $prefix = 'lottery-' . $post_id . '-';
+
+            if (strpos($widget_key, $prefix) !== 0) {
+                return '';
+            }
+
+            return sanitize_key(substr($widget_key, strlen($prefix)));
         }
 
         private static function sanitizePrizeRules($rules, string $range_type): array {

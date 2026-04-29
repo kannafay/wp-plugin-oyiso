@@ -225,6 +225,12 @@ if (!function_exists('oyiso_coupon_lottery_sanitize_widget_settings')) {
             }
         }
 
+        if (function_exists('wp_generate_uuid4')) {
+            $settings['config_revision'] = wp_generate_uuid4();
+        } else {
+            $settings['config_revision'] = uniqid('oyiso_lottery_', true);
+        }
+
         return $settings;
     }
 }

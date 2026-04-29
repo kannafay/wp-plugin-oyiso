@@ -418,6 +418,8 @@
     function renderRecordDetails(widget, key, record) {
         var details = '';
 
+        details += renderRecordDetail(oyisoCouponLotteryI18n.timeLabel, record.createdAt, 'time');
+
         if (record.couponCode && record.status === 'claimed') {
             details += renderRecordDetail(oyisoCouponLotteryI18n.couponLabel, record.couponCode, 'code');
         }
@@ -425,8 +427,6 @@
         if (key === 'all' && record.userName) {
             details += renderRecordDetail(oyisoCouponLotteryI18n.userLabel, record.userName, 'user');
         }
-
-        details += renderRecordDetail(oyisoCouponLotteryI18n.timeLabel, record.createdAt, 'time');
 
         return details;
     }

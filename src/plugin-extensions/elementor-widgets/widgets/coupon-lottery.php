@@ -115,6 +115,11 @@ class Coupon_Lottery extends Widget_Base
             'default' => $this->get_site_default_text('Enter the draw now to unlock this event\'s exclusive offer. If you win, you can claim it right away.'),
         ]);
 
+        $this->add_control('config_revision', [
+            'type'    => Controls_Manager::HIDDEN,
+            'default' => '',
+        ]);
+
         $this->end_controls_section();
 
         $this->start_controls_section('lottery_section', [
@@ -792,6 +797,8 @@ class Coupon_Lottery extends Widget_Base
         $payload = [
             'widget_key'            => $widget_key,
             'post_id'               => $post_id,
+            'widget_id'             => $widget_id,
+            'config_revision'       => $settings['config_revision'] ?? '',
             'title'                 => $settings['title'] ?? '',
             'description'           => $settings['description'] ?? '',
             'range_type'            => $settings['range_type'] ?? 'percent',

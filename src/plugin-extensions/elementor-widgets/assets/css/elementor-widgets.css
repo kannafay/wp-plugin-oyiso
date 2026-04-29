@@ -291,9 +291,7 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     border: 1px solid color-mix(in srgb, var(--oyiso-lottery-accent), #ffffff 74%);
     border-radius: 12px;
     background: var(--oyiso-lottery-panel-bg);
-    box-shadow:
-        0 20px 44px color-mix(in srgb, var(--oyiso-lottery-accent), transparent 95%),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    box-shadow: 0 20px 44px color-mix(in srgb, var(--oyiso-lottery-accent), transparent 95%);
 }
 
 .oyiso-coupon-lottery__aurora,
@@ -573,7 +571,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__inline-button--primary 
     gap: 4px;
     min-width: 132px;
     font-size: 14px;
-    border-color: var(--oyiso-lottery-primary-border);
+    border-color: transparent;
     background: var(--oyiso-lottery-primary-bg);
     color: var(--oyiso-lottery-primary-text);
     text-shadow: none;
@@ -588,7 +586,7 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary:hover,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary:focus,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__inline-button--primary:hover,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__inline-button--primary:focus {
-    border-color: color-mix(in srgb, var(--oyiso-lottery-primary-border), #0f172a 12%);
+    border-color: transparent;
     background: color-mix(in srgb, var(--oyiso-lottery-primary-bg), #0f172a 8%);
     color: var(--oyiso-lottery-primary-text);
     box-shadow: none;
@@ -702,7 +700,7 @@ body .oyiso-coupon-lottery .oyiso-coupon-lottery__button--primary:disabled,
 body .oyiso-coupon-lottery .oyiso-coupon-lottery__inline-button--primary:disabled,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__button--primary:disabled,
 body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__inline-button--primary:disabled {
-    border-color: color-mix(in srgb, var(--oyiso-lottery-primary-border), transparent 42%);
+    border-color: transparent;
     background: color-mix(in srgb, var(--oyiso-lottery-primary-bg), transparent 32%);
     color: color-mix(in srgb, var(--oyiso-lottery-primary-text), transparent 10%);
 }
@@ -1110,6 +1108,8 @@ body .oyiso-coupon-lottery__modal .oyiso-coupon-lottery__tab {
     font-size: 13px;
     font-weight: 700;
     font-family: inherit;
+    text-transform: none;
+    letter-spacing: 0;
     text-decoration: none;
     box-shadow: none;
     transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
