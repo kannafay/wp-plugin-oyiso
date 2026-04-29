@@ -851,11 +851,29 @@ msgstr "Dane bieżącego użytkownika są nieprawidłowe, nie można utworzyć k
 msgid "The current prize amount is invalid, so the coupon could not be generated."
 msgstr "Wartość nagrody jest nieprawidłowa, nie można utworzyć kuponu."
 
+msgid "The draw record is invalid, so the coupon could not be generated."
+msgstr "Rekord losowania jest nieprawidłowy, nie można utworzyć kuponu."
+
 msgid "Lottery Claim: %s"
 msgstr "Odbiór z losowania: %s"
 
 msgid "Failed to generate the coupon. Please try again later."
 msgstr "Nie udało się utworzyć kuponu. Spróbuj ponownie później."
+
+msgid "The draw is busy right now. Please try again in a moment."
+msgstr "Losowanie jest teraz zajęte. Spróbuj ponownie za chwilę."
+
+msgid "The draw did not complete successfully. Please try again."
+msgstr "Losowanie nie zostało pomyślnie zakończone. Spróbuj ponownie."
+
+msgid "This draw record does not belong to the current lottery."
+msgstr "Ten rekord losowania nie należy do tej loterii."
+
+msgid "The coupon is being claimed right now. Please try again in a moment."
+msgstr "Trwa odbieranie tego kuponu. Spróbuj ponownie za chwilę."
+
+msgid "The coupon claim did not complete successfully. Please try again."
+msgstr "Nie udało się pomyślnie zakończyć odbioru kuponu. Spróbuj ponownie."
 
 msgid "Won"
 msgstr "Wygrana"

@@ -852,11 +852,29 @@ msgstr "当前用户信息无效，无法生成优惠券。"
 msgid "The current prize amount is invalid, so the coupon could not be generated."
 msgstr "当前奖项金额无效，无法生成优惠券。"
 
+msgid "The draw record is invalid, so the coupon could not be generated."
+msgstr "抽奖记录无效，无法生成优惠券。"
+
 msgid "Lottery Claim: %s"
 msgstr "抽奖领取：%s"
 
 msgid "Failed to generate the coupon. Please try again later."
 msgstr "优惠券生成失败，请稍后重试。"
+
+msgid "The draw is busy right now. Please try again in a moment."
+msgstr "当前抽奖请求较多，请稍后再试。"
+
+msgid "The draw did not complete successfully. Please try again."
+msgstr "抽奖未成功完成，请重试。"
+
+msgid "This draw record does not belong to the current lottery."
+msgstr "该抽奖记录不属于当前抽奖活动。"
+
+msgid "The coupon is being claimed right now. Please try again in a moment."
+msgstr "该优惠券正在领取中，请稍后再试。"
+
+msgid "The coupon claim did not complete successfully. Please try again."
+msgstr "优惠券领取未成功完成，请重试。"
 
 msgid "Won"
 msgstr "中奖"

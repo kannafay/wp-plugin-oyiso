@@ -350,7 +350,7 @@
         }
 
         nextRecord.status = 'claimed';
-        nextRecord.statusLabel = oyisoCouponLotteryI18n.claimedLabel || nextRecord.statusLabel || 'Claimed';
+        nextRecord.statusLabel = oyisoCouponLotteryI18n.claimedLabel || nextRecord.statusLabel || '';
         nextRecord.canClaim = false;
 
         return nextRecord;

@@ -1001,11 +1001,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 return oyiso_t_sprintf('%s%% off', (string) (int) round($value));
             }
 
-            if (function_exists('wc_price')) {
-                return wp_strip_all_tags(wc_price($value));
-            }
-
-            return number_format($value, 2, '.', '');
+            return self::formatPlainPrice($value);
         }
 
         private static function pickPrize(array $prizes): array {
@@ -1852,8 +1848,16 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
         }
 
         private static function formatScopeMoney(float $amount): string {
+            return self::formatPlainPrice($amount);
+        }
+
+        private static function formatPlainPrice(float $amount): string {
             if (function_exists('wc_price')) {
-                return wp_strip_all_tags(wc_price($amount));
+                $formatted = html_entity_decode((string) wc_price($amount), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $formatted = wp_strip_all_tags($formatted);
+                $formatted = str_replace("\xc2\xa0", ' ', $formatted);
+
+                return trim(preg_replace('/\s+/u', ' ', $formatted) ?: $formatted);
             }
 
             return rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.');
