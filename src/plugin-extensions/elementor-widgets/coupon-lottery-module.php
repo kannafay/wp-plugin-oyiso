@@ -113,46 +113,97 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
             }
 
             $payload = self::verifyPostedPayload();
+            $widget_key = sanitize_text_field((string) ($payload['widget_key'] ?? ''));
             $user_id = get_current_user_id();
-            $availability = self::evaluateAvailability($user_id, $payload);
 
-            if (!$availability['allowed']) {
+            if ($widget_key === '') {
                 wp_send_json_error([
-                    'message' => $availability['reason'],
+                    'message' => oyiso_t('Invalid lottery identifier.'),
                 ], 400);
             }
 
-            $prizes = self::buildPrizePool($payload);
+            $lock_name = self::buildAdvisoryLockName('draw', [get_current_blog_id(), $widget_key]);
 
-            if (empty($prizes)) {
+            if (!self::acquireAdvisoryLock($lock_name)) {
                 wp_send_json_error([
-                    'message' => oyiso_t('No available lottery prizes are configured right now.'),
-                ], 400);
+                    'message' => oyiso_t('The draw is busy right now. Please try again in a moment.'),
+                ], 409);
             }
 
-            $selected = self::pickPrize($prizes);
-            $record_id = self::insertRecord($user_id, $payload, $selected);
+            $response = null;
+            $status_code = 200;
 
-            if (!$record_id) {
+            try {
+                $availability = self::evaluateAvailability($user_id, $payload);
+
+                if (!$availability['allowed']) {
+                    $response = [
+                        'success' => false,
+                        'data'    => [
+                            'message'      => $availability['reason'],
+                            'availability' => $availability,
+                        ],
+                    ];
+                    $status_code = 400;
+                } else {
+                    $prizes = self::buildPrizePool($payload);
+
+                    if (empty($prizes)) {
+                        $response = [
+                            'success' => false,
+                            'data'    => [
+                                'message' => oyiso_t('No available lottery prizes are configured right now.'),
+                            ],
+                        ];
+                        $status_code = 400;
+                    } else {
+                        $selected = self::pickPrize($prizes);
+                        $record_id = self::insertRecord($user_id, $payload, $selected);
+
+                        if (!$record_id) {
+                            $response = [
+                                'success' => false,
+                                'data'    => [
+                                    'message' => oyiso_t('Failed to save the draw record. Please try again later.'),
+                                ],
+                            ];
+                            $status_code = 500;
+                        } else {
+                            $is_win = ($selected['type'] ?? 'lose') === 'win';
+
+                            $response = [
+                                'success' => true,
+                                'data'    => [
+                                    'recordId'          => $record_id,
+                                    'resultType'        => $is_win ? 'win' : 'lose',
+                                    'prizeLabel'        => $selected['label'],
+                                    'message'           => $is_win
+                                        ? oyiso_t('Congratulations. Claim to generate your coupon.')
+                                        : oyiso_t('Thanks for participating. Better luck next time.'),
+                                    'couponDescription' => $is_win ? trim((string) ($payload['coupon_description'] ?? '')) : '',
+                                    'claimable'         => $is_win,
+                                    'claimButton'       => oyiso_t('Claim Coupon'),
+                                    'availability'      => self::evaluateAvailability($user_id, $payload),
+                                ],
+                            ];
+                        }
+                    }
+                }
+            } finally {
+                self::releaseAdvisoryLock($lock_name);
+            }
+
+            if (!is_array($response)) {
                 wp_send_json_error([
-                    'message' => oyiso_t('Failed to save the draw record. Please try again later.'),
+                    'message' => oyiso_t('The draw did not complete successfully. Please try again.'),
                 ], 500);
             }
 
-            $is_win = ($selected['type'] ?? 'lose') === 'win';
+            if (empty($response['success'])) {
+                wp_send_json_error($response['data'] ?? [], $status_code);
+            }
 
-            wp_send_json_success([
-                'recordId'      => $record_id,
-                'resultType'    => $is_win ? 'win' : 'lose',
-                'prizeLabel'    => $selected['label'],
-                'message'       => $is_win
-                    ? oyiso_t('Congratulations. Claim to generate your coupon.')
-                    : oyiso_t('Thanks for participating. Better luck next time.'),
-                'couponDescription' => $is_win ? trim((string) ($payload['coupon_description'] ?? '')) : '',
-                'claimable'     => $is_win,
-                'claimButton'   => oyiso_t('Claim Coupon'),
-                'availability'  => self::evaluateAvailability($user_id, $payload),
-            ]);
+            wp_send_json_success($response['data'] ?? []);
         }
 
         public static function handleClaim(): void {
@@ -170,7 +221,7 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 ], 400);
             }
 
-            $payload = self::verifyPostedPayload();
+            $current_payload = self::verifyPostedPayload();
             $record_id = isset($_POST['recordId']) ? absint(wp_unslash($_POST['recordId'])) : 0;
 
             if ($record_id <= 0) {
@@ -199,37 +250,127 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 ], 400);
             }
 
-            if (($record['status'] ?? '') === 'claimed' && !empty($record['coupon_code'])) {
-                $latest_record = self::getRecord($record_id);
-                wp_send_json_success([
-                    'couponId'   => (int) $record['coupon_id'],
-                    'couponCode' => (string) $record['coupon_code'],
-                    'message'    => oyiso_t('The coupon has already been claimed and can be copied directly.'),
-                    'record'     => $latest_record ? self::formatRecordRow($latest_record) : null,
-                ]);
+            $record_payload = self::extractRecordPayload($record);
+
+            if (!empty($record_payload)) {
+                $record_payload = self::sanitizeLotteryPayload($record_payload);
+            } else {
+                $record_payload = $current_payload;
             }
 
-            if (self::hasRecordClaimExpired($record, $payload)) {
+            $record_widget_key = sanitize_text_field((string) ($record['widget_key'] ?? ''));
+            $current_widget_key = sanitize_text_field((string) ($current_payload['widget_key'] ?? ''));
+            $record_post_id = (int) ($record['post_id'] ?? 0);
+            $current_post_id = (int) ($current_payload['post_id'] ?? 0);
+
+            if (
+                $record_widget_key === ''
+                || $current_widget_key !== $record_widget_key
+                || ($record_post_id > 0 && $current_post_id > 0 && $current_post_id !== $record_post_id)
+            ) {
                 wp_send_json_error([
-                    'message' => oyiso_t('This coupon claim has expired and can no longer be generated.'),
+                    'message' => oyiso_t('This draw record does not belong to the current lottery.'),
                 ], 400);
             }
 
-            $coupon = self::createCouponForRecord($record, $payload);
+            $lock_name = self::buildAdvisoryLockName('claim', [get_current_blog_id(), $record_id]);
 
-            if (is_wp_error($coupon)) {
+            if (!self::acquireAdvisoryLock($lock_name)) {
                 wp_send_json_error([
-                    'message' => $coupon->get_error_message(),
-                ], 400);
+                    'message' => oyiso_t('The coupon is being claimed right now. Please try again in a moment.'),
+                ], 409);
             }
 
-            $latest_record = self::getRecord($record_id);
-            wp_send_json_success([
-                'couponId'   => (int) $coupon['coupon_id'],
-                'couponCode' => (string) $coupon['coupon_code'],
-                'message'    => oyiso_t('Claim successful. Your coupon has been generated.'),
-                'record'     => $latest_record ? self::formatRecordRow($latest_record) : null,
-            ]);
+            $response = null;
+            $status_code = 200;
+
+            try {
+                $record = self::getRecord($record_id);
+
+                if (!$record || (int) $record['blog_id'] !== (int) get_current_blog_id()) {
+                    $response = [
+                        'success' => false,
+                        'data'    => [
+                            'message' => oyiso_t('The draw record does not exist.'),
+                        ],
+                    ];
+                    $status_code = 404;
+                } elseif ((int) $record['user_id'] !== get_current_user_id()) {
+                    $response = [
+                        'success' => false,
+                        'data'    => [
+                            'message' => oyiso_t('You are not allowed to claim this coupon.'),
+                        ],
+                    ];
+                    $status_code = 403;
+                } elseif (($record['result_type'] ?? '') !== 'win') {
+                    $response = [
+                        'success' => false,
+                        'data'    => [
+                            'message' => oyiso_t('This record did not win, so the coupon cannot be claimed.'),
+                        ],
+                    ];
+                    $status_code = 400;
+                } else {
+                    if (($record['status'] ?? '') === 'claimed' && !empty($record['coupon_code'])) {
+                        $latest_record = self::getRecord($record_id);
+                        $response = [
+                            'success' => true,
+                            'data'    => [
+                                'couponId'   => (int) $record['coupon_id'],
+                                'couponCode' => (string) $record['coupon_code'],
+                                'message'    => oyiso_t('The coupon has already been claimed and can be copied directly.'),
+                                'record'     => $latest_record ? self::formatRecordRow($latest_record) : null,
+                            ],
+                        ];
+                    } elseif (self::hasRecordClaimExpired($record, $record_payload)) {
+                        $response = [
+                            'success' => false,
+                            'data'    => [
+                                'message' => oyiso_t('This coupon claim has expired and can no longer be generated.'),
+                            ],
+                        ];
+                        $status_code = 400;
+                    } else {
+                        $coupon = self::createCouponForRecord($record, $record_payload);
+
+                        if (is_wp_error($coupon)) {
+                            $response = [
+                                'success' => false,
+                                'data'    => [
+                                    'message' => $coupon->get_error_message(),
+                                ],
+                            ];
+                            $status_code = 400;
+                        } else {
+                            $latest_record = self::getRecord($record_id);
+                            $response = [
+                                'success' => true,
+                                'data'    => [
+                                    'couponId'   => (int) $coupon['coupon_id'],
+                                    'couponCode' => (string) $coupon['coupon_code'],
+                                    'message'    => oyiso_t('Claim successful. Your coupon has been generated.'),
+                                    'record'     => $latest_record ? self::formatRecordRow($latest_record) : null,
+                                ],
+                            ];
+                        }
+                    }
+                }
+            } finally {
+                self::releaseAdvisoryLock($lock_name);
+            }
+
+            if (!is_array($response)) {
+                wp_send_json_error([
+                    'message' => oyiso_t('The coupon claim did not complete successfully. Please try again.'),
+                ], 500);
+            }
+
+            if (empty($response['success'])) {
+                wp_send_json_error($response['data'] ?? [], $status_code);
+            }
+
+            wp_send_json_success($response['data'] ?? []);
         }
 
         public static function handleRecords(): void {
@@ -943,6 +1084,23 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
         }
 
         private static function createCouponForRecord(array $record, array $payload) {
+            $record_id = (int) ($record['id'] ?? 0);
+
+            if ($record_id <= 0) {
+                return new WP_Error('oyiso_coupon_lottery_record_invalid', oyiso_t('The draw record is invalid, so the coupon could not be generated.'));
+            }
+
+            $existing_coupon = self::findExistingCouponForRecord($record_id);
+
+            if ($existing_coupon) {
+                self::markRecordClaimed($record_id, (int) $existing_coupon['coupon_id'], (string) $existing_coupon['coupon_code']);
+                return $existing_coupon;
+            }
+
+            if (($record['status'] ?? '') === 'claimed') {
+                return new WP_Error('oyiso_coupon_lottery_already_claimed', oyiso_t('The coupon has already been claimed and can be copied directly.'));
+            }
+
             $user = get_userdata((int) $record['user_id']);
 
             if (!$user || empty($user->user_email)) {
@@ -1015,31 +1173,9 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 update_post_meta($coupon_id, 'maximum_amount', $payload['maximum_discount']);
             }
 
-            update_post_meta($coupon_id, '_oyiso_coupon_lottery_record_id', (int) $record['id']);
+            update_post_meta($coupon_id, '_oyiso_coupon_lottery_record_id', $record_id);
             update_post_meta($coupon_id, '_oyiso_coupon_lottery_widget_key', $payload['widget_key']);
-
-            global $wpdb;
-            $wpdb->update(
-                self::getTableName(),
-                [
-                    'status'      => 'claimed',
-                    'coupon_id'   => $coupon_id,
-                    'coupon_code' => $coupon_code,
-                    'claimed_at'  => current_time('mysql'),
-                ],
-                [
-                    'id' => (int) $record['id'],
-                ],
-                [
-                    '%s',
-                    '%d',
-                    '%s',
-                    '%s',
-                ],
-                [
-                    '%d',
-                ]
-            );
+            self::markRecordClaimed($record_id, (int) $coupon_id, (string) $coupon_code);
 
             return [
                 'coupon_id'   => $coupon_id,
@@ -1483,6 +1619,117 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
                 self::formatScopeSection(oyiso_t('Prize Settings'), $prize_rows),
                 self::formatScopeSection(oyiso_t('Prize Rules'), $prize_rule_rows),
             ]);
+        }
+
+        private static function buildAdvisoryLockName(string $scope, array $parts = []): string {
+            return 'oyiso_lottery_' . $scope . '_' . md5(wp_json_encode(array_values($parts)));
+        }
+
+        private static function acquireAdvisoryLock(string $lock_name, int $timeout = 5): bool {
+            global $wpdb;
+
+            $result = $wpdb->get_var(
+                $wpdb->prepare(
+                    'SELECT GET_LOCK(%s, %d)',
+                    $lock_name,
+                    max(0, $timeout)
+                )
+            );
+
+            return (int) $result === 1;
+        }
+
+        private static function releaseAdvisoryLock(string $lock_name): void {
+            global $wpdb;
+
+            $wpdb->get_var(
+                $wpdb->prepare(
+                    'SELECT RELEASE_LOCK(%s)',
+                    $lock_name
+                )
+            );
+        }
+
+        private static function findExistingCouponForRecord(int $record_id): ?array {
+            if ($record_id <= 0) {
+                return null;
+            }
+
+            $coupon_ids = get_posts([
+                'post_type'              => 'shop_coupon',
+                'post_status'            => ['publish', 'private', 'draft', 'pending', 'future'],
+                'posts_per_page'         => 1,
+                'fields'                 => 'ids',
+                'orderby'                => 'ID',
+                'order'                  => 'DESC',
+                'no_found_rows'          => true,
+                'suppress_filters'       => true,
+                'update_post_meta_cache' => false,
+                'update_post_term_cache' => false,
+                'meta_query'             => [
+                    [
+                        'key'     => '_oyiso_coupon_lottery_record_id',
+                        'value'   => $record_id,
+                        'compare' => '=',
+                    ],
+                ],
+            ]);
+
+            if (empty($coupon_ids) || !isset($coupon_ids[0])) {
+                return null;
+            }
+
+            return self::normalizeCouponReference((int) $coupon_ids[0]);
+        }
+
+        private static function normalizeCouponReference(int $coupon_id): ?array {
+            if ($coupon_id <= 0) {
+                return null;
+            }
+
+            $coupon_post = get_post($coupon_id);
+
+            if (!$coupon_post || $coupon_post->post_type !== 'shop_coupon') {
+                return null;
+            }
+
+            $coupon_code = (string) get_post_field('post_title', $coupon_id);
+
+            if ($coupon_code === '' && class_exists('WC_Coupon')) {
+                $coupon = new WC_Coupon($coupon_id);
+                $coupon_code = (string) $coupon->get_code();
+            }
+
+            return [
+                'coupon_id'   => $coupon_id,
+                'coupon_code' => $coupon_code,
+            ];
+        }
+
+        private static function markRecordClaimed(int $record_id, int $coupon_id, string $coupon_code): void {
+            global $wpdb;
+
+            $wpdb->update(
+                self::getTableName(),
+                [
+                    'status'      => 'claimed',
+                    'coupon_id'   => $coupon_id,
+                    'coupon_code' => $coupon_code,
+                    'claimed_at'  => current_time('mysql'),
+                ],
+                [
+                    'id' => $record_id,
+                ],
+                [
+                    '%s',
+                    '%d',
+                    '%s',
+                    '%s',
+                ],
+                [
+                    '%d',
+                ]
+            );
         }
 
         private static function currentUserCanManageCoupons(): bool {

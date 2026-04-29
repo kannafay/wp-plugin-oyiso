@@ -129,7 +129,7 @@
         var drawButton = widget ? widget.querySelector('[data-lottery-draw]') : null;
 
         if (drawButton) {
-            drawButton.disabled = false;
+            drawButton.disabled = !!(widget && widget._oyisoDrawAvailabilityDisabled);
         }
 
         setDrawingState(widget, false);
@@ -253,11 +253,14 @@
 
         if (!availability.allowed && availability.reason) {
             setStatus(widget, availability.reason, true);
+            widget._oyisoDrawAvailabilityDisabled = true;
             if (drawButton) {
                 drawButton.disabled = true;
             }
             return;
         }
+
+        widget._oyisoDrawAvailabilityDisabled = false;
 
         if (availability.total_remaining !== null) {
             parts.push(formatLabel(oyisoCouponLotteryI18n.totalRemaining, availability.total_remaining));
@@ -582,6 +585,8 @@
     }
 
     function initWidget(widget) {
+        var drawButton;
+
         if (!widget || widget.dataset.lotteryModalReady === '1') {
             return;
         }
@@ -589,6 +594,8 @@
         mountModalToBody(widget, '[data-lottery-result-modal]', '_oyisoResultModal');
         mountModalToBody(widget, '[data-lottery-records-modal]', '_oyisoRecordsModal');
         syncWidgetModals(widget);
+        drawButton = widget.querySelector('[data-lottery-draw]');
+        widget._oyisoDrawAvailabilityDisabled = !!(drawButton && drawButton.disabled);
         widget.dataset.lotteryModalReady = '1';
     }
 
@@ -619,6 +626,9 @@
 
             post('oyiso_coupon_lottery_draw', widget, {}).then(function (response) {
                 if (!response || !response.success) {
+                    if (response && response.data && response.data.availability) {
+                        updateAvailability(widget, response.data.availability);
+                    }
                     throw new Error(response && response.data && response.data.message ? response.data.message : oyisoCouponLotteryI18n.loadFailed);
                 }
 
