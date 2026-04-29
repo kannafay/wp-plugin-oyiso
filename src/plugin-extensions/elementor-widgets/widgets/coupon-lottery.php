@@ -992,8 +992,9 @@ class Coupon_Lottery extends Widget_Base
                                 </div>
                             </div>
                         </section>
-                        <div class="oyiso-coupon-lottery__claim-success" data-lottery-claim-success hidden>
-                            <strong data-lottery-coupon-code data-code-label="<?php echo esc_attr(oyiso_t('Coupon Code')); ?>"></strong>
+                        <div class="oyiso-coupon-lottery__claim-success oyiso-scope-dialog__summary" data-lottery-claim-success hidden>
+                            <div class="oyiso-scope-dialog__summary-label"><?php echo esc_html(oyiso_t('Coupon Code')); ?></div>
+                            <div class="oyiso-coupon-lottery__claim-code oyiso-scope-dialog__summary-code" data-lottery-coupon-code></div>
                         </div>
                         <div class="oyiso-coupon-lottery__modal-actions">
                             <button type="button" class="oyiso-coupon-lottery__button oyiso-coupon-lottery__button--primary" data-lottery-claim hidden>
