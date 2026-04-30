@@ -21,6 +21,24 @@ if (!function_exists('oyiso_can_access_settings_page')) {
     }
 }
 
+if (!function_exists('oyiso_is_plugin_active_for_current_site')) {
+    function oyiso_is_plugin_active_for_current_site(string $plugin_basename): bool {
+        $active_plugins = get_option('active_plugins', []);
+
+        if (in_array($plugin_basename, is_array($active_plugins) ? $active_plugins : [], true)) {
+            return true;
+        }
+
+        if (!is_multisite()) {
+            return false;
+        }
+
+        $sitewide_plugins = get_site_option('active_sitewide_plugins', []);
+
+        return is_array($sitewide_plugins) && array_key_exists($plugin_basename, $sitewide_plugins);
+    }
+}
+
 if (!function_exists('oyiso_register_admin_bar_menu')) {
     function oyiso_register_admin_bar_menu(WP_Admin_Bar $admin_bar): void {
         if (!is_admin_bar_showing() || !oyiso_can_access_settings_page()) {
