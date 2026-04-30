@@ -901,3 +901,30 @@ msgstr "记录卡背景"
 
 msgid "Record Card Border"
 msgstr "记录卡边框"
+
+msgid "Browse current offers and quickly find the best savings for your order."
+msgstr "浏览当前优惠，快速找到最适合你订单的优惠力度。"
+
+msgid "Coupon Lottery"
+msgstr "优惠券抽奖"
+
+msgid "Enter the draw now to unlock this event's exclusive offer. If you win, you can claim it right away."
+msgstr "立即参与抽奖，解锁本次活动专属优惠，中奖后可马上领取。"
+
+msgid "Featured Offers"
+msgstr "精选优惠"
+
+msgid "Learn More"
+msgstr "了解更多"
+
+msgid "Limited-Time Offers"
+msgstr "限时优惠"
+
+msgid "This is a description you can edit in Elementor."
+msgstr "这里是一段可在 Elementor 中编辑的描述内容。"
+
+msgid "Your Card Title"
+msgstr "你的卡片标题"
+
+msgid "e.g. Featured Offers"
+msgstr "例如：精选优惠"

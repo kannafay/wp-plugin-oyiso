@@ -901,3 +901,30 @@ msgstr "Tło karty rekordu"
 
 msgid "Record Card Border"
 msgstr "Obramowanie karty rekordu"
+
+msgid "Browse current offers and quickly find the best savings for your order."
+msgstr "Przeglądaj aktualne oferty i szybko znajdź najlepszą zniżkę do swojego zamówienia."
+
+msgid "Coupon Lottery"
+msgstr "Loteria kuponów"
+
+msgid "Enter the draw now to unlock this event's exclusive offer. If you win, you can claim it right away."
+msgstr "Weź udział w losowaniu już teraz i odblokuj ekskluzywną ofertę tej akcji. Jeśli wygrasz, możesz odebrać ją od razu."
+
+msgid "Featured Offers"
+msgstr "Polecane oferty"
+
+msgid "Learn More"
+msgstr "Dowiedz się więcej"
+
+msgid "Limited-Time Offers"
+msgstr "Oferty ograniczone czasowo"
+
+msgid "This is a description you can edit in Elementor."
+msgstr "To jest przykładowy opis, który możesz edytować w Elementorze."
+
+msgid "Your Card Title"
+msgstr "Tytuł karty"
+
+msgid "e.g. Featured Offers"
+msgstr "np. Polecane oferty"

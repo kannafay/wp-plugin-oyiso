@@ -12,57 +12,6 @@ use Elementor\Widget_Base;
 
 class Info_Card extends Widget_Base
 {
-    private function get_site_locale(): string
-    {
-        $site_locale = function_exists('get_locale') ? (string) get_locale() : '';
-
-        if (!$site_locale && function_exists('get_bloginfo')) {
-            $site_language = (string) get_bloginfo('language');
-
-            if ($site_language) {
-                $site_locale = str_replace('-', '_', $site_language);
-            }
-        }
-
-        return $site_locale ?: 'en_US';
-    }
-
-    private function translate_for_locale(string $text, string $locale): string
-    {
-        static $catalogs = [];
-        $mofile = dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'languages' . DIRECTORY_SEPARATOR . 'oyiso-' . $locale . '.mo';
-
-        if (!is_readable($mofile)) {
-            return $text;
-        }
-
-        if (!array_key_exists($locale, $catalogs)) {
-            if (!class_exists('\MO')) {
-                require_once ABSPATH . WPINC . '/pomo/mo.php';
-            }
-
-            $mo = new \MO();
-            $catalogs[$locale] = $mo->import_from_file($mofile) ? $mo : false;
-        }
-
-        if (!$catalogs[$locale]) {
-            return $text;
-        }
-
-        $translated = $catalogs[$locale]->translate($text);
-
-        return is_string($translated) && $translated !== '' ? $translated : $text;
-    }
-
-    private function get_site_default_text(string $text): string
-    {
-        if (function_exists('oyiso_t')) {
-            return oyiso_t($text);
-        }
-
-        return $this->translate_for_locale($text, $this->get_site_locale());
-    }
-
     public function get_name()
     {
         return 'oyiso_info_card';
@@ -98,14 +47,14 @@ class Info_Card extends Widget_Base
         $this->add_control('title', [
             'label'       => oyiso_editor_t('Title'),
             'type'        => Controls_Manager::TEXT,
-            'default'     => $this->get_site_default_text('Your Card Title'),
+            'default'     => oyiso_t('Your Card Title'),
             'placeholder' => oyiso_editor_t('Enter a title'),
         ]);
 
         $this->add_control('description', [
             'label'       => oyiso_editor_t('Description'),
             'type'        => Controls_Manager::TEXTAREA,
-            'default'     => $this->get_site_default_text('This is a description you can edit in Elementor.'),
+            'default'     => oyiso_t('This is a description you can edit in Elementor.'),
             'placeholder' => oyiso_editor_t('Enter a description'),
         ]);
 
@@ -118,7 +67,7 @@ class Info_Card extends Widget_Base
         $this->add_control('button_text', [
             'label'   => oyiso_editor_t('Button Text'),
             'type'    => Controls_Manager::TEXT,
-            'default' => $this->get_site_default_text('Learn More'),
+            'default' => oyiso_t('Learn More'),
         ]);
 
         $this->add_responsive_control('content_alignment', [

@@ -13,57 +13,6 @@ use Elementor\Widget_Base;
 
 class Coupon_Lottery extends Widget_Base
 {
-    private function get_site_locale(): string
-    {
-        $site_locale = function_exists('get_locale') ? (string) get_locale() : '';
-
-        if (!$site_locale && function_exists('get_bloginfo')) {
-            $site_language = (string) get_bloginfo('language');
-
-            if ($site_language) {
-                $site_locale = str_replace('-', '_', $site_language);
-            }
-        }
-
-        return $site_locale ?: 'en_US';
-    }
-
-    private function translate_for_locale(string $text, string $locale): string
-    {
-        static $catalogs = [];
-        $mofile = dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'languages' . DIRECTORY_SEPARATOR . 'oyiso-' . $locale . '.mo';
-
-        if (!is_readable($mofile)) {
-            return $text;
-        }
-
-        if (!array_key_exists($locale, $catalogs)) {
-            if (!class_exists('\MO')) {
-                require_once ABSPATH . WPINC . '/pomo/mo.php';
-            }
-
-            $mo = new \MO();
-            $catalogs[$locale] = $mo->import_from_file($mofile) ? $mo : false;
-        }
-
-        if (!$catalogs[$locale]) {
-            return $text;
-        }
-
-        $translated = $catalogs[$locale]->translate($text);
-
-        return is_string($translated) && $translated !== '' ? $translated : $text;
-    }
-
-    private function get_site_default_text(string $text): string
-    {
-        if (function_exists('oyiso_t')) {
-            return oyiso_t($text);
-        }
-
-        return $this->translate_for_locale($text, $this->get_site_locale());
-    }
-
     public function get_name()
     {
         return 'oyiso_coupon_lottery';
@@ -106,13 +55,13 @@ class Coupon_Lottery extends Widget_Base
         $this->add_control('title', [
             'label'   => oyiso_editor_t('Title'),
             'type'    => Controls_Manager::TEXT,
-            'default' => $this->get_site_default_text('Coupon Lottery'),
+            'default' => oyiso_t('Coupon Lottery'),
         ]);
 
         $this->add_control('description', [
             'label'   => oyiso_editor_t('Lottery Description'),
             'type'    => Controls_Manager::TEXTAREA,
-            'default' => $this->get_site_default_text('Enter the draw now to unlock this event\'s exclusive offer. If you win, you can claim it right away.'),
+            'default' => oyiso_t('Enter the draw now to unlock this event\'s exclusive offer. If you win, you can claim it right away.'),
         ]);
 
         $this->add_control('config_revision', [
