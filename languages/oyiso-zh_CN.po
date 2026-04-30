@@ -636,8 +636,8 @@ msgstr "了解更多"
 msgid "Oyiso Coupon Lottery"
 msgstr "Oyiso 优惠券抽奖"
 
-msgid "Oyiso Coupons"
-msgstr "Oyiso 优惠券"
+msgid "Oyiso Coupon Display"
+msgstr "Oyiso 优惠券展示"
 
 msgid "Coupon Lottery"
 msgstr "优惠券抽奖"

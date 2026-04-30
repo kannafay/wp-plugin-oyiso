@@ -73,7 +73,7 @@ class Coupons extends Widget_Base
 
     public function get_title()
     {
-        return function_exists('oyiso_editor_t') ? oyiso_editor_t('Oyiso Coupons') : __('Oyiso Coupons', 'oyiso');
+        return function_exists('oyiso_editor_t') ? oyiso_editor_t('Oyiso Coupon Display') : __('Oyiso Coupon Display', 'oyiso');
     }
 
     public function get_icon()
