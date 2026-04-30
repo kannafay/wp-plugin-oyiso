@@ -400,7 +400,7 @@ add_action('elementor/widgets/register', function ($widgets_manager) {
     }
 
     require_once __DIR__ . '/widgets/info-card.php';
-    require_once __DIR__ . '/widgets/coupons.php';
+    require_once __DIR__ . '/widgets/coupon-display.php';
     require_once __DIR__ . '/widgets/coupon-lottery.php';
 
     $widgets_manager->register(new \Oyiso\ElementorWidgets\Info_Card());
