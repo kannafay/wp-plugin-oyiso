@@ -21,7 +21,7 @@ CSF::createSection($prefix, [
             'id' => 'opt-elementor-widgets',
             'type' => 'switcher',
             'title' => '启用小部件',
-            'label' => '开启后将在 Elementor 编辑器中启用橘子猫头小部件分类及相关组件。',
+            'label' => '开启后将在 Elementor 编辑器中启用橘子猫头小部件分类及相关组件。需当前站点已启用 Elementor；多站点下支持网络启用。',
             'default' => true,
         ],
     ],
