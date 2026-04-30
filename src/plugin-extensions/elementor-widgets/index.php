@@ -306,13 +306,13 @@ add_action('elementor/frontend/after_register_scripts', function () {
     );
 
     wp_localize_script('oyiso-coupon-tabs', 'oyisoCouponTabsI18n', [
-        'expand'             => __('Show More', 'oyiso'),
-        'collapse'           => __('Show Less', 'oyiso'),
-        'copied'             => __('Copied', 'oyiso'),
-        'couponCodeLabel'    => __('Coupon Code', 'oyiso'),
-        'scopeTitle'         => __('Offer Details', 'oyiso'),
-        'scopeTitleWithCode' => __('%1$s - Offer Details', 'oyiso'),
-        'closeLabel'         => __('Close', 'oyiso'),
+        'expand'             => oyiso_t('Show More'),
+        'collapse'           => oyiso_t('Show Less'),
+        'copied'             => oyiso_t('Copied'),
+        'couponCodeLabel'    => oyiso_t('Coupon Code'),
+        'scopeTitle'         => oyiso_t('Offer Details'),
+        'scopeTitleWithCode' => oyiso_t('%1$s - Offer Details'),
+        'closeLabel'         => oyiso_t('Close'),
     ]);
 
     wp_register_script(
