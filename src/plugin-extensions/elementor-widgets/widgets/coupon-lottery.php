@@ -796,7 +796,7 @@ class Coupon_Lottery extends Widget_Base
         >
             <div class="oyiso-coupon-lottery__aurora" aria-hidden="true"></div>
             <div class="oyiso-coupon-lottery__grain" aria-hidden="true"></div>
-            <?php if ($is_logged_in && $availability['allowed'] && $availability['prize_pool_remaining'] !== null) : ?>
+            <?php if ($availability['prize_pool_remaining'] !== null) : ?>
                 <div class="oyiso-coupon-lottery__badge" data-lottery-status-featured>
                     <?php echo esc_html(oyiso_t_sprintf('Prize pool remaining: %d', (int) $availability['prize_pool_remaining'])); ?>
                 </div>

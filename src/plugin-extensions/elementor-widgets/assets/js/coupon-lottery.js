@@ -280,7 +280,10 @@
         var useErrorStyle = !!(options && options.isError);
 
         if (!availability.allowed && availability.reason) {
-            setFeaturedStatus(widget, '');
+            if (availability.prize_pool_remaining !== null) {
+                featured = formatLabel(oyisoCouponLotteryI18n.prizePoolRemaining, availability.prize_pool_remaining);
+            }
+            setFeaturedStatus(widget, featured);
             setStatus(widget, availability.reason, useErrorStyle);
             widget._oyisoDrawAvailabilityDisabled = true;
             if (drawButton) {

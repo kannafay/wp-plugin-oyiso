@@ -74,17 +74,19 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
         }
 
         public static function getCurrentAvailability(array $settings): array {
+            $payload = self::sanitizeLotteryPayload($settings);
+
             if (!is_user_logged_in()) {
+                $guest_availability = self::evaluateAvailability(0, $payload);
+
                 return [
-                    'allowed'        => false,
-                    'reason'         => oyiso_t('Please log in before joining the draw.'),
-                    'total_remaining'=> null,
-                    'daily_remaining'=> null,
-                    'prize_pool_remaining' => null,
+                    'allowed'         => false,
+                    'reason'          => oyiso_t('Please log in before joining the draw.'),
+                    'total_remaining' => null,
+                    'daily_remaining' => null,
+                    'prize_pool_remaining' => $guest_availability['prize_pool_remaining'] ?? null,
                 ];
             }
-
-            $payload = self::sanitizeLotteryPayload($settings);
 
             return self::evaluateAvailability(get_current_user_id(), $payload);
         }
