@@ -1344,9 +1344,11 @@ if (!class_exists('Oyiso_Coupon_Lottery_Module')) {
 
         private static function buildInternalCouponDescription(array $payload, float $coupon_amount): string {
             $range_type = ($payload['range_type'] ?? 'percent') === 'amount' ? 'amount' : 'percent';
-            $type_label = $range_type === 'percent' ? '百分比折扣' : '固定金额';
+            $type_label = $range_type === 'percent'
+                ? oyiso_t('Percentage Discount')
+                : oyiso_t('Fixed Amount');
 
-            return sprintf('抽奖领取 - %s %s', $type_label, self::formatInternalCouponAmount($range_type, $coupon_amount));
+            return oyiso_t_sprintf('Lottery Claim - %1$s %2$s', $type_label, self::formatInternalCouponAmount($range_type, $coupon_amount));
         }
 
         private static function formatInternalCouponAmount(string $range_type, float $coupon_amount): string {

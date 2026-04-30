@@ -91,50 +91,50 @@ class Info_Card extends Widget_Base
     protected function register_controls()
     {
         $this->start_controls_section('content_section', [
-            'label' => oyiso_editor_t('Content', '内容'),
+            'label' => oyiso_editor_t('Content'),
             'tab'   => Controls_Manager::TAB_CONTENT,
         ]);
 
         $this->add_control('title', [
-            'label'       => oyiso_editor_t('Title', '标题'),
+            'label'       => oyiso_editor_t('Title'),
             'type'        => Controls_Manager::TEXT,
             'default'     => $this->get_site_default_text('Your Card Title'),
             'placeholder' => oyiso_editor_t('Enter a title'),
         ]);
 
         $this->add_control('description', [
-            'label'       => oyiso_editor_t('Description', '描述'),
+            'label'       => oyiso_editor_t('Description'),
             'type'        => Controls_Manager::TEXTAREA,
             'default'     => $this->get_site_default_text('This is a description you can edit in Elementor.'),
             'placeholder' => oyiso_editor_t('Enter a description'),
         ]);
 
         $this->add_control('link', [
-            'label'       => oyiso_editor_t('Link', '链接'),
+            'label'       => oyiso_editor_t('Link'),
             'type'        => Controls_Manager::URL,
             'placeholder' => 'https://example.com',
         ]);
 
         $this->add_control('button_text', [
-            'label'   => oyiso_editor_t('Button Text', '按钮文字'),
+            'label'   => oyiso_editor_t('Button Text'),
             'type'    => Controls_Manager::TEXT,
             'default' => $this->get_site_default_text('Learn More'),
         ]);
 
         $this->add_responsive_control('content_alignment', [
-            'label'     => oyiso_editor_t('Content Alignment', '内容对齐'),
+            'label'     => oyiso_editor_t('Content Alignment'),
             'type'      => Controls_Manager::CHOOSE,
             'options'   => [
                 'left'   => [
-                    'title' => oyiso_editor_t('Left', '左对齐'),
+                    'title' => oyiso_editor_t('Left'),
                     'icon'  => 'eicon-text-align-left',
                 ],
                 'center' => [
-                    'title' => oyiso_editor_t('Center', '居中'),
+                    'title' => oyiso_editor_t('Center'),
                     'icon'  => 'eicon-text-align-center',
                 ],
                 'right'  => [
-                    'title' => oyiso_editor_t('Right', '右对齐'),
+                    'title' => oyiso_editor_t('Right'),
                     'icon'  => 'eicon-text-align-right',
                 ],
             ],
@@ -147,12 +147,12 @@ class Info_Card extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('card_style_section', [
-            'label' => oyiso_editor_t('Card', '卡片'),
+            'label' => oyiso_editor_t('Card'),
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_control('accent_color', [
-            'label'     => oyiso_editor_t('Accent Color', '强调色'),
+            'label'     => oyiso_editor_t('Accent Color'),
             'type'      => Controls_Manager::COLOR,
             'default'   => '#e5702a',
             'selectors' => [
@@ -161,7 +161,7 @@ class Info_Card extends Widget_Base
         ]);
 
         $this->add_control('card_background_color', [
-            'label'     => oyiso_editor_t('Background Color', '背景颜色'),
+            'label'     => oyiso_editor_t('Background Color'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-info-card' => 'background: {{VALUE}};',
@@ -169,7 +169,7 @@ class Info_Card extends Widget_Base
         ]);
 
         $this->add_control('card_border_color', [
-            'label'     => oyiso_editor_t('Border Color', '边框颜色'),
+            'label'     => oyiso_editor_t('Border Color'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-info-card' => 'border-color: {{VALUE}};',
@@ -182,24 +182,16 @@ class Info_Card extends Widget_Base
         ]);
 
         $this->add_responsive_control('card_border_radius', [
-            'label'      => oyiso_editor_t('Corner Radius', '圆角'),
+            'label'      => oyiso_editor_t('Corner Radius'),
             'type'       => Controls_Manager::DIMENSIONS,
             'size_units' => ['px', '%', 'em', 'rem'],
-            'default'    => [
-                'top'      => 12,
-                'right'    => 12,
-                'bottom'   => 12,
-                'left'     => 12,
-                'unit'     => 'px',
-                'isLinked' => true,
-            ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-info-card' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
             ],
         ]);
 
         $this->add_responsive_control('card_padding', [
-            'label'      => oyiso_editor_t('Padding', '内边距'),
+            'label'      => oyiso_editor_t('Padding'),
             'type'       => Controls_Manager::DIMENSIONS,
             'size_units' => ['px', '%', 'em', 'rem'],
             'selectors'  => [
@@ -215,12 +207,12 @@ class Info_Card extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('title_style_section', [
-            'label' => oyiso_editor_t('Title', '标题'),
+            'label' => oyiso_editor_t('Title'),
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_control('title_color', [
-            'label'     => oyiso_editor_t('Text Color', '文字颜色'),
+            'label'     => oyiso_editor_t('Text Color'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-info-card__title' => 'color: {{VALUE}};',
@@ -229,12 +221,12 @@ class Info_Card extends Widget_Base
 
         $this->add_group_control(Group_Control_Typography::get_type(), [
             'name'     => 'title_typography',
-            'label'    => oyiso_editor_t('Title Typography', '标题排版'),
+            'label'    => oyiso_editor_t('Title Typography'),
             'selector' => '{{WRAPPER}} .oyiso-info-card__title',
         ]);
 
         $this->add_responsive_control('title_spacing', [
-            'label'      => oyiso_editor_t('Bottom Spacing', '底部间距'),
+            'label'      => oyiso_editor_t('Bottom Spacing'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px', 'em', 'rem'],
             'selectors'  => [
@@ -245,12 +237,12 @@ class Info_Card extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('description_style_section', [
-            'label' => oyiso_editor_t('Description', '描述'),
+            'label' => oyiso_editor_t('Description'),
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_control('description_color', [
-            'label'     => oyiso_editor_t('Text Color', '文字颜色'),
+            'label'     => oyiso_editor_t('Text Color'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-info-card__description' => 'color: {{VALUE}};',
@@ -259,12 +251,12 @@ class Info_Card extends Widget_Base
 
         $this->add_group_control(Group_Control_Typography::get_type(), [
             'name'     => 'description_typography',
-            'label'    => oyiso_editor_t('Description Typography', '描述排版'),
+            'label'    => oyiso_editor_t('Description Typography'),
             'selector' => '{{WRAPPER}} .oyiso-info-card__description',
         ]);
 
         $this->add_responsive_control('description_spacing', [
-            'label'      => oyiso_editor_t('Bottom Spacing', '底部间距'),
+            'label'      => oyiso_editor_t('Bottom Spacing'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px', 'em', 'rem'],
             'selectors'  => [
@@ -275,24 +267,24 @@ class Info_Card extends Widget_Base
         $this->end_controls_section();
 
         $this->start_controls_section('button_style_section', [
-            'label' => oyiso_editor_t('Button', '按钮'),
+            'label' => oyiso_editor_t('Button'),
             'tab'   => Controls_Manager::TAB_STYLE,
         ]);
 
         $this->add_group_control(Group_Control_Typography::get_type(), [
             'name'     => 'button_typography',
-            'label'    => oyiso_editor_t('Button Typography', '按钮排版'),
+            'label'    => oyiso_editor_t('Button Typography'),
             'selector' => '{{WRAPPER}} .oyiso-info-card__button',
         ]);
 
         $this->start_controls_tabs('button_style_tabs');
 
         $this->start_controls_tab('button_style_normal', [
-            'label' => oyiso_editor_t('Normal', '正常'),
+            'label' => oyiso_editor_t('Normal'),
         ]);
 
         $this->add_control('button_text_color', [
-            'label'     => oyiso_editor_t('Text Color', '文字颜色'),
+            'label'     => oyiso_editor_t('Text Color'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-info-card__button' => 'color: {{VALUE}};',
@@ -300,7 +292,7 @@ class Info_Card extends Widget_Base
         ]);
 
         $this->add_control('button_background_color', [
-            'label'     => oyiso_editor_t('Background Color', '背景颜色'),
+            'label'     => oyiso_editor_t('Background Color'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-info-card__button' => 'background: {{VALUE}};',
@@ -310,11 +302,11 @@ class Info_Card extends Widget_Base
         $this->end_controls_tab();
 
         $this->start_controls_tab('button_style_hover', [
-            'label' => oyiso_editor_t('Hover', '悬停'),
+            'label' => oyiso_editor_t('Hover'),
         ]);
 
         $this->add_control('button_hover_text_color', [
-            'label'     => oyiso_editor_t('Text Color', '文字颜色'),
+            'label'     => oyiso_editor_t('Text Color'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-info-card__button:hover, {{WRAPPER}} .oyiso-info-card__button:focus' => 'color: {{VALUE}};',
@@ -322,7 +314,7 @@ class Info_Card extends Widget_Base
         ]);
 
         $this->add_control('button_hover_background_color', [
-            'label'     => oyiso_editor_t('Background Color', '背景颜色'),
+            'label'     => oyiso_editor_t('Background Color'),
             'type'      => Controls_Manager::COLOR,
             'selectors' => [
                 '{{WRAPPER}} .oyiso-info-card__button:hover, {{WRAPPER}} .oyiso-info-card__button:focus' => 'background: {{VALUE}};',
@@ -334,7 +326,7 @@ class Info_Card extends Widget_Base
         $this->end_controls_tabs();
 
         $this->add_responsive_control('button_border_radius', [
-            'label'      => oyiso_editor_t('Corner Radius', '圆角'),
+            'label'      => oyiso_editor_t('Corner Radius'),
             'type'       => Controls_Manager::DIMENSIONS,
             'size_units' => ['px', '%', 'em', 'rem'],
             'selectors'  => [
@@ -343,7 +335,7 @@ class Info_Card extends Widget_Base
         ]);
 
         $this->add_responsive_control('button_padding', [
-            'label'      => oyiso_editor_t('Padding', '内边距'),
+            'label'      => oyiso_editor_t('Padding'),
             'type'       => Controls_Manager::DIMENSIONS,
             'size_units' => ['px', 'em', 'rem'],
             'selectors'  => [
@@ -352,7 +344,7 @@ class Info_Card extends Widget_Base
         ]);
 
         $this->add_responsive_control('button_spacing', [
-            'label'      => oyiso_editor_t('Top Spacing', '顶部间距'),
+            'label'      => oyiso_editor_t('Top Spacing'),
             'type'       => Controls_Manager::SLIDER,
             'size_units' => ['px', 'em', 'rem'],
             'selectors'  => [

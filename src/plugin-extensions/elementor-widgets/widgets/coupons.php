@@ -247,7 +247,6 @@ class Coupons extends Widget_Base
             'label'       => oyiso_editor_t('Accent Color'),
             'type'        => Controls_Manager::COLOR,
             'default'     => '#e5702a',
-            'placeholder' => '#e5702a',
             'description' => oyiso_editor_t('Used for the "All" tab, dialog links, and as the fallback when a group has no custom color. Group colors override this setting.'),
             'selectors'   => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupon-accent: {{VALUE}};',
@@ -257,8 +256,6 @@ class Coupons extends Widget_Base
         $this->add_control('dark_color', [
             'label'     => oyiso_editor_t('Primary Text Color'),
             'type'      => Controls_Manager::COLOR,
-            'default'   => '#1f2937',
-            'placeholder' => '#1f2937',
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupon-dark: {{VALUE}};',
             ],
@@ -267,8 +264,6 @@ class Coupons extends Widget_Base
         $this->add_control('line_color', [
             'label'     => oyiso_editor_t('Border Color'),
             'type'      => Controls_Manager::COLOR,
-            'default'   => '#e7e2dc',
-            'placeholder' => '#e7e2dc',
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupon-line: {{VALUE}};',
             ],
@@ -283,14 +278,6 @@ class Coupons extends Widget_Base
                     'min' => 0,
                     'max' => 80,
                 ],
-            ],
-            'default'    => [
-                'size' => 24,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 24,
-                'unit' => 'px',
             ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-coupons-gap: {{SIZE}}{{UNIT}};',
@@ -314,26 +301,6 @@ class Coupons extends Widget_Base
                     'max' => 600,
                 ],
             ],
-            'default'        => [
-                'size' => 280,
-                'unit' => 'px',
-            ],
-            'mobile_default' => [
-                'size' => 220,
-                'unit' => 'px',
-            ],
-            'placeholder'    => [
-                'size' => 280,
-                'unit' => 'px',
-            ],
-            'device_args'    => [
-                'mobile' => [
-                    'placeholder' => [
-                        'size' => 220,
-                        'unit' => 'px',
-                    ],
-                ],
-            ],
             'selectors'      => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-min-height: {{SIZE}}{{UNIT}};',
             ],
@@ -347,26 +314,6 @@ class Coupons extends Widget_Base
                 'px' => [
                     'min' => 12,
                     'max' => 80,
-                ],
-            ],
-            'default'        => [
-                'size' => 44,
-                'unit' => 'px',
-            ],
-            'mobile_default' => [
-                'size' => 28,
-                'unit' => 'px',
-            ],
-            'placeholder'    => [
-                'size' => 44,
-                'unit' => 'px',
-            ],
-            'device_args'    => [
-                'mobile' => [
-                    'placeholder' => [
-                        'size' => 28,
-                        'unit' => 'px',
-                    ],
                 ],
             ],
             'selectors'      => [
@@ -442,14 +389,6 @@ class Coupons extends Widget_Base
                     'max' => 40,
                 ],
             ],
-            'default'    => [
-                'size' => 12,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 12,
-                'unit' => 'px',
-            ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-radius: {{SIZE}}{{UNIT}};',
             ],
@@ -465,26 +404,6 @@ class Coupons extends Widget_Base
                     'max' => 72,
                 ],
             ],
-            'default'        => [
-                'size' => 42,
-                'unit' => 'px',
-            ],
-            'mobile_default' => [
-                'size' => 24,
-                'unit' => 'px',
-            ],
-            'placeholder'    => [
-                'size' => 42,
-                'unit' => 'px',
-            ],
-            'device_args'    => [
-                'mobile' => [
-                    'placeholder' => [
-                        'size' => 24,
-                        'unit' => 'px',
-                    ],
-                ],
-            ],
             'selectors'      => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-banner-title-size: {{SIZE}}{{UNIT}};',
             ],
@@ -498,26 +417,6 @@ class Coupons extends Widget_Base
                 'px' => [
                     'min' => 12,
                     'max' => 28,
-                ],
-            ],
-            'default'    => [
-                'size' => 16,
-                'unit' => 'px',
-            ],
-            'mobile_default' => [
-                'size' => 12,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 16,
-                'unit' => 'px',
-            ],
-            'device_args' => [
-                'mobile' => [
-                    'placeholder' => [
-                        'size' => 12,
-                        'unit' => 'px',
-                    ],
                 ],
             ],
             'selectors'  => [
@@ -562,15 +461,6 @@ class Coupons extends Widget_Base
             'default'              => 'wrap',
             'tablet_default'       => 'wrap',
             'mobile_default'       => 'grid_2',
-            'placeholder'          => 'wrap',
-            'device_args'          => [
-                'tablet' => [
-                    'placeholder' => 'wrap',
-                ],
-                'mobile' => [
-                    'placeholder' => 'grid_2',
-                ],
-            ],
             'options'              => [
                 'wrap'   => oyiso_editor_t('Wrap'),
                 'grid_1' => oyiso_editor_t('1 Column Grid'),
@@ -598,14 +488,6 @@ class Coupons extends Widget_Base
                     'max' => 32,
                 ],
             ],
-            'default'    => [
-                'size' => 12,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 12,
-                'unit' => 'px',
-            ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tabs-gap: {{SIZE}}{{UNIT}};',
             ],
@@ -620,14 +502,6 @@ class Coupons extends Widget_Base
                     'min' => 0,
                     'max' => 60,
                 ],
-            ],
-            'default'    => [
-                'size' => 20,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 20,
-                'unit' => 'px',
             ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tabs-margin-bottom: {{SIZE}}{{UNIT}};',
@@ -644,14 +518,6 @@ class Coupons extends Widget_Base
                     'max' => 64,
                 ],
             ],
-            'default'    => [
-                'size' => 34,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 34,
-                'unit' => 'px',
-            ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tab-min-height: {{SIZE}}{{UNIT}};',
             ],
@@ -666,14 +532,6 @@ class Coupons extends Widget_Base
                     'min' => 0,
                     'max' => 32,
                 ],
-            ],
-            'default'    => [
-                'size' => 6,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 6,
-                'unit' => 'px',
             ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tab-radius: {{SIZE}}{{UNIT}};',
@@ -690,14 +548,6 @@ class Coupons extends Widget_Base
                     'max' => 22,
                 ],
             ],
-            'default'    => [
-                'size' => 14,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 14,
-                'unit' => 'px',
-            ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-tab-font-size: {{SIZE}}{{UNIT}};',
             ],
@@ -713,8 +563,6 @@ class Coupons extends Widget_Base
         $this->add_control('card_background_color', [
             'label'     => oyiso_editor_t('Card Background'),
             'type'      => Controls_Manager::COLOR,
-            'default'   => '#ffffff',
-            'placeholder' => '#ffffff',
             'selectors' => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-bg: {{VALUE}};',
             ],
@@ -729,14 +577,6 @@ class Coupons extends Widget_Base
                     'min' => 0,
                     'max' => 48,
                 ],
-            ],
-            'default'    => [
-                'size' => 18,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 18,
-                'unit' => 'px',
             ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-gap: {{SIZE}}{{UNIT}};',
@@ -753,14 +593,6 @@ class Coupons extends Widget_Base
                     'max' => 32,
                 ],
             ],
-            'default'    => [
-                'size' => 12,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 12,
-                'unit' => 'px',
-            ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-radius: {{SIZE}}{{UNIT}};',
             ],
@@ -770,40 +602,12 @@ class Coupons extends Widget_Base
             'name'           => 'card_box_shadow',
             'label'          => oyiso_editor_t('Card Shadow'),
             'selector'       => '{{WRAPPER}} .oyiso-coupon-card',
-            'fields_options' => [
-                'box_shadow_type' => [
-                    'default' => 'yes',
-                ],
-                'box_shadow'      => [
-                    'default' => [
-                        'horizontal' => 0,
-                        'vertical'   => 8,
-                        'blur'       => 22,
-                        'spread'     => 0,
-                        'color'      => 'rgba(31, 41, 55, 0.05)',
-                    ],
-                ],
-            ],
         ]);
 
         $this->add_responsive_control('card_content_padding', [
             'label'      => oyiso_editor_t('Content Padding'),
             'type'       => Controls_Manager::DIMENSIONS,
             'size_units' => ['px'],
-            'default'    => [
-                'top'      => 18,
-                'right'    => 18,
-                'bottom'   => 18,
-                'left'     => 18,
-                'unit'     => 'px',
-                'isLinked' => true,
-            ],
-            'placeholder' => [
-                'top'    => 18,
-                'right'  => 18,
-                'bottom' => 18,
-                'left'   => 18,
-            ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-content-padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
             ],
@@ -819,14 +623,6 @@ class Coupons extends Widget_Base
                     'max' => 60,
                 ],
             ],
-            'default'    => [
-                'size' => 32,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 32,
-                'unit' => 'px',
-            ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-discount-size: {{SIZE}}{{UNIT}};',
             ],
@@ -841,14 +637,6 @@ class Coupons extends Widget_Base
                     'min' => 12,
                     'max' => 22,
                 ],
-            ],
-            'default'    => [
-                'size' => 14,
-                'unit' => 'px',
-            ],
-            'placeholder' => [
-                'size' => 14,
-                'unit' => 'px',
             ],
             'selectors'  => [
                 '{{WRAPPER}} .oyiso-coupons' => '--oyiso-card-text-size: {{SIZE}}{{UNIT}};',

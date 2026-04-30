@@ -3,25 +3,25 @@
 defined('ABSPATH') || exit;
 
 /**
- * Elementor 小部件
+ * Elementor widgets
  */
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
         'parent'   => 'plugin-extensions',
         'id'       => 'elementor-widgets',
-        'title'    => 'Elementor 小部件',
+        'title'    => __('Elementor Widgets', 'oyiso'),
         'icon'     => 'fab fa-elementor',
         'priority' => 10,
         'fields'   => [
             [
                 'type'    => 'heading',
-                'content' => 'Elementor 小部件设置',
+                'content' => __('Elementor Widget Settings', 'oyiso'),
             ],
             [
                 'id'      => 'opt-elementor-widgets',
                 'type'    => 'switcher',
-                'title'   => '启用小部件',
-                'label'   => '开启后将在 Elementor 编辑器中启用橘子猫头小部件分类及相关组件。',
+                'title'   => __('Enable Widgets', 'oyiso'),
+                'label'   => __('Enable the Oyiso widget category and related components in the Elementor editor.', 'oyiso'),
                 'default' => true,
             ],
         ],
@@ -120,28 +120,12 @@ if (!function_exists('oyiso_get_editor_locale')) {
 }
 
 if (!function_exists('oyiso_editor_t')) {
-    function oyiso_editor_t(string $english, string $legacy = ''): string
+    function oyiso_editor_t(string $english): string
     {
         $translated = __($english, 'oyiso');
 
         if ($translated !== $english) {
             return $translated;
-        }
-
-        if ($legacy === '') {
-            return $english;
-        }
-
-        $locale = oyiso_get_editor_locale();
-
-        if (stripos($locale, 'en_') === 0 || strtolower($locale) === 'en') {
-            return $english;
-        }
-
-        $legacy_translated = __($legacy, 'oyiso');
-
-        if ($legacy_translated !== $legacy) {
-            return $legacy_translated;
         }
 
         return $english;

@@ -140,12 +140,6 @@ msgstr "Dotyczy marek"
 msgid "Applies to Products"
 msgstr "Dotyczy produktów"
 
-msgid "Browse current offers and quickly find the best savings for your order."
-msgstr "Przeglądaj aktualne oferty i szybko znajdź najlepszą zniżkę do swojego zamówienia."
-
-msgid "Featured Offers"
-msgstr "Polecane oferty"
-
 msgid "Free Shipping"
 msgstr "Darmowa dostawa"
 
@@ -200,9 +194,6 @@ msgstr "Układ"
 msgid "Left"
 msgstr "Do lewej"
 
-msgid "Limited-Time Offers"
-msgstr "Oferty ograniczone czasowo"
-
 msgid "Mall Parade"
 msgstr "Galeria okazji"
 
@@ -220,12 +211,6 @@ msgstr "Nie"
 
 msgid "No Expiry Date"
 msgstr "Brak daty ważności"
-
-msgid "No Expiration"
-msgstr "Bez terminu wygaśnięcia"
-
-msgid "Always Valid"
-msgstr "Bezterminowo"
 
 msgid "No Expiry"
 msgstr "Bezterminowo"
@@ -257,9 +242,6 @@ msgstr "Bez produktów promocyjnych"
 msgid "Oyiso"
 msgstr "Oyiso"
 
-msgid "Oyiso 信息卡片"
-msgstr "Oyiso karta informacyjna"
-
 msgid "Percentage Discount"
 msgstr "Zniżka procentowa"
 
@@ -269,17 +251,17 @@ msgstr "Zakładki kapsułkowe"
 msgid "Enable WooCommerce before using the Coupons widget."
 msgstr "Włącz WooCommerce przed użyciem widgetu kuponów."
 
+msgid "Enable Widgets"
+msgstr "Włącz widgety"
+
+msgid "Enable the Oyiso widget category and related components in the Elementor editor."
+msgstr "Włącz kategorię widgetów Oyiso i powiązane komponenty w edytorze Elementor."
+
 msgid "Primary Text Color"
 msgstr "Główny kolor tekstu"
 
 msgid "Product Discount"
 msgstr "Zniżka na produkt"
-
-msgid "Remaining Uses"
-msgstr "Pozostałe użycia"
-
-msgid "Remaining Coupons"
-msgstr "Pozostała liczba kuponów"
 
 msgid "Remaining Quantity"
 msgstr "Pozostało"
@@ -310,9 +292,6 @@ msgstr "Łączna liczba użyć jednego kuponu"
 
 msgid "Per-Coupon Per-Customer Limit"
 msgstr "Liczba użyć jednego kuponu na klienta"
-
-msgid "All Brands"
-msgstr "Wszystkie marki"
 
 msgid "Select Coupons"
 msgstr "Wybierz kupony"
@@ -368,20 +347,8 @@ msgstr "Podkreślenie"
 msgid "Unlimited"
 msgstr "Bez limitu"
 
-msgid "No Quantity Limit"
-msgstr "Bez limitu ilości"
-
-msgid "Use Default Style"
-msgstr "Użyj domyślnego stylu"
-
 msgid "Used for the \"All\" tab, dialog links, and as the fallback when a group has no custom color. Group colors override this setting."
 msgstr "Używany dla zakładki „Wszystkie”, linków w oknie dialogowym oraz jako kolor domyślny, gdy grupa nie ma własnego koloru. Kolory grup mają pierwszeństwo."
-
-msgid "Expiry Date"
-msgstr "Data ważności"
-
-msgid "Expiration"
-msgstr "Termin wygaśnięcia"
 
 msgid "Valid Until"
 msgstr "Ważny do"
@@ -389,260 +356,26 @@ msgstr "Ważny do"
 msgid "Vertical Alignment"
 msgstr "Wyrównanie w pionie"
 
-msgid "Turn this on to preview the plugin default style. Turn it off to restore your current custom settings."
-msgstr "Włącz tę opcję, aby podejrzeć domyślny styl wtyczki. Wyłącz ją, aby przywrócić bieżące ustawienia własne."
-
 msgid "Wrap"
 msgstr "Zawijanie"
 
 msgid "Yes"
 msgstr "Tak"
 
-msgid "e.g. Featured Offers"
-msgstr "np. Polecane oferty"
-
-msgid "了解更多"
-msgstr "Dowiedz się więcej"
-
-msgid "你的卡片标题"
-msgstr "Tytuł karty"
-
-msgid "内容"
-msgstr "Treść"
-
-msgid "强调色"
-msgstr "Kolor akcentu"
-
-msgid "按钮文字"
-msgstr "Tekst przycisku"
-
-msgid "描述"
-msgstr "Opis"
-
-msgid "标题"
-msgstr "Tytuł"
-
-msgid "标题排版"
-msgstr "Typografia tytułu"
-
-msgid "样式"
-msgstr "Styl"
-
-msgid "请输入描述"
-msgstr "Wpisz opis"
-
-msgid "请输入标题"
-msgstr "Wpisz tytuł"
-
-msgid "这里是一段可在 Elementor 中编辑的描述内容。"
-msgstr "To jest przykładowy opis, który możesz edytować w Elementorze."
-
-msgid "链接"
-msgstr "Link"
-
-msgid "All Categories"
-msgstr "Wszystkie kategorie"
-
-msgid "All Products"
-msgstr "Wszystkie produkty"
-
-msgid "No Maximum"
-msgstr "Bez maksimum"
-
-msgid "No Minimum"
-msgstr "Bez minimum"
-
-msgid "Oyiso 优惠券抽奖"
-msgstr "Oyiso Loteria kuponów"
-
-msgid "优惠券抽奖"
-msgstr "Loteria kuponów"
-
-msgid "登录后即可参与抽奖，抽中后点击领取即可生成专属优惠券。"
-msgstr "Zaloguj się, aby wziąć udział w losowaniu. Po wygranej kliknij odbiór, aby utworzyć swój kupon."
-
-msgid "立即抽奖"
-msgstr "Losuj teraz"
-
-msgid "领取优惠券"
-msgstr "Odbierz kupon"
-
-msgid "抽奖记录"
-msgstr "Historia losowań"
-
-msgid "谢谢参与"
-msgstr "Dziękujemy za udział"
-
-msgid "请先登录后再参与抽奖。"
-msgstr "Zaloguj się, aby wziąć udział w losowaniu."
-
-msgid "当前可参与抽奖。"
-msgstr "Możesz teraz wziąć udział w losowaniu."
-
-msgid "剩余总次数：%d"
-msgstr "Pozostała liczba prób: %d"
-
-msgid "今日剩余次数：%d"
-msgstr "Pozostało prób na dziś: %d"
-
-msgid "抽奖结果"
-msgstr "Wynik losowania"
-
-msgid "本次结果"
-msgstr "Wynik tej próby"
-
-msgid "复制优惠码"
-msgstr "Kopiuj kod kuponu"
-
-msgid "处理中，请稍候..."
-msgstr "Trwa przetwarzanie, poczekaj..."
-
-msgid "操作失败，请稍后重试。"
-msgstr "Operacja nie powiodła się. Spróbuj ponownie później."
-
-msgid "我的记录"
-msgstr "Moje rekordy"
-
-msgid "全部记录"
-msgstr "Wszystkie rekordy"
-
-msgid "暂无记录。"
-msgstr "Brak rekordów."
-
-msgid "中奖"
-msgstr "Wygrana"
-
-msgid "未中奖"
-msgstr "Bez wygranej"
-
-msgid "已领取"
-msgstr "Odebrano"
-
-msgid "待领取"
-msgstr "Oczekuje na odbiór"
-
-msgid "已完成"
-msgstr "Zakończono"
-
-msgid "用户"
-msgstr "Użytkownik"
-
-msgid "时间"
-msgstr "Czas"
-
-msgid "优惠码"
-msgstr "Kod kuponu"
-
-msgid "状态"
-msgstr "Status"
-
-msgid "结果"
-msgstr "Wynik"
-
-msgid "当前未配置可用的抽奖奖项。"
-msgstr "Brak dostępnych nagród w tej loterii."
-
-msgid "抽奖记录写入失败，请稍后重试。"
-msgstr "Nie udało się zapisać rekordu losowania. Spróbuj ponownie później."
-
-msgid "恭喜抽中 %s。"
-msgstr "Gratulacje! Wylosowano %s."
-
-msgid "谢谢参与，祝你下次好运。"
-msgstr "Dziękujemy za udział, powodzenia następnym razem."
-
-msgid "请先登录后再领取优惠券。"
-msgstr "Zaloguj się, aby odebrać kupon."
-
-msgid "领取参数无效。"
-msgstr "Nieprawidłowe parametry odbioru."
-
-msgid "抽奖记录不存在。"
-msgstr "Rekord losowania nie istnieje."
-
-msgid "无权领取该优惠券。"
-msgstr "Nie masz uprawnień do odebrania tego kuponu."
-
-msgid "该记录未中奖，无法领取优惠券。"
-msgstr "Ten rekord nie wygrał, nie można odebrać kuponu."
-
-msgid "优惠券已领取，可直接复制使用。"
-msgstr "Kupon został już odebrany. Możesz go skopiować i użyć."
-
-msgid "领取成功，优惠券已生成。"
-msgstr "Odbiór zakończony sukcesem, kupon został utworzony."
-
-msgid "请先登录后再查看抽奖记录。"
-msgstr "Zaloguj się, aby zobaczyć historię losowań."
-
-msgid "抽奖活动标识无效。"
-msgstr "Nieprawidłowy identyfikator loterii."
-
-msgid "抽奖配置缺失，请刷新页面后重试。"
-msgstr "Brakuje konfiguracji loterii. Odśwież stronę i spróbuj ponownie."
-
-msgid "抽奖配置解析失败。"
-msgstr "Nie udało się odczytać konfiguracji loterii."
-
-msgid "抽奖配置校验失败，请刷新页面后重试。"
-msgstr "Weryfikacja konfiguracji loterii nie powiodła się. Odśwież stronę i spróbuj ponownie."
-
-msgid "抽奖配置格式无效。"
-msgstr "Nieprawidłowy format konfiguracji loterii."
-
-msgid "活动尚未开始。"
-msgstr "Akcja jeszcze się nie rozpoczęła."
-
-msgid "活动已结束。"
-msgstr "Akcja została zakończona."
-
-msgid "已达到可参与次数上限。"
-msgstr "Osiągnięto limit udziałów."
-
-msgid "今日抽奖次数已用完。"
-msgstr "Dzisiejszy limit losowań został wykorzystany."
-
-msgid "抽奖领取：%s"
-msgstr "Odbiór z losowania: %s"
-
-msgid "当前用户信息无效，无法生成优惠券。"
-msgstr "Dane bieżącego użytkownika są nieprawidłowe, nie można utworzyć kuponu."
-
-msgid "当前奖项金额无效，无法生成优惠券。"
-msgstr "Wartość nagrody jest nieprawidłowa, nie można utworzyć kuponu."
-
-msgid "优惠券生成失败，请稍后重试。"
-msgstr "Nie udało się utworzyć kuponu. Spróbuj ponownie później."
-
 msgid "Oyiso Info Card"
 msgstr "Oyiso karta informacyjna"
-
-msgid "Your Card Title"
-msgstr "Tytuł karty"
 
 msgid "Enter a title"
 msgstr "Wpisz tytuł"
 
-msgid "This is a description you can edit in Elementor."
-msgstr "To jest przykładowy opis, który możesz edytować w Elementorze."
-
 msgid "Enter a description"
 msgstr "Wpisz opis"
-
-msgid "Learn More"
-msgstr "Dowiedz się więcej"
 
 msgid "Oyiso Coupon Lottery"
 msgstr "Oyiso Loteria kuponów"
 
 msgid "Oyiso Coupon Display"
 msgstr "Oyiso Prezentacja kuponów"
-
-msgid "Coupon Lottery"
-msgstr "Loteria kuponów"
-
-msgid "Log in to join the draw. If you win, click claim to generate your exclusive coupon."
-msgstr "Zaloguj się, aby wziąć udział w losowaniu. Po wygranej kliknij odbiór, aby utworzyć swój kupon."
 
 msgid "Draw Now"
 msgstr "Losuj teraz"
@@ -665,32 +398,11 @@ msgstr "Ta loteria jest dostępna tylko dla zalogowanych użytkowników."
 msgid "All winning tiers share the same WooCommerce coupon settings. The coupon is generated only after the winner clicks claim."
 msgstr "Wszystkie wygrane poziomy współdzielą te same ustawienia kuponu WooCommerce. Kupon jest tworzony dopiero po kliknięciu odbioru."
 
-msgid "Leave blank to use the winning message automatically"
-msgstr "Pozostaw puste, aby automatycznie użyć komunikatu o wygranej"
-
 msgid "Please enable WooCommerce first."
 msgstr "Najpierw włącz WooCommerce."
 
-msgid "Enter the draw now to unlock this event's exclusive offer. If you win, you can claim it right away."
-msgstr "Weź udział w losowaniu już teraz i odblokuj ekskluzyjną ofertę tej akcji. Jeśli wygrasz, możesz odebrać ją od razu."
-
 msgid "Please log in before joining the draw."
 msgstr "Zaloguj się, aby wziąć udział w losowaniu."
-
-msgid "Total remaining: %d"
-msgstr "Pozostała liczba Twoich losowań: %d"
-
-msgid "Today's remaining: %d"
-msgstr "Pozostała liczba Twoich losowań dzisiaj: %d"
-
-msgid "Your remaining draws: %d"
-msgstr "Pozostało prób: %d"
-
-msgid "Your remaining draws today: %d"
-msgstr "Dziś pozostało: %d"
-
-msgid "Your draws left: %d"
-msgstr "Pozostało prób: %d"
 
 msgid "Today left: %d"
 msgstr "Dziś pozostało: %d"
@@ -734,6 +446,12 @@ msgstr "Brak rekordów."
 msgid "Edit"
 msgstr "Edytuj"
 
+msgid "Elementor Widget Settings"
+msgstr "Ustawienia widgetów Elementor"
+
+msgid "Elementor Widgets"
+msgstr "Widgety Elementor"
+
 msgid "User"
 msgstr "Użytkownik"
 
@@ -751,9 +469,6 @@ msgstr "Brak dostępnych nagród w tej loterii."
 
 msgid "Failed to save the draw record. Please try again later."
 msgstr "Nie udało się zapisać rekordu losowania. Spróbuj ponownie później."
-
-msgid "Congratulations, you won %s."
-msgstr "Gratulacje! Wylosowano %s."
 
 msgid "Congratulations. Claim to generate your coupon."
 msgstr "Gratulacje! Odbierz, aby wygenerować swój kupon."
@@ -818,6 +533,9 @@ msgstr "Uczestnicy"
 msgid "Logged-in users only"
 msgstr "Tylko dla zalogowanych użytkowników"
 
+msgid "Lottery Claim - %1$s %2$s"
+msgstr "Odbiór losowania - %1$s %2$s"
+
 msgid "Per-Person Total Draws"
 msgstr "Łączna liczba losowań na osobę"
 
@@ -829,9 +547,6 @@ msgstr "Łączna liczba wygranych na osobę"
 
 msgid "Enter 0 for no limit."
 msgstr "Wpisz 0, aby wyłączyć limit."
-
-msgid "Once reached, the user can no longer participate in this draw."
-msgstr "Po osiągnięciu limitu użytkownik nie może już brać udziału w tym losowaniu."
 
 msgid "After-Win Restriction"
 msgstr "Ograniczenie po wygranej"
@@ -887,9 +602,6 @@ msgstr "Osiągnięto limit wygranych dla tego losowania."
 msgid "Your draw chances for today have been used up."
 msgstr "Dzisiejszy limit losowań został wykorzystany."
 
-msgid "%s discount rate"
-msgstr "%s stopnia rabatu"
-
 msgid "%s%% off"
 msgstr "%s%% zniżki"
 
@@ -901,9 +613,6 @@ msgstr "Wartość nagrody jest nieprawidłowa, nie można utworzyć kuponu."
 
 msgid "The draw record is invalid, so the coupon could not be generated."
 msgstr "Rekord losowania jest nieprawidłowy, nie można utworzyć kuponu."
-
-msgid "Lottery Claim: %s"
-msgstr "Odbiór z losowania: %s"
 
 msgid "Failed to generate the coupon. Please try again later."
 msgstr "Nie udało się utworzyć kuponu. Spróbuj ponownie później."
@@ -938,177 +647,6 @@ msgstr "Oczekuje na odbiór"
 msgid "Completed"
 msgstr "Zakończono"
 
-msgid "百分比"
-msgstr "Procent"
-
-msgid "固定金额"
-msgstr "Stała kwota"
-
-msgid "折扣值"
-msgstr "Wartość rabatu"
-
-msgid "最小值"
-msgstr "Wartość minimalna"
-
-msgid "最大值"
-msgstr "Wartość maksymalna"
-
-msgid "25 / 50 / 20"
-msgstr "25 / 50 / 20"
-
-msgid "百分比类型填减免百分比，如 25 表示减 25%；固定金额类型填优惠金额，如 20。"
-msgstr "Dla typu procentowego wpisz wartość zniżki, np. 25 oznacza 25% zniżki; dla stałej kwoty wpisz kwotę rabatu, np. 20."
-
-msgid "先选优惠类型，再选择奖项生成方式。百分比按 WooCommerce 规则填写，例如 25 表示减 25%。"
-msgstr "Najpierw wybierz typ rabatu, potem sposób tworzenia nagród. Dla rabatu procentowego obowiązuje zapis WooCommerce, np. 25 oznacza 25% zniżki."
-
-msgid "优惠类型"
-msgstr "Typ rabatu"
-
-msgid "奖项设置方式"
-msgstr "Sposób konfiguracji nagród"
-
-msgid "按区间自动生成"
-msgstr "Generuj automatycznie z zakresu"
-
-msgid "手动添加奖项"
-msgstr "Dodaj nagrody ręcznie"
-
-msgid "不确定怎么配时，建议使用“按区间自动生成”；想精确控制每个奖项时，再使用“手动添加奖项”。"
-msgstr "Jeśli nie wiesz, jak to ustawić, wybierz generowanie z zakresu. Jeśli chcesz dokładnie kontrolować każdą nagrodę, użyj ręcznego dodawania."
-
-msgid "自动生成奖项"
-msgstr "Automatyczne generowanie nagród"
-
-msgid "系统会按照最小值到最大值自动生成所有奖项。你也可以单独提高或降低某些奖项的抽中概率。"
-msgstr "System automatycznie utworzy wszystkie nagrody od wartości minimalnej do maksymalnej. Możesz też osobno zwiększyć lub zmniejszyć szansę wygrania wybranych nagród."
-
-msgid "起始值"
-msgstr "Wartość początkowa"
-
-msgid "结束值"
-msgstr "Wartość końcowa"
-
-msgid "百分比填减免百分比，例如 10 表示减 10%；固定金额填优惠金额，例如 20。"
-msgstr "Dla typu procentowego wpisz wartość zniżki, np. 10 oznacza 10% zniżki; dla stałej kwoty wpisz kwotę rabatu, np. 20."
-
-msgid "百分比填减免百分比，例如 50 表示减 50%；固定金额填优惠金额，例如 50。"
-msgstr "Dla typu procentowego wpisz wartość zniżki, np. 50 oznacza 50% zniżki; dla stałej kwoty wpisz kwotę rabatu, np. 50."
-
-msgid "默认抽中权重"
-msgstr "Domyślna waga losowania"
-
-msgid "数字越大越容易抽中。未单独设置的奖项都会使用这个值。"
-msgstr "Im większa liczba, tym łatwiej wygrać. Wszystkie nagrody bez osobnej konfiguracji użyją tej wartości."
-
-msgid "填写要单独调整的那个奖项值。"
-msgstr "Wpisz wartość nagrody, dla której chcesz osobno zmienić szansę."
-
-msgid "抽中权重"
-msgstr "Waga losowania"
-
-msgid "数字越大越容易抽中。"
-msgstr "Im większa liczba, tym łatwiej wygrać."
-
-msgid "单独调整部分奖项"
-msgstr "Dostosuj wybrane nagrody osobno"
-
-msgid "例如默认权重是 1，你可以把 50% 的权重改成 0.5，把 20% 的权重改成 3。"
-msgstr "Na przykład jeśli domyślna waga to 1, możesz ustawić wagę 50% na 0.5, a 20% na 3."
-
-msgid "只有你手动添加的奖项才会参与抽奖。适合精确控制固定几个折扣，例如 10%、20%、50%。"
-msgstr "W losowaniu będą brały udział tylko nagrody dodane ręcznie. To dobre rozwiązanie, gdy chcesz dokładnie kontrolować kilka stałych rabatów, np. 10%, 20% i 50%."
-
-msgid "百分比填减免百分比，例如 25；固定金额填优惠金额，例如 20。"
-msgstr "Dla typu procentowego wpisz wartość zniżki, np. 25; dla stałej kwoty wpisz kwotę rabatu, np. 20."
-
-msgid "每一项都是一个可抽中的奖项。没有添加的值不会参与抽奖。"
-msgstr "Każdy wpis to osobna nagroda możliwa do wylosowania. Wartości, których nie dodasz, nie będą brały udziału w losowaniu."
-
-msgid "未中奖设置"
-msgstr "Ustawienia braku wygranej"
-
-msgid "加入未中奖结果"
-msgstr "Dodaj wynik bez wygranej"
-
-msgid "关闭后，用户每次都会抽中某个奖项。"
-msgstr "Po wyłączeniu użytkownik za każdym razem wylosuje jedną z nagród."
-
-msgid "未中奖提示"
-msgstr "Komunikat przy braku wygranej"
-
-msgid "数字越大，越容易抽到未中奖。"
-msgstr "Im większa liczba, tym łatwiej wylosować brak wygranej."
-
-msgid "每条规则填写一个概率。开启“谢谢参与”后，剩余概率会自动归入“谢谢参与”；关闭时，系统会把所有中奖规则按比例补足到 100%。"
-msgstr "Każda reguła ma własne prawdopodobieństwo. Po włączeniu opcji „Dziękujemy za udział” pozostałe prawdopodobieństwo trafi automatycznie do niej; po wyłączeniu system proporcjonalnie dopełni wszystkie wygrywające reguły do 100%."
-
-msgid "规则类型"
-msgstr "Typ reguły"
-
-msgid "区间"
-msgstr "Zakres"
-
-msgid "单个值"
-msgstr "Pojedyncza wartość"
-
-msgid "区间起点。百分比填减免百分比，例如 10 表示减 10%。"
-msgstr "Początek zakresu. Dla typu procentowego wpisz wartość zniżki, np. 10 oznacza 10% zniżki."
-
-msgid "区间终点。系统会自动生成这个范围内的所有奖项。"
-msgstr "Koniec zakresu. System automatycznie utworzy wszystkie nagrody mieszczące się w tym przedziale."
-
-msgid "单个奖项的值。百分比填减免百分比，例如 25；固定金额填优惠金额，例如 20。"
-msgstr "Wartość pojedynczej nagrody. Dla typu procentowego wpisz wartość zniżki, np. 25; dla stałej kwoty wpisz kwotę rabatu, np. 20."
-
-msgid "概率（%）"
-msgstr "Prawdopodobieństwo (%)"
-
-msgid "这条规则占用的总概率。区间规则会把这部分概率平均分给区间内每个奖项。"
-msgstr "To jest łączne prawdopodobieństwo tej reguły. W przypadku zakresu system rozdzieli je po równo między wszystkie nagrody w tym zakresie."
-
-msgid "奖项规则"
-msgstr "Reguły nagród"
-
-msgid "可以混合配置区间和单个值。例如 10-30 填 30%，31-50 填 10%。"
-msgstr "Możesz łączyć zakresy i pojedyncze wartości. Na przykład 10-30 ustaw na 30%, a 31-50 na 10%."
-
-msgid "谢谢参与"
-msgstr "Dziękujemy za udział"
-
-msgid "启用“谢谢参与”"
-msgstr "Włącz „Dziękujemy za udział”"
-
-msgid "启用后，剩余概率会自动归入“谢谢参与”。"
-msgstr "Po włączeniu pozostałe prawdopodobieństwo automatycznie trafi do opcji „Dziękujemy za udział”."
-
-msgid "参与奖文案"
-msgstr "Tekst nagrody pocieszenia"
-
-msgid "单个奖项的值。百分比填减免百分比，例如 25 表示减 25%。"
-msgstr "Wartość pojedynczej nagrody. Dla typu procentowego wpisz wartość zniżki, np. 25 oznacza 25% zniżki."
-
-msgid "区间起点。固定金额模式下直接填写优惠金额。"
-msgstr "Początek zakresu. W trybie stałej kwoty wpisz bezpośrednio kwotę rabatu."
-
-msgid "单个奖项的值。固定金额模式下直接填写优惠金额，例如 20。"
-msgstr "Wartość pojedynczej nagrody. W trybie stałej kwoty wpisz bezpośrednio kwotę rabatu, np. 20."
-
-msgid "可以混合配置区间和单个值。例如 10-30 填 30%，50 填 10%。"
-msgstr "Możesz łączyć zakresy i pojedyncze wartości. Na przykład 10-30 ustaw na 30%, a 50 na 10%."
-
-msgid "抽奖说明"
-msgstr "Opis losowania"
-
-msgid "优惠券详情"
-msgstr "Szczegóły kuponu"
-
-msgid "留空则不展示优惠券详情"
-msgstr "Pozostaw puste, aby nie wyświetlać szczegółów kuponu"
-
-msgid "会显示在抽奖结果弹窗中，并写入生成的优惠券。"
-msgstr "Ta treść pojawi się w oknie wyniku losowania i zostanie zapisana w wygenerowanym kuponie."
-
 msgid "Invalid record tab."
 msgstr "Nieprawidłowa karta rekordów."
 
@@ -1117,153 +655,6 @@ msgstr "Załaduj więcej"
 
 msgid "Loading..."
 msgstr "Ładowanie..."
-
-msgid "主按钮文字"
-msgstr "Tekst przycisku głównego"
-
-msgid "主按钮背景"
-msgstr "Tło przycisku głównego"
-
-msgid "仅百分比优惠券生效。"
-msgstr "Dotyczy tylko kuponów procentowych."
-
-msgid "仅限单独使用"
-msgstr "Tylko do samodzielnego użycia"
-
-msgid "优惠券前缀"
-msgstr "Prefiks kuponu"
-
-msgid "优惠券参数"
-msgstr "Parametry kuponu"
-
-msgid "允许免运费"
-msgstr "Włącz darmową wysyłkę"
-
-msgid "内边距"
-msgstr "Wewnętrzny odstęp"
-
-msgid "参与规则"
-msgstr "Zasady udziału"
-
-msgid "否"
-msgstr "Nie"
-
-msgid "圆角"
-msgstr "Zaokrąglenie rogów"
-
-msgid "基础底色"
-msgstr "Kolor bazowy"
-
-msgid "填 0 表示不限制。"
-msgstr "Wpisz 0, aby nie ustawiać limitu."
-
-msgid "开始时间"
-msgstr "Czas rozpoczęcia"
-
-msgid "抽奖按钮"
-msgstr "Przycisk losowania"
-
-msgid "抽奖设置"
-msgstr "Ustawienia losowania"
-
-msgid "指定分类"
-msgstr "Wybrane kategorie"
-
-msgid "指定商品"
-msgstr "Wybrane produkty"
-
-msgid "按钮"
-msgstr "Przyciski"
-
-msgid "排除分类"
-msgstr "Wykluczone kategorie"
-
-msgid "排除商品"
-msgstr "Wykluczone produkty"
-
-msgid "排除特价商品"
-msgstr "Wyklucz produkty promocyjne"
-
-msgid "提示文字"
-msgstr "Tekst komunikatu"
-
-msgid "提示背景"
-msgstr "Tło komunikatu"
-
-msgid "是"
-msgstr "Tak"
-
-msgid "最低消费"
-msgstr "Minimalna kwota zamówienia"
-
-msgid "最高折扣金额"
-msgstr "Maksymalna kwota rabatu"
-
-msgid "最高消费"
-msgstr "Maksymalna kwota zamówienia"
-
-msgid "有效天数"
-msgstr "Liczba dni ważności"
-
-msgid "标题与文字"
-msgstr "Nagłówek i tekst"
-
-msgid "标题颜色"
-msgstr "Kolor tytułu"
-
-msgid "次按钮文字"
-msgstr "Tekst przycisku dodatkowego"
-
-msgid "次按钮背景"
-msgstr "Tło przycisku dodatkowego"
-
-msgid "正文颜色"
-msgstr "Kolor treści"
-
-msgid "每人总次数"
-msgstr "Łączna liczba prób na użytkownika"
-
-msgid "每人每日次数"
-msgstr "Dzienna liczba prób na użytkownika"
-
-msgid "浅色底色"
-msgstr "Jasne tło"
-
-msgid "状态提示"
-msgstr "Komunikat stanu"
-
-msgid "结束时间"
-msgstr "Czas zakończenia"
-
-msgid "背景颜色"
-msgstr "Kolor tła"
-
-msgid "记录与弹窗"
-msgstr "Rekordy i okna dialogowe"
-
-msgid "记录卡背景"
-msgstr "Tło karty rekordu"
-
-msgid "记录卡边框"
-msgstr "Obramowanie karty rekordu"
-
-msgid "记录按钮"
-msgstr "Przycisk rekordów"
-
-msgid "记录数量"
-msgstr "Liczba rekordów"
-
-msgid "说明颜色"
-msgstr "Kolor opisu"
-
-msgid "辅助文字颜色"
-msgstr "Kolor tekstu pomocniczego"
-
-msgid "边线颜色"
-msgstr "Kolor obramowania"
-
-msgid "领取按钮"
-msgstr "Przycisk odbioru"
 
 msgid "Expired"
 msgstr "Wygasło"
@@ -1454,14 +845,14 @@ msgstr "Produkty"
 msgid "Categories"
 msgstr "Kategorie"
 
-msgid "Style"
-msgstr "Styl"
-
 msgid "Base Surface"
 msgstr "Bazowa powierzchnia"
 
 msgid "Soft Surface"
 msgstr "Miękka powierzchnia"
+
+msgid "Panel"
+msgstr "Panel"
 
 msgid "Title and Text"
 msgstr "Tytuł i tekst"
