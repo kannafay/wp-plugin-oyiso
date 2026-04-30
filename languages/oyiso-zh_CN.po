@@ -732,7 +732,7 @@ msgid "Top Spacing"
 msgstr "顶部间距"
 
 msgid "Lottery Description"
-msgstr "抽奖说明"
+msgstr "抽奖描述"
 
 msgid "Lottery Settings"
 msgstr "抽奖设置"

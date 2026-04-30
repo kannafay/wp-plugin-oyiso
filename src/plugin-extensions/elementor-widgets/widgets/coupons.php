@@ -66,6 +66,11 @@ class Coupons extends Widget_Base
         return $this->translate_for_locale($text, $site_locale);
     }
 
+    private function get_site_default_text_sprintf(string $text, ...$args): string
+    {
+        return sprintf($this->get_site_default_text($text), ...$args);
+    }
+
     public function get_name()
     {
         return 'oyiso_coupons';
@@ -1287,12 +1292,12 @@ class Coupons extends Widget_Base
         $widget_id = 'oyiso-coupons-' . esc_attr($this->get_id());
 
         if (!class_exists('WC_Coupon')) {
-            $this->render_notice(__('Enable WooCommerce before using the Coupons widget.', 'oyiso'));
+            $this->render_notice($this->get_site_default_text('Enable WooCommerce before using the Coupons widget.'));
             return;
         }
 
         if (empty($groups)) {
-            $this->render_notice(__('Add a coupon group and choose WooCommerce coupons in the widget settings first.', 'oyiso'));
+            $this->render_notice($this->get_site_default_text('Add a coupon group and choose WooCommerce coupons in the widget settings first.'));
             return;
         }
         ?>
@@ -1418,7 +1423,7 @@ class Coupons extends Widget_Base
             $group_icon = $this->normalize_group_icon($settings_group['group_icon'] ?? []);
 
             if ($label === '') {
-                $label = sprintf(__('Group %d', 'oyiso'), $group_index + 1);
+                $label = $this->get_site_default_text_sprintf('Group %d', $group_index + 1);
             }
 
             if (!is_array($coupon_ids)) {
@@ -1463,7 +1468,7 @@ class Coupons extends Widget_Base
         }
 
         return ['all' => [
-            'label' => __('All', 'oyiso'),
+            'label' => $this->get_site_default_text('All'),
             'items' => $all_items,
             'color' => $accent_color,
             'icon'  => $this->get_default_group_icon(),
@@ -1504,7 +1509,7 @@ class Coupons extends Widget_Base
             'code'           => $code,
             'discount'       => $this->format_coupon_discount($coupon),
             'discount_label' => $this->format_coupon_type_label($coupon),
-            'description'    => $description ?: __('Apply this code at checkout to claim the offer.', 'oyiso'),
+            'description'    => $description ?: $this->get_site_default_text('Apply this code at checkout to claim the offer.'),
             'scope'          => $this->format_coupon_scope($coupon),
             'remaining'      => $this->get_coupon_remaining_data($coupon),
             'validity'       => $this->get_coupon_validity_data($coupon),
@@ -1518,7 +1523,7 @@ class Coupons extends Widget_Base
         }
 
         return [
-            'label' => $group['label'] ?? __('All', 'oyiso'),
+            'label' => $group['label'] ?? $this->get_site_default_text('All'),
             'items' => $group['items'] ?? [],
             'color' => $coupon['group_color'] ?? '',
             'icon'  => $coupon['group_icon'] ?? ($group['icon'] ?? $this->get_default_group_icon()),
@@ -1546,18 +1551,18 @@ class Coupons extends Widget_Base
         $type = $coupon->get_discount_type();
 
         if ($type === 'percent') {
-            return __('Percentage Discount', 'oyiso');
+            return $this->get_site_default_text('Percentage Discount');
         }
 
         if ($type === 'fixed_cart') {
-            return __('Order Discount', 'oyiso');
+            return $this->get_site_default_text('Order Discount');
         }
 
         if ($type === 'fixed_product') {
-            return __('Product Discount', 'oyiso');
+            return $this->get_site_default_text('Product Discount');
         }
 
-        return __('Offer', 'oyiso');
+        return $this->get_site_default_text('Offer');
     }
 
     private function format_coupon_scope(\WC_Coupon $coupon)
@@ -1583,29 +1588,29 @@ class Coupons extends Widget_Base
         $eligibility_rows = [];
 
         if (!empty($product_links)) {
-            $eligibility_rows[] = $this->format_coupon_scope_row(
-                __('Applies to Products', 'oyiso'),
+                $eligibility_rows[] = $this->format_coupon_scope_row(
+                $this->get_site_default_text('Applies to Products'),
                 $this->format_coupon_scope_collection($product_links, '')
             );
         }
 
         if (!empty($category_links)) {
-            $eligibility_rows[] = $this->format_coupon_scope_row(
-                __('Applies to Categories', 'oyiso'),
+                $eligibility_rows[] = $this->format_coupon_scope_row(
+                $this->get_site_default_text('Applies to Categories'),
                 $this->format_coupon_scope_collection($category_links, '')
             );
         }
 
         if (!empty($excluded_category_links)) {
-            $eligibility_rows[] = $this->format_coupon_scope_row(
-                __('Excluded Categories', 'oyiso'),
+                $eligibility_rows[] = $this->format_coupon_scope_row(
+                $this->get_site_default_text('Excluded Categories'),
                 $this->format_coupon_scope_collection($excluded_category_links, '')
             );
         }
 
         if (!empty($excluded_product_links)) {
-            $eligibility_rows[] = $this->format_coupon_scope_row(
-                __('Excluded Products', 'oyiso'),
+                $eligibility_rows[] = $this->format_coupon_scope_row(
+                $this->get_site_default_text('Excluded Products'),
                 $this->format_coupon_scope_collection($excluded_product_links, '')
             );
         }
@@ -1613,14 +1618,14 @@ class Coupons extends Widget_Base
         if (taxonomy_exists('product_brand') || !empty($brand_ids) || !empty($excluded_brand_ids)) {
             if (!empty($brand_links)) {
                 $eligibility_rows[] = $this->format_coupon_scope_row(
-                    __('Applies to Brands', 'oyiso'),
+                    $this->get_site_default_text('Applies to Brands'),
                     $this->format_coupon_scope_collection($brand_links, '')
                 );
             }
 
             if (!empty($excluded_brand_links)) {
                 $eligibility_rows[] = $this->format_coupon_scope_row(
-                    __('Excluded Brands', 'oyiso'),
+                    $this->get_site_default_text('Excluded Brands'),
                     $this->format_coupon_scope_collection($excluded_brand_links, '')
                 );
             }
@@ -1630,36 +1635,36 @@ class Coupons extends Widget_Base
 
         if ($minimum_amount > 0) {
             $conditions_rows[] = $this->format_coupon_scope_row(
-                __('Minimum Spend', 'oyiso'),
+                $this->get_site_default_text('Minimum Spend'),
                 esc_html($this->format_coupon_money($minimum_amount))
             );
         }
 
         if ($maximum_amount > 0) {
             $conditions_rows[] = $this->format_coupon_scope_row(
-                __('Maximum Spend', 'oyiso'),
+                $this->get_site_default_text('Maximum Spend'),
                 esc_html($this->format_coupon_money($maximum_amount))
             );
         }
 
         if ($coupon->get_free_shipping()) {
             $conditions_rows[] = $this->format_coupon_scope_row(
-                __('Free Shipping', 'oyiso'),
-                esc_html(__('Yes', 'oyiso'))
+                $this->get_site_default_text('Free Shipping'),
+                esc_html($this->get_site_default_text('Yes'))
             );
         }
 
         if ($coupon->get_individual_use()) {
             $conditions_rows[] = $this->format_coupon_scope_row(
-                __('Individual Use Only', 'oyiso'),
-                esc_html(__('Yes', 'oyiso'))
+                $this->get_site_default_text('Individual Use Only'),
+                esc_html($this->get_site_default_text('Yes'))
             );
         }
 
         if ($coupon->get_exclude_sale_items()) {
             $conditions_rows[] = $this->format_coupon_scope_row(
-                __('Exclude Sale Items', 'oyiso'),
-                esc_html(__('Yes', 'oyiso'))
+                $this->get_site_default_text('Exclude Sale Items'),
+                esc_html($this->get_site_default_text('Yes'))
             );
         }
 
@@ -1667,29 +1672,29 @@ class Coupons extends Widget_Base
 
         if ($usage_limit > 0) {
             $limit_rows[] = $this->format_coupon_scope_row(
-                __('Total Usage Limit', 'oyiso'),
+                $this->get_site_default_text('Total Usage Limit'),
                 esc_html((string) $usage_limit)
             );
         }
 
         if ($usage_limit_per_user > 0) {
             $limit_rows[] = $this->format_coupon_scope_row(
-                __('Per-Customer Limit', 'oyiso'),
+                $this->get_site_default_text('Per-Customer Limit'),
                 esc_html((string) $usage_limit_per_user)
             );
         }
 
         if ($item_limit > 0) {
             $limit_rows[] = $this->format_coupon_scope_row(
-                __('Item Quantity Limit', 'oyiso'),
+                $this->get_site_default_text('Item Quantity Limit'),
                 esc_html((string) $item_limit)
             );
         }
 
         return implode('', [
-            $this->format_coupon_scope_section(__('Eligibility', 'oyiso'), $eligibility_rows),
-            $this->format_coupon_scope_section(__('Conditions', 'oyiso'), $conditions_rows),
-            $this->format_coupon_scope_section(__('Usage Limits', 'oyiso'), $limit_rows),
+            $this->format_coupon_scope_section($this->get_site_default_text('Eligibility'), $eligibility_rows),
+            $this->format_coupon_scope_section($this->get_site_default_text('Conditions'), $conditions_rows),
+            $this->format_coupon_scope_section($this->get_site_default_text('Usage Limits'), $limit_rows),
         ]);
     }
 
@@ -1823,8 +1828,8 @@ class Coupons extends Widget_Base
 
         if ($usage_limit <= 0) {
             return [
-                'label' => __('Remaining Quantity', 'oyiso'),
-                'value' => __('Unlimited', 'oyiso'),
+                'label' => $this->get_site_default_text('Remaining Quantity'),
+                'value' => $this->get_site_default_text('Unlimited'),
                 'percent' => 100,
             ];
         }
@@ -1832,8 +1837,8 @@ class Coupons extends Widget_Base
         $remaining = max(0, $usage_limit - $usage_count);
 
         return [
-            'label' => __('Remaining Quantity', 'oyiso'),
-            'value' => sprintf(__('%1$d / %2$d', 'oyiso'), $remaining, $usage_limit),
+            'label' => $this->get_site_default_text('Remaining Quantity'),
+            'value' => $this->get_site_default_text_sprintf('%1$d / %2$d', $remaining, $usage_limit),
             'percent' => max(0, min(100, ($remaining / $usage_limit) * 100)),
         ];
     }
@@ -1844,8 +1849,8 @@ class Coupons extends Widget_Base
 
         if (!$date_expires) {
             return [
-                'label' => __('Valid Until', 'oyiso'),
-                'value' => __('No Expiry', 'oyiso'),
+                'label' => $this->get_site_default_text('Valid Until'),
+                'value' => $this->get_site_default_text('No Expiry'),
                 'percent' => 100,
             ];
         }
@@ -1858,7 +1863,7 @@ class Coupons extends Widget_Base
         $remaining = max(0, $expires_timestamp - $now);
 
         return [
-            'label' => __('Valid Until', 'oyiso'),
+            'label' => $this->get_site_default_text('Valid Until'),
             'value' => $date_expires->date('Y-m-d'),
             'percent' => max(0, min(100, ($remaining / $duration) * 100)),
         ];
@@ -1914,9 +1919,9 @@ class Coupons extends Widget_Base
                                         class="oyiso-coupon-card__copy-button oyiso-coupon-card__copy-button--desktop"
                                         type="button"
                                         data-coupon-copy="<?php echo esc_attr($code); ?>"
-                                        data-copied-text="<?php echo esc_attr__('Copied', 'oyiso'); ?>"
+                                        data-copied-text="<?php echo esc_attr($this->get_site_default_text('Copied')); ?>"
                                     >
-                                        <?php echo esc_html__('Copy Code', 'oyiso'); ?>
+                                        <?php echo esc_html($this->get_site_default_text('Copy Code')); ?>
                                     </button>
                                 </div>
                             <?php endif; ?>
@@ -1930,7 +1935,7 @@ class Coupons extends Widget_Base
                                     data-coupon-scope="<?php echo esc_attr($scope); ?>"
                                     data-coupon-code="<?php echo esc_attr($code); ?>"
                                 >
-                                    <?php echo esc_html__('Details', 'oyiso'); ?>
+                                    <?php echo esc_html($this->get_site_default_text('Details')); ?>
                                 </button>
                             </div>
                         <?php endif; ?>
@@ -1950,12 +1955,12 @@ class Coupons extends Widget_Base
                             class="oyiso-coupon-card__description-toggle"
                             type="button"
                             data-coupon-description-toggle
-                            data-expand-text="<?php echo esc_attr__('Show More', 'oyiso'); ?>"
-                            data-collapse-text="<?php echo esc_attr__('Show Less', 'oyiso'); ?>"
+                            data-expand-text="<?php echo esc_attr($this->get_site_default_text('Show More')); ?>"
+                            data-collapse-text="<?php echo esc_attr($this->get_site_default_text('Show Less')); ?>"
                             aria-expanded="false"
                             hidden
                         >
-                            <?php echo esc_html__('Show More', 'oyiso'); ?>
+                            <?php echo esc_html($this->get_site_default_text('Show More')); ?>
                         </button>
                     </div>
                 <?php endif; ?>
@@ -1979,7 +1984,7 @@ class Coupons extends Widget_Base
                                 data-coupon-scope="<?php echo esc_attr($scope); ?>"
                                 data-coupon-code="<?php echo esc_attr($code); ?>"
                             >
-                                <?php echo esc_html__('Details', 'oyiso'); ?>
+                                <?php echo esc_html($this->get_site_default_text('Details')); ?>
                             </button>
                         <?php endif; ?>
 
@@ -1988,9 +1993,9 @@ class Coupons extends Widget_Base
                                 class="oyiso-coupon-card__copy-button oyiso-coupon-card__copy-button--mobile"
                                 type="button"
                                 data-coupon-copy="<?php echo esc_attr($code); ?>"
-                                data-copied-text="<?php echo esc_attr__('Copied', 'oyiso'); ?>"
+                                data-copied-text="<?php echo esc_attr($this->get_site_default_text('Copied')); ?>"
                             >
-                                <?php echo esc_html__('Copy Code', 'oyiso'); ?>
+                                <?php echo esc_html($this->get_site_default_text('Copy Code')); ?>
                             </button>
                         <?php endif; ?>
                     </div>
