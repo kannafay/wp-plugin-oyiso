@@ -9,6 +9,6 @@
   },
   "devDependencies": {
     "archiver": "^7.0.1",
-    "gettext-parser": "^8.0.0"
+    "gettext-parser": "^9.0.2"
   }
 }

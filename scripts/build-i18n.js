@@ -1,9 +1,19 @@
 const fs = require('fs');
 const path = require('path');
-const gettextParser = require('gettext-parser');
 
 const repoRoot = path.resolve(__dirname, '..');
 const languagesDir = path.join(repoRoot, 'languages');
+
+function loadGettextParser() {
+  try {
+    return require('gettext-parser');
+  } catch (error) {
+    const detail = error && error.message ? error.message : String(error);
+    throw new Error(
+      `无法加载 gettext-parser 运行依赖。请先执行 pnpm install，确保 encoding 等依赖已安装。\n原始错误: ${detail}`
+    );
+  }
+}
 
 function getTranslationFiles() {
   return fs
@@ -14,6 +24,7 @@ function getTranslationFiles() {
 }
 
 function buildMoFromPo(poFilename) {
+  const gettextParser = loadGettextParser();
   const poPath = path.join(languagesDir, poFilename);
   const moPath = path.join(languagesDir, poFilename.replace(/\.po$/i, '.mo'));
   const poBuffer = fs.readFileSync(poPath);

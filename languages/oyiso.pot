@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Oyiso\n"
-"POT-Creation-Date: 2026-04-30 09:03+0000\n"
+"POT-Creation-Date: 2026-04-30 09:34+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -12,7 +12,7 @@ msgstr ""
 msgid "%1$d / %2$d"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:314
+#: src/plugin-extensions/elementor-widgets/index.php:313
 msgid "%1$s - Offer Details"
 msgstr ""
 
@@ -40,7 +40,7 @@ msgstr ""
 msgid "Accent Color"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:331
+#: src/plugin-extensions/elementor-widgets/index.php:330
 msgid "Action failed. Please try again later."
 msgstr ""
 
@@ -60,7 +60,7 @@ msgstr ""
 msgid "All"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:339
+#: src/plugin-extensions/elementor-widgets/index.php:338
 msgid "All Records"
 msgstr ""
 
@@ -188,7 +188,7 @@ msgstr ""
 msgid "Center"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/coupon-lottery-module.php:187 src/plugin-extensions/elementor-widgets/index.php:343 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:961
+#: src/plugin-extensions/elementor-widgets/coupon-lottery-module.php:187 src/plugin-extensions/elementor-widgets/index.php:342 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:961
 msgid "Claim Coupon"
 msgstr ""
 
@@ -196,11 +196,11 @@ msgstr ""
 msgid "Claim successful. Your coupon has been generated."
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/coupon-lottery-module.php:1498 src/plugin-extensions/elementor-widgets/index.php:354
+#: src/plugin-extensions/elementor-widgets/coupon-lottery-module.php:1498 src/plugin-extensions/elementor-widgets/index.php:353
 msgid "Claimed"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:315 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:927 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:979
+#: src/plugin-extensions/elementor-widgets/index.php:314 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:927 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:979
 msgid "Close"
 msgstr ""
 
@@ -228,11 +228,11 @@ msgstr ""
 msgid "Content Padding"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:311 src/plugin-extensions/elementor-widgets/index.php:337 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1864 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1938
+#: src/plugin-extensions/elementor-widgets/index.php:310 src/plugin-extensions/elementor-widgets/index.php:336 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1864 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1938
 msgid "Copied"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:347
+#: src/plugin-extensions/elementor-widgets/index.php:346
 msgid "Copy"
 msgstr ""
 
@@ -240,7 +240,7 @@ msgstr ""
 msgid "Copy Code"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:336 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:964
+#: src/plugin-extensions/elementor-widgets/index.php:335 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:964
 msgid "Copy Coupon Code"
 msgstr ""
 
@@ -256,11 +256,11 @@ msgstr ""
 msgid "Coupon Cards"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:312 src/plugin-extensions/elementor-widgets/index.php:351 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:956
+#: src/plugin-extensions/elementor-widgets/index.php:311 src/plugin-extensions/elementor-widgets/index.php:350 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:956
 msgid "Coupon Code"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:345 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:426 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:891 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:893
+#: src/plugin-extensions/elementor-widgets/index.php:344 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:426 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:891 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:893
 msgid "Coupon Details"
 msgstr ""
 
@@ -316,7 +316,7 @@ msgstr ""
 msgid "Description Typography"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:346 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1880 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1929
+#: src/plugin-extensions/elementor-widgets/index.php:345 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1880 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1929
 msgid "Details"
 msgstr ""
 
@@ -336,7 +336,7 @@ msgstr ""
 msgid "Dot Accent"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:348 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:967
+#: src/plugin-extensions/elementor-widgets/index.php:347 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:967
 msgid "Draw Again"
 msgstr ""
 
@@ -352,19 +352,19 @@ msgstr ""
 msgid "Draw Result"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:330
+#: src/plugin-extensions/elementor-widgets/index.php:329
 msgid "Drawing..."
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:344
+#: src/plugin-extensions/elementor-widgets/index.php:343
 msgid "Edit"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:18
+#: src/plugin-extensions/elementor-widgets/index.php:115
 msgid "Elementor Widget Settings"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:12
+#: src/plugin-extensions/elementor-widgets/index.php:109
 msgid "Elementor Widgets"
 msgstr ""
 
@@ -376,7 +376,7 @@ msgstr ""
 msgid "Enable \"Thanks for Participating\""
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:23
+#: src/plugin-extensions/elementor-widgets/index.php:120
 msgid "Enable Widgets"
 msgstr ""
 
@@ -384,7 +384,7 @@ msgstr ""
 msgid "Enable WooCommerce before using the Coupons widget."
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:24
+#: src/plugin-extensions/elementor-widgets/index.php:121
 msgid "Enable the Oyiso widget category and related components in the Elementor editor."
 msgstr ""
 
@@ -572,11 +572,11 @@ msgstr ""
 msgid "Link"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:341
+#: src/plugin-extensions/elementor-widgets/index.php:340
 msgid "Load More"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:342
+#: src/plugin-extensions/elementor-widgets/index.php:341
 msgid "Loading..."
 msgstr ""
 
@@ -628,7 +628,7 @@ msgstr ""
 msgid "Muted Text Color"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:338
+#: src/plugin-extensions/elementor-widgets/index.php:337
 msgid "My Records"
 msgstr ""
 
@@ -660,7 +660,7 @@ msgstr ""
 msgid "No further draws allowed today"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:340
+#: src/plugin-extensions/elementor-widgets/index.php:339
 msgid "No records yet."
 msgstr ""
 
@@ -692,7 +692,7 @@ msgstr ""
 msgid "Offer"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:313 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:948
+#: src/plugin-extensions/elementor-widgets/index.php:312 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:948
 msgid "Offer Details"
 msgstr ""
 
@@ -704,7 +704,7 @@ msgstr ""
 msgid "Order Discount"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:388
+#: src/plugin-extensions/elementor-widgets/index.php:387
 msgid "Oyiso"
 msgstr ""
 
@@ -812,7 +812,7 @@ msgstr ""
 msgid "Prize Settings"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:335 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:801
+#: src/plugin-extensions/elementor-widgets/index.php:334 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:801
 msgid "Prize pool remaining: %d"
 msgstr ""
 
@@ -824,7 +824,7 @@ msgstr ""
 msgid "Probability (%)"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:329
+#: src/plugin-extensions/elementor-widgets/index.php:328
 msgid "Processing, please wait..."
 msgstr ""
 
@@ -860,7 +860,7 @@ msgstr ""
 msgid "Remaining Quantity"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:353
+#: src/plugin-extensions/elementor-widgets/index.php:352
 msgid "Result"
 msgstr ""
 
@@ -900,11 +900,11 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:310 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1901
+#: src/plugin-extensions/elementor-widgets/index.php:309 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1901
 msgid "Show Less"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:309 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1900 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1905
+#: src/plugin-extensions/elementor-widgets/index.php:308 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1900 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1905
 msgid "Show More"
 msgstr ""
 
@@ -924,7 +924,7 @@ msgstr ""
 msgid "Start Value"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:352
+#: src/plugin-extensions/elementor-widgets/index.php:351
 msgid "Status"
 msgstr ""
 
@@ -1088,7 +1088,7 @@ msgstr ""
 msgid "This record did not win, so the coupon cannot be claimed."
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:350
+#: src/plugin-extensions/elementor-widgets/index.php:349
 msgid "Time"
 msgstr ""
 
@@ -1112,7 +1112,7 @@ msgstr ""
 msgid "Title and Text"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:334 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:826
+#: src/plugin-extensions/elementor-widgets/index.php:333 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:826
 msgid "Today left: %d"
 msgstr ""
 
@@ -1132,7 +1132,7 @@ msgstr ""
 msgid "Total Usage Limit"
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:333 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:822
+#: src/plugin-extensions/elementor-widgets/index.php:332 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:822
 msgid "Total left: %d"
 msgstr ""
 
@@ -1152,7 +1152,7 @@ msgstr ""
 msgid "Used for the \"All\" tab, dialog links, and as the fallback when a group has no custom color. Group colors override this setting."
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:349
+#: src/plugin-extensions/elementor-widgets/index.php:348
 msgid "User"
 msgstr ""
 
@@ -1192,7 +1192,7 @@ msgstr ""
 msgid "You are not allowed to claim this coupon."
 msgstr ""
 
-#: src/plugin-extensions/elementor-widgets/index.php:332 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:850
+#: src/plugin-extensions/elementor-widgets/index.php:331 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:850
 msgid "You can join the draw now."
 msgstr ""
 

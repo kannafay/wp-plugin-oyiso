@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
+const { spawnSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
 const pluginDir = 'wp-plugin-oyiso';
@@ -15,6 +16,7 @@ if (!versionMatch) {
 const pluginVersion = versionMatch[1].trim();
 const zipName = `${pluginDir}_v${pluginVersion}.zip`;
 const distDir = path.join(repoRoot, 'dist');
+const i18nBuildScript = path.join(__dirname, 'build-i18n.js');
 
 const includes = [
   'assets',
@@ -36,6 +38,26 @@ const excludes = [
   'vendor/php-stubs/**',
   'samples/**',
 ];
+
+function runI18nBuild() {
+  if (!fs.existsSync(i18nBuildScript)) {
+    console.log('  ⚠️  未找到 scripts/build-i18n.js，跳过 .mo 构建');
+    return;
+  }
+
+  console.log('\n🌐 先构建语言文件 (.mo) ...\n');
+
+  const result = spawnSync(process.execPath, [i18nBuildScript], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+  });
+
+  if (result.status !== 0) {
+    throw new Error('语言文件构建失败，已中止打包');
+  }
+}
+
+runI18nBuild();
 
 if (fs.existsSync(distDir)) {
   fs.rmSync(distDir, { recursive: true });

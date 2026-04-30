@@ -253,12 +253,12 @@
             description.classList.add('is-expanded');
             viewport.style.maxHeight = expandedHeight + 'px';
             button.setAttribute('aria-expanded', 'true');
-            button.textContent = button.getAttribute('data-collapse-text') || getI18nString('collapse', 'Show Less');
+            button.textContent = button.getAttribute('data-collapse-text') || getI18nString('collapse');
             return;
         }
 
         button.setAttribute('aria-expanded', 'false');
-        button.textContent = button.getAttribute('data-expand-text') || getI18nString('expand', 'Show More');
+        button.textContent = button.getAttribute('data-expand-text') || getI18nString('expand');
     }
 
     function toggleDescription(button) {
@@ -280,8 +280,8 @@
         description.classList.toggle('is-expanded', isExpanded);
         button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
         button.textContent = isExpanded
-            ? button.getAttribute('data-collapse-text') || getI18nString('collapse', 'Show Less')
-            : button.getAttribute('data-expand-text') || getI18nString('expand', 'Show More');
+            ? button.getAttribute('data-collapse-text') || getI18nString('collapse')
+            : button.getAttribute('data-expand-text') || getI18nString('expand');
     }
 
     function getCollapsedDescriptionHeight(text) {
@@ -314,7 +314,7 @@
     function getI18nString(key, fallback) {
         var value = couponTabsI18n[key];
 
-        return typeof value === 'string' && value !== '' ? value : fallback;
+        return typeof value === 'string' && value !== '' ? value : (fallback || '');
     }
 
     function formatI18nString(template, replacements) {
@@ -338,7 +338,7 @@
         var groupColor = card ? window.getComputedStyle(card).getPropertyValue('--oyiso-group-color').trim() : '';
 
         syncScopeDialogTheme(dialog, root);
-        title.textContent = customTitle || getI18nString('scopeTitle', 'Offer Details');
+        title.textContent = customTitle || getI18nString('scopeTitle');
         content.innerHTML = buildScopeDialogContent(code, button.getAttribute('data-coupon-scope') || '');
         dialog.style.setProperty('--oyiso-coupon-accent', accentColor || lotteryAccentColor || '#e5702a');
         dialog.style.setProperty('--oyiso-scope-group-color', groupColor || accentColor || lotteryAccentColor || '#e5702a');
@@ -382,7 +382,7 @@
             '<div class="oyiso-scope-dialog__panel" role="dialog" aria-modal="true">',
             '<div class="oyiso-scope-dialog__header">',
             '<h3 class="oyiso-scope-dialog__title" data-coupon-scope-title></h3>',
-            '<button class="oyiso-scope-dialog__close" type="button" data-coupon-scope-close aria-label="' + escapeHtmlAttribute(getI18nString('closeLabel', 'Close')) + '"></button>',
+            '<button class="oyiso-scope-dialog__close" type="button" data-coupon-scope-close aria-label="' + escapeHtmlAttribute(getI18nString('closeLabel')) + '"></button>',
             '</div>',
             '<div class="oyiso-scope-dialog__content" data-coupon-scope-content></div>',
             '</div>'
@@ -432,7 +432,7 @@
             parts.push([
                 '<section class="oyiso-scope-dialog__summary">',
                 '<div class="oyiso-scope-dialog__summary-label">',
-                escapeHtml(getI18nString('couponCodeLabel', 'Coupon Code')),
+                escapeHtml(getI18nString('couponCodeLabel')),
                 '</div>',
                 '<div class="oyiso-scope-dialog__summary-code">',
                 escapeHtml(code),
@@ -457,7 +457,7 @@
 
         copyText(code).then(function () {
             var originalText = button.textContent;
-            button.textContent = button.getAttribute('data-copied-text') || getI18nString('copied', 'Copied');
+            button.textContent = button.getAttribute('data-copied-text') || getI18nString('copied');
             button.classList.add('is-copied');
 
             window.setTimeout(function () {

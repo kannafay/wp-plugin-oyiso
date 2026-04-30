@@ -19,7 +19,7 @@ class Info_Card extends Widget_Base
 
     public function get_title()
     {
-        return function_exists('oyiso_editor_t') ? oyiso_editor_t('Oyiso Info Card') : __('Oyiso Info Card', 'oyiso');
+        return oyiso_editor_t('Oyiso Info Card');
     }
 
     public function get_icon()

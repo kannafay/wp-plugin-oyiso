@@ -20,7 +20,7 @@ class Coupon_Lottery extends Widget_Base
 
     public function get_title()
     {
-        return function_exists('oyiso_editor_t') ? oyiso_editor_t('Oyiso Coupon Lottery') : __('Oyiso Coupon Lottery', 'oyiso');
+        return oyiso_editor_t('Oyiso Coupon Lottery');
     }
 
     public function get_icon()

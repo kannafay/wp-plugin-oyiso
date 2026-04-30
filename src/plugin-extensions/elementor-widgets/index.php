@@ -2,38 +2,6 @@
 
 defined('ABSPATH') || exit;
 
-/**
- * Elementor widgets
- */
-if (class_exists('CSF')) {
-    CSF::createSection($prefix, [
-        'parent'   => 'plugin-extensions',
-        'id'       => 'elementor-widgets',
-        'title'    => __('Elementor Widgets', 'oyiso'),
-        'icon'     => 'fab fa-elementor',
-        'priority' => 10,
-        'fields'   => [
-            [
-                'type'    => 'heading',
-                'content' => __('Elementor Widget Settings', 'oyiso'),
-            ],
-            [
-                'id'      => 'opt-elementor-widgets',
-                'type'    => 'switcher',
-                'title'   => __('Enable Widgets', 'oyiso'),
-                'label'   => __('Enable the Oyiso widget category and related components in the Elementor editor.', 'oyiso'),
-                'default' => true,
-            ],
-        ],
-    ]);
-}
-
-$oyiso_elementor_widgets_enabled = $options['opt-elementor-widgets'] ?? true;
-
-if (!$oyiso_elementor_widgets_enabled) {
-    return;
-}
-
 if (!function_exists('oyiso_get_site_locale')) {
     function oyiso_get_site_locale(): string
     {
@@ -51,12 +19,10 @@ if (!function_exists('oyiso_get_site_locale')) {
     }
 }
 
-if (!function_exists('oyiso_translate_for_site_locale')) {
-    function oyiso_translate_for_site_locale(string $text): string
+if (!function_exists('oyiso_translate_for_locale')) {
+    function oyiso_translate_for_locale(string $text, string $locale): string
     {
         static $catalogs = [];
-
-        $locale = oyiso_get_site_locale();
         $mofile = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'languages' . DIRECTORY_SEPARATOR . 'oyiso-' . $locale . '.mo';
 
         if (!is_readable($mofile)) {
@@ -79,6 +45,13 @@ if (!function_exists('oyiso_translate_for_site_locale')) {
         $translated = $catalogs[$locale]->translate($text);
 
         return is_string($translated) && $translated !== '' ? $translated : $text;
+    }
+}
+
+if (!function_exists('oyiso_translate_for_site_locale')) {
+    function oyiso_translate_for_site_locale(string $text): string
+    {
+        return oyiso_translate_for_locale($text, oyiso_get_site_locale());
     }
 }
 
@@ -122,14 +95,40 @@ if (!function_exists('oyiso_get_editor_locale')) {
 if (!function_exists('oyiso_editor_t')) {
     function oyiso_editor_t(string $english): string
     {
-        $translated = __($english, 'oyiso');
-
-        if ($translated !== $english) {
-            return $translated;
-        }
-
-        return $english;
+        return oyiso_translate_for_locale($english, oyiso_get_editor_locale());
     }
+}
+
+/**
+ * Elementor widgets
+ */
+if (class_exists('CSF')) {
+    CSF::createSection($prefix, [
+        'parent'   => 'plugin-extensions',
+        'id'       => 'elementor-widgets',
+        'title'    => oyiso_editor_t('Elementor Widgets'),
+        'icon'     => 'fab fa-elementor',
+        'priority' => 10,
+        'fields'   => [
+            [
+                'type'    => 'heading',
+                'content' => oyiso_editor_t('Elementor Widget Settings'),
+            ],
+            [
+                'id'      => 'opt-elementor-widgets',
+                'type'    => 'switcher',
+                'title'   => oyiso_editor_t('Enable Widgets'),
+                'label'   => oyiso_editor_t('Enable the Oyiso widget category and related components in the Elementor editor.'),
+                'default' => true,
+            ],
+        ],
+    ]);
+}
+
+$oyiso_elementor_widgets_enabled = $options['opt-elementor-widgets'] ?? true;
+
+if (!$oyiso_elementor_widgets_enabled) {
+    return;
 }
 
 if (!function_exists('oyiso_coupon_lottery_normalize_slider_setting')) {
@@ -385,7 +384,7 @@ add_filter('elementor/document/save/data', function ($data) {
 
 add_action('elementor/elements/categories_registered', function ($elements_manager) {
     $elements_manager->add_category('oyiso', [
-        'title' => __('Oyiso', 'oyiso'),
+        'title' => oyiso_editor_t('Oyiso'),
         'icon'  => 'fa fa-plug',
     ]);
 }, 0);
