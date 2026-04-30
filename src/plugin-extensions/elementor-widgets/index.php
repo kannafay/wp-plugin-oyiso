@@ -99,47 +99,9 @@ if (!function_exists('oyiso_editor_t')) {
     }
 }
 
-if (!function_exists('oyiso_is_elementor_available_for_current_site')) {
-    function oyiso_is_elementor_available_for_current_site(): bool
-    {
-        return function_exists('oyiso_is_plugin_active_for_current_site')
-            && oyiso_is_plugin_active_for_current_site('elementor/elementor.php');
-    }
-}
-
-if (!function_exists('oyiso_render_elementor_dependency_notice')) {
-    function oyiso_render_elementor_dependency_notice(): void
-    {
-        if (!is_admin() || !current_user_can('manage_options')) {
-            return;
-        }
-
-        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
-        $screen_base = is_object($screen) && isset($screen->base) ? (string) $screen->base : '';
-
-        if ($screen_base === '' || !function_exists('oyiso_is_settings_page_hook') || !oyiso_is_settings_page_hook($screen_base)) {
-            return;
-        }
-
-        $message = is_multisite()
-            ? oyiso_t('Elementor is not enabled for the current site, so Oyiso Elementor widgets are not available. Enable Elementor on this site or activate it network-wide.')
-            : oyiso_t('Elementor is not enabled for this site, so Oyiso Elementor widgets are not available. Please enable Elementor first.');
-
-        printf(
-            '<div class="notice notice-warning"><p>%s</p></div>',
-            esc_html($message)
-        );
-    }
-}
-
 $oyiso_elementor_widgets_enabled = $options['opt-elementor-widgets'] ?? true;
 
 if (!$oyiso_elementor_widgets_enabled) {
-    return;
-}
-
-if (!oyiso_is_elementor_available_for_current_site()) {
-    add_action('admin_notices', 'oyiso_render_elementor_dependency_notice');
     return;
 }
 
