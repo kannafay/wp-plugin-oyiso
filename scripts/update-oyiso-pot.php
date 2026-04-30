@@ -203,16 +203,6 @@ function extract_entries(array $phpFiles, string $root): array
 function is_supported_translation_function(string $functionName): bool
 {
     static $functions = [
-        '__' => true,
-        '_e' => true,
-        '_x' => true,
-        '_ex' => true,
-        'esc_attr__' => true,
-        'esc_attr_e' => true,
-        'esc_attr_x' => true,
-        'esc_html__' => true,
-        'esc_html_e' => true,
-        'esc_html_x' => true,
         'oyiso_editor_t' => true,
         'oyiso_t' => true,
         'oyiso_t_sprintf' => true,
@@ -271,16 +261,6 @@ function extract_message_from_call(string $functionName, array $arguments): ?str
 {
     if (in_array($functionName, ['oyiso_t', 'oyiso_t_sprintf', 'oyiso_editor_t'], true)) {
         return resolve_string_argument($arguments[0] ?? []);
-    }
-
-    if (in_array($functionName, ['__', '_e', 'esc_attr__', 'esc_attr_e', 'esc_html__', 'esc_html_e'], true)) {
-        $domain = resolve_string_argument($arguments[1] ?? []);
-        return $domain === OYISO_I18N_DOMAIN ? resolve_string_argument($arguments[0] ?? []) : null;
-    }
-
-    if (in_array($functionName, ['_x', '_ex', 'esc_attr_x', 'esc_html_x'], true)) {
-        $domain = resolve_string_argument($arguments[2] ?? []);
-        return $domain === OYISO_I18N_DOMAIN ? resolve_string_argument($arguments[0] ?? []) : null;
     }
 
     return null;

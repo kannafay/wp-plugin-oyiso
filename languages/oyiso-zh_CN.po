@@ -263,12 +263,6 @@ msgstr "胶囊标签"
 msgid "Enable WooCommerce before using the Coupons widget."
 msgstr "使用优惠券小部件前，请先启用 WooCommerce。"
 
-msgid "Enable Widgets"
-msgstr "启用小部件"
-
-msgid "Enable the Oyiso widget category and related components in the Elementor editor."
-msgstr "开启后将在 Elementor 编辑器中启用 Oyiso 小部件分类及相关组件。"
-
 msgid "Primary Text Color"
 msgstr "主文字颜色"
 
@@ -307,9 +301,6 @@ msgstr "单张优惠券每位顾客限用次数"
 
 msgid "Select Coupons"
 msgstr "选择优惠券"
-
-msgid "Settings"
-msgstr "设置"
 
 msgid "Show Less"
 msgstr "收起"
@@ -445,12 +436,6 @@ msgstr "暂无记录。"
 
 msgid "Edit"
 msgstr "编辑"
-
-msgid "Elementor Widget Settings"
-msgstr "Elementor 小部件设置"
-
-msgid "Elementor Widgets"
-msgstr "Elementor 小部件"
 
 msgid "User"
 msgstr "用户"

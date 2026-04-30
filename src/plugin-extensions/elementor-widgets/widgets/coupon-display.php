@@ -1239,7 +1239,12 @@ class Coupons extends Widget_Base
         }
 
         if (empty($groups)) {
-            $this->render_notice(oyiso_t('Add a coupon group and choose WooCommerce coupons in the widget settings first.'));
+            $has_configured_groups = !empty($settings['coupon_groups']) && is_array($settings['coupon_groups']);
+            $this->render_notice(
+                $has_configured_groups
+                    ? oyiso_t('No active coupons are available right now.')
+                    : oyiso_t('Add a coupon group and choose WooCommerce coupons in the widget settings first.')
+            );
             return;
         }
         ?>
@@ -1433,6 +1438,11 @@ class Coupons extends Widget_Base
     private function get_coupon_data(int $coupon_id)
     {
         $coupon = new \WC_Coupon($coupon_id);
+
+        if ($this->is_coupon_expired($coupon)) {
+            return null;
+        }
+
         $code = strtoupper($coupon->get_code());
 
         if (!$code) {
@@ -1456,6 +1466,17 @@ class Coupons extends Widget_Base
             'remaining'      => $this->get_coupon_remaining_data($coupon),
             'validity'       => $this->get_coupon_validity_data($coupon),
         ];
+    }
+
+    private function is_coupon_expired(\WC_Coupon $coupon)
+    {
+        $date_expires = $coupon->get_date_expires();
+
+        if (!$date_expires) {
+            return false;
+        }
+
+        return $date_expires->getTimestamp() <= current_time('timestamp', true);
     }
 
     private function get_coupon_card_group(array $coupon, array $group, string $category_key)

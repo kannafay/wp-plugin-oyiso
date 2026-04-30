@@ -99,32 +99,6 @@ if (!function_exists('oyiso_editor_t')) {
     }
 }
 
-/**
- * Elementor widgets
- */
-if (class_exists('CSF')) {
-    CSF::createSection($prefix, [
-        'parent'   => 'plugin-extensions',
-        'id'       => 'elementor-widgets',
-        'title'    => oyiso_editor_t('Elementor Widgets'),
-        'icon'     => 'fab fa-elementor',
-        'priority' => 10,
-        'fields'   => [
-            [
-                'type'    => 'heading',
-                'content' => oyiso_editor_t('Elementor Widget Settings'),
-            ],
-            [
-                'id'      => 'opt-elementor-widgets',
-                'type'    => 'switcher',
-                'title'   => oyiso_editor_t('Enable Widgets'),
-                'label'   => oyiso_editor_t('Enable the Oyiso widget category and related components in the Elementor editor.'),
-                'default' => true,
-            ],
-        ],
-    ]);
-}
-
 $oyiso_elementor_widgets_enabled = $options['opt-elementor-widgets'] ?? true;
 
 if (!$oyiso_elementor_widgets_enabled) {

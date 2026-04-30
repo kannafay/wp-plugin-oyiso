@@ -251,12 +251,6 @@ msgstr "Zakładki kapsułkowe"
 msgid "Enable WooCommerce before using the Coupons widget."
 msgstr "Włącz WooCommerce przed użyciem widgetu kuponów."
 
-msgid "Enable Widgets"
-msgstr "Włącz widgety"
-
-msgid "Enable the Oyiso widget category and related components in the Elementor editor."
-msgstr "Włącz kategorię widgetów Oyiso i powiązane komponenty w edytorze Elementor."
-
 msgid "Primary Text Color"
 msgstr "Główny kolor tekstu"
 
@@ -295,9 +289,6 @@ msgstr "Liczba użyć jednego kuponu na klienta"
 
 msgid "Select Coupons"
 msgstr "Wybierz kupony"
-
-msgid "Settings"
-msgstr "Ustawienia"
 
 msgid "Show Less"
 msgstr "Pokaż mniej"
@@ -445,12 +436,6 @@ msgstr "Brak rekordów."
 
 msgid "Edit"
 msgstr "Edytuj"
-
-msgid "Elementor Widget Settings"
-msgstr "Ustawienia widgetów Elementor"
-
-msgid "Elementor Widgets"
-msgstr "Widgety Elementor"
 
 msgid "User"
 msgstr "Użytkownik"
