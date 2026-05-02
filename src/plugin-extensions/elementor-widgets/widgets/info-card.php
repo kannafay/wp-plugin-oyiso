@@ -316,7 +316,7 @@ class Info_Card extends Widget_Base
             $this->add_link_attributes('button', $settings['link']);
         }
         ?>
-        <div class="oyiso-info-card">
+        <div class="oyiso-info-card" data-oyiso-info-card>
             <?php if ($title) : ?>
                 <h3 class="oyiso-info-card__title"><?php echo esc_html($title); ?></h3>
             <?php endif; ?>

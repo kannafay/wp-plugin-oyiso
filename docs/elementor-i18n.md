@@ -2,6 +2,10 @@
 
 This project uses two different translation paths in Elementor widgets.
 
+See also:
+
+- `docs/elementor-widget-compat.md`
+
 ## 0. Scope
 
 `oyiso_editor_t()`, `oyiso_t()`, and `oyiso_t_sprintf()` are custom helpers reserved only for Elementor widgets.
