@@ -701,7 +701,7 @@ if (!class_exists('Oyiso_Elementor_Widgets_Bootstrap')) {
 
             printf(
                 '<div class="notice notice-warning"><p>%s</p></div>',
-                esc_html__('Oyiso Elementor widgets are enabled, but Elementor is not installed or activated. The widget module has not been initialized, and previously inserted Oyiso Elementor widgets will stay hidden on the frontend until Elementor is available again.', 'oyiso')
+                esc_html__('橘子猫头 Elementor 小部件已启用，但 Elementor 未安装或未激活。')
             );
         }
 
