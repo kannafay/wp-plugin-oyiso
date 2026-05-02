@@ -4,6 +4,8 @@
   "scripts": {
     "build": "node scripts/build.js",
     "i18n:extract": "php scripts/update-oyiso-pot.php",
+    "i18n:sync": "php scripts/update-oyiso-pot.php --sync",
+    "i18n:prune": "php scripts/update-oyiso-pot.php --prune",
     "i18n:check": "php scripts/update-oyiso-pot.php --check --strict",
     "i18n:build": "node scripts/build-i18n.js"
   },

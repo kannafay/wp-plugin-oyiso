@@ -1439,7 +1439,7 @@ class Coupons extends Widget_Base
     {
         $coupon = new \WC_Coupon($coupon_id);
 
-        if ($this->is_coupon_expired($coupon)) {
+        if ($this->is_coupon_expired($coupon) || $this->is_coupon_usage_exhausted($coupon)) {
             return null;
         }
 
@@ -1477,6 +1477,17 @@ class Coupons extends Widget_Base
         }
 
         return $date_expires->getTimestamp() <= current_time('timestamp', true);
+    }
+
+    private function is_coupon_usage_exhausted(\WC_Coupon $coupon)
+    {
+        $usage_limit = (int) $coupon->get_usage_limit();
+
+        if ($usage_limit <= 0) {
+            return false;
+        }
+
+        return (int) $coupon->get_usage_count() >= $usage_limit;
     }
 
     private function get_coupon_card_group(array $coupon, array $group, string $category_key)

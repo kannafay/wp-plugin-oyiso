@@ -1,60 +1,60 @@
-# Elementor Widget Compatibility Rules
+# Elementor 小部件兼容性规则
 
-This document describes how Oyiso custom Elementor widgets behave when Elementor is disabled, and what new widgets must follow to be automatically covered by the fallback logic.
+本文说明 Oyiso 自定义 Elementor 小部件在 Elementor 未启用时的处理方式，以及后续新增小部件想自动纳入兼容逻辑时必须遵守的约定。
 
-## 0. Purpose
+## 0. 目的
 
-Some pages already contain frontend HTML rendered from Oyiso Elementor widgets.
+有些页面已经保存过 Oyiso Elementor 小部件的前台输出 HTML。
 
-If Elementor is later deactivated, those pages may still output stale widget HTML from `post_content`, but Elementor CSS and JS will no longer load. The result is broken layout and raw HTML on the frontend.
+如果之后 Elementor 被停用，这些页面仍可能从 `post_content` 输出旧的小部件 HTML，但 Elementor 的 CSS 和 JS 已经不会再加载。最终表现就是前台布局损坏，甚至直接出现原始 HTML。
 
-To avoid that, Oyiso adds a frontend fallback filter in:
+为了解决这个问题，Oyiso 在下面这个文件里增加了前台兜底清理逻辑：
 
 - `src/plugin-extensions/elementor-widgets/index.php`
 
-That filter removes Oyiso widget output only when Elementor is unavailable.
+这个过滤逻辑只会在 Elementor 不可用时移除 Oyiso 自己的小部件输出。
 
-The same module now also uses an official-style bootstrap flow:
+同一个模块现在也已经按更接近官方插件扩展的方式进行了启动整理：
 
-- compatibility check after `plugins_loaded`
-- stop widget module initialization when Elementor is unavailable
-- show an admin notice for privileged users
-- keep the frontend fallback only for already-saved stale widget HTML
+- 在 `plugins_loaded` 之后做兼容性检查
+- 如果 Elementor 不可用，则不初始化小部件模块
+- 对有权限的后台用户显示提示
+- 对已经写入页面内容的旧 HTML 继续保留前台兜底清理
 
-## 1. When the fallback runs
+## 1. 兜底逻辑什么时候触发
 
-The cleanup logic runs only when all of the following are true:
+只有同时满足下面条件时，清理逻辑才会运行：
 
-- Elementor is not loaded
-- Elementor is not active for the current site
-- the current request is not admin / AJAX / feed / embed / REST
-- the current post has `_elementor_data`
-- that `_elementor_data` contains at least one widget whose `widgetType` starts with `oyiso_`
+- Elementor 没有加载
+- Elementor 对当前站点未启用
+- 当前请求不是后台、AJAX、feed、embed、REST
+- 当前文章存在 `_elementor_data`
+- 该 `_elementor_data` 中至少包含一个 `widgetType` 以 `oyiso_` 开头的小部件
 
-This keeps the scope narrow and avoids touching unrelated content.
+这样可以把影响范围压到最小，避免误处理无关内容。
 
-## 2. Multisite / network support
+## 2. 多站点 / 网络模式支持
 
-Elementor availability is checked against both:
+Elementor 可用性检查同时覆盖了两种激活方式：
 
-- current-site active plugins
-- multisite network active plugins via `active_sitewide_plugins`
+- 当前站点已启用插件
+- 多站点网络启用插件，即 `active_sitewide_plugins`
 
-So the rule works for:
+因此这套规则兼容：
 
-- single-site activation
-- multisite site-level activation
-- multisite network activation
+- 单站点启用
+- 多站点中单个子站启用
+- 多站点网络统一启用
 
-## 3. Auto-compatibility contract for new widgets
+## 3. 新增小部件的自动兼容约定
 
-If you add a new Oyiso Elementor widget and want it to be automatically covered by the fallback rule, follow these conventions.
+如果你后续新增一个 Oyiso Elementor 小部件，并希望它自动被这套兜底规则覆盖，需要遵守下面这些约定。
 
-### Required
+### 必须满足
 
-1. The widget `get_name()` must use the `oyiso_` prefix.
+1. 小部件 `get_name()` 必须使用 `oyiso_` 前缀
 
-Example:
+示例：
 
 ```php
 public function get_name()
@@ -63,60 +63,60 @@ public function get_name()
 }
 ```
 
-2. The widget frontend output should have one clear root container.
+2. 小部件前台输出应该有一个清晰的根容器
 
-3. The root container should include a `data-oyiso-*` marker.
+3. 根容器上应该包含一个 `data-oyiso-*` 标记
 
-Example:
+示例：
 
 ```php
 <section class="oyiso-new-banner" data-oyiso-new-banner>
 ```
 
-### Recommended
+### 建议保持
 
-- keep a stable root class such as `oyiso-new-banner`
-- avoid outputting widget content as scattered plain text without a root wrapper
-- avoid relying on nested fragments as the only identifiable marker
+- 保持稳定的根 class，例如 `oyiso-new-banner`
+- 不要把小部件内容拆成没有根包裹的零散纯文本
+- 不要只依赖深层嵌套片段作为唯一识别标记
 
-## 4. Why the `data-oyiso-*` marker matters
+## 4. 为什么 `data-oyiso-*` 标记很重要
 
-When old widget HTML has already been written into `post_content`, the fallback removes it by matching Oyiso-specific frontend markers.
+当旧的小部件 HTML 已经被写入 `post_content` 后，兜底清理逻辑需要依靠 Oyiso 特有的前台标记来识别并移除这些内容。
 
-The most reliable marker is:
+最稳定的标记就是：
 
-- a root node with `data-oyiso-*`
+- 带有 `data-oyiso-*` 的根节点
 
-If a widget does not expose a stable root marker, future cleanup becomes harder and may require widget-specific compatibility code.
+如果某个小部件没有稳定的根标记，后续清理会变得困难，最后往往只能为这个小部件单独写兼容分支。
 
-## 5. Legacy note
+## 5. 历史兼容说明
 
-`Info_Card` had older saved content that could appear as flattened HTML in `post_content` without a clean widget root wrapper.
+`Info_Card` 的旧版本保存内容里，曾经出现过没有标准根包裹、而是被摊平成普通 HTML 写入 `post_content` 的情况。
 
-Because of that, the project includes a legacy compatibility cleanup for old `oyiso_info_card` output.
+因此项目里对旧版 `oyiso_info_card` 额外保留了历史兼容清理逻辑。
 
-This is a special case and should not be copied into new widgets.
+这是特殊历史包袱，不应该在新小部件里继续照搬。
 
-For new widgets, always keep a root wrapper and a `data-oyiso-*` marker so generic fallback logic is enough.
+新小部件统一遵守“根包裹 + `data-oyiso-*` 标记”即可，让通用兜底逻辑就能覆盖。
 
-## 6. Developer checklist
+## 6. 开发检查清单
 
-Before shipping a new Elementor widget, verify:
+新增 Elementor 小部件前，至少确认下面几点：
 
-- `get_name()` starts with `oyiso_`
-- `render()` has one root wrapper
-- the root wrapper includes `data-oyiso-*`
-- the widget still renders correctly with Elementor enabled
-- the page does not leak stale widget HTML when Elementor is disabled
+- `get_name()` 以 `oyiso_` 开头
+- `render()` 有且只有一个清晰的根包裹
+- 根包裹上带有 `data-oyiso-*`
+- Elementor 启用时，小部件前台显示正常
+- Elementor 停用时，页面不会泄露旧的小部件 HTML
 
-## 7. Troubleshooting
+## 7. 排查建议
 
-If the fallback seems correct in code but stale HTML still appears:
+如果代码上看起来已经有兜底逻辑，但前台仍然出现旧 HTML，可以按下面顺序排查：
 
-- clear page cache
-- clear object cache
-- clear CDN / proxy cache
-- confirm the page really contains `oyiso_*` widget data in `_elementor_data`
-- inspect whether old HTML was saved directly into `post_content`
+- 清理页面缓存
+- 清理对象缓存
+- 清理 CDN 或反向代理缓存
+- 确认该页面的 `_elementor_data` 里确实存在 `oyiso_*` 小部件
+- 检查旧 HTML 是否已经被直接写入 `post_content`
 
-If a new widget is not being removed by the fallback, first check whether it violates the contract in section 3.
+如果某个新小部件没有被兜底逻辑正确移除，先检查它是否违反了第 3 节中的约定。

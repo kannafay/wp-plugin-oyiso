@@ -913,3 +913,8 @@ msgstr "Tytuł karty"
 
 msgid "e.g. Featured Offers"
 msgstr "np. Polecane oferty"
+
+#: src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1245
+msgid "No active coupons are available right now."
+msgstr "Brak aktywnych kuponów w tej chwili."
+

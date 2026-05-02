@@ -913,3 +913,8 @@ msgstr "你的卡片标题"
 
 msgid "e.g. Featured Offers"
 msgstr "例如：精选优惠"
+
+#: src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1245
+msgid "No active coupons are available right now."
+msgstr "当前没有可用的优惠券。"
+

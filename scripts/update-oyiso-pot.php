@@ -17,6 +17,11 @@ function main(array $argv): void
 {
     $root = dirname(__DIR__);
     $options = parse_cli_options($argv);
+
+    if ($options['check'] && ($options['sync'] || $options['prune'])) {
+        throw new InvalidArgumentException('The --check option cannot be used together with --sync or --prune.');
+    }
+
     $phpFiles = collect_php_files($root, OYISO_SOURCE_PATHS);
     $entries = extract_entries($phpFiles, $root);
     $potPath = $root . DIRECTORY_SEPARATOR . OYISO_POT_PATH;
@@ -30,6 +35,41 @@ function main(array $argv): void
 
     $localeFiles = glob($root . DIRECTORY_SEPARATOR . 'languages' . DIRECTORY_SEPARATOR . 'oyiso-*.po') ?: [];
     sort($localeFiles, SORT_STRING);
+
+    if ($options['sync']) {
+        foreach ($localeFiles as $localeFile) {
+            $addedCount = sync_locale_with_entries($localeFile, $entries);
+
+            if ($addedCount > 0) {
+                fwrite(
+                    STDOUT,
+                    sprintf(
+                        "[%s] synced %d missing entries\n",
+                        basename($localeFile),
+                        $addedCount
+                    )
+                );
+            }
+        }
+    }
+
+    if ($options['prune']) {
+        foreach ($localeFiles as $localeFile) {
+            $removedCount = prune_locale_with_entries($localeFile, $entries);
+
+            if ($removedCount > 0) {
+                fwrite(
+                    STDOUT,
+                    sprintf(
+                        "[%s] pruned %d extra entries\n",
+                        basename($localeFile),
+                        $removedCount
+                    )
+                );
+            }
+        }
+    }
+
     $hasBlockingIssues = false;
 
     foreach ($localeFiles as $localeFile) {
@@ -65,7 +105,9 @@ function parse_cli_options(array $argv): array
 {
     $options = [
         'check' => false,
+        'prune' => false,
         'strict' => false,
+        'sync' => false,
     ];
 
     foreach (array_slice($argv, 1) as $arg) {
@@ -76,6 +118,16 @@ function parse_cli_options(array $argv): array
 
         if ($arg === '--strict') {
             $options['strict'] = true;
+            continue;
+        }
+
+        if ($arg === '--sync') {
+            $options['sync'] = true;
+            continue;
+        }
+
+        if ($arg === '--prune') {
+            $options['prune'] = true;
             continue;
         }
 
@@ -438,6 +490,154 @@ function compare_locale_with_entries(string $localeFile, array $entries): array
         'empty' => $localeEntries['empty'],
         'fuzzy' => $localeEntries['fuzzy'],
     ];
+}
+
+function sync_locale_with_entries(string $localeFile, array $entries): int
+{
+    $comparison = compare_locale_with_entries($localeFile, $entries);
+    $missing = $comparison['missing'];
+
+    if ($missing === []) {
+        return 0;
+    }
+
+    $content = file_get_contents($localeFile);
+
+    if ($content === false) {
+        throw new RuntimeException(sprintf('Unable to read locale file: %s', $localeFile));
+    }
+
+    $blocks = [];
+
+    foreach ($missing as $msgid) {
+        $references = $entries[$msgid] ?? [];
+
+        if ($references !== []) {
+            $blocks[] = '#: ' . implode(' ', $references);
+        }
+
+        array_push($blocks, ...format_po_string('msgid', $msgid));
+        $blocks[] = 'msgstr ""';
+        $blocks[] = '';
+    }
+
+    $existingContent = rtrim($content, "\r\n");
+    $appendedContent = implode(PHP_EOL, $blocks);
+
+    if ($existingContent === '') {
+        $newContent = $appendedContent . PHP_EOL;
+    } else {
+        $newContent = $existingContent . PHP_EOL . PHP_EOL . $appendedContent . PHP_EOL;
+    }
+
+    if (file_put_contents($localeFile, $newContent) === false) {
+        throw new RuntimeException(sprintf('Unable to write locale file: %s', $localeFile));
+    }
+
+    return count($missing);
+}
+
+function prune_locale_with_entries(string $localeFile, array $entries): int
+{
+    $blocks = parse_locale_blocks($localeFile);
+    $retainedBlocks = [];
+    $removedCount = 0;
+
+    foreach ($blocks as $block) {
+        $msgid = $block['msgid'];
+
+        if ($msgid !== null && $msgid !== '' && !isset($entries[$msgid])) {
+            $removedCount++;
+            continue;
+        }
+
+        $retainedBlocks[] = $block['lines'];
+    }
+
+    if ($removedCount === 0) {
+        return 0;
+    }
+
+    $renderedBlocks = array_map(
+        static fn(array $lines): string => implode(PHP_EOL, $lines),
+        array_filter($retainedBlocks, static fn(array $lines): bool => $lines !== [])
+    );
+
+    $content = implode(PHP_EOL . PHP_EOL, $renderedBlocks);
+
+    if ($content !== '') {
+        $content .= PHP_EOL;
+    }
+
+    if (file_put_contents($localeFile, $content) === false) {
+        throw new RuntimeException(sprintf('Unable to write locale file: %s', $localeFile));
+    }
+
+    return $removedCount;
+}
+
+/**
+ * @return list<array{lines: list<string>, msgid: ?string}>
+ */
+function parse_locale_blocks(string $file): array
+{
+    $lines = file($file, FILE_IGNORE_NEW_LINES);
+
+    if ($lines === false) {
+        throw new RuntimeException(sprintf('Unable to read locale file: %s', $file));
+    }
+
+    $blocks = [];
+    $blockLines = [];
+    $msgid = null;
+    $state = null;
+
+    $finalize = static function () use (&$blocks, &$blockLines, &$msgid, &$state): void {
+        if ($blockLines === []) {
+            $msgid = null;
+            $state = null;
+            return;
+        }
+
+        $blocks[] = [
+            'lines' => $blockLines,
+            'msgid' => $msgid,
+        ];
+
+        $blockLines = [];
+        $msgid = null;
+        $state = null;
+    };
+
+    foreach ($lines as $line) {
+        $trimmed = trim($line);
+
+        if ($trimmed === '') {
+            $finalize();
+            continue;
+        }
+
+        $blockLines[] = $line;
+
+        if (str_starts_with($trimmed, 'msgid ')) {
+            $state = 'msgid';
+            $msgid = decode_php_string_literal(substr($trimmed, 6));
+            continue;
+        }
+
+        if (str_starts_with($trimmed, 'msgstr ')) {
+            $state = 'msgstr';
+            continue;
+        }
+
+        if ($trimmed[0] === '"' && $state === 'msgid' && $msgid !== null) {
+            $msgid .= decode_php_string_literal($trimmed);
+        }
+    }
+
+    $finalize();
+
+    return $blocks;
 }
 
 /**
