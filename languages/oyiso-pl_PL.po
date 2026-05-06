@@ -533,21 +533,6 @@ msgstr "Łączna liczba wygranych na osobę"
 msgid "Enter 0 for no limit."
 msgstr "Wpisz 0, aby wyłączyć limit."
 
-msgid "After-Win Restriction"
-msgstr "Ograniczenie po wygranej"
-
-msgid "No Restriction"
-msgstr "Bez ograniczeń"
-
-msgid "Stop for Today Only"
-msgstr "Zatrzymaj tylko na dziś"
-
-msgid "Stop Permanently"
-msgstr "Zatrzymaj na stałe"
-
-msgid "Stop for today: after winning today, the user cannot continue and will automatically recover tomorrow. Stop permanently: after winning, the user cannot participate in this draw again."
-msgstr "Zatrzymaj na dziś: po dzisiejszej wygranej użytkownik nie może kontynuować i odzyska możliwość jutro. Zatrzymaj na stałe: po wygranej użytkownik nie może ponownie brać udziału w tym losowaniu."
-
 msgid "Prize Pool"
 msgstr "Pula nagród"
 
@@ -652,21 +637,6 @@ msgstr "Szczegóły kuponu"
 
 msgid "%s days after winning"
 msgstr "Ważne przez %s dni od wygranej"
-
-msgid "You have already won this draw and cannot participate again."
-msgstr "To losowanie zostało już wygrane i nie można wziąć w nim udziału ponownie."
-
-msgid "After Winning"
-msgstr "Po wygranej"
-
-msgid "No further draws allowed"
-msgstr "Dalsze losowania są niedozwolone"
-
-msgid "You have already won today and can join again tomorrow."
-msgstr "Dziś już wygrano i ponowny udział będzie możliwy jutro."
-
-msgid "No further draws allowed today"
-msgstr "Dalsze losowania w tym dniu są niedozwolone"
 
 msgid "Draw Again"
 msgstr "Losuj ponownie"
@@ -794,9 +764,6 @@ msgstr "Włącz „Dziękujemy za udział”"
 msgid "When enabled, any remaining probability will automatically go to \"Thanks for Participating\"."
 msgstr "Po włączeniu całe pozostałe prawdopodobieństwo zostanie automatycznie przypisane do „Dziękujemy za udział”."
 
-msgid "Enter 0 for no limit. Once reached, the user can no longer participate in this draw."
-msgstr "Wpisz 0, aby nie ustawiać limitu. Po osiągnięciu tego limitu użytkownik nie będzie mógł dalej brać udziału w tym losowaniu."
-
 msgid "Records Per Tab"
 msgstr "Liczba rekordów na kartę"
 
@@ -918,3 +885,10 @@ msgstr "np. Polecane oferty"
 msgid "No active coupons are available right now."
 msgstr "Brak aktywnych kuponów w tej chwili."
 
+#: src/plugin-extensions/elementor-widgets/coupon-lottery-module.php:1713 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:377
+msgid "Per-Person Daily Wins"
+msgstr "Dzienne wygrane na osobę"
+
+#: src/plugin-extensions/elementor-widgets/coupon-lottery-module.php:867
+msgid "You have reached today's winning limit."
+msgstr "Dzisiejszy limit wygranych został osiągnięty."

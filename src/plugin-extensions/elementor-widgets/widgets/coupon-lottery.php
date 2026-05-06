@@ -151,7 +151,7 @@ class Coupon_Lottery extends Widget_Base
             'size_units'  => ['%'],
             'default'     => [
                 'unit' => '%',
-                'size' => 50,
+                'size' => 30,
             ],
             'range'       => [
                 '%' => [
@@ -219,7 +219,7 @@ class Coupon_Lottery extends Widget_Base
                     ],
                     'end_percent'   => [
                         'unit' => '%',
-                        'size' => 50,
+                        'size' => 30,
                     ],
                     'probability' => [
                         'unit' => '%',
@@ -352,6 +352,14 @@ class Coupon_Lottery extends Widget_Base
         $this->add_control('total_limit', [
             'label'       => oyiso_editor_t('Per-Person Total Draws'),
             'type'        => Controls_Manager::NUMBER,
+            'default'     => 0,
+            'min'         => 0,
+            'description' => oyiso_editor_t('Enter 0 for no limit.'),
+        ]);
+
+        $this->add_control('win_limit', [
+            'label'       => oyiso_editor_t('Per-Person Total Wins'),
+            'type'        => Controls_Manager::NUMBER,
             'default'     => 1,
             'min'         => 0,
             'description' => oyiso_editor_t('Enter 0 for no limit.'),
@@ -365,24 +373,12 @@ class Coupon_Lottery extends Widget_Base
             'description' => oyiso_editor_t('Enter 0 for no limit.'),
         ]);
 
-        $this->add_control('win_limit', [
-            'label'       => oyiso_editor_t('Per-Person Total Wins'),
+        $this->add_control('daily_win_limit', [
+            'label'       => oyiso_editor_t('Per-Person Daily Wins'),
             'type'        => Controls_Manager::NUMBER,
-            'default'     => 1,
+            'default'     => 0,
             'min'         => 0,
-            'description' => oyiso_editor_t('Enter 0 for no limit. Once reached, the user can no longer participate in this draw.'),
-        ]);
-
-        $this->add_control('win_after_mode', [
-            'label'       => oyiso_editor_t('After-Win Restriction'),
-            'type'        => Controls_Manager::SELECT,
-            'default'     => 'none',
-            'options'     => [
-                'none'              => oyiso_editor_t('No Restriction'),
-                'daily_after_win'   => oyiso_editor_t('Stop for Today Only'),
-                'forever_after_win' => oyiso_editor_t('Stop Permanently'),
-            ],
-            'description' => oyiso_editor_t('Stop for today: after winning today, the user cannot continue and will automatically recover tomorrow. Stop permanently: after winning, the user cannot participate in this draw again.'),
+            'description' => oyiso_editor_t('Enter 0 for no limit.'),
         ]);
 
         $this->add_control('start_at', [
@@ -755,12 +751,12 @@ class Coupon_Lottery extends Widget_Base
             'probability_map'       => $settings['probability_map'] ?? [],
             'custom_prizes'         => $settings['custom_prizes'] ?? [],
             'enable_thanks'         => ($settings['enable_thanks'] ?? '') === 'yes',
-            'win_after_mode'        => $this->normalize_win_after_mode_from_settings($settings),
             'start_at'              => $settings['start_at'] ?? '',
             'end_at'                => $settings['end_at'] ?? '',
-            'daily_limit'           => $settings['daily_limit'] ?? 0,
-            'total_limit'           => $settings['total_limit'] ?? 1,
+            'total_limit'           => $settings['total_limit'] ?? 0,
             'win_limit'             => $settings['win_limit'] ?? 1,
+            'daily_limit'           => $settings['daily_limit'] ?? 0,
+            'daily_win_limit'       => $settings['daily_win_limit'] ?? 0,
             'prize_pool_mode'       => $settings['prize_pool_mode'] ?? 'unlimited',
             'prize_pool_limit'      => $settings['prize_pool_limit'] ?? 100,
             'coupon_prefix'         => $settings['coupon_prefix'] ?? 'OYL',
@@ -1032,17 +1028,6 @@ class Coupon_Lottery extends Widget_Base
         }
 
         return $normalized;
-    }
-
-    private function normalize_win_after_mode_from_settings(array $settings): string
-    {
-        $mode = (string) ($settings['win_after_mode'] ?? '');
-
-        if (in_array($mode, ['none', 'daily_after_win', 'forever_after_win'], true)) {
-            return $mode;
-        }
-
-        return ($settings['stop_after_win_with_thanks'] ?? '') === 'yes' ? 'forever_after_win' : 'none';
     }
 
     private function get_product_options(): array

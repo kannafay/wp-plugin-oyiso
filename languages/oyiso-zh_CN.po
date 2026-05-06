@@ -533,21 +533,6 @@ msgstr "每人总中奖次数"
 msgid "Enter 0 for no limit."
 msgstr "填 0 表示不限制。"
 
-msgid "After-Win Restriction"
-msgstr "中奖后限制"
-
-msgid "No Restriction"
-msgstr "不限制"
-
-msgid "Stop for Today Only"
-msgstr "仅停止当天"
-
-msgid "Stop Permanently"
-msgstr "永久停止"
-
-msgid "Stop for today: after winning today, the user cannot continue and will automatically recover tomorrow. Stop permanently: after winning, the user cannot participate in this draw again."
-msgstr "当天停止：当天中奖后不可继续参与，次日自动恢复；永久停止：中奖后不可再次参与当前抽奖。"
-
 msgid "Prize Pool"
 msgstr "奖池"
 
@@ -652,21 +637,6 @@ msgstr "优惠券详情"
 
 msgid "%s days after winning"
 msgstr "中奖后 %s 天内有效"
-
-msgid "You have already won this draw and cannot participate again."
-msgstr "您已中奖，不能再次参与抽奖。"
-
-msgid "After Winning"
-msgstr "中奖后"
-
-msgid "No further draws allowed"
-msgstr "不可继续抽奖"
-
-msgid "You have already won today and can join again tomorrow."
-msgstr "您今天已中奖，请明天再来参与抽奖。"
-
-msgid "No further draws allowed today"
-msgstr "当天不可继续抽奖"
 
 msgid "Draw Again"
 msgstr "再抽一次"
@@ -794,9 +764,6 @@ msgstr "启用“谢谢参与”"
 msgid "When enabled, any remaining probability will automatically go to \"Thanks for Participating\"."
 msgstr "启用后，剩余概率会自动归入“谢谢参与”。"
 
-msgid "Enter 0 for no limit. Once reached, the user can no longer participate in this draw."
-msgstr "填 0 表示不限制。达到后将不能继续参与当前抽奖。"
-
 msgid "Records Per Tab"
 msgstr "记录数量"
 
@@ -918,3 +885,10 @@ msgstr "例如：精选优惠"
 msgid "No active coupons are available right now."
 msgstr "当前没有可用的优惠券。"
 
+#: src/plugin-extensions/elementor-widgets/coupon-lottery-module.php:1713 src/plugin-extensions/elementor-widgets/widgets/coupon-lottery.php:377
+msgid "Per-Person Daily Wins"
+msgstr "每人每日中奖次数"
+
+#: src/plugin-extensions/elementor-widgets/coupon-lottery-module.php:867
+msgid "You have reached today's winning limit."
+msgstr "你今天的中奖次数已达上限。"

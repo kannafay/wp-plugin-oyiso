@@ -266,8 +266,8 @@ body .oyiso-scope-dialog.oyiso-coupons-theme-dark .oyiso-scope-dialog__close:foc
     --oyiso-lottery-surface: #ffffff;
     --oyiso-lottery-surface-soft: #fafbfc;
     --oyiso-lottery-line: #e6ebf1;
-    --oyiso-lottery-title-color: #2c170b;
-    --oyiso-lottery-description-color: #6e5647;
+    --oyiso-lottery-title-color: color-mix(in srgb, var(--oyiso-lottery-accent), #0f172a 74%);
+    --oyiso-lottery-description-color: color-mix(in srgb, var(--oyiso-lottery-accent), #475569 80%);
     --oyiso-lottery-text-strong: #111827;
     --oyiso-lottery-text-muted: #64748b;
     --oyiso-lottery-status-bg: color-mix(in srgb, var(--oyiso-lottery-accent), #fff 92%);
