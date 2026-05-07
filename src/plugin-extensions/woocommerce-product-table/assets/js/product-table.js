@@ -158,7 +158,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function buildFilename(extension) {
-        var slug = root.getAttribute('data-table-slug') || 'product-table';
+        var host = window.location && window.location.hostname
+            ? String(window.location.hostname).toLowerCase()
+            : '';
+        var safeHost = host
+            .replace(/[^a-z0-9.-]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'site';
         var now = new Date();
         var stamp = [
             now.getFullYear(),
@@ -170,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function () {
             String(now.getSeconds()).padStart(2, '0')
         ].join('');
 
-        return slug + '-' + stamp + '.' + extension;
+        return safeHost + '_products-info_' + stamp + '.' + extension;
     }
 
     function downloadFile(filename, content, mimeType) {
