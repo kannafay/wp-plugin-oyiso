@@ -9,13 +9,17 @@ if (!class_exists('CSF')) {
 CSF::createSection($prefix, [
     'parent' => 'plugin-extensions',
     'id' => 'elementor-widgets',
-    'title' => 'Elementor 小部件',
+    'title' => 'Elementor',
     'icon' => 'fab fa-elementor',
     'priority' => 10,
     'fields' => [
         [
             'type' => 'heading',
-            'content' => 'Elementor 小部件设置',
+            'content' => 'Elementor',
+        ],
+        [
+            'type' => 'subheading',
+            'content' => '小部件',
         ],
         [
             'id' => 'opt-elementor-widgets',

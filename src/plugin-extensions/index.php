@@ -13,3 +13,5 @@ if (class_exists('CSF')) {
 
 require_once __DIR__ . '/elementor-widgets/settings.php';
 require_once __DIR__ . '/elementor-widgets/index.php';
+require_once __DIR__ . '/woocommerce-product-table/index.php';
+require_once __DIR__ . '/woocommerce-product-table/settings.php';
