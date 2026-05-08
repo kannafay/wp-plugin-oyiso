@@ -257,12 +257,12 @@ if (!function_exists('oyiso_build_customer_overview_section')) {
 
         return sprintf(
             "<b>📊【客户概览】：</b>\n" .
-            "<b>客户类型：</b>%s\n" .
-            "<b>历史下单：</b>%d 次\n" .
-            "<b>历史消费：</b>%s\n" .
+            "<b>客户阶段：</b>%s\n" .
+            "<b>历史有效下单：</b>%d 次\n" .
+            "<b>历史有效消费：</b>%s\n" .
             "<b>客户评级：</b>%s",
-            $customerProfile['customer_type'],
-            $customerProfile['historical_order_count'],
+            $customerProfile['customer_stage'],
+            $customerProfile['historical_effective_order_count'],
             $customerProfile['historical_spend_text'],
             $customerProfile['customer_rating']
         );
@@ -345,17 +345,74 @@ if (!function_exists('oyiso_build_order_footer_section')) {
     }
 }
 
+if (!function_exists('oyiso_get_customer_profile_effective_statuses')) {
+    function oyiso_get_customer_profile_effective_statuses(): array {
+        return array_unique(array_merge(wc_get_is_paid_statuses(), ['on-hold']));
+    }
+}
+
+if (!function_exists('oyiso_get_order_created_timestamp')) {
+    function oyiso_get_order_created_timestamp(WC_Order $order): ?int {
+        $dateCreated = $order->get_date_created();
+
+        if (!$dateCreated) {
+            return null;
+        }
+
+        return (int) $dateCreated->getTimestamp();
+    }
+}
+
+if (!function_exists('oyiso_resolve_customer_stage')) {
+    /**
+     * 基于历史有效订单次数和时间跨度生成更贴近业务语义的客户阶段。
+     */
+    function oyiso_resolve_customer_stage(
+        int $historicalEffectiveOrderCount,
+        ?int $firstEffectiveOrderTimestamp,
+        ?int $latestEffectiveOrderTimestamp,
+        ?int $currentOrderTimestamp
+    ): string {
+        if ($historicalEffectiveOrderCount <= 0) {
+            return '首购客户';
+        }
+
+        if ($historicalEffectiveOrderCount <= 2) {
+            return '回购客户';
+        }
+
+        if ($firstEffectiveOrderTimestamp === null || $currentOrderTimestamp === null) {
+            return '回购客户';
+        }
+
+        $firstOrderAgeInDays = (int) floor(max(0, $currentOrderTimestamp - $firstEffectiveOrderTimestamp) / DAY_IN_SECONDS);
+        if ($firstOrderAgeInDays < 30) {
+            return '回购客户';
+        }
+
+        if ($latestEffectiveOrderTimestamp !== null) {
+            $lastOrderGapInDays = (int) floor(max(0, $currentOrderTimestamp - $latestEffectiveOrderTimestamp) / DAY_IN_SECONDS);
+
+            if ($lastOrderGapInDays >= 90) {
+                return '回流客户';
+            }
+        }
+
+        return '老客户';
+    }
+}
+
 if (!function_exists('oyiso_get_customer_profile')) {
     /**
      * 汇总当前客户的历史订单表现，用于新订单通知里的客户概览。
      *
      * @param WC_Order $order
-     * @return array{customer_type:string,historical_order_count:int,historical_spend_text:string,customer_rating:string}
+     * @return array{customer_stage:string,historical_effective_order_count:int,historical_spend_text:string,customer_rating:string}
      */
     function oyiso_get_customer_profile(WC_Order $order): array {
         $defaultProfile = [
-            'customer_type' => '新客户',
-            'historical_order_count' => 0,
+            'customer_stage' => '首购客户',
+            'historical_effective_order_count' => 0,
             'historical_spend_text' => oyiso_wc_price(0),
             'customer_rating' => '★★★☆☆ 普通',
         ];
@@ -385,8 +442,11 @@ if (!function_exists('oyiso_get_customer_profile')) {
         $historicalOrderCount = 0;
         $historicalCancelledCount = 0;
         $historicalCompletedCount = 0;
+        $historicalEffectiveOrderCount = 0;
         $historicalSpend = 0.0;
-        $effectiveStatuses = array_unique(array_merge(wc_get_is_paid_statuses(), ['on-hold']));
+        $firstEffectiveOrderTimestamp = null;
+        $latestEffectiveOrderTimestamp = null;
+        $effectiveStatuses = oyiso_get_customer_profile_effective_statuses();
 
         foreach ($historicalOrders as $historicalOrder) {
             if (!$historicalOrder instanceof WC_Order) {
@@ -407,7 +467,19 @@ if (!function_exists('oyiso_get_customer_profile')) {
 
             if (in_array($status, $effectiveStatuses, true)) {
                 $historicalCompletedCount++;
+                $historicalEffectiveOrderCount++;
                 $historicalSpend += max(0, (float) $historicalOrder->get_total() - (float) $historicalOrder->get_total_refunded());
+
+                $createdTimestamp = oyiso_get_order_created_timestamp($historicalOrder);
+                if ($createdTimestamp !== null) {
+                    if ($firstEffectiveOrderTimestamp === null || $createdTimestamp < $firstEffectiveOrderTimestamp) {
+                        $firstEffectiveOrderTimestamp = $createdTimestamp;
+                    }
+
+                    if ($latestEffectiveOrderTimestamp === null || $createdTimestamp > $latestEffectiveOrderTimestamp) {
+                        $latestEffectiveOrderTimestamp = $createdTimestamp;
+                    }
+                }
             }
         }
 
@@ -426,9 +498,16 @@ if (!function_exists('oyiso_get_customer_profile')) {
             $customerRating = '★☆☆☆☆ 风险';
         }
 
+        $currentOrderTimestamp = oyiso_get_order_created_timestamp($order);
+
         return [
-            'customer_type' => $historicalOrderCount > 0 ? '老客户' : '新客户',
-            'historical_order_count' => $historicalOrderCount,
+            'customer_stage' => oyiso_resolve_customer_stage(
+                $historicalEffectiveOrderCount,
+                $firstEffectiveOrderTimestamp,
+                $latestEffectiveOrderTimestamp,
+                $currentOrderTimestamp
+            ),
+            'historical_effective_order_count' => $historicalEffectiveOrderCount,
             'historical_spend_text' => oyiso_wc_price($historicalSpend),
             'customer_rating' => $customerRating,
         ];
