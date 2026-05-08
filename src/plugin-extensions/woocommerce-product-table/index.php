@@ -705,7 +705,7 @@ CSS);
                     continue;
                 }
 
-                $specs[] = trim($attribute_label) . ': ' . implode(' / ', $values);
+                $specs[] = trim($attribute_label) . ': ' . implode('，', $values);
             }
 
             return $specs;
