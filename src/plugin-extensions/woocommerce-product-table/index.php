@@ -49,6 +49,14 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
         private const DEFAULT_SLUG = 'pro_info';
         private const DEFAULT_EXTRA_FIELDS = [
             'cover',
+            'brand',
+            'type',
+            'regular_price',
+            'sale_price',
+            'stock_status',
+        ];
+        private const LEGACY_DEFAULT_EXTRA_FIELDS = [
+            'cover',
             'type',
             'regular_price',
             'sale_price',
@@ -56,6 +64,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
         ];
         private const OPTIONAL_FIELD_DEFINITIONS = [
             'cover' => '产品封面',
+            'brand' => '品牌',
             'type' => '产品类型',
             'regular_price' => '常规价',
             'sale_price' => '销售价',
@@ -63,6 +72,13 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
             'categories' => '产品分类',
             'tags' => '产品标签',
             'stock_status' => '库存状态',
+        ];
+        private const BRAND_TAXONOMY_CANDIDATES = [
+            'product_brand',
+            'brand',
+            'pwb-brand',
+            'yith_product_brand',
+            'berocket_brand',
         ];
         private const STOCK_STATUS_LABELS = [
             'instock' => '有货',
@@ -278,10 +294,14 @@ CSS);
         {
             $options = get_option('oyiso', []);
 
+            if (!is_array($options)) {
+                $options = [];
+            }
+
             return [
                 'enabled' => !empty($options[self::OPTION_ENABLED]),
                 'slug' => self::sanitizeSlug($options[self::OPTION_SLUG] ?? self::DEFAULT_SLUG),
-                'extra_fields' => self::sanitizeExtraFields($options[self::OPTION_EXTRA_FIELDS] ?? self::DEFAULT_EXTRA_FIELDS),
+                'extra_fields' => self::resolveExtraFields($options),
             ];
         }
 
@@ -311,7 +331,7 @@ CSS);
             $columns['name'] = ['label' => '产品名称'];
             $columns['link'] = ['label' => '产品链接'];
 
-            foreach (['type', 'regular_price', 'sale_price'] as $field_key) {
+            foreach (['brand', 'type', 'regular_price', 'sale_price'] as $field_key) {
                 if (in_array($field_key, $extra_fields, true)) {
                     $columns[$field_key] = ['label' => self::OPTIONAL_FIELD_DEFINITIONS[$field_key]];
                 }
@@ -398,6 +418,7 @@ CSS);
             $fragments = [
                 $row['name'],
                 $row['link'],
+                $row['brand'],
                 $row['type'],
                 $row['regular_price'],
                 $row['sale_price'],
@@ -445,6 +466,18 @@ CSS);
 
                 case 'type':
                     return self::renderBadge($row['type'], 'neutral');
+
+                case 'brand':
+                    if ($row['brand'] === '') {
+                        return '<span class="oyiso-product-table__empty">-</span>';
+                    }
+
+                    $items = array_map('trim', explode('；', $row['brand']));
+                    $chips = array_map(static function (string $item): string {
+                        return '<span class="oyiso-product-table__chip oyiso-product-table__chip--muted">' . esc_html($item) . '</span>';
+                    }, array_filter($items));
+
+                    return '<div class="oyiso-product-table__chips">' . implode('', $chips) . '</div>';
 
                 case 'regular_price':
                 case 'sale_price':
@@ -514,6 +547,7 @@ CSS);
                 case 'link':
                     return $row['link'];
 
+                case 'brand':
                 case 'type':
                 case 'regular_price':
                 case 'sale_price':
@@ -588,6 +622,7 @@ CSS);
                 'name' => (string) $product->get_name(),
                 'link' => is_string($link) ? $link : '',
                 'cover_url' => $cover_url,
+                'brand' => self::getProductBrandText($product_id, $product),
                 'type' => self::getProductTypeLabel($product),
                 'regular_price' => self::getProductPriceText($product, 'regular'),
                 'sale_price' => self::getProductPriceText($product, 'sale'),
@@ -623,6 +658,23 @@ CSS);
             }
 
             return $type !== '' ? $type : '未知类型';
+        }
+
+        private static function resolveExtraFields(array $options): array
+        {
+            if (!array_key_exists(self::OPTION_EXTRA_FIELDS, $options)) {
+                return self::DEFAULT_EXTRA_FIELDS;
+            }
+
+            $extra_fields = self::sanitizeExtraFields($options[self::OPTION_EXTRA_FIELDS]);
+
+            if ($extra_fields === self::LEGACY_DEFAULT_EXTRA_FIELDS) {
+                $extra_fields = self::DEFAULT_EXTRA_FIELDS;
+                $options[self::OPTION_EXTRA_FIELDS] = $extra_fields;
+                update_option('oyiso', $options);
+            }
+
+            return $extra_fields;
         }
 
         private static function getProductPriceText($product, string $price_type): string
@@ -709,6 +761,54 @@ CSS);
             }
 
             return $specs;
+        }
+
+        private static function getProductBrandText(int $product_id, $product): string
+        {
+            foreach (self::BRAND_TAXONOMY_CANDIDATES as $taxonomy) {
+                $terms = self::getProductTermsText($product_id, $taxonomy);
+
+                if ($terms !== '') {
+                    return $terms;
+                }
+            }
+
+            $attributes = method_exists($product, 'get_attributes')
+                ? $product->get_attributes()
+                : [];
+
+            if (empty($attributes) || !is_array($attributes)) {
+                return '';
+            }
+
+            foreach ($attributes as $attribute) {
+                if (!is_object($attribute) || !method_exists($attribute, 'get_name')) {
+                    continue;
+                }
+
+                $attribute_name = (string) $attribute->get_name();
+                $attribute_label = function_exists('wc_attribute_label')
+                    ? wc_attribute_label($attribute_name)
+                    : $attribute_name;
+                $normalized_name = strtolower($attribute_name);
+                $normalized_label = strtolower((string) $attribute_label);
+
+                if (
+                    strpos($normalized_name, 'brand') === false
+                    && strpos($normalized_label, 'brand') === false
+                    && trim((string) $attribute_label) !== '品牌'
+                ) {
+                    continue;
+                }
+
+                $values = self::getAttributeValues($product_id, $attribute);
+
+                if (!empty($values)) {
+                    return implode('；', $values);
+                }
+            }
+
+            return '';
         }
 
         private static function getAttributeValues(int $product_id, $attribute): array

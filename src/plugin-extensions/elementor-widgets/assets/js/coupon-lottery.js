@@ -366,15 +366,28 @@
         }).join('');
     }
 
-    function renderRecordActions(record) {
+    function getWidgetScopeColor(widget) {
+        if (!widget) {
+            return '';
+        }
+
+        var styles = window.getComputedStyle(widget);
+
+        return styles.getPropertyValue('--oyiso-lottery-accent').trim()
+            || styles.getPropertyValue('--oyiso-coupon-accent').trim()
+            || '';
+    }
+
+    function renderRecordActions(widget, record) {
         var actions = '';
+        var scopeColor = getWidgetScopeColor(widget);
 
         if (record.canClaim) {
             actions += '<button type="button" class="oyiso-coupon-lottery__inline-button oyiso-coupon-lottery__inline-button--primary" data-lottery-record-claim="' + record.id + '">' + escapeHtml(oyisoCouponLotteryI18n.claimButton) + '</button>';
         }
 
         if (record.resultType === 'win' && record.scopeHtml) {
-            actions += '<button type="button" class="oyiso-coupon-lottery__inline-button" data-coupon-scope="' + escapeHtml(record.scopeHtml) + '" data-coupon-code="' + escapeHtml(record.couponCode || '') + '">' + escapeHtml(oyisoCouponLotteryI18n.recordScopeButton || oyisoCouponLotteryI18n.scopeButton || '') + '</button>';
+            actions += '<button type="button" class="oyiso-coupon-lottery__inline-button" data-coupon-scope="' + escapeHtml(record.scopeHtml) + '" data-coupon-code="' + escapeHtml(record.couponCode || '') + '" data-coupon-scope-color="' + escapeHtml(scopeColor) + '">' + escapeHtml(oyisoCouponLotteryI18n.recordScopeButton || oyisoCouponLotteryI18n.scopeButton || '') + '</button>';
         }
 
         if (record.couponCode && record.status === 'claimed') {
@@ -436,7 +449,7 @@
 
     function renderRecordItem(widget, key, record) {
         var recordStatusClass = toClassToken(record.status || '');
-        var actions = renderRecordActions(record);
+        var actions = renderRecordActions(widget, record);
 
         return '' +
             '<article class="oyiso-coupon-lottery__record-item oyiso-coupon-lottery__record-item--' + recordStatusClass + '" data-lottery-record-id="' + record.id + '">' +

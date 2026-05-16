@@ -51,6 +51,7 @@ CSF::createSection($prefix, [
             'options' => Oyiso_WC_Product_Table::getOptionalFieldOptions(),
             'default' => [
                 'cover',
+                'brand',
                 'type',
                 'regular_price',
                 'sale_price',

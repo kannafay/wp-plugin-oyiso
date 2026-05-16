@@ -333,9 +333,10 @@
         var customTitle = button.getAttribute('data-coupon-scope-title') || '';
         var root = button.closest('[data-oyiso-coupons], [data-oyiso-coupon-lottery]');
         var card = button.closest('.oyiso-coupon-card');
+        var explicitScopeColor = button.getAttribute('data-coupon-scope-color') || '';
         var accentColor = root ? window.getComputedStyle(root).getPropertyValue('--oyiso-coupon-accent').trim() : '';
         var lotteryAccentColor = root ? window.getComputedStyle(root).getPropertyValue('--oyiso-lottery-accent').trim() : '';
-        var groupColor = card ? window.getComputedStyle(card).getPropertyValue('--oyiso-group-color').trim() : '';
+        var groupColor = explicitScopeColor || (card ? window.getComputedStyle(card).getPropertyValue('--oyiso-group-color').trim() : '');
 
         syncScopeDialogTheme(dialog, root);
         title.textContent = customTitle || getI18nString('scopeTitle');
