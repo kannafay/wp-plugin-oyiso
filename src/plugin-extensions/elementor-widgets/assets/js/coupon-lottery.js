@@ -1,5 +1,17 @@
 (function () {
-    var widgetSeed = 0;
+    if (window.oyisoCouponLotteryRuntime && window.oyisoCouponLotteryRuntime.booted) {
+        return;
+    }
+
+    var runtime = window.oyisoCouponLotteryRuntime || {};
+
+    runtime.booted = true;
+    runtime.widgetSeed = runtime.widgetSeed || 0;
+    runtime.modalCleanupScheduled = false;
+    runtime.elementorHookRegistered = !!runtime.elementorHookRegistered;
+
+    window.oyisoCouponLotteryRuntime = runtime;
+
     var modalThemeProperties = [
         '--oyiso-lottery-accent',
         '--oyiso-lottery-panel-bg',
@@ -167,11 +179,19 @@
         }
 
         if (!widget.dataset.lotteryWidgetId) {
-            widgetSeed += 1;
-            widget.dataset.lotteryWidgetId = 'oyiso-lottery-' + widgetSeed;
+            runtime.widgetSeed += 1;
+            widget.dataset.lotteryWidgetId = 'oyiso-lottery-' + runtime.widgetSeed;
         }
 
         return widget.dataset.lotteryWidgetId;
+    }
+
+    function hasOpenModal() {
+        return !!document.querySelector('[data-lottery-owner-id]:not([hidden])');
+    }
+
+    function syncBodyModalState() {
+        document.body.classList.toggle('oyiso-lottery-modal-open', hasOpenModal());
     }
 
     function getWidgetFromNode(node) {
@@ -210,6 +230,60 @@
         }
 
         return modal;
+    }
+
+    function removeModalNode(modal) {
+        if (!modal || !modal.parentNode) {
+            return;
+        }
+
+        modal.hidden = true;
+        modal.classList.remove('is-closing');
+        modal.parentNode.removeChild(modal);
+        syncBodyModalState();
+    }
+
+    function cleanupStaleModals() {
+        document.querySelectorAll('[data-lottery-owner-id]').forEach(function (modal) {
+            var ownerId = modal.dataset.lotteryOwnerId || '';
+
+            if (!ownerId) {
+                removeModalNode(modal);
+                return;
+            }
+
+            if (!document.querySelector('[data-oyiso-coupon-lottery][data-lottery-widget-id="' + ownerId + '"]')) {
+                removeModalNode(modal);
+            }
+        });
+    }
+
+    function scheduleModalCleanup() {
+        if (runtime.modalCleanupScheduled) {
+            return;
+        }
+
+        runtime.modalCleanupScheduled = true;
+
+        window.setTimeout(function () {
+            runtime.modalCleanupScheduled = false;
+            cleanupStaleModals();
+        }, 0);
+    }
+
+    function observeWidgetRemovals() {
+        if (!window.MutationObserver || runtime.modalCleanupObserver) {
+            return;
+        }
+
+        runtime.modalCleanupObserver = new MutationObserver(function () {
+            scheduleModalCleanup();
+        });
+
+        runtime.modalCleanupObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
     }
 
     function getResultModal(widget) {
@@ -329,13 +403,13 @@
     }
 
     function openModal(modal) {
-        if (!modal) {
+        if (!modal || !document.body.contains(modal)) {
             return;
         }
 
         modal.hidden = false;
         modal.classList.remove('is-closing');
-        document.body.classList.add('oyiso-lottery-modal-open');
+        syncBodyModalState();
     }
 
     function closeModal(modal) {
@@ -348,11 +422,11 @@
         }
 
         modal.classList.add('is-closing');
-        document.body.classList.remove('oyiso-lottery-modal-open');
 
         window.setTimeout(function () {
             modal.hidden = true;
             modal.classList.remove('is-closing');
+            syncBodyModalState();
         }, 180);
     }
 
@@ -756,7 +830,29 @@
         widget.dataset.lotteryModalReady = '1';
     }
 
+    function bindElementorWidgetReadyHook() {
+        if (runtime.elementorHookRegistered || !window.elementorFrontend || !window.elementorFrontend.hooks) {
+            return;
+        }
+
+        runtime.elementorHookRegistered = true;
+
+        window.elementorFrontend.hooks.addAction('frontend/element_ready/oyiso_coupon_lottery.default', function ($scope) {
+            var widget = $scope && $scope[0] ? $scope[0].querySelector('[data-oyiso-coupon-lottery]') || $scope[0] : $scope;
+
+            initWidget(widget);
+            scheduleModalCleanup();
+        });
+    }
+
     document.querySelectorAll('[data-oyiso-coupon-lottery]').forEach(initWidget);
+    cleanupStaleModals();
+    observeWidgetRemovals();
+    bindElementorWidgetReadyHook();
+
+    if (window.jQuery) {
+        window.jQuery(window).on('elementor/frontend/init', bindElementorWidgetReadyHook);
+    }
 
     document.addEventListener('click', function (event) {
         var drawButton = event.target.closest('[data-lottery-draw]');

@@ -3709,20 +3709,18 @@ body .oyiso-coupons-theme-dark .oyiso-scope-dialog .oyiso-scope-dialog__close:fo
 @container oyiso-coupons (max-width: 640px) {
     .oyiso-coupons {
         gap: var(--oyiso-coupons-gap);
-        --oyiso-banner-min-height: 220px;
         --oyiso-banner-title-size: 24px;
         --oyiso-banner-description-size: 14px;
     }
 
     .oyiso-coupons-default-style-yes .oyiso-coupons {
-        --oyiso-banner-min-height: 220px !important;
         --oyiso-banner-title-size: 24px !important;
         --oyiso-banner-description-size: 14px !important;
     }
 
     .oyiso-coupons__banner {
-        min-height: var(--oyiso-banner-min-height);
-        padding: var(--oyiso-banner-padding);
+        min-height: 240px;
+        padding: 30px;
         border-radius: var(--oyiso-banner-radius);
     }
 
