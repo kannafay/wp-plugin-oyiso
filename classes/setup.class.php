@@ -464,26 +464,30 @@ if ( ! class_exists( 'CSF_Setup' ) ) {
     public static function textdomain() {
       unload_textdomain( 'csf' );
 
-      $locales = array();
+      if ( is_admin() && function_exists( 'get_user_locale' ) ) {
+        $locale = get_user_locale();
 
-      if ( function_exists( 'determine_locale' ) ) {
-        $locales[] = determine_locale();
-      }
+        if ( ! empty( $locale ) ) {
+          $mofile = self::$dir .'/languages/'. $locale .'.mo';
 
-      if ( function_exists( 'get_user_locale' ) ) {
-        $locales[] = get_user_locale();
-      }
+          if ( file_exists( $mofile ) ) {
+            load_textdomain( 'csf', $mofile );
+          }
 
-      $locales[] = get_locale();
-      $locales = array_unique( array_filter( $locales ) );
-
-      foreach ( $locales as $locale ) {
-        $mofile = self::$dir .'/languages/'. $locale .'.mo';
-
-        if ( file_exists( $mofile ) ) {
-          load_textdomain( 'csf', $mofile );
           return;
         }
+      }
+
+      $locale = function_exists( 'determine_locale' ) ? determine_locale() : get_locale();
+
+      if ( empty( $locale ) ) {
+        return;
+      }
+
+      $mofile = self::$dir .'/languages/'. $locale .'.mo';
+
+      if ( file_exists( $mofile ) ) {
+        load_textdomain( 'csf', $mofile );
       }
     }
 
