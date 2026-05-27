@@ -7,7 +7,7 @@ defined('ABSPATH') || exit;
  */
 if (class_exists('CSF')) {
 CSF::createSection($prefix, [
-    'parent'   => 'seo-analytics',
+    'parent'   => 'code-analytics',
     'id'       => 'analytics-51la',
     'title'    => '51LA 统计代码',
     'icon'     => 'fas fa-code',

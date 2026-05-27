@@ -353,7 +353,7 @@ if (class_exists('CSF')) {
 // 加载模块（功能钩子在前后端均需注册，CSF 调用由模块内部自行 guard）
 $dir = plugin_dir_path(__FILE__);
 require_once $dir . 'wp-optimize/index.php';
-require_once $dir . 'seo-analytics/index.php';
+require_once $dir . 'code-analytics/index.php';
 require_once $dir . 'notifications/index.php';
 require_once $dir . 'plugin-extensions/index.php';
 require_once $dir . 'update-backup/index.php';
