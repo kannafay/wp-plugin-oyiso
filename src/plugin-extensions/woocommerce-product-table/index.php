@@ -42,8 +42,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
     final class Oyiso_WC_Product_Table
     {
         private const OPTION_ENABLED = 'oyiso_wc_product_table_enabled';
-        private const OPTION_SLUG = 'oyiso_wc_product_table_slug';
-        private const OPTION_EXTRA_FIELDS = 'oyiso_wc_product_table_extra_fields';
+        private const OPTION_CONFIG = 'oyiso_wc_product_table_options';
         private const REWRITE_STATE_OPTION = 'oyiso_wc_product_table_rewrite_state';
         private const QUERY_VAR = 'oyiso_wc_product_table';
         private const DEFAULT_SLUG = 'pro_info';
@@ -298,10 +297,20 @@ CSS);
                 $options = [];
             }
 
+            $config = $options[self::OPTION_CONFIG] ?? [];
+
+            // 兼容旧版顶层 key
+            if (empty($config) && isset($options['oyiso_wc_product_table_slug'])) {
+                $config = [
+                    'slug' => $options['oyiso_wc_product_table_slug'] ?? self::DEFAULT_SLUG,
+                    'extra_fields' => $options['oyiso_wc_product_table_extra_fields'] ?? self::DEFAULT_EXTRA_FIELDS,
+                ];
+            }
+
             return [
                 'enabled' => !empty($options[self::OPTION_ENABLED]),
-                'slug' => self::sanitizeSlug($options[self::OPTION_SLUG] ?? self::DEFAULT_SLUG),
-                'extra_fields' => self::resolveExtraFields($options),
+                'slug' => self::sanitizeSlug($config['slug'] ?? self::DEFAULT_SLUG),
+                'extra_fields' => self::resolveExtraFields($config),
             ];
         }
 
@@ -660,18 +669,16 @@ CSS);
             return $type !== '' ? $type : '未知类型';
         }
 
-        private static function resolveExtraFields(array $options): array
+        private static function resolveExtraFields(array $config): array
         {
-            if (!array_key_exists(self::OPTION_EXTRA_FIELDS, $options)) {
+            if (!array_key_exists('extra_fields', $config)) {
                 return self::DEFAULT_EXTRA_FIELDS;
             }
 
-            $extra_fields = self::sanitizeExtraFields($options[self::OPTION_EXTRA_FIELDS]);
+            $extra_fields = self::sanitizeExtraFields($config['extra_fields']);
 
             if ($extra_fields === self::LEGACY_DEFAULT_EXTRA_FIELDS) {
                 $extra_fields = self::DEFAULT_EXTRA_FIELDS;
-                $options[self::OPTION_EXTRA_FIELDS] = $extra_fields;
-                update_option('oyiso', $options);
             }
 
             return $extra_fields;

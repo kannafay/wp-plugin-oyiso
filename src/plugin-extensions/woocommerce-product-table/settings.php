@@ -23,36 +23,53 @@ $wc_section_fields = [
         'default' => false,
     ],
     [
-        'id' => 'oyiso_wc_product_table_slug',
-        'type' => 'text',
-        'title' => '页面 slug',
-        'desc' => '默认是 pro_info。保存后会自动刷新路由。',
-        'default' => 'pro_info',
-        'sanitize' => 'oyiso_wc_product_table_sanitize_slug',
+        'id' => 'oyiso_wc_product_table_options',
+        'type' => 'tabbed',
+        'title' => '信息表配置',
         'dependency' => ['oyiso_wc_product_table_enabled', '==', true],
-    ],
-    [
-        'type' => 'callback',
-        'title' => '访问预览',
-        'function' => 'oyiso_wc_product_table_render_route_preview',
-        'dependency' => ['oyiso_wc_product_table_enabled', '==', true],
-    ],
-    [
-        'id' => 'oyiso_wc_product_table_extra_fields',
-        'type' => 'checkbox',
-        'title' => '额外字段',
-        'desc' => '以下字段可自由显示或隐藏。产品名称 / 产品链接 / 产品规格会固定保留。',
-        'options' => Oyiso_WC_Product_Table::getOptionalFieldOptions(),
-        'default' => [
-            'cover',
-            'brand',
-            'type',
-            'regular_price',
-            'sale_price',
-            'stock_status',
+        'tabs' => [
+            [
+                'title' => '访问预览',
+                'icon' => 'fas fa-link',
+                'fields' => [
+                    [
+                        'id' => 'slug',
+                        'type' => 'text',
+                        'title' => '页面 slug',
+                        'desc' => '默认是 pro_info。保存后会自动刷新路由。',
+                        'default' => 'pro_info',
+                        'sanitize' => 'oyiso_wc_product_table_sanitize_slug',
+                    ],
+                    [
+                        'type' => 'callback',
+                        'title' => '当前路径',
+                        'function' => 'oyiso_wc_product_table_render_route_preview',
+                    ],
+                ],
+            ],
+            [
+                'title' => '额外字段',
+                'icon' => 'fas fa-columns',
+                'fields' => [
+                    [
+                        'id' => 'extra_fields',
+                        'type' => 'checkbox',
+                        'title' => '显示字段',
+                        'desc' => '以下字段可自由显示或隐藏。产品名称 / 产品链接 / 产品规格会固定保留。',
+                        'options' => Oyiso_WC_Product_Table::getOptionalFieldOptions(),
+                        'default' => [
+                            'cover',
+                            'brand',
+                            'type',
+                            'regular_price',
+                            'sale_price',
+                            'stock_status',
+                        ],
+                        'sanitize' => 'oyiso_wc_product_table_sanitize_extra_fields',
+                    ],
+                ],
+            ],
         ],
-        'sanitize' => 'oyiso_wc_product_table_sanitize_extra_fields',
-        'dependency' => ['oyiso_wc_product_table_enabled', '==', true],
     ],
 ];
 
