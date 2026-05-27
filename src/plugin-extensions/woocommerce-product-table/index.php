@@ -48,6 +48,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
         private const DEFAULT_SLUG = 'pro_info';
         private const DEFAULT_EXTRA_FIELDS = [
             'cover',
+            'link',
             'brand',
             'type',
             'regular_price',
@@ -63,6 +64,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
         ];
         private const OPTIONAL_FIELD_DEFINITIONS = [
             'cover' => '产品封面',
+            'link' => '产品链接',
             'brand' => '品牌',
             'type' => '产品类型',
             'regular_price' => '常规价',
@@ -297,7 +299,9 @@ CSS);
                 $options = [];
             }
 
-            $config = $options[self::OPTION_CONFIG] ?? [];
+            $config = isset($options[self::OPTION_CONFIG]) && is_array($options[self::OPTION_CONFIG])
+                ? $options[self::OPTION_CONFIG]
+                : [];
 
             // 兼容旧版顶层 key
             if (empty($config) && isset($options['oyiso_wc_product_table_slug'])) {
@@ -338,7 +342,10 @@ CSS);
             }
 
             $columns['name'] = ['label' => '产品名称'];
-            $columns['link'] = ['label' => '产品链接'];
+
+            if (in_array('link', $extra_fields, true)) {
+                $columns['link'] = ['label' => '产品链接'];
+            }
 
             foreach (['brand', 'type', 'regular_price', 'sale_price'] as $field_key) {
                 if (in_array($field_key, $extra_fields, true)) {

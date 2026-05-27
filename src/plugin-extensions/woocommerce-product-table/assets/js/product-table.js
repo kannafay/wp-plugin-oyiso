@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', function () {
     var buttonCopy = root.querySelector('[data-action="copy-markdown"]');
     var buttonCsv = root.querySelector('[data-action="export-csv"]');
     var buttonMarkdown = root.querySelector('[data-action="export-markdown"]');
+    var dropdown = root.querySelector('[data-dropdown]');
+    var dropdownTrigger = root.querySelector('[data-dropdown-trigger]');
+    var dropdownMenu = root.querySelector('[data-dropdown-menu]');
+    var selectAllCheckbox = root.querySelector('[data-role="select-all"]');
+    var rowCheckboxes = Array.prototype.slice.call(root.querySelectorAll('[data-role="select-row"]'));
     var defaultStatusMessage = statusNode ? String(statusNode.textContent || '').trim() : '';
     var statusResetTimer = 0;
 
@@ -58,6 +63,41 @@ document.addEventListener('DOMContentLoaded', function () {
         return rowNodes.filter(function (row) {
             return !row.hidden;
         });
+    }
+
+    function getSelectedRows() {
+        var checked = rowNodes.filter(function (row) {
+            if (row.hidden) return false;
+            var cb = row.querySelector('[data-role="select-row"]');
+            return cb && cb.checked;
+        });
+        return checked.length > 0 ? checked : getVisibleRows();
+    }
+
+    function getSelectedCount() {
+        return rowNodes.filter(function (row) {
+            if (row.hidden) return false;
+            var cb = row.querySelector('[data-role="select-row"]');
+            return cb && cb.checked;
+        }).length;
+    }
+
+    function syncSelectAll() {
+        if (!selectAllCheckbox) return;
+        var visible = getVisibleRows();
+        var checkedCount = 0;
+        visible.forEach(function (row) {
+            var cb = row.querySelector('[data-role="select-row"]');
+            if (cb && cb.checked) checkedCount++;
+        });
+        selectAllCheckbox.checked = visible.length > 0 && checkedCount === visible.length;
+        selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < visible.length;
+    }
+
+    function setRowSelected(row, selected) {
+        var cb = row.querySelector('[data-role="select-row"]');
+        if (cb) cb.checked = selected;
+        row.setAttribute('data-selected', selected ? 'true' : 'false');
     }
 
     function findCell(row, columnKey) {
@@ -127,6 +167,45 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         return lines.join('\n');
+    }
+
+    function buildMarkdownSelected() {
+        var headers = getHeaders();
+        var rows = getSelectedRows();
+        var lines = [];
+
+        lines.push('| ' + headers.map(function (header) {
+            return escapeMarkdown(header.label);
+        }).join(' | ') + ' |');
+        lines.push('| ' + headers.map(function () {
+            return '---';
+        }).join(' | ') + ' |');
+
+        rows.forEach(function (row) {
+            lines.push('| ' + headers.map(function (header) {
+                return escapeMarkdown(getCellValue(row, header.key, 'markdown'));
+            }).join(' | ') + ' |');
+        });
+
+        return lines.join('\n');
+    }
+
+    function buildCsvSelected() {
+        var headers = getHeaders();
+        var rows = getSelectedRows();
+        var lines = [];
+
+        lines.push(headers.map(function (header) {
+            return escapeCsv(header.label);
+        }).join(','));
+
+        rows.forEach(function (row) {
+            lines.push(headers.map(function (header) {
+                return escapeCsv(getCellValue(row, header.key, 'csv'));
+            }).join(','));
+        });
+
+        return lines.join('\r\n');
     }
 
     function escapeCsv(text) {
@@ -215,7 +294,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        var markdown = buildMarkdown();
+        var markdown = buildMarkdownSelected();
 
         if (!markdown.trim()) {
             setStatus('当前暂无可复制的数据', 'error', true);
@@ -251,7 +330,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        var csv = buildCsv();
+        var csv = buildCsvSelected();
 
         if (!csv.trim()) {
             setStatus('当前暂无可导出的 CSV 数据', 'error', true);
@@ -268,7 +347,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        var markdown = buildMarkdown();
+        var markdown = buildMarkdownSelected();
 
         if (!markdown.trim()) {
             setStatus('当前暂无可导出的 Markdown 数据', 'error', true);
@@ -304,7 +383,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var isActive = node.getAttribute('data-active') !== 'false';
 
         if (isLockedColumn(node)) {
-            setStatus('产品名称、产品链接和产品规格会固定显示', 'neutral', true);
+            setStatus('产品名称和产品规格为固定字段', 'neutral', true);
             return;
         }
 
@@ -318,8 +397,40 @@ document.addEventListener('DOMContentLoaded', function () {
         setStatus('字段视图已更新，后续复制与导出会自动同步', 'neutral', true);
     }
 
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function () {
+            var checked = selectAllCheckbox.checked;
+            getVisibleRows().forEach(function (row) {
+                setRowSelected(row, checked);
+            });
+            var count = checked ? getVisibleRows().length : 0;
+            if (count > 0) {
+                setStatus('已选择 ' + count + ' 条产品', 'neutral', true);
+            } else {
+                resetStatus();
+            }
+        });
+    }
+
+    rowCheckboxes.forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            var row = cb.closest('tr');
+            if (row) row.setAttribute('data-selected', cb.checked ? 'true' : 'false');
+            syncSelectAll();
+            var count = getSelectedCount();
+            if (count > 0) {
+                setStatus('已选择 ' + count + ' 条产品', 'neutral', true);
+            } else {
+                resetStatus();
+            }
+        });
+    });
+
     if (searchInput) {
-        searchInput.addEventListener('input', applyFilter);
+        searchInput.addEventListener('input', function () {
+            applyFilter();
+            syncSelectAll();
+        });
     }
 
     columnToggleNodes.forEach(function (node) {
@@ -328,16 +439,56 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    function openDropdown() {
+        if (!dropdown || !dropdownMenu) return;
+        dropdown.setAttribute('data-open', 'true');
+        dropdownMenu.hidden = false;
+    }
+
+    function closeDropdown() {
+        if (!dropdown || !dropdownMenu) return;
+        dropdown.setAttribute('data-open', 'false');
+        dropdownMenu.hidden = true;
+    }
+
+    function toggleDropdown() {
+        if (!dropdown || !dropdownMenu) return;
+        if (dropdownMenu.hidden) {
+            openDropdown();
+        } else {
+            closeDropdown();
+        }
+    }
+
+    if (dropdownTrigger) {
+        dropdownTrigger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleDropdown();
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        if (dropdown && !dropdown.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+
     if (buttonCopy) {
         buttonCopy.addEventListener('click', copyMarkdown);
     }
 
     if (buttonCsv) {
-        buttonCsv.addEventListener('click', exportCsv);
+        buttonCsv.addEventListener('click', function () {
+            closeDropdown();
+            exportCsv();
+        });
     }
 
     if (buttonMarkdown) {
-        buttonMarkdown.addEventListener('click', exportMarkdown);
+        buttonMarkdown.addEventListener('click', function () {
+            closeDropdown();
+            exportMarkdown();
+        });
     }
 
     resetStatus();

@@ -55,10 +55,11 @@ $wc_section_fields = [
                         'id' => 'extra_fields',
                         'type' => 'checkbox',
                         'title' => '显示字段',
-                        'desc' => '以下字段可自由显示或隐藏。产品名称 / 产品链接 / 产品规格会固定保留。',
+                        'desc' => '以下字段可自由显示或隐藏。产品名称和产品规格会固定保留。',
                         'options' => Oyiso_WC_Product_Table::getOptionalFieldOptions(),
                         'default' => [
                             'cover',
+                            'link',
                             'brand',
                             'type',
                             'regular_price',

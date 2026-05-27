@@ -10,7 +10,7 @@ $has_rows = !empty($rows);
 $has_woo = Oyiso_WC_Product_Table::isWooCommerceAvailable();
 $document_title = '产品资料总览 - ' . $summary['site_name'];
 $toolbar_status_text = $has_rows ? '导出将以当前字段视图为准' : '当前暂无可导出数据';
-$locked_column_keys = ['name', 'link', 'specs'];
+$locked_column_keys = ['name', 'specs'];
 ?>
 <!doctype html>
 <html <?php language_attributes(); ?>>
@@ -28,103 +28,118 @@ if (function_exists('wp_body_open')) {
 }
 ?>
 <div
-    class="oyiso-product-table-shell"
+    class="opt"
     data-oyiso-product-table
     data-table-slug="<?php echo esc_attr($settings['slug']); ?>"
 >
-    <main class="oyiso-product-table-layout">
-        <section class="oyiso-product-table-hero">
-            <div class="oyiso-product-table-hero__grid">
-                <div class="oyiso-product-table-hero__content">
-                    <div class="oyiso-product-table-hero__eyebrow">WooCommerce Product Reference</div>
-                    <h1>产品资料总览</h1>
-                    <p>面向内容撰写、选品整理与运营协作的产品资料页。当前站点已发布商品将按产品名称 ASCII 顺序集中展示，支持快速检索、复制 Markdown 表格，以及导出 CSV / Markdown 文件。</p>
-                    <div class="oyiso-product-table-hero__meta">
-                        <span><strong><?php echo esc_html((string) $summary['product_count']); ?></strong> 个已发布产品</span>
-                        <span>更新于 <?php echo esc_html($summary['generated_at']); ?></span>
+    <header class="opt-header">
+        <div class="opt-header__inner">
+            <div class="opt-header__left">
+                <span class="opt-header__badge">Product Reference</span>
+                <h1 class="opt-header__title">产品资料总览</h1>
+            </div>
+            <div class="opt-header__right">
+                <div class="opt-header__stats">
+                    <div class="opt-header__stat">
+                        <span class="opt-header__stat-value"><?php echo esc_html((string) $summary['product_count']); ?></span>
+                        <span class="opt-header__stat-label">已发布产品</span>
+                    </div>
+                    <div class="opt-header__stat">
+                        <span class="opt-header__stat-value"><?php echo esc_html(date('m/d', strtotime($summary['generated_at']))); ?></span>
+                        <span class="opt-header__stat-label">数据日期</span>
                     </div>
                 </div>
-                <aside class="oyiso-product-table-hero__panel">
-                    <div class="oyiso-product-table-hero__panel-label">访问地址</div>
-                    <code><?php echo esc_html($summary['page_url']); ?></code>
-                    <div class="oyiso-product-table-hero__panel-list">
-                        <span>站点名称：<?php echo esc_html($summary['site_name']); ?></span>
-                        <span>页面 Slug：/<?php echo esc_html($summary['slug']); ?></span>
-                        <span>数据状态：<?php echo $has_woo ? 'WooCommerce 已连接' : 'WooCommerce 未连接'; ?></span>
-                    </div>
-                    <a href="<?php echo esc_url($summary['site_url']); ?>" class="oyiso-product-table-hero__site-link" target="_blank" rel="noopener noreferrer">查看站点首页</a>
-                </aside>
+                <a href="<?php echo esc_url($summary['site_url']); ?>" class="opt-header__site-link" target="_blank" rel="noopener noreferrer">
+                    <?php echo esc_html($summary['site_name']); ?>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+                </a>
             </div>
-        </section>
+        </div>
+    </header>
 
-        <section class="oyiso-product-table-toolbar">
-            <div class="oyiso-product-table-toolbar__top">
-                <label class="oyiso-product-table-toolbar__search">
-                    <span>快速检索</span>
+    <main class="opt-main">
+        <div class="opt-controls">
+            <div class="opt-controls__row">
+                <div class="opt-search">
+                    <svg class="opt-search__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                     <input
                         type="search"
-                        placeholder="输入产品名称、链接、规格或分类关键词"
+                        class="opt-search__input"
+                        placeholder="搜索产品名称、SKU、分类..."
                         data-role="table-search"
                         <?php disabled(!$has_rows); ?>
                     >
-                </label>
+                </div>
 
-                <div class="oyiso-product-table-toolbar__actions">
-                    <button type="button" class="oyiso-product-table-button oyiso-product-table-button--primary" data-action="copy-markdown" <?php disabled(!$has_rows); ?>>复制 Markdown 表格</button>
-                    <button type="button" class="oyiso-product-table-button" data-action="export-csv" <?php disabled(!$has_rows); ?>>导出 CSV 文件</button>
-                    <button type="button" class="oyiso-product-table-button" data-action="export-markdown" <?php disabled(!$has_rows); ?>>导出 Markdown 文件</button>
+                <div class="opt-actions">
+                    <button type="button" class="opt-btn opt-btn--fill" data-action="copy-markdown" <?php disabled(!$has_rows); ?>>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        复制 Markdown
+                    </button>
+                    <div class="opt-dropdown" data-dropdown>
+                        <button type="button" class="opt-btn" data-dropdown-trigger <?php disabled(!$has_rows); ?>>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            导出
+                            <svg class="opt-dropdown__caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div class="opt-dropdown__menu" data-dropdown-menu hidden>
+                            <button type="button" class="opt-dropdown__item" data-action="export-csv">导出为 CSV</button>
+                            <button type="button" class="opt-dropdown__item" data-action="export-markdown">导出为 Markdown</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="oyiso-product-table-toolbar__bottom">
-                <div class="oyiso-product-table-toolbar__fields">
-                    <span class="oyiso-product-table-toolbar__section-label">查看字段</span>
-                    <div class="oyiso-product-table-toolbar__field-list" role="group" aria-label="选择显示字段">
+            <div class="opt-controls__row opt-controls__row--sub">
+                <div class="opt-fields">
+                    <span class="opt-fields__label">显示字段</span>
+                    <div class="opt-fields__list" role="group" aria-label="选择显示字段">
                         <?php foreach ($columns as $column_key => $column) : ?>
-                            <?php $is_locked_column = in_array($column_key, $locked_column_keys, true); ?>
+                            <?php $is_locked = in_array($column_key, $locked_column_keys, true); ?>
                             <button
                                 type="button"
-                                class="oyiso-product-table-toolbar__field-chip"
+                                class="opt-chip<?php echo $is_locked ? ' opt-chip--locked' : ''; ?>"
                                 data-role="column-toggle"
                                 data-column-key="<?php echo esc_attr($column_key); ?>"
                                 data-active="true"
-                                data-locked="<?php echo $is_locked_column ? 'true' : 'false'; ?>"
+                                data-locked="<?php echo $is_locked ? 'true' : 'false'; ?>"
                                 aria-pressed="true"
-                                title="<?php echo esc_attr($is_locked_column ? '该字段固定显示' : '切换字段显示'); ?>"
-                                <?php disabled(!$has_rows || $is_locked_column); ?>
-                            >
-                                <?php echo esc_html($column['label']); ?>
-                                <?php if ($is_locked_column) : ?>
-                                    <span class="oyiso-product-table-toolbar__field-chip-note">固定</span>
-                                <?php endif; ?>
-                            </button>
+                                title="<?php echo esc_attr($is_locked ? '固定字段' : '切换显示'); ?>"
+                                <?php disabled(!$has_rows || $is_locked); ?>
+                            ><?php echo esc_html($column['label']); ?></button>
                         <?php endforeach; ?>
                     </div>
                 </div>
-
-                <div class="oyiso-product-table-statusbar__message" data-role="action-status" data-tone="neutral" aria-live="polite">
+                <div class="opt-status" data-role="action-status" data-tone="neutral" aria-live="polite">
                     <?php echo esc_html($toolbar_status_text); ?>
                 </div>
             </div>
-        </section>
+        </div>
 
         <?php if (!$has_woo) : ?>
-            <section class="oyiso-product-table-empty">
-                <h2>未检测到 WooCommerce 环境</h2>
-                <p>当前站点暂未启用或无法读取 WooCommerce 数据，因此暂时无法生成产品资料页。可使用下方备用地址继续排查访问状态。</p>
-                <code><?php echo esc_html(Oyiso_WC_Product_Table::getFallbackUrl()); ?></code>
-            </section>
+            <div class="opt-empty">
+                <div class="opt-empty__icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+                </div>
+                <h2>未检测到 WooCommerce</h2>
+                <p>当前站点暂未启用 WooCommerce，无法生成产品资料。</p>
+                <code class="opt-empty__code"><?php echo esc_html(Oyiso_WC_Product_Table::getFallbackUrl()); ?></code>
+            </div>
         <?php elseif (!$has_rows) : ?>
-            <section class="oyiso-product-table-empty">
-                <h2>暂无可展示的产品数据</h2>
-                <p>当前站点尚未发现已发布商品。待产品发布后，本页面会自动汇总并展示对应资料。</p>
-            </section>
+            <div class="opt-empty">
+                <div class="opt-empty__icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                </div>
+                <h2>暂无产品数据</h2>
+                <p>当前站点尚未发现已发布商品，产品发布后将自动展示。</p>
+            </div>
         <?php else : ?>
-            <section class="oyiso-product-table-tablecard">
-                <div class="oyiso-product-table-tablewrap">
-                    <table class="oyiso-product-table-table">
+            <div class="opt-tablecard">
+                <div class="opt-tablewrap">
+                    <table class="opt-table">
                         <thead>
                         <tr>
+                            <th class="opt-table__check"><input type="checkbox" data-role="select-all" title="全选/取消全选"></th>
                             <?php foreach ($columns as $column_key => $column) : ?>
                                 <th data-column-key="<?php echo esc_attr($column_key); ?>" data-export-label="<?php echo esc_attr($column['label']); ?>">
                                     <?php echo esc_html($column['label']); ?>
@@ -135,6 +150,7 @@ if (function_exists('wp_body_open')) {
                         <tbody>
                         <?php foreach ($rows as $row) : ?>
                             <tr data-product-row data-search="<?php echo esc_attr(Oyiso_WC_Product_Table::getRowSearchText($row)); ?>">
+                                <td class="opt-table__check"><input type="checkbox" data-role="select-row"></td>
                                 <?php foreach ($columns as $column_key => $column) : ?>
                                     <td
                                         data-column-key="<?php echo esc_attr($column_key); ?>"
@@ -149,14 +165,22 @@ if (function_exists('wp_body_open')) {
                         </tbody>
                     </table>
                 </div>
-            </section>
+            </div>
 
-            <section class="oyiso-product-table-empty oyiso-product-table-empty--filtered" data-role="filter-empty" hidden>
+            <div class="opt-empty opt-empty--filtered" data-role="filter-empty" hidden>
+                <div class="opt-empty__icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </div>
                 <h2>未找到匹配产品</h2>
-                <p>当前关键词未匹配到任何商品，请尝试更换关键词，或清空筛选条件后查看全部产品。</p>
-            </section>
+                <p>请尝试更换关键词或清空筛选条件。</p>
+            </div>
         <?php endif; ?>
     </main>
+
+    <footer class="opt-footer">
+        <span>由 <?php echo esc_html($summary['site_name']); ?> 生成</span>
+        <span><?php echo esc_html($summary['generated_at']); ?></span>
+    </footer>
 </div>
 <?php wp_footer(); ?>
 </body>
