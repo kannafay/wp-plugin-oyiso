@@ -143,7 +143,7 @@
 
         e.preventDefault();
 
-        ids = getSelectedIds();
+        ids = getSelectedIds().reverse();
         if (!ids.length) {
             alert('请先勾选产品。');
             return;

@@ -71,7 +71,7 @@ if (!class_exists('Oyiso_WC_Variation_Split')) {
                 'oyiso-woocommerce-variation-split',
                 plugins_url('assets/split.js', __FILE__),
                 ['jquery'],
-                '1.0.0',
+                '1.0.1',
                 true
             );
 
@@ -104,7 +104,7 @@ if (!class_exists('Oyiso_WC_Variation_Split')) {
             }
 
             $config = self::getConfig();
-            $variations = $product->get_children();
+            $variations = array_reverse($product->get_children());
 
             if (empty($variations)) {
                 wp_send_json_error(['message' => '产品 #' . $product_id . ' 没有变体']);
