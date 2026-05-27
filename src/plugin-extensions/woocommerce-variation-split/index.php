@@ -68,14 +68,14 @@ if (!class_exists('Oyiso_WC_Variation_Split')) {
             }
 
             wp_enqueue_script(
-                'oyiso-wc-variation-split',
+                'oyiso-woocommerce-variation-split',
                 plugins_url('assets/split.js', __FILE__),
                 ['jquery'],
                 '1.0.0',
                 true
             );
 
-            wp_localize_script('oyiso-wc-variation-split', 'oyisoSplitConfig', [
+            wp_localize_script('oyiso-woocommerce-variation-split', 'oyisoSplitConfig', [
                 'nonce' => wp_create_nonce(self::AJAX_ACTION),
                 'action' => self::AJAX_ACTION,
                 'ajaxurl' => admin_url('admin-ajax.php'),
@@ -416,6 +416,22 @@ if (!class_exists('Oyiso_WC_Variation_Split')) {
                             wp_set_object_terms($new_id, $terms, $tax);
                         }
                         break;
+                    }
+                }
+            }
+
+            // 适配 Woodmart 主题：复制父产品的主题附加设置
+            if (in_array('woodmart', $copy_fields, true)) {
+                global $wpdb;
+                $parent_id = $parent->get_id();
+                $woodmart_metas = $wpdb->get_results($wpdb->prepare(
+                    "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key LIKE %s",
+                    $parent_id,
+                    '_woodmart_%'
+                ));
+                if ($woodmart_metas) {
+                    foreach ($woodmart_metas as $meta) {
+                        update_post_meta($new_id, $meta->meta_key, maybe_unserialize($meta->meta_value));
                     }
                 }
             }

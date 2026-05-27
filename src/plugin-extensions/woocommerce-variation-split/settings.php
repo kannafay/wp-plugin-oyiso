@@ -85,6 +85,7 @@ if (!function_exists('oyiso_wc_variation_split_get_fields')) {
                                     'brand' => '产品品牌',
                                     'tags' => '产品标签',
                                     'attributes' => '属性（变体属性取当前值，其他属性全部保留）',
+                                    'woodmart' => '适配 Woodmart 主题（产品额外设置）',
                                 ],
                                 'default' => [
                                     'image',
