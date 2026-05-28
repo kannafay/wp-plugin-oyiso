@@ -140,6 +140,19 @@ function oyiso_format_telegram_email_text(string $email): string {
 }
 
 /**
+ * 获取加购来源页面 URL
+ */
+if (!function_exists('oyiso_get_cart_source_page')) {
+    function oyiso_get_cart_source_page(): string {
+        $referer = wp_get_referer();
+        if (empty($referer)) {
+            $referer = isset($_SERVER['HTTP_REFERER']) ? esc_url_raw(wp_unslash($_SERVER['HTTP_REFERER'])) : '';
+        }
+        return $referer ?: '';
+    }
+}
+
+/**
  * 购物车消息格式
  */
 if (!function_exists('oyiso_wc_cart')) {
@@ -190,6 +203,11 @@ if (!function_exists('oyiso_wc_cart')) {
             $quantityLine = sprintf("<b>数量：</b>%d → %d\n", $oldQuantity, $newQuantity);
         }
 
+        $sourceLine = '';
+        if (!empty($extra['source_page'])) {
+            $sourceLine = sprintf("<b>来源：</b>%s\n", $extra['source_page']);
+        }
+
         $message = sprintf(
             "<b>%s【%s】：</b>\n" .
             "<b>站点：</b>%s\n" .
@@ -197,6 +215,7 @@ if (!function_exists('oyiso_wc_cart')) {
             "%s" .
             "<b>单价：</b>%s\n" .
             "<b>小计：</b>%s\n" .
+            "%s" .
             "<b>IP：</b>%s\n" .
             "<b>时间：</b>%s",
             $title,
@@ -206,6 +225,7 @@ if (!function_exists('oyiso_wc_cart')) {
             $quantityLine,
             oyiso_wc_price($product->get_price()),
             oyiso_wc_price($subtotal),
+            $sourceLine,
             oyiso_get_client_ip(),
             date_i18n('Y-m-d H:i:s')
         );
@@ -667,7 +687,9 @@ if ($notify_options['woo_add_to_cart'] ?? false) {
             return;
         }
 
-        $message = oyiso_wc_cart('add', $product, $cartItem['variation'] ?? $variation, (int) $quantity);
+        $message = oyiso_wc_cart('add', $product, $cartItem['variation'] ?? $variation, (int) $quantity, [
+            'source_page' => oyiso_get_cart_source_page(),
+        ]);
 
         $bot->sendMessage($message);
     }, 10, 6);
