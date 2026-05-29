@@ -801,7 +801,12 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
         $validShippedStatuses = array_filter($shippedStatuses, function ($s) use ($registeredStatuses) {
             return in_array('wc-' . $s, $registeredStatuses, true);
         });
-        if ($isShippedNotificationEnabled && $shippedChannel === 'status' && in_array($new_status, $validShippedStatuses, true)) {
+        $isShippedStatusChange = in_array($new_status, $validShippedStatuses, true);
+        $canShippedNotificationTrigger = $isShippedNotificationEnabled && (
+            ($shippedChannel === 'status' && $isShippedStatusChange)
+            || ($shippedChannel === 'ast' && (class_exists('AST_Pro_Actions') || function_exists('wc_advanced_shipment_tracking')))
+        );
+        if ($isShippedNotificationEnabled && $shippedChannel === 'status' && $isShippedStatusChange) {
             $bot = oyiso_get_tg_bot();
             if ($bot) {
                 $siteName = get_bloginfo('name');
@@ -824,7 +829,7 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
                     "<b>📦【产品明细】：</b>\n%s\n\n" .
                     "<b>金额：</b>%s\n" .
                     "<b>运费：</b>%s\n" .
-                    "<b>总金额：</b>%s\n" .
+                    "<b>总金额：</b>%s\n\n" .
                     "<b>操作者：</b>%s\n" .
                     "<b>时间：</b>%s",
                     $siteName,
@@ -851,6 +856,7 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
             !$isOrderStatusChangeNotificationEnabled
             || oyiso_should_skip_order_status_change_notification($old_status, $new_status, $newOrderNotificationHandled)
             || $shippedNotificationHandled
+            || ($canShippedNotificationTrigger && $isShippedStatusChange)
         ) {
             return;
         }

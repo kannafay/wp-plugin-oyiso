@@ -80,6 +80,7 @@ CSF::createSection($prefix, [
                                 'status' => '官方（状态变更） - 订单状态变为指定状态时触发，仅一次',
                                 'ast' => 'AST（物流追踪） - 每次添加追踪号时触发，支持多次发货',
                             ],
+                            'desc' => (!class_exists('AST_Pro_Actions') && !function_exists('wc_advanced_shipment_tracking') ? '<span style="color:#d63638;font-weight:bold;">⚠ 未检测到 AST 插件，选择 AST 方式发货通知将不会生效</span>' : ''),
                             'default' => 'status',
                             'dependency' => ['woo_order_shipped', '==', true],
                         ],
