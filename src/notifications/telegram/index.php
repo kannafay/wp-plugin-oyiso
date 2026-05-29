@@ -66,6 +66,45 @@ CSF::createSection($prefix, [
                             'default' => true,
                         ],
                         [
+                            'id' => 'woo_order_shipped',
+                            'type' => 'switcher',
+                            'title' => '发货通知',
+                            'label' => '开启后可通过Telegram Bot发送发货通知',
+                            'default' => false,
+                        ],
+                        [
+                            'id' => 'woo_order_shipped_channel',
+                            'type' => 'radio',
+                            'title' => '触发方式',
+                            'options' => [
+                                'status' => '官方（状态变更） - 订单状态变为指定状态时触发，仅一次',
+                                'ast' => 'AST（物流追踪） - 每次添加追踪号时触发，支持多次发货',
+                            ],
+                            'default' => 'status',
+                            'dependency' => ['woo_order_shipped', '==', true],
+                        ],
+                        [
+                            'id' => 'woo_order_shipped_status',
+                            'type' => 'select',
+                            'title' => '发货状态',
+                            'multiple' => true,
+                            'chosen' => true,
+                            'desc' => '选择触发发货通知的订单状态，可多选（如发货、部分发货等）',
+                            'options' => function_exists('wc_get_order_statuses') ? (function () {
+                                $exclude = ['pending', 'processing', 'cancelled', 'refunded', 'failed', 'checkout-draft'];
+                                $statuses = [];
+                                foreach (wc_get_order_statuses() as $key => $label) {
+                                    $slug = str_replace('wc-', '', $key);
+                                    if (!in_array($slug, $exclude, true)) {
+                                        $statuses[$slug] = $slug;
+                                    }
+                                }
+                                return $statuses;
+                            })() : ['completed' => 'completed'],
+                            'default' => ['completed'],
+                            'dependency' => [['woo_order_shipped', '==', true], ['woo_order_shipped_channel', '==', 'status']],
+                        ],
+                        [
                             'id' => 'woo_order_status_change',
                             'type' => 'switcher',
                             'title' => '订单状态变更通知',
@@ -93,10 +132,17 @@ CSF::createSection($prefix, [
                             'default' => false,
                         ],
                         [
-                            'id' => 'woo_cart_quantity_change',
+                            'id' => 'woo_cart_quantity_increase',
                             'type' => 'switcher',
-                            'title' => '数量调整通知',
-                            'label' => '开启后可在用户调整购物车商品数量时通过Telegram Bot发送通知',
+                            'title' => '购物车加量通知',
+                            'label' => '开启后可在用户增加购物车商品数量时通过Telegram Bot发送通知',
+                            'default' => false,
+                        ],
+                        [
+                            'id' => 'woo_cart_quantity_decrease',
+                            'type' => 'switcher',
+                            'title' => '购物车减量通知',
+                            'label' => '开启后可在用户减少购物车商品数量时通过Telegram Bot发送通知',
                             'default' => false,
                         ]
                     ]

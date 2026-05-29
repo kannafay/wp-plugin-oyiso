@@ -717,9 +717,9 @@ if ($notify_options['woo_remove_from_cart'] ?? false) {
 }
 
 /**
- * WooCommerce 购物车数量调整通知
+ * WooCommerce 购物车加量通知
  */
-if ($notify_options['woo_cart_quantity_change'] ?? false) {
+if ($notify_options['woo_cart_quantity_increase'] ?? false) {
     add_action('woocommerce_after_cart_item_quantity_update', function ($cart_item_key, $quantity, $old_quantity, $cart) {
         if ($quantity <= $old_quantity) {
             return;
@@ -738,7 +738,12 @@ if ($notify_options['woo_cart_quantity_change'] ?? false) {
         ]);
         $bot->sendMessage($message);
     }, 10, 4);
+}
 
+/**
+ * WooCommerce 购物车减量通知
+ */
+if ($notify_options['woo_cart_quantity_decrease'] ?? false) {
     add_action('woocommerce_after_cart_item_quantity_update', function ($cart_item_key, $quantity, $old_quantity, $cart) {
         if ($quantity >= $old_quantity || $quantity <= 0) {
             return;
@@ -763,7 +768,7 @@ if ($notify_options['woo_cart_quantity_change'] ?? false) {
 /**
  * WooCommerce 订单状态变更通知
  */
-if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_status_change'] ?? false)) {
+if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_shipped'] ?? false) || ($notify_options['woo_order_status_change'] ?? false)) {
     add_action('woocommerce_order_status_changed', function ($order_id, $old_status, $new_status, $order) use ($notify_options) {
         if (!$order instanceof WC_Order) {
             $order = wc_get_order($order_id);
@@ -774,8 +779,10 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
         }
 
         $isNewOrderNotificationEnabled = (bool) ($notify_options['woo_new_order'] ?? false);
+        $isShippedNotificationEnabled = (bool) ($notify_options['woo_order_shipped'] ?? false);
         $isOrderStatusChangeNotificationEnabled = (bool) ($notify_options['woo_order_status_change'] ?? false);
         $newOrderNotificationHandled = false;
+        $shippedNotificationHandled = false;
 
         if (
             $isNewOrderNotificationEnabled
@@ -785,9 +792,65 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
             $newOrderNotificationHandled = true;
         }
 
+        $shippedChannel = $notify_options['woo_order_shipped_channel'] ?? 'status';
+        $shippedStatuses = $notify_options['woo_order_shipped_status'] ?? ['completed'];
+        if (!is_array($shippedStatuses)) {
+            $shippedStatuses = [$shippedStatuses];
+        }
+        $registeredStatuses = function_exists('wc_get_order_statuses') ? array_keys(wc_get_order_statuses()) : [];
+        $validShippedStatuses = array_filter($shippedStatuses, function ($s) use ($registeredStatuses) {
+            return in_array('wc-' . $s, $registeredStatuses, true);
+        });
+        if ($isShippedNotificationEnabled && $shippedChannel === 'status' && in_array($new_status, $validShippedStatuses, true)) {
+            $bot = oyiso_get_tg_bot();
+            if ($bot) {
+                $siteName = get_bloginfo('name');
+                $siteUrl = get_bloginfo('url');
+
+                $items = [];
+                foreach ($order->get_items() as $item) {
+                    $items[] = sprintf('- %s × %d', $item->get_name(), $item->get_quantity());
+                }
+                $productsText = implode("\n", $items);
+
+                $message = sprintf(
+                    "<b>🚚 订单已发货【%s】：</b>\n" .
+                    "<b>站点：</b>%s\n" .
+                    "<b>订单号：</b>#%d\n" .
+                    "<b>客户：</b>%s\n" .
+                    "<b>邮箱：</b>%s\n" .
+                    "%s" .
+                    "<b>地址：</b>%s\n\n" .
+                    "<b>📦【产品明细】：</b>\n%s\n\n" .
+                    "<b>金额：</b>%s\n" .
+                    "<b>运费：</b>%s\n" .
+                    "<b>总金额：</b>%s\n" .
+                    "<b>操作者：</b>%s\n" .
+                    "<b>时间：</b>%s",
+                    $siteName,
+                    $siteUrl,
+                    $order_id,
+                    $order->get_formatted_billing_full_name(),
+                    oyiso_format_telegram_email_text((string) $order->get_billing_email()),
+                    !empty($order->get_billing_phone()) ? sprintf("<b>电话：</b>%s\n", $order->get_billing_phone()) : '',
+                    oyiso_get_order_shipping_address_text($order),
+                    $productsText,
+                    oyiso_wc_price($order->get_subtotal()),
+                    oyiso_wc_price($order->get_shipping_total()),
+                    oyiso_wc_price($order->get_total()),
+                    oyiso_get_order_status_operator_name($order_id),
+                    date_i18n('Y-m-d H:i:s')
+                );
+
+                $bot->sendMessage($message);
+                $shippedNotificationHandled = true;
+            }
+        }
+
         if (
             !$isOrderStatusChangeNotificationEnabled
             || oyiso_should_skip_order_status_change_notification($old_status, $new_status, $newOrderNotificationHandled)
+            || $shippedNotificationHandled
         ) {
             return;
         }
@@ -821,3 +884,321 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
         if ($bot) $bot->sendMessage($message);
     }, 10, 4);
 }
+
+/**
+ * WooCommerce 物流追踪通知 (AST)
+ * 监听 _wc_shipment_tracking_items meta 变化，每新增一条追踪号发送一次通知
+ * 兼容传统 post meta 和 HPOS 模式
+ */
+if (!function_exists('oyiso_check_and_send_tracking_notification')) {
+    function oyiso_check_and_send_tracking_notification($order_id, $tracking_items_override = null): void {
+        static $processed = [];
+        if (isset($processed[$order_id])) {
+            return;
+        }
+
+        $options = get_option('oyiso', []);
+        $notifyOpts = $options['woo_notify_options'] ?? [];
+        if (empty($notifyOpts['woo_order_shipped']) || ($notifyOpts['woo_order_shipped_channel'] ?? 'status') !== 'ast') {
+            return;
+        }
+
+        $order = wc_get_order($order_id);
+        if (!$order instanceof WC_Order) {
+            return;
+        }
+
+        // 优先使用 hook 传入的最新值，否则从 order 对象读取（兼容 HPOS）
+        $trackingItems = is_array($tracking_items_override) ? $tracking_items_override : $order->get_meta('_wc_shipment_tracking_items', true);
+        if (!is_array($trackingItems) || empty($trackingItems)) {
+            return;
+        }
+
+        // 获取当前所有追踪号
+        $currentNumbers = [];
+        foreach ($trackingItems as $item) {
+            if (!empty($item['tracking_number'])) {
+                $currentNumbers[] = $item['tracking_number'];
+            }
+        }
+        if (empty($currentNumbers)) {
+            return;
+        }
+
+        // 获取上次已知的追踪号集合，对比找出新增的
+        $knownNumbers = $order->get_meta('_oyiso_tg_known_tracking_numbers', true);
+        if (!is_array($knownNumbers)) {
+            $knownNumbers = [];
+        }
+        $newNumbers = array_diff($currentNumbers, $knownNumbers);
+
+        // 即使没有新增，也同步已知集合（处理删除的情况）
+        if ($currentNumbers !== $knownNumbers && empty($newNumbers)) {
+            $order->update_meta_data('_oyiso_tg_known_tracking_numbers', $currentNumbers);
+            $order->save_meta_data();
+            return;
+        }
+        if (empty($newNumbers)) {
+            return;
+        }
+
+        $bot = oyiso_get_tg_bot();
+        if (!$bot) {
+            return;
+        }
+
+        $processed[$order_id] = true;
+
+        $siteName = get_bloginfo('name');
+        $siteUrl = get_bloginfo('url');
+        $currentCount = count($trackingItems);
+
+        // 构建订单商品信息映射（item_id => [name, qty]）
+        $orderItems = [];
+        foreach ($order->get_items() as $itemId => $item) {
+            $orderItems[$itemId] = [
+                'name' => $item->get_name(),
+                'qty' => $item->get_quantity(),
+                'product_id' => $item->get_variation_id() ?: $item->get_product_id(),
+            ];
+        }
+
+        // 辅助函数：从 products_list 提取 item_id => qty 映射
+        $extractQty = function ($productsList) use ($orderItems) {
+            $map = [];
+            if (empty($productsList) || !is_array($productsList)) {
+                return $map;
+            }
+            foreach ($productsList as $pl) {
+                $pl = (object) $pl;
+                $itemId = !empty($pl->item_id) ? (int) $pl->item_id : 0;
+                $productId = (int) ($pl->product ?? 0);
+                $qty = (int) $pl->qty;
+                if ($itemId && isset($orderItems[$itemId])) {
+                    $map[$itemId] = ($map[$itemId] ?? 0) + $qty;
+                } else {
+                    foreach ($orderItems as $oId => $oItem) {
+                        if ($oItem['product_id'] == $productId) {
+                            $map[$oId] = ($map[$oId] ?? 0) + $qty;
+                            break;
+                        }
+                    }
+                }
+            }
+            return $map;
+        };
+
+        // 汇总所有追踪号已发货的商品数量
+        $allShippedQty = [];
+        foreach ($trackingItems as $tItem) {
+            foreach ($extractQty($tItem['products_list'] ?? '') as $k => $v) {
+                $allShippedQty[$k] = ($allShippedQty[$k] ?? 0) + $v;
+            }
+        }
+
+        $packageNumber = 0;
+        foreach ($trackingItems as $idx => $trackingItem) {
+            $trackingNumber = $trackingItem['tracking_number'] ?? '';
+            if (empty($trackingNumber) || !in_array($trackingNumber, $newNumbers, true)) {
+                continue;
+            }
+
+            $packageNumber = $idx + 1;
+
+            $productsList = $trackingItem['products_list'] ?? '';
+            $currentLines = [];
+            $prevLines = [];
+            $unshippedLines = [];
+
+            if (!empty($productsList) && is_array($productsList)) {
+                // 本次发货的商品数量
+                $currentQty = $extractQty($productsList);
+
+                // 之前发货的 = 全部已发 - 本次
+                $prevShippedQty = [];
+                foreach ($allShippedQty as $oId => $totalQty) {
+                    $thisQty = $currentQty[$oId] ?? 0;
+                    $prev = $totalQty - $thisQty;
+                    if ($prev > 0) {
+                        $prevShippedQty[$oId] = $prev;
+                    }
+                }
+
+                // 当前发货
+                foreach ($currentQty as $oId => $qty) {
+                    if (isset($orderItems[$oId]) && $qty > 0) {
+                        $currentLines[] = sprintf('- %s × %d', $orderItems[$oId]['name'], $qty);
+                    }
+                }
+
+                // 已发货（之前的包裹）
+                foreach ($prevShippedQty as $oId => $qty) {
+                    if (isset($orderItems[$oId])) {
+                        $prevLines[] = sprintf('- %s × %d', $orderItems[$oId]['name'], $qty);
+                    }
+                }
+
+                // 未发货
+                foreach ($orderItems as $oId => $oItem) {
+                    $totalShipped = $allShippedQty[$oId] ?? 0;
+                    if ($totalShipped === 0) {
+                        $totalShipped = $allShippedQty[$oItem['product_id']] ?? 0;
+                    }
+                    $remaining = $oItem['qty'] - $totalShipped;
+                    if ($remaining > 0) {
+                        $unshippedLines[] = sprintf('- %s × %d', $oItem['name'], $remaining);
+                    }
+                }
+            } else {
+                // 无 products_list：整单发货
+                foreach ($orderItems as $oItem) {
+                    $currentLines[] = sprintf('- %s × %d', $oItem['name'], $oItem['qty']);
+                }
+            }
+
+            // 拼接产品区域
+            $productsText = implode("\n", $currentLines);
+            if (!empty($prevLines)) {
+                $productsText .= "\n\n<b>✅【已发货】：</b>\n" . implode("\n", $prevLines);
+            }
+            if (!empty($unshippedLines)) {
+                $productsText .= "\n\n<b>⏳【未发货】：</b>\n" . implode("\n", $unshippedLines);
+            }
+
+            $provider = $trackingItem['tracking_provider'] ?? ($trackingItem['custom_tracking_provider'] ?? '');
+            $dateShipped = !empty($trackingItem['date_shipped'])
+                ? date_i18n('Y-m-d', (int) $trackingItem['date_shipped'])
+                : date_i18n('Y-m-d');
+
+            $trackingLink = '';
+            $formatted = null;
+            if (!empty($trackingItem['custom_tracking_link'])) {
+                $trackingLink = $trackingItem['custom_tracking_link'];
+            } else {
+                // AST Pro
+                if (class_exists('AST_Pro_Actions')) {
+                    $formatted = AST_Pro_Actions::get_instance()->get_formatted_tracking_item($order->get_id(), $trackingItem);
+                    if (!empty($formatted['formatted_tracking_link'])) {
+                        $trackingLink = $formatted['formatted_tracking_link'];
+                    }
+                }
+                // AST 免费版
+                if (empty($trackingLink) && function_exists('wc_advanced_shipment_tracking') && method_exists(wc_advanced_shipment_tracking(), 'get_formatted_tracking_item')) {
+                    $formatted = wc_advanced_shipment_tracking()->get_formatted_tracking_item($order->get_id(), $trackingItem);
+                    if (!empty($formatted['formatted_tracking_link'])) {
+                        $trackingLink = $formatted['formatted_tracking_link'];
+                    }
+                }
+            }
+
+            // 优先使用物流商显示名称（标签），而非 slug
+            if (!empty($formatted['formatted_tracking_provider'])) {
+                $provider = $formatted['formatted_tracking_provider'];
+            }
+
+            $trackingLinkLine = '';
+            if (!empty($trackingLink)) {
+                $trackingLinkLine = sprintf("<b>查询物流：</b>%s\n", $trackingLink);
+            }
+
+            // 有未发货或有之前已发货的记录 = 分批发货，显示包裹编号
+            $isPartialShipment = !empty($unshippedLines) || !empty($prevLines);
+            $packageLine = $isPartialShipment ? sprintf("\n<b>包裹：</b>第 %d 件", $packageNumber) : '';
+
+            $shippingNote = !empty($trackingItem['shipping_note']) ? sprintf("\n<b>备注：</b>%s", $trackingItem['shipping_note']) : '';
+
+            $trackingSection = sprintf(
+                "\n<b>🚛【物流信息】：</b>\n" .
+                "<b>物流商：</b>%s\n" .
+                "<b>运单号：</b>%s\n" .
+                "%s" .
+                "<b>发货日期：</b>%s" .
+                "%s" .
+                "%s",
+                $provider,
+                $trackingNumber,
+                $trackingLinkLine,
+                $dateShipped,
+                $packageLine,
+                $shippingNote
+            );
+
+            // 动态标题：部分发货 / 全部发货 / 已发货
+            if (!empty($unshippedLines)) {
+                $shippedTitle = '订单已部分发货';
+            } elseif (!empty($prevLines)) {
+                $shippedTitle = '订单已全部发货';
+            } else {
+                $shippedTitle = '订单已发货';
+            }
+
+            $message = sprintf(
+                "<b>🚚 %s【%s】：</b>\n" .
+                "<b>站点：</b>%s\n" .
+                "<b>订单号：</b>#%d\n" .
+                "<b>客户：</b>%s\n" .
+                "<b>邮箱：</b>%s\n" .
+                "%s" .
+                "<b>地址：</b>%s\n\n" .
+                "<b>📦【发货产品】：</b>\n%s\n\n" .
+                "<b>金额：</b>%s\n" .
+                "<b>运费：</b>%s\n" .
+                "<b>总金额：</b>%s\n" .
+                "%s\n\n" .
+                "<b>操作者：</b>%s\n" .
+                "<b>时间：</b>%s",
+                $shippedTitle,
+                $siteName,
+                $siteUrl,
+                $order->get_id(),
+                $order->get_formatted_billing_full_name(),
+                oyiso_format_telegram_email_text((string) $order->get_billing_email()),
+                !empty($order->get_billing_phone()) ? sprintf("<b>电话：</b>%s\n", $order->get_billing_phone()) : '',
+                oyiso_get_order_shipping_address_text($order),
+                $productsText,
+                oyiso_wc_price($order->get_subtotal()),
+                oyiso_wc_price($order->get_shipping_total()),
+                oyiso_wc_price($order->get_total()),
+                $trackingSection,
+                ($currentUser = wp_get_current_user()) && $currentUser->ID ? $currentUser->display_name : '系统',
+                date_i18n('Y-m-d H:i:s')
+            );
+
+            $bot->sendMessage($message);
+        }
+
+        // 保存当前追踪号集合（删除后集合会更新，重新添加就能再次触发）
+        $order->update_meta_data('_oyiso_tg_known_tracking_numbers', $currentNumbers);
+        $order->save_meta_data();
+    }
+}
+
+// 方式1: 传统 post meta hooks（兼容 legacy + HPOS 兼容模式）
+add_action('updated_post_meta', function ($meta_id, $object_id, $meta_key, $meta_value) {
+    if ($meta_key !== '_wc_shipment_tracking_items') return;
+    $items = is_string($meta_value) ? maybe_unserialize($meta_value) : $meta_value;
+    oyiso_check_and_send_tracking_notification($object_id, is_array($items) ? $items : null);
+}, 10, 4);
+add_action('added_post_meta', function ($meta_id, $object_id, $meta_key, $meta_value) {
+    if ($meta_key !== '_wc_shipment_tracking_items') return;
+    $items = is_string($meta_value) ? maybe_unserialize($meta_value) : $meta_value;
+    oyiso_check_and_send_tracking_notification($object_id, is_array($items) ? $items : null);
+}, 10, 4);
+
+// 方式2: WooCommerce order status changed 时也检查一次（兜底）
+add_action('woocommerce_order_status_changed', function ($order_id) {
+    oyiso_check_and_send_tracking_notification($order_id);
+}, 20, 1);
+
+// 方式3: 在 admin AJAX 请求结束时检查（兼容 HPOS 无兼容模式）
+add_action('wp_ajax_wc_shipment_tracking_save_form', function () {
+    if (!empty($_POST['order_id'])) {
+        oyiso_check_and_send_tracking_notification((int) $_POST['order_id']);
+    }
+}, 999);
+add_action('shutdown', function () {
+    if (!wp_doing_ajax() || empty($_POST['order_id'])) return;
+    $action = $_REQUEST['action'] ?? '';
+    if (strpos($action, 'tracking') === false && strpos($action, 'shipment') === false) return;
+    oyiso_check_and_send_tracking_notification((int) $_POST['order_id']);
+});
