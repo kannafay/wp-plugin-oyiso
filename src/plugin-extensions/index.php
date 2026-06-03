@@ -7,7 +7,7 @@ if (class_exists('CSF')) {
         'id'       => 'plugin-extensions',
         'title'    => '插件扩展',
         'icon'     => 'fas fa-puzzle-piece',
-        'priority' => 40,
+        'priority' => 20,
     ]);
 }
 

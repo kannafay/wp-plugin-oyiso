@@ -23,18 +23,23 @@ if (!function_exists('oyiso_wc_product_table_render_route_preview')) {
         $pretty_url = Oyiso_WC_Product_Table::getRouteUrl();
         $fallback_url = Oyiso_WC_Product_Table::getFallbackUrl();
 
-        echo '<div class="oyiso-wc-product-table-settings-note">';
-        echo '<p>访问地址会按当前站点生成，修改并保存后将自动刷新路由规则。</p>';
-        echo '<p><strong>当前路径</strong></p>';
-        echo '<code>' . esc_html($pretty_url) . '</code>';
-        echo '<p><strong>备用查询参数</strong></p>';
-        echo '<code>' . esc_html($fallback_url) . '</code>';
+        $view_icon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:2px;"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>';
+
+        echo '<p>';
+        echo '<strong>当前路径</strong><br>';
+        echo '<input type="text" value="' . esc_attr($pretty_url) . '" readonly style="width:400px;font-family:monospace;" onclick="this.select()"> ';
+        echo '<a href="' . esc_url($pretty_url) . '" target="_blank" rel="noopener noreferrer" class="button">' . $view_icon . '查看</a>';
+        echo '</p>';
+
+        echo '<p>';
+        echo '<strong>备用查询参数</strong><br>';
+        echo '<input type="text" value="' . esc_attr($fallback_url) . '" readonly style="width:400px;font-family:monospace;" onclick="this.select()"> ';
+        echo '<a href="' . esc_url($fallback_url) . '" target="_blank" rel="noopener noreferrer" class="button">' . $view_icon . '查看</a>';
+        echo '</p>';
 
         if (!$settings['enabled']) {
-            echo '<p>当前默认关闭，开启后前台路径才会生效。</p>';
+            echo '<p class="description">当前默认关闭，开启后前台路径才会生效。</p>';
         }
-
-        echo '</div>';
     }
 }
 
@@ -105,29 +110,6 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
             if (!oyiso_is_settings_page_hook($hook)) {
                 return;
             }
-
-            wp_add_inline_style('csf', <<<'CSS'
-.oyiso-wc-product-table-settings-note {
-    display: grid;
-    gap: 8px;
-    padding: 16px 18px;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-}
-.oyiso-wc-product-table-settings-note p {
-    margin: 0;
-    color: #475569;
-}
-.oyiso-wc-product-table-settings-note code {
-    display: block;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: #0f172a;
-    color: #f8fafc;
-    word-break: break-all;
-}
-CSS);
         }
 
         public static function registerRewrite(): void

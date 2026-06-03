@@ -7,7 +7,7 @@ if (class_exists('CSF')) {
         'id'       => 'code-analytics',
         'title'    => '代码与统计',
         'icon'     => 'fas fa-chart-bar',
-        'priority' => 20,
+        'priority' => 45,
     ]);
 }
 
