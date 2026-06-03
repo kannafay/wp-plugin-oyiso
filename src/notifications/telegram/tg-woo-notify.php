@@ -253,7 +253,7 @@ function oyiso_build_order_message(WC_Order $order) {
     return sprintf(
         "<b>🎉您有一个新订单【%s】：</b>\n" .
         "<b>站点：</b>%s\n" .
-        "<b>订单号：</b>#%d\n\n" .
+        "<b>订单号：</b>#%s\n\n" .
         "%s\n\n" .
         "%s\n\n" .
         "%s\n\n" .
@@ -261,7 +261,7 @@ function oyiso_build_order_message(WC_Order $order) {
         "%s",
         $siteName,
         $siteUrl,
-        $order->get_id(),
+        $order->get_order_number(),
         $customerOverviewSection,
         $productsSection,
         $paymentShippingSection,
@@ -821,7 +821,7 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
                 $message = sprintf(
                     "<b>🚚 订单已发货【%s】：</b>\n" .
                     "<b>站点：</b>%s\n" .
-                    "<b>订单号：</b>#%d\n" .
+                    "<b>订单号：</b>#%s\n" .
                     "<b>客户：</b>%s\n" .
                     "<b>邮箱：</b>%s\n" .
                     "%s" .
@@ -834,7 +834,7 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
                     "<b>时间：</b>%s",
                     $siteName,
                     $siteUrl,
-                    $order_id,
+                    $order->get_order_number(),
                     $order->get_formatted_billing_full_name(),
                     oyiso_format_telegram_email_text((string) $order->get_billing_email()),
                     !empty($order->get_billing_phone()) ? sprintf("<b>电话：</b>%s\n", $order->get_billing_phone()) : '',
@@ -869,14 +869,14 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
         $message = sprintf(
             "<b>📢订单状态已改变【%s】：</b>\n" .
             "<b>站点：</b>%s\n" .
-            "<b>订单号：</b>#%d\n" .
+            "<b>订单号：</b>#%s\n" .
             "<b>状态：</b>%s (%s) → %s (%s)\n" .
             "<b>操作者：</b>%s\n" .
             "<b>IP：</b>%s\n" .
             "<b>时间：</b>%s",
             $siteName,
             $siteUrl,
-            $order_id,
+            $order->get_order_number(),
             wc_get_order_status_name($old_status),
             $old_status,
             wc_get_order_status_name($new_status),
@@ -1141,7 +1141,7 @@ if (!function_exists('oyiso_check_and_send_tracking_notification')) {
             $message = sprintf(
                 "<b>🚚 %s【%s】：</b>\n" .
                 "<b>站点：</b>%s\n" .
-                "<b>订单号：</b>#%d\n" .
+                "<b>订单号：</b>#%s\n" .
                 "<b>客户：</b>%s\n" .
                 "<b>邮箱：</b>%s\n" .
                 "%s" .
@@ -1156,7 +1156,7 @@ if (!function_exists('oyiso_check_and_send_tracking_notification')) {
                 $shippedTitle,
                 $siteName,
                 $siteUrl,
-                $order->get_id(),
+                $order->get_order_number(),
                 $order->get_formatted_billing_full_name(),
                 oyiso_format_telegram_email_text((string) $order->get_billing_email()),
                 !empty($order->get_billing_phone()) ? sprintf("<b>电话：</b>%s\n", $order->get_billing_phone()) : '',
