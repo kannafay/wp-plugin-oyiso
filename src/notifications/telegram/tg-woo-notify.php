@@ -852,11 +852,17 @@ if (($notify_options['woo_new_order'] ?? false) || ($notify_options['woo_order_s
             }
         }
 
+        // AST 模式下，发货类状态变更由物流追踪 handler 处理通知，避免重复
+        $isAstShippedTransition = $shippedChannel === 'ast'
+            && $canShippedNotificationTrigger
+            && ($isShippedStatusChange || $new_status === 'shipped');
+
         if (
             !$isOrderStatusChangeNotificationEnabled
             || oyiso_should_skip_order_status_change_notification($old_status, $new_status, $newOrderNotificationHandled)
             || $shippedNotificationHandled
             || ($canShippedNotificationTrigger && $isShippedStatusChange)
+            || $isAstShippedTransition
         ) {
             return;
         }
@@ -1191,12 +1197,7 @@ add_action('added_post_meta', function ($meta_id, $object_id, $meta_key, $meta_v
     oyiso_check_and_send_tracking_notification($object_id, is_array($items) ? $items : null);
 }, 10, 4);
 
-// 方式2: WooCommerce order status changed 时也检查一次（兜底）
-add_action('woocommerce_order_status_changed', function ($order_id) {
-    oyiso_check_and_send_tracking_notification($order_id);
-}, 20, 1);
-
-// 方式3: 在 admin AJAX 请求结束时检查（兼容 HPOS 无兼容模式）
+// 方式2: 在 admin AJAX 请求结束时检查（兼容 HPOS 无兼容模式）
 add_action('wp_ajax_wc_shipment_tracking_save_form', function () {
     if (!empty($_POST['order_id'])) {
         oyiso_check_and_send_tracking_notification((int) $_POST['order_id']);
