@@ -11,7 +11,7 @@ CSF::createSection($prefix, [
     'id' => 'elementor-widgets',
     'title' => 'Elementor',
     'icon' => 'fab fa-elementor',
-    'priority' => 10,
+    'priority' => 20,
     'fields' => [
         [
             'type' => 'heading',

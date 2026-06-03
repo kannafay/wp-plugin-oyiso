@@ -83,6 +83,6 @@ CSF::createSection('oyiso', [
     'id' => 'woocommerce-product-table',
     'title' => 'WooCommerce',
     'icon' => 'fas fa-table',
-    'priority' => 20,
+    'priority' => 10,
     'fields' => $wc_section_fields,
 ]);
