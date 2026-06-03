@@ -563,6 +563,34 @@ body.oyiso-wc-product-table-body {
     background: var(--opt-accent-soft);
 }
 
+.oyiso-product-table__specs-copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: auto;
+    border-radius: 3px;
+    color: var(--opt-text-secondary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.oyiso-product-table__specs-copy svg {
+    display: block;
+    pointer-events: none;
+}
+
+.oyiso-product-table__specs-copy:hover {
+    background: var(--opt-accent-soft);
+    color: var(--opt-accent);
+}
+
+.oyiso-product-table__specs-copy[data-copied="true"] {
+    opacity: 1;
+    color: #16a34a;
+}
+
 .oyiso-product-table__chip,
 .oyiso-product-table__badge {
     display: inline-flex;
@@ -578,6 +606,11 @@ body.oyiso-wc-product-table-body {
 .oyiso-product-table__chip {
     background: #f3f4f6;
     color: #374151;
+    height: auto;
+    min-height: 22px;
+    padding: 4px 8px;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .oyiso-product-table__chip--spec {

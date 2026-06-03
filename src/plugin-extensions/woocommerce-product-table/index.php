@@ -920,7 +920,7 @@ CSS);
             }
 
             return sprintf(
-                '<details class="oyiso-product-table__specs-details"><summary class="oyiso-product-table__specs-summary"><span class="oyiso-product-table__specs-summary-text">查看规格</span><span class="oyiso-product-table__specs-summary-count">%d 项</span></summary><div class="oyiso-product-table__chips oyiso-product-table__chips--specs">%s</div></details>',
+                '<details class="oyiso-product-table__specs-details"><summary class="oyiso-product-table__specs-summary"><span class="oyiso-product-table__specs-summary-text">查看规格</span><span class="oyiso-product-table__specs-summary-count">%d 项</span><span class="oyiso-product-table__specs-copy" data-action="copy-specs" title="复制规格"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span></summary><div class="oyiso-product-table__chips oyiso-product-table__chips--specs">%s</div></details>',
                 count($items),
                 $chips
             );

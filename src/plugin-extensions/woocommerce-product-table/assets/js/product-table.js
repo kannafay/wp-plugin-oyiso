@@ -491,6 +491,54 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // 复制规格按钮（事件委托，支持多行）
+    root.addEventListener('click', function (e) {
+        var copyBtn = e.target.closest('[data-action="copy-specs"]');
+        if (!copyBtn) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        var details = copyBtn.closest('.oyiso-product-table__specs-details');
+        if (!details) return;
+
+        var chips = details.querySelectorAll('.oyiso-product-table__chip--spec');
+        var lines = [];
+        chips.forEach(function (chip) {
+            var label = chip.querySelector('.oyiso-product-table__spec-label');
+            var value = chip.querySelector('.oyiso-product-table__spec-value');
+            if (label && value) {
+                lines.push(label.textContent.trim() + ': ' + value.textContent.trim());
+            } else {
+                lines.push(chip.textContent.trim());
+            }
+        });
+
+        var text = lines.join('\n');
+
+        function onCopied() {
+            copyBtn.setAttribute('data-copied', 'true');
+            copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            setTimeout(function () {
+                copyBtn.removeAttribute('data-copied');
+                copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            }, 1500);
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(onCopied);
+        } else {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;opacity:0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (ex) {}
+            document.body.removeChild(ta);
+            onCopied();
+        }
+    });
+
     resetStatus();
     syncVisibleColumns();
     applyFilter();
