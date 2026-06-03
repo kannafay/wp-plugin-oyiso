@@ -13,3 +13,4 @@ if (class_exists('CSF')) {
 
 require_once __DIR__ . '/gutenberg-editor/index.php';
 require_once __DIR__ . '/wp-update/index.php';
+require_once __DIR__ . '/pingback/index.php';
