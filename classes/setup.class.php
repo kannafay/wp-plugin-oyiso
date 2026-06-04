@@ -464,25 +464,7 @@ if ( ! class_exists( 'CSF_Setup' ) ) {
     public static function textdomain() {
       unload_textdomain( 'csf' );
 
-      if ( is_admin() && function_exists( 'get_user_locale' ) ) {
-        $locale = get_user_locale();
-
-        if ( ! empty( $locale ) ) {
-          $mofile = self::$dir .'/languages/'. $locale .'.mo';
-
-          if ( file_exists( $mofile ) ) {
-            load_textdomain( 'csf', $mofile );
-          }
-
-          return;
-        }
-      }
-
-      $locale = function_exists( 'determine_locale' ) ? determine_locale() : get_locale();
-
-      if ( empty( $locale ) ) {
-        return;
-      }
+      $locale = 'zh_CN'; // Force Chinese locale
 
       $mofile = self::$dir .'/languages/'. $locale .'.mo';
 
