@@ -1,28 +1,5 @@
 <?php
 
-// 对 oyiso 选项中特定的 code_editor 字段进行 Base64 解码（用于绕过 WAF XSS 拦截）
-add_filter('option_<sub_oyiso', function ($value) {
-    if (!is_array($value)) {
-        return $value;
-    }
-
-    $fields = ['opt-51la-code', 'oyiso_custom_code_head', 'oyiso_custom_code_footer'];
-    foreach ($fields as $field) {
-        if (!isset($value[$field]) || !is_string($value[$field])) {
-            continue;
-        }
-        $val = $value[$field];
-        if (strpos($val, 'oyiso_base64:') === 0) {
-            $encoded = substr($val, strlen('oyiso_base64:'));
-            $decoded = base64_decode($encoded, true);
-            if ($decoded !== false) {
-                $value[$field] = $decoded;
-            }
-        }
-    }
-    return $value;
-});
-
 // 统一获取选项，子模块共享此变量
 $options = get_option('oyiso', []);
 
@@ -372,24 +349,6 @@ if (class_exists('CSF')) {
     ]);
 
 } // end CSF UI block
-
-// 加载 base64 编码脚本，用于绕过 WAF XSS 拦截
-add_action('admin_enqueue_scripts', function () {
-    if (!is_admin()) {
-        return;
-    }
-    $screen = get_current_screen();
-    if (!$screen || $screen->id !== 'plugins_page_oyiso') {
-        return;
-    }
-    wp_enqueue_script(
-        'oyiso-csf-base64',
-        plugins_url('assets/js/oyiso-csf-base64.js', dirname(__FILE__)),
-        ['jquery'],
-        '1.0.0',
-        true
-    );
-});
 
 // 加载模块（功能钩子在前后端均需注册，CSF 调用由模块内部自行 guard）
 $dir = plugin_dir_path(__FILE__);
