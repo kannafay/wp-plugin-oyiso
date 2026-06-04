@@ -12,10 +12,6 @@ $wc_section_fields = [
         'content' => 'WooCommerce',
     ],
     [
-        'type' => 'subheading',
-        'content' => '产品信息表',
-    ],
-    [
         'id' => 'oyiso_wc_product_table_enabled',
         'type' => 'switcher',
         'title' => '启用产品信息表',

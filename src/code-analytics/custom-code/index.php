@@ -18,10 +18,6 @@ if (class_exists('CSF')) {
                 'content' => '自定义代码',
             ],
             [
-                'type' => 'subheading',
-                'content' => '在此处添加的代码将输出到前端页面的 &lt;head&gt; 或 &lt;/body&gt; 前。适用于自定义统计、验证、样式或脚本等。',
-            ],
-            [
                 'id' => 'oyiso_custom_code_head',
                 'type' => 'code_editor',
                 'title' => '头部代码（Head）',

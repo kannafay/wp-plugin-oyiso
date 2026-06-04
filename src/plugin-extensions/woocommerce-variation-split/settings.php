@@ -7,10 +7,6 @@ if (!function_exists('oyiso_wc_variation_split_get_fields')) {
     {
         return [
             [
-                'type' => 'subheading',
-                'content' => '变体拆分',
-            ],
-            [
                 'id' => 'oyiso_wc_variation_split_enabled',
                 'type' => 'switcher',
                 'title' => '启用变体拆分',
@@ -86,6 +82,7 @@ if (!function_exists('oyiso_wc_variation_split_get_fields')) {
                                     'tags' => '产品标签',
                                     'attributes' => '属性（变体属性取当前值，其他属性全部保留）',
                                     'woodmart' => '适配 Woodmart 主题（产品额外设置）',
+                                    'seopress' => '适配 SEOPress（SEO 标题和描述）',
                                 ],
                                 'default' => [
                                     'image',

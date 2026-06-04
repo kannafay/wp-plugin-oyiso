@@ -18,10 +18,6 @@ CSF::createSection($prefix, [
             'content' => 'Elementor',
         ],
         [
-            'type' => 'subheading',
-            'content' => '小部件',
-        ],
-        [
             'id' => 'opt-elementor-widgets',
             'type' => 'switcher',
             'title' => '启用小部件',

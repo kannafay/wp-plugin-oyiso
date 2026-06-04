@@ -436,6 +436,19 @@ if (!class_exists('Oyiso_WC_Variation_Split')) {
                 }
             }
 
+            // 适配 SEOPress：复制父产品的 SEO 标题和描述
+            if (in_array('seopress', $copy_fields, true)) {
+                $seopress_title = get_post_meta($parent->get_id(), '_seopress_titles_title', true);
+                if ($seopress_title) {
+                    update_post_meta($new_id, '_seopress_titles_title', $seopress_title);
+                }
+                
+                $seopress_desc = get_post_meta($parent->get_id(), '_seopress_titles_desc', true);
+                if ($seopress_desc) {
+                    update_post_meta($new_id, '_seopress_titles_desc', $seopress_desc);
+                }
+            }
+
             // 标记来源
             update_post_meta($new_id, '_oyiso_split_from_parent', $parent->get_id());
             update_post_meta($new_id, '_oyiso_split_from_variation', $variation->get_id());
