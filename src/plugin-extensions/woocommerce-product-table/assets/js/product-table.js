@@ -161,6 +161,12 @@ document.addEventListener('DOMContentLoaded', function () {
             var columnKey = node.getAttribute('data-column-key') || '';
             node.hidden = activeColumnKeys.indexOf(columnKey) === -1;
         });
+
+        var table = root.querySelector('.opt-table');
+        if (table) {
+            var minWidth = 40 + (activeColumnKeys.length * 130);
+            table.style.minWidth = minWidth + 'px';
+        }
     }
 
     function escapeMarkdown(text) {
