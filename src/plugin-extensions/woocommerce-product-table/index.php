@@ -26,7 +26,7 @@ if (!function_exists('oyiso_wc_product_table_render_route_preview')) {
         $view_icon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:2px;"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>';
 
         echo '<p>';
-        echo '<strong>当前路径</strong><br>';
+        echo '<strong>常规访问链接</strong><br>';
         echo '<input type="text" value="' . esc_attr($pretty_url) . '" readonly style="width:400px;font-family:monospace;" onclick="this.select()"> ';
         echo '<a href="' . esc_url($pretty_url) . '" target="_blank" rel="noopener noreferrer" class="button">' . $view_icon . '查看</a>';
         echo '</p>';
@@ -35,11 +35,8 @@ if (!function_exists('oyiso_wc_product_table_render_route_preview')) {
         echo '<strong>备用查询参数</strong><br>';
         echo '<input type="text" value="' . esc_attr($fallback_url) . '" readonly style="width:400px;font-family:monospace;" onclick="this.select()"> ';
         echo '<a href="' . esc_url($fallback_url) . '" target="_blank" rel="noopener noreferrer" class="button">' . $view_icon . '查看</a>';
+        echo '<br><span class="description">当伪静态（Rewrite）失效导致当前路径 404 时，可使用此备用链接强行访问。</span>';
         echo '</p>';
-
-        if (!$settings['enabled']) {
-            echo '<p class="description">当前默认关闭，开启后前台路径才会生效。</p>';
-        }
     }
 }
 
@@ -50,7 +47,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
         private const OPTION_CONFIG = 'oyiso_wc_product_table_options';
         private const REWRITE_STATE_OPTION = 'oyiso_wc_product_table_rewrite_state';
         private const QUERY_VAR = 'oyiso_wc_product_table';
-        private const DEFAULT_SLUG = 'pro_info';
+        private const DEFAULT_SLUG = 'product-table';
         private const DEFAULT_EXTRA_FIELDS = [
             'cover',
             'link',
@@ -58,6 +55,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
             'type',
             'regular_price',
             'sale_price',
+            'specs',
             'stock_status',
         ];
         private const LEGACY_DEFAULT_EXTRA_FIELDS = [
@@ -74,6 +72,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
             'type' => '产品类型',
             'regular_price' => '常规价',
             'sale_price' => '销售价',
+            'specs' => '产品规格',
             'sku' => 'SKU',
             'categories' => '产品分类',
             'tags' => '产品标签',
@@ -329,15 +328,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
                 $columns['link'] = ['label' => '产品链接'];
             }
 
-            foreach (['brand', 'type', 'regular_price', 'sale_price'] as $field_key) {
-                if (in_array($field_key, $extra_fields, true)) {
-                    $columns[$field_key] = ['label' => self::OPTIONAL_FIELD_DEFINITIONS[$field_key]];
-                }
-            }
-
-            $columns['specs'] = ['label' => '产品规格'];
-
-            foreach (['sku', 'categories', 'tags', 'stock_status'] as $field_key) {
+            foreach (['brand', 'type', 'regular_price', 'sale_price', 'specs', 'sku', 'categories', 'tags', 'stock_status'] as $field_key) {
                 if (in_array($field_key, $extra_fields, true)) {
                     $columns[$field_key] = ['label' => self::OPTIONAL_FIELD_DEFINITIONS[$field_key]];
                 }
