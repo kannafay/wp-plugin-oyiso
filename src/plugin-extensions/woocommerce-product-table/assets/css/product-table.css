@@ -564,7 +564,7 @@ body.oyiso-wc-product-table-body {
 }
 
 .oyiso-product-table__specs-copy {
-    display: inline-flex;
+    display: inline-flex !important;
     align-items: center;
     justify-content: center;
     width: 18px;
@@ -574,11 +574,15 @@ body.oyiso-wc-product-table-body {
     color: var(--opt-text-secondary);
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .oyiso-product-table__specs-copy svg {
-    display: block;
+    display: block !important;
     pointer-events: none;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .oyiso-product-table__specs-copy:hover {
@@ -775,11 +779,16 @@ body.oyiso-wc-product-table-body {
     right: 0;
     z-index: 100;
     min-width: 160px;
-    padding: 4px;
+    padding: 6px;
     border: 1px solid var(--opt-border);
     border-radius: var(--opt-radius-sm);
     background: var(--opt-surface);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.opt-dropdown__menu--left {
+    right: auto;
+    left: 0;
 }
 
 .opt-dropdown__menu[hidden] {
@@ -793,8 +802,8 @@ body.oyiso-wc-product-table-body {
     align-items: center;
     justify-content: flex-start;
     width: 100%;
-    height: 36px;
-    padding: 0 12px;
+    height: auto;
+    padding: 8px;
     border: none;
     border-radius: 4px;
     background: transparent;
@@ -809,7 +818,7 @@ body.oyiso-wc-product-table-body {
 
 .opt button.opt-dropdown__item:hover {
     background: var(--opt-accent-soft);
-    color: var(--opt-accent);
+    color: var(--opt-text);
 }
 
 /* ── Responsive ── */

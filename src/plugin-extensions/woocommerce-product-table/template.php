@@ -10,7 +10,7 @@ $has_rows = !empty($rows);
 $has_woo = Oyiso_WC_Product_Table::isWooCommerceAvailable();
 $document_title = '产品资料总览 - ' . $summary['site_name'];
 $toolbar_status_text = $has_rows ? '导出将以当前字段视图为准' : '当前暂无可导出数据';
-$locked_column_keys = ['name', 'specs'];
+$locked_column_keys = ['name'];
 ?>
 <!doctype html>
 <html <?php language_attributes(); ?>>
@@ -93,21 +93,31 @@ if (function_exists('wp_body_open')) {
             <div class="opt-controls__row opt-controls__row--sub">
                 <div class="opt-fields">
                     <span class="opt-fields__label">显示字段</span>
-                    <div class="opt-fields__list" role="group" aria-label="选择显示字段">
-                        <?php foreach ($columns as $column_key => $column) : ?>
-                            <?php $is_locked = in_array($column_key, $locked_column_keys, true); ?>
-                            <button
-                                type="button"
-                                class="opt-chip<?php echo $is_locked ? ' opt-chip--locked' : ''; ?>"
-                                data-role="column-toggle"
-                                data-column-key="<?php echo esc_attr($column_key); ?>"
-                                data-active="true"
-                                data-locked="<?php echo $is_locked ? 'true' : 'false'; ?>"
-                                aria-pressed="true"
-                                title="<?php echo esc_attr($is_locked ? '固定字段' : '切换显示'); ?>"
-                                <?php disabled(!$has_rows || $is_locked); ?>
-                            ><?php echo esc_html($column['label']); ?></button>
-                        <?php endforeach; ?>
+                    <div class="opt-dropdown" data-dropdown>
+                        <button type="button" class="opt-btn" data-dropdown-trigger <?php disabled(!$has_rows); ?>>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></svg>
+                            选择字段
+                            <svg class="opt-dropdown__caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div class="opt-dropdown__menu opt-dropdown__menu--left" data-dropdown-menu hidden style="padding: 6px; min-width: 180px; max-height: 400px; overflow-y: auto;">
+                            <?php foreach ($columns as $column_key => $column) : ?>
+                                <?php $is_locked = in_array($column_key, $locked_column_keys, true); ?>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 4px; cursor: <?php echo $is_locked ? 'not-allowed' : 'pointer'; ?>; opacity: <?php echo $is_locked ? '0.6' : '1'; ?>;" onmouseover="this.style.background='var(--opt-accent-soft)'" onmouseout="this.style.background='transparent'">
+                                    <input 
+                                        type="checkbox" 
+                                        data-role="column-toggle"
+                                        data-column-key="<?php echo esc_attr($column_key); ?>"
+                                        data-locked="<?php echo $is_locked ? 'true' : 'false'; ?>"
+                                        <?php echo $is_locked ? 'checked disabled' : 'checked'; ?>
+                                        style="margin: 0; width: 14px; height: 14px; accent-color: var(--opt-accent); cursor: inherit;"
+                                    >
+                                    <span style="font-size: 13px; font-weight: 500; user-select: none;"><?php echo esc_html($column['label']); ?></span>
+                                    <?php if ($is_locked): ?>
+                                        <span style="margin-left: auto; font-size: 10px; color: var(--opt-text-tertiary);">固定</span>
+                                    <?php endif; ?>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                 </div>
                 <div class="opt-status" data-role="action-status" data-tone="neutral" aria-live="polite">
@@ -157,7 +167,7 @@ if (function_exists('wp_body_open')) {
                                         data-export-csv="<?php echo esc_attr(Oyiso_WC_Product_Table::getCellExportValue($column_key, $row, 'csv')); ?>"
                                         data-export-markdown="<?php echo esc_attr(Oyiso_WC_Product_Table::getCellExportValue($column_key, $row, 'markdown')); ?>"
                                     >
-                                        <?php echo wp_kses_post(Oyiso_WC_Product_Table::getCellDisplayHtml($column_key, $row)); ?>
+                                        <?php echo Oyiso_WC_Product_Table::getCellDisplayHtml($column_key, $row); ?>
                                     </td>
                                 <?php endforeach; ?>
                             </tr>

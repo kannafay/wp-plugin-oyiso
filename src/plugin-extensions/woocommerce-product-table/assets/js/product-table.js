@@ -9,17 +9,43 @@ document.addEventListener('DOMContentLoaded', function () {
     var statusNode = root.querySelector('[data-role="action-status"]');
     var filterEmptyNode = root.querySelector('[data-role="filter-empty"]');
     var rowNodes = Array.prototype.slice.call(root.querySelectorAll('tbody tr[data-product-row]'));
-    var columnToggleNodes = Array.prototype.slice.call(root.querySelectorAll('[data-role="column-toggle"]'));
+    var columnToggleNodes = Array.prototype.slice.call(root.querySelectorAll('input[data-role="column-toggle"]'));
     var buttonCopy = root.querySelector('[data-action="copy-markdown"]');
     var buttonCsv = root.querySelector('[data-action="export-csv"]');
     var buttonMarkdown = root.querySelector('[data-action="export-markdown"]');
-    var dropdown = root.querySelector('[data-dropdown]');
-    var dropdownTrigger = root.querySelector('[data-dropdown-trigger]');
-    var dropdownMenu = root.querySelector('[data-dropdown-menu]');
+    var dropdowns = Array.prototype.slice.call(root.querySelectorAll('[data-dropdown]'));
     var selectAllCheckbox = root.querySelector('[data-role="select-all"]');
     var rowCheckboxes = Array.prototype.slice.call(root.querySelectorAll('[data-role="select-row"]'));
     var defaultStatusMessage = statusNode ? String(statusNode.textContent || '').trim() : '';
     var statusResetTimer = 0;
+    var LOCAL_STORAGE_KEY = 'oyiso_wc_product_table_columns_v1';
+
+    function saveColumnState() {
+        var state = {};
+        columnToggleNodes.forEach(function (node) {
+            var key = node.getAttribute('data-column-key');
+            if (key && !isLockedColumn(node)) {
+                state[key] = node.checked;
+            }
+        });
+        try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {}
+    }
+
+    function loadColumnState() {
+        try {
+            var stateStr = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (!stateStr) return;
+            var state = JSON.parse(stateStr);
+            columnToggleNodes.forEach(function (node) {
+                var key = node.getAttribute('data-column-key');
+                if (key && !isLockedColumn(node) && typeof state[key] !== 'undefined') {
+                    node.checked = state[key];
+                }
+            });
+        } catch (e) {}
+    }
 
     function resetStatus() {
         if (!statusNode) {
@@ -118,7 +144,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function getActiveColumnKeys() {
         return columnToggleNodes.filter(function (node) {
-            return node.getAttribute('data-active') !== 'false';
+            return node.checked;
         }).map(function (node) {
             return node.getAttribute('data-column-key') || '';
         });
@@ -126,11 +152,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function isLockedColumn(node) {
         return node.getAttribute('data-locked') === 'true';
-    }
-
-    function setColumnToggleState(node, isActive) {
-        node.setAttribute('data-active', isActive ? 'true' : 'false');
-        node.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     }
 
     function syncVisibleColumns() {
@@ -380,20 +401,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function toggleColumn(node) {
         var activeColumnKeys = getActiveColumnKeys();
-        var isActive = node.getAttribute('data-active') !== 'false';
+        var isActive = node.checked;
 
         if (isLockedColumn(node)) {
-            setStatus('产品名称和产品规格为固定字段', 'neutral', true);
+            node.checked = true;
+            setStatus('该字段为固定字段', 'neutral', true);
             return;
         }
 
-        if (isActive && activeColumnKeys.length <= 1) {
+        if (!isActive && activeColumnKeys.length === 0) {
+            node.checked = true;
             setStatus('至少保留 1 个字段用于查看和导出', 'error', true);
             return;
         }
 
-        setColumnToggleState(node, !isActive);
         syncVisibleColumns();
+        saveColumnState();
         setStatus('字段视图已更新，后续复制与导出会自动同步', 'neutral', true);
     }
 
@@ -434,43 +457,57 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     columnToggleNodes.forEach(function (node) {
-        node.addEventListener('click', function () {
+        node.addEventListener('change', function () {
             toggleColumn(node);
         });
     });
 
-    function openDropdown() {
-        if (!dropdown || !dropdownMenu) return;
+    function openDropdown(dropdown) {
+        var menu = dropdown.querySelector('[data-dropdown-menu]');
+        if (!menu) return;
+        
+        // Close all other dropdowns first
+        dropdowns.forEach(function(d) {
+            if (d !== dropdown) closeDropdown(d);
+        });
+
         dropdown.setAttribute('data-open', 'true');
-        dropdownMenu.hidden = false;
+        menu.hidden = false;
     }
 
-    function closeDropdown() {
-        if (!dropdown || !dropdownMenu) return;
+    function closeDropdown(dropdown) {
+        var menu = dropdown.querySelector('[data-dropdown-menu]');
+        if (!menu) return;
         dropdown.setAttribute('data-open', 'false');
-        dropdownMenu.hidden = true;
+        menu.hidden = true;
     }
 
-    function toggleDropdown() {
-        if (!dropdown || !dropdownMenu) return;
-        if (dropdownMenu.hidden) {
-            openDropdown();
+    function toggleDropdown(dropdown) {
+        var menu = dropdown.querySelector('[data-dropdown-menu]');
+        if (!menu) return;
+        if (menu.hidden) {
+            openDropdown(dropdown);
         } else {
-            closeDropdown();
+            closeDropdown(dropdown);
         }
     }
 
-    if (dropdownTrigger) {
-        dropdownTrigger.addEventListener('click', function (e) {
-            e.stopPropagation();
-            toggleDropdown();
-        });
-    }
+    dropdowns.forEach(function (dropdown) {
+        var trigger = dropdown.querySelector('[data-dropdown-trigger]');
+        if (trigger) {
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleDropdown(dropdown);
+            });
+        }
+    });
 
     document.addEventListener('click', function (e) {
-        if (dropdown && !dropdown.contains(e.target)) {
-            closeDropdown();
-        }
+        dropdowns.forEach(function (dropdown) {
+            if (!dropdown.contains(e.target)) {
+                closeDropdown(dropdown);
+            }
+        });
     });
 
     if (buttonCopy) {
@@ -479,14 +516,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (buttonCsv) {
         buttonCsv.addEventListener('click', function () {
-            closeDropdown();
+            dropdowns.forEach(closeDropdown);
             exportCsv();
         });
     }
 
     if (buttonMarkdown) {
         buttonMarkdown.addEventListener('click', function () {
-            closeDropdown();
+            dropdowns.forEach(closeDropdown);
             exportMarkdown();
         });
     }
@@ -499,7 +536,7 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         e.stopPropagation();
 
-        var details = copyBtn.closest('.oyiso-product-table__specs-details');
+        var details = copyBtn.closest('.oyiso-product-table__specs-details') || copyBtn.closest('.oyiso-product-table__specs-wrapper');
         if (!details) return;
 
         var chips = details.querySelectorAll('.oyiso-product-table__chip--spec');
@@ -540,6 +577,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     resetStatus();
+    loadColumnState();
     syncVisibleColumns();
     applyFilter();
 });

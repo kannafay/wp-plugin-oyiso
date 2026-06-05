@@ -889,7 +889,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
             }
 
             if (!self::shouldCollapseSpecs($items)) {
-                return '<div class="oyiso-product-table__chips oyiso-product-table__chips--specs">' . $chips . '</div>';
+                return '<div class="oyiso-product-table__specs-wrapper" style="display: flex; align-items: flex-start; gap: 8px;"><div class="oyiso-product-table__chips oyiso-product-table__chips--specs" style="flex: 1;">' . $chips . '</div><span class="oyiso-product-table__specs-copy" data-action="copy-specs" title="复制规格" style="margin-left: 0; margin-top: 2px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span></div>';
             }
 
             return sprintf(
