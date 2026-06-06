@@ -95,13 +95,27 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
     display: inline-flex;
     align-items: center;
     padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px solid #e5702a;
+    border-radius: 999px !important;
+    border: 1px solid #e5702a !important;
     background: #fff7f2;
     color: #e5702a;
     font-size: 12px;
     line-height: 1;
     vertical-align: middle;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    outline: none !important;
+    box-shadow: none !important;
+}
+.oyiso-update-header-badge:hover {
+    background: #e5702a !important;
+    color: #fff !important;
+}
+.oyiso-update-header-badge:focus,
+.oyiso-update-header-badge:active {
+    outline: none !important;
+    box-shadow: none !important;
+    color: #e5702a;
 }
 CSS);
 
@@ -129,9 +143,15 @@ jQuery(function ($) {
             return;
         }
 
-        $('<span/>', {
+        $('<a/>', {
             'class': 'oyiso-update-header-badge',
-            text: payload.text
+            text: payload.text,
+            href: '?page=oyiso#tab=oyiso-update'
+        }).on('click', function (e) {
+            var $targetTab = $('a[href="#tab=oyiso-update"]');
+            if ($targetTab.length) {
+                $targetTab.trigger('click');
+            }
         }).appendTo($title);
     }
 
@@ -418,7 +438,7 @@ JS);
             wp_clean_plugins_cache(false);
         }
 
-        private function getHeaderBadgePayload(?array $releaseOverride = null): array {
+        public function getHeaderBadgePayload(?array $releaseOverride = null): array {
             $pluginData = oyiso_get_plugin_update_plugin_data();
             $currentVersion = (string) ($pluginData['Version'] ?? '');
             $release = is_array($releaseOverride) ? $releaseOverride : $this->getStoredRelease();

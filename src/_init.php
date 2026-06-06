@@ -27,9 +27,20 @@ if (!function_exists('oyiso_register_admin_bar_menu')) {
             return;
         }
 
+        $title = '橘子猫头';
+        
+        // 检查是否有更新，如果有，添加小红点
+        if (class_exists('Oyiso_GitHub_Updater')) {
+            $updater = new Oyiso_GitHub_Updater();
+            $badge = $updater->getHeaderBadgePayload();
+            if (!empty($badge['show'])) {
+                $title .= ' <span class="oyiso-admin-bar-update-dot"></span>';
+            }
+        }
+
         $admin_bar->add_node([
             'id'    => 'oyiso',
-            'title' => '橘子猫头',
+            'title' => $title,
             'href'  => oyiso_get_settings_page_url(),
             'meta'  => [
                 'title' => '橘子猫头',
@@ -39,6 +50,53 @@ if (!function_exists('oyiso_register_admin_bar_menu')) {
 }
 
 add_action('admin_bar_menu', 'oyiso_register_admin_bar_menu', 90);
+
+if (!function_exists('oyiso_admin_bar_update_dot_css')) {
+    function oyiso_admin_bar_update_dot_css(): void {
+        if (!is_admin_bar_showing() || !oyiso_can_access_settings_page()) {
+            return;
+        }
+        echo '<style>
+        @keyframes oyiso-pulse-dot {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+        #wpadminbar #wp-admin-bar-oyiso > a {
+            position: relative;
+        }
+        #wpadminbar .oyiso-admin-bar-update-dot {
+            display: inline-block !important;
+            width: 6px !important;
+            height: 6px !important;
+            background-color: #e5702a !important;
+            border-radius: 50% !important;
+            position: absolute !important;
+            top: 10px !important;
+            right: 3px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            min-width: 0 !important;
+            line-height: 1 !important;
+            box-sizing: border-box !important;
+        }
+        #wpadminbar .oyiso-admin-bar-update-dot::after {
+            content: "" !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background-color: #e5702a !important;
+            border-radius: 50% !important;
+            animation: oyiso-pulse-dot 1.5s cubic-bezier(0.24, 0, 0.38, 1) infinite !important;
+            box-sizing: border-box !important;
+            display: block !important;
+        }
+        </style>';
+    }
+    add_action('admin_head', 'oyiso_admin_bar_update_dot_css');
+    add_action('wp_head', 'oyiso_admin_bar_update_dot_css');
+}
 
 // CSF 后台 UI 定义（前端 class_exists('CSF') 为 false，整块跳过）
 if (class_exists('CSF')) {
