@@ -46,6 +46,22 @@ if (!function_exists('oyiso_register_admin_bar_menu')) {
                 'title' => '橘子猫头',
             ],
         ]);
+
+        // 子菜单：产品信息表（仅在启用时显示）
+        if (class_exists('Oyiso_WC_Product_Table')) {
+            $pt_settings = Oyiso_WC_Product_Table::getSettings();
+            if (!empty($pt_settings['enabled'])) {
+                $admin_bar->add_node([
+                    'id'     => 'oyiso-product-table',
+                    'parent' => 'oyiso',
+                    'title'  => '产品信息表',
+                    'href'   => Oyiso_WC_Product_Table::getRouteUrl(),
+                    'meta'   => [
+                        'target' => '_blank',
+                    ],
+                ]);
+            }
+        }
     }
 }
 
