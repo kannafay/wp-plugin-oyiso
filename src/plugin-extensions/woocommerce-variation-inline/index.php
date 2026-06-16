@@ -158,7 +158,17 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             }
 
             $parent_sku = get_post_meta($product_id, '_sku', true);
+            $prefix = isset($_POST['prefix']) ? sanitize_text_field(wp_unslash($_POST['prefix'])) : '';
+            $base_sku = !empty($prefix) ? $prefix : $parent_sku;
             $variation_ids = $product->get_children();
+            if (empty($variation_ids)) {
+                // 降级：直接查数据库
+                global $wpdb;
+                $variation_ids = $wpdb->get_col($wpdb->prepare(
+                    "SELECT ID FROM {$wpdb->posts} WHERE post_parent = %d AND post_type = 'product_variation' AND post_status IN ('publish', 'private', 'draft')",
+                    $product_id
+                ));
+            }
             $results = [];
             $skipped = 0;
 
@@ -166,7 +176,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 $variation = wc_get_product($variation_id);
                 if (!$variation) continue;
 
-                if ($mode === 'clear') {
+        if ($mode === 'clear') {
                     $child_sku = get_post_meta($variation_id, '_sku', true);
                     if (empty($child_sku)) {
                         $skipped++;
@@ -187,13 +197,9 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                     continue;
                 }
 
-                if (!$parent_sku && !$child_sku) {
-                    continue;
-                }
-
                 $pending_sku = '';
 
-                if ($parent_sku && !$child_sku) {
+                if ($base_sku && !$child_sku) {
                     $attr_slugs = [];
                     $attributes = $variation->get_attributes();
                     foreach ($attributes as $attr_value) {
@@ -201,11 +207,21 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                             $attr_slugs[] = sanitize_title($attr_value);
                         }
                     }
-                    $pending_sku = $parent_sku . ($attr_slugs ? '-' . implode('-', $attr_slugs) : '');
-                } elseif ($parent_sku && $child_sku) {
-                    $p = strtoupper($parent_sku);
+                    $pending_sku = $base_sku . ($attr_slugs ? '-' . implode('-', $attr_slugs) : '');
+                } elseif ($base_sku && $child_sku) {
+                    $p = strtoupper($base_sku);
                     $c = strtoupper($child_sku);
                     $pending_sku = str_starts_with($c, $p) ? $c : $p . '-' . $c;
+                } elseif (!$base_sku && !$child_sku) {
+                    // 无前缀无子SKU：直接用属性值拼接
+                    $attr_slugs = [];
+                    $attributes = $variation->get_attributes();
+                    foreach ($attributes as $attr_value) {
+                        if ($attr_value && '' !== $attr_value) {
+                            $attr_slugs[] = sanitize_title($attr_value);
+                        }
+                    }
+                    $pending_sku = $attr_slugs ? implode('-', $attr_slugs) : '';
                 } else {
                     $pending_sku = $child_sku;
                 }
@@ -251,8 +267,13 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                     </div>
                     <div class="oyiso-vi-sku-modal-body">
                         <p id="oyiso-vi-sku-modal-message"></p>
+                        <div class="oyiso-vi-sku-prefix-field" style="display:none;">
+                            <label for="oyiso-vi-sku-prefix">SKU 前缀（可选，留空则用属性值直接拼接）</label>
+                            <input type="text" id="oyiso-vi-sku-prefix" class="oyiso-vi-sku-prefix-input" placeholder="例：VAPE-100" />
+                        </div>
                     </div>
                     <div class="oyiso-vi-sku-modal-footer">
+                        <span class="spinner oyiso-vi-sku-modal-spinner" style="float:none;margin:0 6px 0 0;"></span>
                         <button type="button" class="button oyiso-vi-sku-modal-cancel">取消</button>
                         <button type="button" class="button button-primary oyiso-vi-sku-modal-do">确认</button>
                     </div>

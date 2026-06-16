@@ -402,6 +402,15 @@
     function showSkuModal(title, msg, mode) {
         $skuModalTitle.text(title);
         $skuModalMsg.text(msg);
+
+        // 检查父产品是否有 SKU，无则显示前缀输入框
+        var hasParentSku = !!$('#_sku').val();
+        if (mode === 'clear' || hasParentSku) {
+            $('.oyiso-vi-sku-prefix-field').hide();
+        } else {
+            $('.oyiso-vi-sku-prefix-field').show().find('input').val('');
+        }
+
         $skuModal.css('display', 'flex');
         $skuModal[0].offsetHeight;
         $skuModal.addClass('is-open');
@@ -411,6 +420,7 @@
     function closeSkuModal() {
         $skuModal.removeClass('is-open');
         setTimeout(function() { $skuModal.css('display', 'none'); }, 200);
+        $('select.variation_actions, #field_to_edit').val($('select.variation_actions option:first').val());
     }
 
     $skuModal.on('click', '.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel', closeSkuModal);
@@ -423,6 +433,8 @@
         closeSkuModal();
         if (!m) return;
 
+        var prefix = $('#oyiso-vi-sku-prefix').val().trim();
+
         $.ajax({
             url: config.ajaxurl,
             type: 'POST',
@@ -431,10 +443,12 @@
                 nonce: config.nonce,
                 product_id: config.product_id,
                 mode: m,
+                prefix: prefix,
             },
             success: function(resp) {
                 if (resp.success) {
                     alert(resp.data.message);
+                    try { var pg = parseInt($('.variations-pagenav .page-selector').val()) || 1; $('.variations-pagenav .page-selector').val(pg).trigger('change'); } catch(e) {}
                 } else {
                     alert('SKU 操作失败：' + (resp.data.message || '未知错误'));
                 }
@@ -443,31 +457,37 @@
                 alert('SKU 操作失败：网络错误');
             },
             complete: function() {
-                $('select.variation_actions, #field_to_edit').val('');
+                $('select.variation_actions, #field_to_edit').val($('select.variation_actions option:first').val());
             }
         });
     });
 
-    // 批量生成 SKU（拦截 before WC）
-    $('#variable_product_options').on('change', '#field_to_edit, select.variation_actions', function(e) {
-        var action = $(e.target).val();
-        if (action !== 'oyiso_regenerate_sku' && action !== 'oyiso_generate_missing_sku' && action !== 'oyiso_clear_sku') return;
+    // 批量生成 SKU（capture phase 拦截 WC 之前）
+    var oyisoSkuBox = document.querySelector('#variable_product_options');
+    if (oyisoSkuBox) {
+        oyisoSkuBox.addEventListener('change', function(e) {
+            var target = e.target;
+            if (!target || !target.matches('#field_to_edit, select.variation_actions')) return;
+            var action = target.value;
+            if (action !== 'oyiso_regenerate_sku' && action !== 'oyiso_generate_missing_sku' && action !== 'oyiso_clear_sku') return;
 
-        e.stopPropagation();
+            e.stopPropagation();
 
-        var mode = action === 'oyiso_clear_sku' ? 'clear' : (action === 'oyiso_regenerate_sku' ? 'all' : 'missing');
-        var titles = {
-            clear: '清除全部SKU',
-            all: '生成全部SKU',
-            missing: '补全缺失SKU'
-        };
-        var messages = {
-            clear: '确认清除当前所有变体的 SKU？\n此操作不可撤销，已存在的 SKU 将被永久删除。',
-            all: '确认对当前所有变体生成 SKU？\n\n已存在的 SKU 将被重新生成并覆盖。',
-            missing: '确认对当前所有变体补全缺失的 SKU？\n\n已有 SKU 的变体将被跳过。'
-        };
+            var mode = action === 'oyiso_clear_sku' ? 'clear' : (action === 'oyiso_regenerate_sku' ? 'all' : 'missing');
+            var titles = {
+                clear: '清除全部SKU',
+                all: '生成全部SKU',
+                missing: '补全缺失SKU'
+            };
+            var messages = {
+                clear: '确认清除当前所有变体的 SKU？\n此操作不可撤销，已存在的 SKU 将被永久删除。',
+                all: '确认对当前所有变体生成 SKU？\n已存在的 SKU 将被重新生成并覆盖。',
+                missing: '确认对当前所有变体补全缺失的 SKU？\n已有 SKU 的变体将被跳过。'
+            };
 
-        showSkuModal('确认操作 - ' + titles[mode], messages[mode], mode);
-    });
+            showSkuModal('确认操作 - ' + titles[mode], messages[mode], mode);
+        }, true); // capture phase
+    }
+
 
 })(jQuery);
