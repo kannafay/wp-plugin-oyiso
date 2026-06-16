@@ -372,8 +372,13 @@
 
     // 初始化和观察
     $(function () {
-        initAll();
+        var $sku = $('select.variation_actions optgroup[label="SKU"]');
+        var $status = $('select.variation_actions optgroup[label="Status"], select.variation_actions optgroup[label="状态"]');
+        if ($sku.length && $status.length) {
+            $sku.insertBefore($status);
+        }
 
+        initAll();
 
         var $container = $('#variable_product_options');
         if ($container.length) {
@@ -387,5 +392,50 @@
             this.value = this.dataset.inlineValue;
         });
     });
+
+
+    // 批量生成 SKU
+    document.querySelector('.do_variation_action')?.addEventListener('click', function(e) {
+        var select = document.querySelector('select.variation_actions');
+        if (!select) return;
+        var action = select.value;
+        if (action !== 'oyiso_regenerate_sku' && action !== 'oyiso_generate_missing_sku') return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        var mode = action === 'oyiso_regenerate_sku' ? 'all' : 'missing';
+        var modeLabel = action === 'oyiso_regenerate_sku' ? '全部重新生成' : '仅补全缺失';
+
+        if (!window.confirm('确认对当前所有变体' + modeLabel + ' SKU？\n\n'
+            + (mode === 'missing' ? '已有 SKU 的变体将被跳过。' : '已存在的 SKU 将被重新生成并覆盖。'))) {
+            select.value = '';
+            return;
+        }
+
+        $.ajax({
+            url: config.ajaxurl,
+            type: 'POST',
+            data: {
+                action: config.generate_sku_action,
+                nonce: config.nonce,
+                product_id: config.product_id,
+                mode: mode,
+            },
+            success: function(resp) {
+                if (resp.success) {
+                    alert(resp.data.message);
+                } else {
+                    alert('SKU 生成失败：' + (resp.data.message || '未知错误'));
+                }
+            },
+            error: function() {
+                alert('SKU 生成失败：网络错误');
+            },
+            complete: function() {
+                select.value = '';
+            }
+        });
+    }, true); // capture phase，在 jQuery 之前拦截
 
 })(jQuery);
