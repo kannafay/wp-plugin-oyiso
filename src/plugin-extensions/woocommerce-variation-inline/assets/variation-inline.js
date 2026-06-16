@@ -1,4 +1,4 @@
-(function ($) {
+﻿(function ($) {
     'use strict';
 
     if (typeof window.oyisoVIConfig === 'undefined') {
@@ -78,7 +78,7 @@
                 var $tip = $('<span class="oyiso-vi-price-error-tip">' + errorMsg + '</span>');
                 $tip.appendTo('body');
                 var rect = $input[0].getBoundingClientRect();
-                $tip.css({ left: rect.left + 'px', top: (rect.bottom + 6) + 'px' });
+                $tip.css({ left: (rect.left + window.scrollX + rect.width / 2) + 'px', top: (rect.bottom + window.scrollY + 6) + 'px', transform: 'translateX(-50%)' });
             }
         }
     }
@@ -100,8 +100,9 @@
                     $('.oyiso-vi-price-error-tip').remove();
                     var $tip = $('<span class="oyiso-vi-price-error-tip">销售价必须小于常规价</span>');
                     $tip.appendTo('body');
-                    var rect = $sale[0].getBoundingClientRect();
-                    $tip.css({ left: rect.left + 'px', top: (rect.bottom + 6) + 'px' });
+                    var $focused = $reg.is(':focus') ? $reg : $sale;
+                    var rect = $focused[0].getBoundingClientRect();
+                    $tip.css({ left: (rect.left + window.scrollX + rect.width / 2) + 'px', top: (rect.bottom + window.scrollY + 6) + 'px', transform: 'translateX(-50%)' });
                 }
             }
         }
@@ -126,6 +127,10 @@
 
             // 价格错误时拦截 AJAX 保存
             if ($variation.find('.oyiso-vi-price-error, .oyiso-vi-price-compare-error').length > 0) {
+                var vid = $variation.find('.variable_post_id').val();
+                if (vid) {
+                    clearTimeout(saveTimers[vid + '_' + field]);
+                }
                 return;
             }
 
@@ -154,6 +159,11 @@
             $('.oyiso-vi-price-error-tip').remove();
 
             if ($variation.find('.oyiso-vi-price-error, .oyiso-vi-price-compare-error').length > 0) {
+                var vid = $variation.find('.variable_post_id').val();
+                var fld = $input.data('field');
+                if (vid && fld) {
+                    clearTimeout(saveTimers[vid + '_' + fld]);
+                }
                 return;
             }
 
@@ -161,6 +171,7 @@
             $input.closest('.woocommerce_variation').removeClass('variation-needs-update');
             $('button.cancel-variation-changes, button.save-variation-changes').prop('disabled', true);
 
+            // 走同一保存逻辑（防抖 + 写回隐藏字段 + 清理脏标记）
             var variationId = $variation.find('.variable_post_id').val();
             var field = $input.data('field');
             var value = $input.val();
@@ -168,33 +179,7 @@
 
             var key = variationId + '_' + field;
             if (lastSavedValues[key] === value) return;
-            lastSavedValues[key] = value;
-            clearTimeout(saveTimers[key]);
-
-            $input.addClass('oyiso-vi-saving');
-            $.ajax({
-                url: config.ajaxurl,
-                type: 'POST',
-                data: {
-                    action: config.action,
-                    nonce: config.nonce,
-                    variation_id: variationId,
-                    field: field,
-                    value: value
-                },
-                complete: function () {
-                    $input.removeClass('oyiso-vi-saving');
-                    markFormClean();
-                    $input.closest('.woocommerce_variation').removeClass('variation-needs-update');
-                    if ($input.is('.oyiso-vi-price')) {
-                        var f = $input.data('field');
-                        var $p = $input.closest('.woocommerce_variation').find('.woocommerce_variable_attributes');
-                        var $h = $p.find(f === 'regular_price' ? 'input[name^="variable_regular_price"]' : 'input[name^="variable_sale_price"]');
-                        if ($h.length) { $h.val($input.val()); }
-                    }
-                    $('button.cancel-variation-changes, button.save-variation-changes').prop('disabled', true);
-                }
-            });
+            saveVariation($variation, field, value, $input);
         });
 
         // 封面点击：打开媒体库选图
@@ -388,6 +373,11 @@
     // 初始化和观察
     $(function () {
         initAll();
+
+        // 滚动时移除错误提示，避免定位错位
+        $(window).on('scroll.oyiso-vi-tip', function () {
+            $('.oyiso-vi-price-error-tip').remove();
+        });
 
         var $container = $('#variable_product_options');
         if ($container.length) {

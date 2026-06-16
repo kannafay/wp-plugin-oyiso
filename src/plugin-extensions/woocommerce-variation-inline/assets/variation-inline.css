@@ -152,7 +152,7 @@
 }
 
 .oyiso-vi-price-error-tip {
-    position: fixed;
+    position: absolute;
     z-index: 999999;
     padding: 4px 8px;
     font-size: 11px;
@@ -169,7 +169,8 @@
     content: '';
     position: absolute;
     bottom: 100%;
-    left: 10px;
+    left: 50%;
+    transform: translateX(-50%);
     border: 5px solid transparent;
     border-bottom-color: #d63638;
 }
