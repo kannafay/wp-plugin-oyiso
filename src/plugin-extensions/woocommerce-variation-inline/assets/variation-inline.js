@@ -123,8 +123,7 @@
             validatePriceCompare($variation);
             var field = $in.data('field');
             var $hidden = $panel.find(field === 'regular_price' ? 'input[name^="variable_regular_price"]' : 'input[name^="variable_sale_price"]');
-            $hidden[0] && ($hidden[0].value = $in.val());
-            markFormClean();
+            $hidden[0] && ($hidden[0].dataset.inlineValue = $in.val());
 
             // 价格错误时拦截 AJAX 保存
             if ($variation.find('.oyiso-vi-price-error, .oyiso-vi-price-compare-error').length > 0) {
@@ -159,6 +158,10 @@
                 return;
             }
 
+            // 失焦时浏览器会先触发 change 事件，WooCommerce 的 input_changed 可能已加了脏标记
+            $input.closest('.woocommerce_variation').removeClass('variation-needs-update');
+            $('button.cancel-variation-changes, button.save-variation-changes').prop('disabled', true);
+
             var variationId = $variation.find('.variable_post_id').val();
             var field = $input.data('field');
             var value = $input.val();
@@ -182,6 +185,15 @@
                 },
                 complete: function () {
                     $input.removeClass('oyiso-vi-saving');
+                    markFormClean();
+                    $input.closest('.woocommerce_variation').removeClass('variation-needs-update');
+                    if ($input.is('.oyiso-vi-price')) {
+                        var f = $input.data('field');
+                        var $p = $input.closest('.woocommerce_variation').find('.woocommerce_variable_attributes');
+                        var $h = $p.find(f === 'regular_price' ? 'input[name^="variable_regular_price"]' : 'input[name^="variable_sale_price"]');
+                        if ($h.length) { $h.val($input.val()); }
+                    }
+                    $('button.cancel-variation-changes, button.save-variation-changes').prop('disabled', true);
                 }
             });
         });
@@ -286,9 +298,11 @@
 
         $panel.find('input[name^="variable_regular_price"]').on('change input', function () {
             $variation.find('.oyiso-vi-price[data-field="regular_price"]').val($(this).val());
+            delete this.dataset.inlineValue;
         });
         $panel.find('input[name^="variable_sale_price"]').on('change input', function () {
             $variation.find('.oyiso-vi-price[data-field="sale_price"]').val($(this).val());
+            delete this.dataset.inlineValue;
         });
         $panel.find('select[name^="variable_stock_status"]').on('change', function () {
             var val = $(this).val();
@@ -317,7 +331,6 @@
             }
         } catch (e) {}
         $('#post > .inside').removeClass('changed');
-        $('#publish').removeClass('button-primary-disabled');
         $(window).off('beforeunload.edit-post');
         $('#post').data('changed', false);
     }
@@ -345,6 +358,15 @@
                 },
                 complete: function () {
                     if ($el) { $el.removeClass('oyiso-vi-saving'); }
+                    markFormClean();
+                    $el && $el.closest('.woocommerce_variation').removeClass('variation-needs-update');
+                    if ($el && $el.is('.oyiso-vi-price')) {
+                        var f = $el.data('field');
+                        var $p = $el.closest('.woocommerce_variation').find('.woocommerce_variable_attributes');
+                        var $h = $p.find(f === 'regular_price' ? 'input[name^="variable_regular_price"]' : 'input[name^="variable_sale_price"]');
+                        if ($h.length) { $h.val($el.val()); }
+                    }
+                    $('button.cancel-variation-changes, button.save-variation-changes').prop('disabled', true);
                 }
             });
         }, field === 'stock_status' || field === 'enabled' || field === 'image_id' ? 0 : 500);
@@ -372,6 +394,13 @@
         if ($container.length) {
             observer.observe($container[0], { childList: true, subtree: true });
         }
+    });
+
+    // 提交表单前把内联值写入隐藏字段
+    $(document).on('submit', '#post', function () {
+        $('[data-inline-value]').each(function () {
+            this.value = this.dataset.inlineValue;
+        });
     });
 
 })(jQuery);
