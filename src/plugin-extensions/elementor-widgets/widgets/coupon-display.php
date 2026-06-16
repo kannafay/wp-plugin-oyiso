@@ -1330,24 +1330,36 @@ class Coupons extends Widget_Base
 
     private function get_wc_coupon_options()
     {
-        if (!post_type_exists('shop_coupon')) {
-            return [];
+        static $options = null;
+
+        if (is_array($options)) {
+            return $options;
         }
 
-        $posts = get_posts([
-            'post_type'      => 'shop_coupon',
-            'post_status'    => 'publish',
-            'posts_per_page' => 200,
-            'orderby'        => 'title',
-            'order'          => 'ASC',
-            'fields'         => 'ids',
-        ]);
+        if (!post_type_exists('shop_coupon')) {
+            return $options = [];
+        }
+
+        global $wpdb;
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT ID, post_title FROM {$wpdb->posts} WHERE post_type = %s AND post_status = %s ORDER BY post_title ASC LIMIT %d",
+                'shop_coupon',
+                'publish',
+                200
+            ),
+            ARRAY_A
+        );
 
         $options = [];
 
-        foreach ($posts as $post_id) {
-            $code = get_the_title($post_id);
-            $options[$post_id] = $code;
+        foreach ((array) $rows as $row) {
+            $post_id = (int) ($row['ID'] ?? 0);
+
+            if ($post_id > 0) {
+                $options[$post_id] = wp_strip_all_tags((string) ($row['post_title'] ?? ''));
+            }
         }
 
         return $options;
@@ -1392,12 +1404,12 @@ class Coupons extends Widget_Base
                     continue;
                 }
 
+                $coupon['group_color'] = $group_color;
+                $coupon['group_icon'] = $group_icon;
+
                 $used_coupon_ids[$coupon_id] = true;
                 $items[] = $coupon;
-                $all_items[] = $coupon + [
-                    'group_color' => $group_color,
-                    'group_icon'  => $group_icon,
-                ];
+                $all_items[] = $coupon;
             }
 
             if (!empty($items)) {
@@ -1437,16 +1449,22 @@ class Coupons extends Widget_Base
 
     private function get_coupon_data(int $coupon_id)
     {
+        static $cache = [];
+
+        if (array_key_exists($coupon_id, $cache)) {
+            return $cache[$coupon_id];
+        }
+
         $coupon = new \WC_Coupon($coupon_id);
 
         if ($this->is_coupon_expired($coupon) || $this->is_coupon_usage_exhausted($coupon)) {
-            return null;
+            return $cache[$coupon_id] = null;
         }
 
         $code = strtoupper($coupon->get_code());
 
         if (!$code) {
-            return null;
+            return $cache[$coupon_id] = null;
         }
 
         $date_expires = $coupon->get_date_expires();
@@ -1456,7 +1474,7 @@ class Coupons extends Widget_Base
             $description = get_post_field('post_content', $coupon_id);
         }
 
-        return [
+        $data = [
             'id'             => $coupon_id,
             'code'           => $code,
             'discount'       => $this->format_coupon_discount($coupon),
@@ -1466,6 +1484,10 @@ class Coupons extends Widget_Base
             'remaining'      => $this->get_coupon_remaining_data($coupon),
             'validity'       => $this->get_coupon_validity_data($coupon),
         ];
+
+        unset($coupon);
+
+        return $cache[$coupon_id] = $data;
     }
 
     private function is_coupon_expired(\WC_Coupon $coupon)
@@ -1717,6 +1739,10 @@ class Coupons extends Widget_Base
             return $links;
         }
 
+        $product_ids = array_values(array_unique(array_map('absint', $product_ids)));
+        $total_count = count($product_ids);
+        $product_ids = array_slice($product_ids, 0, $this->get_scope_item_display_limit());
+
         foreach ($product_ids as $product_id) {
             $product = wc_get_product($product_id);
 
@@ -1735,6 +1761,14 @@ class Coupons extends Widget_Base
             } else {
                 $links[] = esc_html($product->get_name());
             }
+
+            unset($product);
+        }
+
+        $remaining_count = $total_count - count($product_ids);
+
+        if ($remaining_count > 0) {
+            $links[] = esc_html(oyiso_t_sprintf('%d more', $remaining_count));
         }
 
         return $links;
@@ -1747,6 +1781,10 @@ class Coupons extends Widget_Base
         if (empty($term_ids) || !taxonomy_exists($taxonomy)) {
             return $links;
         }
+
+        $term_ids = array_values(array_unique(array_map('absint', $term_ids)));
+        $total_count = count($term_ids);
+        $term_ids = array_slice($term_ids, 0, $this->get_scope_item_display_limit());
 
         foreach ($term_ids as $term_id) {
             $term = get_term((int) $term_id, $taxonomy);
@@ -1768,7 +1806,18 @@ class Coupons extends Widget_Base
             }
         }
 
+        $remaining_count = $total_count - count($term_ids);
+
+        if ($remaining_count > 0) {
+            $links[] = esc_html(oyiso_t_sprintf('%d more', $remaining_count));
+        }
+
         return $links;
+    }
+
+    private function get_scope_item_display_limit()
+    {
+        return 50;
     }
 
     private function get_coupon_scope_meta_ids(\WC_Coupon $coupon, string $meta_key)

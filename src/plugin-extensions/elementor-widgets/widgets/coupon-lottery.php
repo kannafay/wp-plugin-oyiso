@@ -1032,23 +1032,36 @@ class Coupon_Lottery extends Widget_Base
 
     private function get_product_options(): array
     {
-        if (!post_type_exists('product')) {
-            return [];
+        static $options = null;
+
+        if (is_array($options)) {
+            return $options;
         }
 
-        $posts = get_posts([
-            'post_type'      => 'product',
-            'post_status'    => 'publish',
-            'posts_per_page' => 200,
-            'orderby'        => 'title',
-            'order'          => 'ASC',
-            'fields'         => 'ids',
-        ]);
+        if (!post_type_exists('product')) {
+            return $options = [];
+        }
+
+        global $wpdb;
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT ID, post_title FROM {$wpdb->posts} WHERE post_type = %s AND post_status = %s ORDER BY post_title ASC LIMIT %d",
+                'product',
+                'publish',
+                200
+            ),
+            ARRAY_A
+        );
 
         $options = [];
 
-        foreach ($posts as $post_id) {
-            $options[$post_id] = get_the_title($post_id);
+        foreach ((array) $rows as $row) {
+            $post_id = (int) ($row['ID'] ?? 0);
+
+            if ($post_id > 0) {
+                $options[$post_id] = wp_strip_all_tags((string) ($row['post_title'] ?? ''));
+            }
         }
 
         return $options;
@@ -1056,23 +1069,33 @@ class Coupon_Lottery extends Widget_Base
 
     private function get_product_category_options(): array
     {
+        static $options = null;
+
+        if (is_array($options)) {
+            return $options;
+        }
+
         if (!taxonomy_exists('product_cat')) {
-            return [];
+            return $options = [];
         }
 
         $terms = get_terms([
             'taxonomy'   => 'product_cat',
             'hide_empty' => false,
+            'fields'     => 'id=>name',
+            'number'     => 200,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
         ]);
 
         if (is_wp_error($terms) || !is_array($terms)) {
-            return [];
+            return $options = [];
         }
 
         $options = [];
 
-        foreach ($terms as $term) {
-            $options[$term->term_id] = $term->name;
+        foreach ($terms as $term_id => $name) {
+            $options[(int) $term_id] = wp_strip_all_tags((string) $name);
         }
 
         return $options;
