@@ -61,6 +61,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'action' => self::AJAX_ACTION,
                 'wc_decimal_sep' => wc_get_price_decimal_separator(),
                 'wc_thousand_sep' => wc_get_price_thousand_separator(),
+                'placeholder_img_src' => wc_placeholder_img_src(),
             ]);
 
             wp_enqueue_style(

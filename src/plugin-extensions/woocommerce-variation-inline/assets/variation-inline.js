@@ -24,10 +24,11 @@
         var stockStatus = $panel.find('select[name^="variable_stock_status"]').val() || 'instock';
         var enabled = $panel.find('input[name^="variable_enabled"]').is(':checked');
         var thumbUrl = $panel.find('img').first().attr('src') || '';
+        var hasImage = parseInt($panel.find('.upload_image_id').val(), 10) > 0;
 
         // 构建内联 HTML
         var html = '<span class="oyiso-vi-inline" data-variation="' + variationId + '">' +
-            '<span class="oyiso-vi-thumb" title="点击更换封面"><img src="' + escAttr(thumbUrl) + '" width="26" height="26"></span>' +
+            '<span class="oyiso-vi-thumb' + (hasImage ? ' oyiso-vi-thumb-has-image' : '') + '" title="' + (hasImage ? '点击清除封面' : '点击更换封面') + '"><img src="' + escAttr(thumbUrl) + '" width="26" height="26"><span class="oyiso-vi-thumb-x">×</span></span>' +
             '<span class="oyiso-vi-price-wrap"><input type="text" class="oyiso-vi-price" data-field="regular_price" value="' + escAttr(regularPrice) + '" placeholder="常规价"></span>' +
             '<span class="oyiso-vi-price-wrap"><input type="text" class="oyiso-vi-price" data-field="sale_price" value="' + escAttr(salePrice) + '" placeholder="销售价"' + (!regularPrice ? ' disabled' : '') + '></span>' +
             buildStockBtn(stockStatus) +
@@ -159,7 +160,7 @@
             });
         });
 
-        // 封面点击：打开媒体库
+        // 封面点击：打开媒体库选图
         $variation.find('.oyiso-vi-thumb').on('click', function (e) {
             e.stopPropagation();
             var $thumb = $(this);
@@ -178,6 +179,7 @@
                     ? attachment.sizes.thumbnail.url
                     : attachment.url;
                 $img.attr('src', thumbSize);
+                $thumb.addClass('oyiso-vi-thumb-has-image').prop('title', '点击更换封面');
                 $thumb.data('image-id', attachment.id);
                 $panel.find('.upload_image_id')[0] && ($panel.find('.upload_image_id')[0].value = attachment.id);
                 markFormClean();
@@ -188,6 +190,25 @@
             });
 
             frame.open();
+        });
+
+        // 点击红叉：清除封面
+        $variation.find('.oyiso-vi-thumb-x').on('click', function (e) {
+            e.stopPropagation();
+            var $thumb = $(this).closest('.oyiso-vi-thumb');
+            var $img = $thumb.find('img');
+            var $uploadId = $panel.find('.upload_image_id');
+            var placehold = config.placeholder_img_src || '';
+
+            $img.attr('src', placehold);
+            $thumb.removeClass('oyiso-vi-thumb-has-image');
+            $thumb.data('image-id', '');
+            $uploadId.val('');
+            markFormClean();
+            var $uploadBtn = $panel.find('.upload_image_button');
+            $uploadBtn.removeClass('remove');
+            $uploadBtn.find('img').attr('src', placehold);
+            saveVariation($variation, 'image_id', '', $thumb);
         });
 
         // 库存状态：点击循环 + AJAX 保存

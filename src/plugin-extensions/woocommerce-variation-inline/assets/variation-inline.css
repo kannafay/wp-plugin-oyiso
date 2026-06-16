@@ -1,7 +1,7 @@
 .oyiso-vi-inline {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
     position: relative;
     flex-shrink: 0;
     /* float: right; */
@@ -119,6 +119,7 @@
 }
 
 .oyiso-vi-thumb {
+    position: relative;
     display: inline-flex;
     width: 40px;
     height: 40px;
@@ -171,4 +172,36 @@
     left: 10px;
     border: 5px solid transparent;
     border-bottom-color: #d63638;
+}
+
+.oyiso-vi-thumb-has-image {
+    overflow: visible;
+}
+
+.oyiso-vi-thumb-x {
+    display: none;
+}
+
+.oyiso-vi-thumb-has-image .oyiso-vi-thumb-x {
+    display: none;
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    background: #d63638;
+    border-radius: 50%;
+    line-height: 1;
+    z-index: 1;
+    box-shadow: 0 0 0 2px #fff;
+}
+
+.oyiso-vi-thumb-has-image:hover .oyiso-vi-thumb-x {
+    display: flex;
+    pointer-events: auto;
 }
