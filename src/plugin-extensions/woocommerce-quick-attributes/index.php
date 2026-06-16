@@ -56,8 +56,8 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
                     </div>
                     <div class="oyiso-qa-modal-footer">
                         <span class="spinner oyiso-qa-modal-spinner" style="float:none;margin:0 6px 0 0;"></span>
-                        <button type="button" class="button button-primary oyiso-qa-modal-do">确定添加</button>
                         <button type="button" class="button oyiso-qa-modal-cancel">取消</button>
+                        <button type="button" class="button button-primary oyiso-qa-modal-do">确定添加</button>
                     </div>
                 </div>
             </div>
