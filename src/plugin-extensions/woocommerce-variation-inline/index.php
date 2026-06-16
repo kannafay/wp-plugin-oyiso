@@ -24,6 +24,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             add_action('wp_ajax_' . self::AJAX_ACTION, [__CLASS__, 'ajaxSave']);
             add_action('woocommerce_variable_product_bulk_edit_actions', [__CLASS__, 'addSkuBulkActions']);
             add_action('wp_ajax_' . self::AJAX_GENERATE_SKU, [__CLASS__, 'ajaxGenerateSku']);
+            add_action('admin_footer', [__CLASS__, 'renderSkuConfirmTemplate']);
         }
 
         public static function isEnabled(): bool
@@ -52,7 +53,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             wp_enqueue_media();
             wp_enqueue_script(
                 'oyiso-wc-variation-inline',
-                plugins_url('assets/variation-inline.js', __FILE__),
+                plugins_url('assets/variation-inline.js?v=' . filemtime(__DIR__ . '/assets/variation-inline.js'), __FILE__),
                 ['jquery', 'wp-mediaelement'],
                 filemtime(__DIR__ . '/assets/variation-inline.js'),
                 true
@@ -66,7 +67,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'wc_thousand_sep' => wc_get_price_thousand_separator(),
                 'placeholder_img_src' => wc_placeholder_img_src(),
                 'generate_sku_action' => self::AJAX_GENERATE_SKU,
-                'product_id' => get_the_ID() ?: 0,
+                'product_id' => isset($_GET['post']) ? absint($_GET['post']) : 0,
             ]);
 
             wp_enqueue_style(
@@ -81,8 +82,9 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
         {
             ?>
             <optgroup label="SKU">
-                <option value="oyiso_regenerate_sku">全部重新生成</option>
-                <option value="oyiso_generate_missing_sku">仅补全缺失</option>
+                <option value="oyiso_clear_sku">清除全部SKU</option>
+                <option value="oyiso_regenerate_sku">生成全部SKU</option>
+                <option value="oyiso_generate_missing_sku">补全缺失SKU</option>
             </optgroup>
             <?php
         }
@@ -137,7 +139,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
 
         public static function ajaxGenerateSku(): void
         {
-            check_ajax_referer(self::NONCE_ACTION, 'nonce');
+            check_ajax_referer(self::AJAX_ACTION, 'nonce');
 
             if (!current_user_can('edit_products')) {
                 wp_send_json_error(['message' => '权限不足']);
@@ -163,6 +165,20 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             foreach ($variation_ids as $variation_id) {
                 $variation = wc_get_product($variation_id);
                 if (!$variation) continue;
+
+                if ($mode === 'clear') {
+                    $child_sku = get_post_meta($variation_id, '_sku', true);
+                    if (empty($child_sku)) {
+                        $skipped++;
+                        continue;
+                    }
+                    delete_post_meta($variation_id, '_sku');
+                    if (function_exists('wc_update_product_lookup_tables_column')) {
+                        wc_update_product_lookup_tables_column('sku', [$variation_id]);
+                    }
+                    $results[] = ['variation_id' => $variation_id, 'sku' => ''];
+                    continue;
+                }
 
                 $child_sku = get_post_meta($variation_id, '_sku', true);
 
@@ -215,9 +231,34 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             }
 
             wp_send_json_success([
-                'message' => sprintf('SKU 生成完成：成功 %d 个，跳过 %d 个', count($results), $skipped),
+                'message' => ($mode === 'clear' ? sprintf('SKU 清除完成：清除 %d 个，跳过 %d 个', count($results), $skipped) : sprintf('SKU 生成完成：成功 %d 个，跳过 %d 个', count($results), $skipped)),
                 'results' => $results,
             ]);
+        }
+
+        public static function renderSkuConfirmTemplate(): void
+        {
+            $screen = get_current_screen();
+            if (!$screen || $screen->post_type !== 'product' || !in_array($screen->base, ['post', 'edit'], true)) {
+                return;
+            }
+            ?>
+            <div id="oyiso-vi-sku-modal" class="oyiso-vi-sku-modal-backdrop" style="display:none;">
+                <div class="oyiso-vi-sku-modal-content">
+                    <div class="oyiso-vi-sku-modal-header">
+                        <h2 id="oyiso-vi-sku-modal-title">确认操作</h2>
+                        <button type="button" class="oyiso-vi-sku-modal-close">&times;</button>
+                    </div>
+                    <div class="oyiso-vi-sku-modal-body">
+                        <p id="oyiso-vi-sku-modal-message"></p>
+                    </div>
+                    <div class="oyiso-vi-sku-modal-footer">
+                        <button type="button" class="button oyiso-vi-sku-modal-cancel">取消</button>
+                        <button type="button" class="button button-primary oyiso-vi-sku-modal-do">确认</button>
+                    </div>
+                </div>
+            </div>
+            <?php
         }
     }
 }

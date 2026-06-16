@@ -394,24 +394,34 @@
     });
 
 
-    // 批量生成 SKU
-    document.querySelector('.do_variation_action')?.addEventListener('click', function(e) {
-        var select = document.querySelector('select.variation_actions');
-        if (!select) return;
-        var action = select.value;
-        if (action !== 'oyiso_regenerate_sku' && action !== 'oyiso_generate_missing_sku') return;
+                // 自定义确认弹窗
+    var $skuModal = $('#oyiso-vi-sku-modal');
+    var $skuModalTitle = $('#oyiso-vi-sku-modal-title');
+    var $skuModalMsg = $('#oyiso-vi-sku-modal-message');
 
-        e.preventDefault();
-        e.stopPropagation();
+    function showSkuModal(title, msg, mode) {
+        $skuModalTitle.text(title);
+        $skuModalMsg.text(msg);
+        $skuModal.css('display', 'flex');
+        $skuModal[0].offsetHeight;
+        $skuModal.addClass('is-open');
+        $skuModal.data('mode', mode);
+    }
 
-        var mode = action === 'oyiso_regenerate_sku' ? 'all' : 'missing';
-        var modeLabel = action === 'oyiso_regenerate_sku' ? '全部重新生成' : '仅补全缺失';
+    function closeSkuModal() {
+        $skuModal.removeClass('is-open');
+        setTimeout(function() { $skuModal.css('display', 'none'); }, 200);
+    }
 
-        if (!window.confirm('确认对当前所有变体' + modeLabel + ' SKU？\n\n'
-            + (mode === 'missing' ? '已有 SKU 的变体将被跳过。' : '已存在的 SKU 将被重新生成并覆盖。'))) {
-            select.value = '';
-            return;
-        }
+    $skuModal.on('click', '.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel', closeSkuModal);
+    $skuModal.on('click', function(e) {
+        if (e.target === this) closeSkuModal();
+    });
+
+    $skuModal.on('click', '.oyiso-vi-sku-modal-do', function() {
+        var m = $skuModal.data('mode');
+        closeSkuModal();
+        if (!m) return;
 
         $.ajax({
             url: config.ajaxurl,
@@ -420,22 +430,44 @@
                 action: config.generate_sku_action,
                 nonce: config.nonce,
                 product_id: config.product_id,
-                mode: mode,
+                mode: m,
             },
             success: function(resp) {
                 if (resp.success) {
                     alert(resp.data.message);
                 } else {
-                    alert('SKU 生成失败：' + (resp.data.message || '未知错误'));
+                    alert('SKU 操作失败：' + (resp.data.message || '未知错误'));
                 }
             },
             error: function() {
-                alert('SKU 生成失败：网络错误');
+                alert('SKU 操作失败：网络错误');
             },
             complete: function() {
-                select.value = '';
+                $('select.variation_actions, #field_to_edit').val('');
             }
         });
-    }, true); // capture phase，在 jQuery 之前拦截
+    });
+
+    // 批量生成 SKU（拦截 before WC）
+    $('#variable_product_options').on('change', '#field_to_edit, select.variation_actions', function(e) {
+        var action = $(e.target).val();
+        if (action !== 'oyiso_regenerate_sku' && action !== 'oyiso_generate_missing_sku' && action !== 'oyiso_clear_sku') return;
+
+        e.stopPropagation();
+
+        var mode = action === 'oyiso_clear_sku' ? 'clear' : (action === 'oyiso_regenerate_sku' ? 'all' : 'missing');
+        var titles = {
+            clear: '清除全部SKU',
+            all: '生成全部SKU',
+            missing: '补全缺失SKU'
+        };
+        var messages = {
+            clear: '确认清除当前所有变体的 SKU？\n此操作不可撤销，已存在的 SKU 将被永久删除。',
+            all: '确认对当前所有变体生成 SKU？\n\n已存在的 SKU 将被重新生成并覆盖。',
+            missing: '确认对当前所有变体补全缺失的 SKU？\n\n已有 SKU 的变体将被跳过。'
+        };
+
+        showSkuModal('确认操作 - ' + titles[mode], messages[mode], mode);
+    });
 
 })(jQuery);
