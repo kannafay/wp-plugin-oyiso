@@ -84,6 +84,30 @@
         }
     }
 
+    function validatePriceCompare($variation) {
+        var $reg = $variation.find('.oyiso-vi-price[data-field="regular_price"]');
+        var $sale = $variation.find('.oyiso-vi-price[data-field="sale_price"]');
+        var rv = $reg.val();
+        var sv = $sale.val();
+
+        $sale.removeClass('oyiso-vi-price-compare-error');
+
+        if (rv && sv) {
+            var regNum = parseFloat(rv);
+            var saleNum = parseFloat(sv);
+            if (!isNaN(regNum) && !isNaN(saleNum) && saleNum >= regNum) {
+                $sale.addClass('oyiso-vi-price-compare-error');
+                if (!$sale.hasClass('oyiso-vi-price-error') && ($reg.is(':focus') || $sale.is(':focus'))) {
+                    $('.oyiso-vi-price-error-tip').remove();
+                    var $tip = $('<span class="oyiso-vi-price-error-tip">销售价必须小于常规价</span>');
+                    $tip.appendTo('body');
+                    var rect = $sale[0].getBoundingClientRect();
+                    $tip.css({ left: rect.left + 'px', top: (rect.bottom + 6) + 'px' });
+                }
+            }
+        }
+    }
+
     function bindInlineEvents($variation) {
         // 阻止内联区域点击冒泡到 h3
         $variation.find('.oyiso-vi-inline').on('click', function (e) {
@@ -96,13 +120,14 @@
         $variation.find('.oyiso-vi-price').on('input', function () {
             var $in = $(this);
             validatePriceFormat($in);
+            validatePriceCompare($variation);
             var field = $in.data('field');
             var $hidden = $panel.find(field === 'regular_price' ? 'input[name^="variable_regular_price"]' : 'input[name^="variable_sale_price"]');
             $hidden[0] && ($hidden[0].value = $in.val());
             markFormClean();
 
-            // 价格格式错误时拦截 AJAX 保存
-            if ($in.hasClass('oyiso-vi-price-error')) {
+            // 价格错误时拦截 AJAX 保存
+            if ($variation.find('.oyiso-vi-price-error, .oyiso-vi-price-compare-error').length > 0) {
                 return;
             }
 
@@ -123,13 +148,14 @@
         // 价格输入：聚焦时重新验证显示 tooltip，失焦时隐藏
         $variation.find('.oyiso-vi-price').on('focus', function () {
             validatePriceFormat($(this));
+            validatePriceCompare($variation);
         });
 
         $variation.find('.oyiso-vi-price').on('blur', function () {
             var $input = $(this);
             $('.oyiso-vi-price-error-tip').remove();
 
-            if ($input.hasClass('oyiso-vi-price-error')) {
+            if ($variation.find('.oyiso-vi-price-error, .oyiso-vi-price-compare-error').length > 0) {
                 return;
             }
 

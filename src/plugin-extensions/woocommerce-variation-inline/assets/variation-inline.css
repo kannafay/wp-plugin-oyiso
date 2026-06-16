@@ -205,3 +205,13 @@
     display: flex;
     pointer-events: auto;
 }
+
+.oyiso-vi-price-compare-error {
+    border-color: #d63638 !important;
+    background: #fcf0f1;
+}
+
+.oyiso-vi-price-compare-error:focus {
+    border-color: #d63638 !important;
+    box-shadow: 0 0 0 1px #d63638 !important;
+}
