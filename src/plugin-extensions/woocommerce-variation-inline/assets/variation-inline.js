@@ -23,6 +23,7 @@
         var salePrice = $panel.find('input[name^="variable_sale_price"]').val() || '';
         var stockStatus = $panel.find('select[name^="variable_stock_status"]').val() || 'instock';
         var enabled = $panel.find('input[name^="variable_enabled"]').is(':checked');
+        var sku = $panel.find('input[name^="variable_sku"]').val() || '';
         var thumbUrl = $panel.find('img').first().attr('src') || '';
         var hasImage = parseInt($panel.find('.upload_image_id').val(), 10) > 0;
 
@@ -33,6 +34,7 @@
             '<span class="oyiso-vi-price-wrap"><input type="text" class="oyiso-vi-price" data-field="sale_price" value="' + escAttr(salePrice) + '" placeholder="销售价"' + (!regularPrice ? ' disabled' : '') + '></span>' +
             buildStockBtn(stockStatus) +
             buildEnabledBtn(enabled) +
+            buildSkuStatus(sku) +
             '</span>';
 
         $h3.append(html);
@@ -45,6 +47,13 @@
         var label = STOCK_LABELS[status] || status;
         var cls = STOCK_CLASSES[status] || '';
         return '<button type="button" class="oyiso-vi-btn oyiso-vi-stock-btn ' + cls + '" data-field="stock_status" data-status="' + status + '">' + label + '</button>';
+    }
+
+    function buildSkuStatus(sku) {
+        if (sku) {
+            return '<span class="oyiso-vi-sku-status oyiso-vi-sku-status-set" data-sku="' + escAttr(sku) + '">SKU</span>';
+        }
+        return '<span class="oyiso-vi-sku-status oyiso-vi-sku-status-set" style="display:none" data-sku="">SKU</span>';
     }
 
     function buildEnabledBtn(enabled) {
@@ -448,6 +457,18 @@
             success: function(resp) {
                 if (resp.success) {
                     alert(resp.data.message);
+                    // 更新内联 SKU 显示
+                    if (resp.data.results) {
+                        $.each(resp.data.results, function(i, item) {
+                            var $inline = $('.oyiso-vi-inline[data-variation="' + item.variation_id + '"]');
+                            var $s = $inline.find('.oyiso-vi-sku-status');
+                            if ($s.length) {
+                                $s.text(item.sku ? 'SKU: ' + item.sku : '无SKU')
+                                    .toggleClass('oyiso-vi-sku-status-set', !!item.sku)
+                                    .toggleClass('oyiso-vi-sku-status-empty', !item.sku);
+                            }
+                        });
+                    }
                     try { var pg = parseInt($('.variations-pagenav .page-selector').val()) || 1; $('.variations-pagenav .page-selector').val(pg).trigger('change'); } catch(e) {}
                 } else {
                     alert('SKU 操作失败：' + (resp.data.message || '未知错误'));
@@ -489,5 +510,25 @@
         }, true); // capture phase
     }
 
+
+
+    // SKU 浮层提示
+    $(document).on('mouseenter', '.oyiso-vi-sku-status-set', function() {
+        var $el = $(this);
+        var sku = $el.data('sku');
+        if (!sku) return;
+
+        var $tip = $('<span class="oyiso-vi-sku-tip">' + sku + '</span>').appendTo('body');
+        var rect = $el[0].getBoundingClientRect();
+        $tip.css({
+            left: (rect.left + rect.width / 2 + window.scrollX) + 'px',
+            top: (rect.top + window.scrollY - $tip.outerHeight() - 6) + 'px',
+            transform: 'translateX(-50%)'
+        });
+        $el.data('tip', $tip);
+    }).on('mouseleave', '.oyiso-vi-sku-status-set', function() {
+        var $tip = $(this).data('tip');
+        if ($tip) { $tip.remove(); $(this).data('tip', null); }
+    });
 
 })(jQuery);
