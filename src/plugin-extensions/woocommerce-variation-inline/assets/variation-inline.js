@@ -28,8 +28,8 @@
         // 构建内联 HTML
         var html = '<span class="oyiso-vi-inline" data-variation="' + variationId + '">' +
             '<span class="oyiso-vi-thumb" title="点击更换封面"><img src="' + escAttr(thumbUrl) + '" width="26" height="26"></span>' +
-            '<input type="text" class="oyiso-vi-price" data-field="regular_price" value="' + escAttr(regularPrice) + '" placeholder="常规价">' +
-            '<input type="text" class="oyiso-vi-price" data-field="sale_price" value="' + escAttr(salePrice) + '" placeholder="销售价"' + (!regularPrice ? ' disabled' : '') + '>' +
+            '<span class="oyiso-vi-price-wrap"><input type="text" class="oyiso-vi-price" data-field="regular_price" value="' + escAttr(regularPrice) + '" placeholder="常规价"></span>' +
+            '<span class="oyiso-vi-price-wrap"><input type="text" class="oyiso-vi-price" data-field="sale_price" value="' + escAttr(salePrice) + '" placeholder="销售价"' + (!regularPrice ? ' disabled' : '') + '></span>' +
             buildStockBtn(stockStatus) +
             buildEnabledBtn(enabled) +
             '</span>';
@@ -57,6 +57,32 @@
         return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    function validatePriceFormat($input) {
+        var val = $input.val();
+        var decimalSep = config.wc_decimal_sep || '.';
+
+        $input.removeClass('oyiso-vi-price-error');
+        $('.oyiso-vi-price-error-tip').remove();
+
+        if (!val || !val.trim()) return;
+
+        var errorMsg = '';
+
+        if (/[^\d]/.test(val.split(decimalSep).join(''))) {
+            errorMsg = '请输入正确的价格格式（仅数字和' + decimalSep + '）';
+        }
+
+        if (errorMsg) {
+            $input.addClass('oyiso-vi-price-error');
+            if ($input.is(':focus')) {
+                var $tip = $('<span class="oyiso-vi-price-error-tip">' + errorMsg + '</span>');
+                $tip.appendTo('body');
+                var rect = $input[0].getBoundingClientRect();
+                $tip.css({ left: rect.left + 'px', top: (rect.bottom + 6) + 'px' });
+            }
+        }
+    }
+
     function bindInlineEvents($variation) {
         // 阻止内联区域点击冒泡到 h3
         $variation.find('.oyiso-vi-inline').on('click', function (e) {
@@ -68,15 +94,17 @@
         // 价格输入：实时同步到隐藏字段，输入时防抖保存
         $variation.find('.oyiso-vi-price').on('input', function () {
             var $in = $(this);
-            // 只允许数字和价格相关字符
-            var cleaned = $in.val().replace(/[^0-9.,-]/g, '');
-            if (cleaned !== $in.val()) {
-                $in.val(cleaned);
-            }
+            validatePriceFormat($in);
             var field = $in.data('field');
             var $hidden = $panel.find(field === 'regular_price' ? 'input[name^="variable_regular_price"]' : 'input[name^="variable_sale_price"]');
             $hidden[0] && ($hidden[0].value = $in.val());
             markFormClean();
+
+            // 价格格式错误时拦截 AJAX 保存
+            if ($in.hasClass('oyiso-vi-price-error')) {
+                return;
+            }
+
             // 常规价为空时禁用销售价
             saveVariation($variation, field, $in.val(), $in);
 
@@ -89,6 +117,40 @@
                     $sale.prop('disabled', false);
                 }
             }
+        });
+
+        // 价格输入：聚焦时重新验证显示 tooltip，失焦时隐藏
+        $variation.find('.oyiso-vi-price').on('focus', function () {
+            validatePriceFormat($(this));
+        });
+
+        $variation.find('.oyiso-vi-price').on('blur', function () {
+            var $input = $(this);
+            $('.oyiso-vi-price-error-tip').remove();
+
+            if ($input.hasClass('oyiso-vi-price-error')) {
+                return;
+            }
+
+            var variationId = $variation.find('.variable_post_id').val();
+            var field = $input.data('field');
+            var value = $input.val();
+            if (!variationId || !field) return;
+
+            var key = variationId + '_' + field;
+            clearTimeout(saveTimers[key]);
+
+            $.ajax({
+                url: config.ajaxurl,
+                type: 'POST',
+                data: {
+                    action: config.action,
+                    nonce: config.nonce,
+                    variation_id: variationId,
+                    field: field,
+                    value: value
+                }
+            });
         });
 
         // 封面点击：打开媒体库

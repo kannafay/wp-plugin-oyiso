@@ -51,7 +51,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'oyiso-wc-variation-inline',
                 plugins_url('assets/variation-inline.js', __FILE__),
                 ['jquery', 'wp-mediaelement'],
-                '1.0.0',
+                filemtime(__DIR__ . '/assets/variation-inline.js'),
                 true
             );
 
@@ -59,13 +59,15 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'nonce' => wp_create_nonce(self::AJAX_ACTION),
                 'ajaxurl' => admin_url('admin-ajax.php'),
                 'action' => self::AJAX_ACTION,
+                'wc_decimal_sep' => wc_get_price_decimal_separator(),
+                'wc_thousand_sep' => wc_get_price_thousand_separator(),
             ]);
 
             wp_enqueue_style(
                 'oyiso-wc-variation-inline',
                 plugins_url('assets/variation-inline.css', __FILE__),
                 [],
-                '1.0.0'
+                filemtime(__DIR__ . '/assets/variation-inline.css')
             );
         }
 
