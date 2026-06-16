@@ -79,6 +79,10 @@ if (function_exists('oyiso_wc_quick_attributes_get_fields')) {
     $wc_section_fields = array_merge($wc_section_fields, oyiso_wc_quick_attributes_get_fields());
 }
 
+if (function_exists('oyiso_wc_variation_inline_get_fields')) {
+    $wc_section_fields = array_merge($wc_section_fields, oyiso_wc_variation_inline_get_fields());
+}
+
 CSF::createSection('oyiso', [
     'parent' => 'plugin-extensions',
     'id' => 'woocommerce-product-table',

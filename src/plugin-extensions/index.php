@@ -23,6 +23,8 @@ add_action('plugins_loaded', function () {
     require_once __DIR__ . '/woocommerce-quick-attributes/settings.php';
     require_once __DIR__ . '/woocommerce-variation-split/settings.php';
     require_once __DIR__ . '/woocommerce-variation-split/index.php';
+    require_once __DIR__ . '/woocommerce-variation-inline/settings.php';
+    require_once __DIR__ . '/woocommerce-variation-inline/index.php';
     require_once __DIR__ . '/woocommerce-product-table/settings.php';
     require_once __DIR__ . '/woocommerce-quick-attributes/index.php';
 });

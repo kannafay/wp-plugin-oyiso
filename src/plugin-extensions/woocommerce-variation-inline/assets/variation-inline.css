@@ -1,0 +1,101 @@
+.oyiso-vi-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    float: right;
+    margin-right: 6px;
+    margin-top: -1px;
+}
+
+.oyiso-vi-price {
+    width: 80px;
+    height: 26px;
+    margin: 0 !important;
+    padding: 1px 6px;
+    font-size: 12px;
+    border: 1px solid #8c8f94;
+    border-radius: 3px;
+    text-align: right;
+    box-sizing: border-box;
+}
+
+.oyiso-vi-price:focus {
+    border-color: var(--wp-admin-theme-color, #3858e9);
+    box-shadow: 0 0 0 1px var(--wp-admin-theme-color, #3858e9);
+    outline: none;
+}
+
+.oyiso-vi-btn {
+    height: 26px;
+    margin: 0 !important;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 500;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 26px;
+    transition: background .15s, opacity .15s;
+}
+
+.oyiso-vi-btn:active {
+    opacity: .8;
+}
+
+.oyiso-vi-green {
+    background: #e6f4ea;
+    color: #1e7e34;
+}
+
+.oyiso-vi-green:hover {
+    background: #c8e6c9;
+}
+
+.oyiso-vi-red {
+    background: #fce8e6;
+    color: #c5221f;
+}
+
+.oyiso-vi-red:hover {
+    background: #f5c6c0;
+}
+
+.oyiso-vi-orange {
+    background: #fef7e0;
+    color: #e37400;
+}
+
+.oyiso-vi-orange:hover {
+    background: #feefc3;
+}
+
+.oyiso-vi-gray {
+    background: #f1f3f4;
+    color: #5f6368;
+}
+
+.oyiso-vi-gray:hover {
+    background: #e3e5e8;
+}
+.oyiso-vi-saving {
+    opacity: .5;
+    pointer-events: none;
+    transition: opacity .15s;
+}
+.oyiso-vi-price:disabled {
+    background: #f0f0f1;
+    color: #a7aaad;
+    cursor: not-allowed;
+}
+.oyiso-vi-price.oyiso-vi-saving {
+    animation: oyiso-vi-pulse .6s ease-in-out infinite;
+    background: #f0f6ff;
+    pointer-events: none;
+}
+
+@keyframes oyiso-vi-pulse {
+    0%, 100% { border-color: #a7aaad; }
+    50% { border-color: #3858e9; background: #e8f0fe; }
+}
