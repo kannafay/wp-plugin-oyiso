@@ -138,8 +138,11 @@
             if (!variationId || !field) return;
 
             var key = variationId + '_' + field;
+            if (lastSavedValues[key] === value) return;
+            lastSavedValues[key] = value;
             clearTimeout(saveTimers[key]);
 
+            $input.addClass('oyiso-vi-saving');
             $.ajax({
                 url: config.ajaxurl,
                 type: 'POST',
@@ -149,6 +152,9 @@
                     variation_id: variationId,
                     field: field,
                     value: value
+                },
+                complete: function () {
+                    $input.removeClass('oyiso-vi-saving');
                 }
             });
         });
@@ -217,6 +223,14 @@
             $panel.find('input[name^="variable_enabled"]')[0] && ($panel.find('input[name^="variable_enabled"]')[0].checked = nextEnabled);
             markFormClean();
         });
+
+        // 初始化 lastSavedValues，防止首次失焦重复保存
+        var vid = $variation.find('.variable_post_id').val();
+        if (vid) {
+            $variation.find('.oyiso-vi-price').each(function () {
+                lastSavedValues[vid + '_' + jQuery(this).data('field')] = jQuery(this).val();
+            });
+        }
     }
 
     // 展开面板编辑 → 同步回内联
@@ -245,6 +259,7 @@
     }
 
     var saveTimers = {};
+    var lastSavedValues = {};
 
     function markFormClean() {
         // 强制 WordPress 认为表单已保存
@@ -267,6 +282,7 @@
         }
 
         var key = variationId + '_' + field;
+        lastSavedValues[key] = value;
         clearTimeout(saveTimers[key]);
         saveTimers[key] = setTimeout(function () {
             if ($el) { $el.addClass('oyiso-vi-saving'); }
