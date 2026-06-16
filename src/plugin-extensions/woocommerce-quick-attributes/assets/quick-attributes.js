@@ -14,12 +14,16 @@
     var currentTaxonomy = '';
     var currentIdx = '';
     var $modalTitle = $modal.find('.oyiso-qa-modal-header h2');
+    var activeTab = 'new';
 
     // 打开弹窗
     $(document).on('click', '.oyiso-qa-btn', function () {
         currentTaxonomy = $(this).data('taxonomy');
+        cachedTerms = null;
         currentIdx = $(this).data('idx');
         $modalTitle.text('快速添加属性值 — ' + ($(this).data('label') || currentTaxonomy));
+        activeTab = 'new';
+        switchTab('new');
         $textarea.val('');
         $preview.html('输入后此处将显示哪些值新建、哪些复用').removeClass('oyiso-qa-preview-active').addClass('oyiso-qa-preview-hint');
         $doBtn.prop('disabled', false);
@@ -28,6 +32,110 @@
         $modal[0].offsetHeight;
         $modal.addClass('is-open');
         setTimeout(function () { $textarea.focus(); }, 250);
+    });
+
+    // Tab 切换
+    function switchTab(tab) {
+        activeTab = tab;
+        $('.oyiso-qa-tab').toggleClass('oyiso-qa-tab-active', false);
+        $('.oyiso-qa-tab[data-tab="' + tab + '"]').addClass('oyiso-qa-tab-active');
+        $('.oyiso-qa-tab-panel').hide();
+        $('.oyiso-qa-tab-panel[data-panel="' + tab + '"]').show();
+
+        if (tab === 'existing') {
+            fetchTerms();
+        } else {
+            setTimeout(function () { $textarea.focus(); }, 100);
+        }
+    }
+
+    $('.oyiso-qa-tab').on('click', function () {
+        switchTab($(this).data('tab'));
+    });
+
+    // 获取已有术语
+    var cachedTerms = null;
+
+    function fetchTerms() {
+        var $list = $('.oyiso-qa-term-list');
+        var $count = $('.oyiso-qa-term-count');
+
+        if (cachedTerms && cachedTerms.taxonomy === currentTaxonomy) {
+            renderTermList(cachedTerms.terms);
+            return;
+        }
+
+        $list.html('<span class="spinner oyiso-qa-term-spinner" style="float:none;margin:12px auto;display:block;"></span>');
+        $count.text('');
+
+        $.ajax({
+            url: config.ajaxurl,
+            type: 'POST',
+            data: {
+                action: config.getTermsAction,
+                nonce: config.nonce,
+                taxonomy: currentTaxonomy
+            },
+            success: function (resp) {
+                if (!resp.success || !resp.data) {
+                    $list.html('<div class="oyiso-qa-no-terms">获取失败</div>');
+                    return;
+                }
+                cachedTerms = { taxonomy: currentTaxonomy, terms: resp.data.terms };
+                renderTermList(resp.data.terms);
+            },
+            error: function () {
+                $list.html('<div class="oyiso-qa-no-terms">获取失败</div>');
+            }
+        });
+    }
+
+    function renderTermList(terms) {
+        var $list = $('.oyiso-qa-term-list');
+        var $count = $('.oyiso-qa-term-count');
+
+        $count.text('共 ' + terms.length + ' 个');
+
+        if (!terms.length) {
+            $list.html('<div class="oyiso-qa-no-terms">该属性下暂无值</div>');
+            return;
+        }
+
+        var html = '';
+        $.each(terms, function (i, term) {
+            html += '<label class="oyiso-qa-term-item">' +
+                '<input type="checkbox" value="' + term.id + '" class="oyiso-qa-term-check">' +
+                '<span>' + $('<span>').text(term.name).html() + '</span>' +
+                '</label>';
+        });
+        $list.html(html);
+    }
+
+    // 全选 / 取消全选
+    // 搜索过滤
+    $(document).on('input', '.oyiso-qa-term-search', function () {
+        var q = $(this).val().toLowerCase();
+        $('.oyiso-qa-term-item').each(function () {
+            var text = $(this).find('span').text().toLowerCase();
+            $(this).toggle(text.indexOf(q) !== -1);
+        });
+    });
+
+    $(document).on('click', '.oyiso-qa-select-all', function () {
+        $('.oyiso-qa-term-check').prop('checked', true);
+    });
+
+    $(document).on('click', '.oyiso-qa-deselect-all', function () {
+        $('.oyiso-qa-term-check').prop('checked', false);
+    });
+
+    // 搜索过滤
+    $(document).on('input', '.oyiso-qa-term-search', function () {
+        var q = $(this).val().toLowerCase();
+        $('.oyiso-qa-term-item').each(function () {
+            var text = $(this).find('span').text().toLowerCase();
+            $(this).toggle(text.indexOf(q) !== -1);
+        });
     });
 
     // 关闭弹窗
@@ -102,6 +210,11 @@
 
     // 确定添加
     $doBtn.on('click', function () {
+        if (activeTab === 'existing') {
+            submitExistingTerms();
+            return;
+        }
+
         var raw = $textarea.val().trim();
 
         if (!raw) {
@@ -154,5 +267,36 @@
             }
         });
     });
+
+    function submitExistingTerms() {
+        var checked = $('.oyiso-qa-term-check:checked');
+        if (!checked.length) {
+            return;
+        }
+
+        $doBtn.prop('disabled', true);
+        $spinner.addClass('is-active');
+
+        var $select = $('.attribute_values[data-taxonomy="' + currentTaxonomy + '"]');
+        if ($select.length) {
+            var selected = $select.val() || [];
+            checked.each(function () {
+                var id = String($(this).val());
+                if ($select.find('option[value="' + id + '"]').length === 0) {
+                    var name = $(this).closest('.oyiso-qa-term-item').find('span').text();
+                    $('<option>').val(id).text(name).prop('selected', true).appendTo($select);
+                }
+                if ($.inArray(id, selected) === -1) {
+                    selected.push(id);
+                }
+            });
+            $select.val(selected).trigger('change');
+        }
+
+        $doBtn.prop('disabled', false);
+        $spinner.removeClass('is-active');
+        cachedTerms = null;
+        closeModal();
+    }
 
 })(jQuery);

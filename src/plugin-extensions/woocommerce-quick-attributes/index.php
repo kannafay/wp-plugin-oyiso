@@ -8,6 +8,7 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
         private const OPTION_ENABLED = 'oyiso_wc_quick_attributes_enabled';
         private const AJAX_ACTION = 'oyiso_wc_quick_attributes';
         private const AJAX_PREVIEW_ACTION = 'oyiso_wc_quick_attributes_preview';
+        private const AJAX_GET_TERMS_ACTION = 'oyiso_wc_quick_attributes_get_terms';
         private const NONCE_ACTION = 'oyiso_wc_quick_attributes_nonce';
 
         public static function init(): void
@@ -21,6 +22,7 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
             add_action('admin_enqueue_scripts', [__CLASS__, 'enqueueAssets']);
             add_action('wp_ajax_' . self::AJAX_ACTION, [__CLASS__, 'ajaxAddTerms']);
             add_action('wp_ajax_' . self::AJAX_PREVIEW_ACTION, [__CLASS__, 'ajaxPreview']);
+            add_action('wp_ajax_' . self::AJAX_GET_TERMS_ACTION, [__CLASS__, 'ajaxGetTerms']);
         }
 
         public static function isEnabled(): bool
@@ -50,9 +52,27 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
                         <button type="button" class="oyiso-qa-modal-close">&times;</button>
                     </div>
                     <div class="oyiso-qa-modal-body">
-                        <p class="oyiso-qa-modal-desc">粘贴属性值，支持逗号（含中文逗号）、竖线（|）或换行分隔。</p>
-                        <textarea id="oyiso-qa-modal-textarea" rows="6" placeholder="例：&#10;红色,蓝色&#10;绿色|黑色&#10;白色"></textarea>
-                        <div id="oyiso-qa-modal-preview">输入后此处将显示哪些值新建、哪些复用</div>
+                        <div class="oyiso-qa-tabs">
+                            <button type="button" class="oyiso-qa-tab oyiso-qa-tab-active" data-tab="new">新增</button>
+                            <button type="button" class="oyiso-qa-tab" data-tab="existing">选择已有</button>
+                        </div>
+                        <div class="oyiso-qa-tab-panel" data-panel="new">
+                            <p class="oyiso-qa-modal-desc">粘贴属性值，支持逗号（含中文逗号）、竖线（|）或换行分隔。</p>
+                            <textarea id="oyiso-qa-modal-textarea" rows="6" placeholder="例：&#10;红色,蓝色&#10;绿色|黑色&#10;白色"></textarea>
+                            <div id="oyiso-qa-modal-preview">输入后此处将显示哪些值新建、哪些复用</div>
+                        </div>
+                        <div class="oyiso-qa-tab-panel" data-panel="existing" style="display:none;">
+                            <p class="oyiso-qa-modal-desc">勾选已有的属性值，一次性批量添加到当前产品。</p>
+                            <input type="text" class="oyiso-qa-term-search" placeholder="搜索属性值..." style="width:100%;margin-bottom:10px;">
+                            <div class="oyiso-qa-term-actions">
+                                <button type="button" class="button oyiso-qa-select-all">全选</button>
+                                <button type="button" class="button oyiso-qa-deselect-all">取消全选</button>
+                                <span class="oyiso-qa-term-count"></span>
+                            </div>
+                            <div class="oyiso-qa-term-list">
+                                <span class="spinner oyiso-qa-term-spinner" style="float:none;margin:12px auto;display:block;"></span>
+                            </div>
+                        </div>
                     </div>
                     <div class="oyiso-qa-modal-footer">
                         <span class="spinner oyiso-qa-modal-spinner" style="float:none;margin:0 6px 0 0;"></span>
@@ -88,6 +108,7 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
                 'ajaxurl' => admin_url('admin-ajax.php'),
                 'action' => self::AJAX_ACTION,
                 'previewAction' => self::AJAX_PREVIEW_ACTION,
+                'getTermsAction' => self::AJAX_GET_TERMS_ACTION,
             ]);
 
             wp_enqueue_style(
@@ -167,6 +188,35 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
                 'new_vals' => $new_vals,
                 'total' => count($existing) + count($new_vals),
             ]);
+        }
+
+        public static function ajaxGetTerms(): void
+        {
+            check_ajax_referer(self::AJAX_ACTION, 'nonce');
+
+            if (!current_user_can('edit_products')) {
+                wp_send_json_error(['message' => '权限不足']);
+            }
+
+            $taxonomy = isset($_POST['taxonomy']) ? sanitize_text_field(wp_unslash($_POST['taxonomy'])) : '';
+
+            if (!$taxonomy || !taxonomy_exists($taxonomy)) {
+                wp_send_json_error(['message' => '属性分类法不存在']);
+            }
+
+            $terms = get_terms([
+                'taxonomy' => $taxonomy,
+                'hide_empty' => false,
+                'orderby' => 'name',
+                'order' => 'ASC',
+            ]);
+
+            if (is_wp_error($terms)) {
+                wp_send_json_error(['message' => '获取属性值失败']);
+            }
+
+            $data = array_map(fn($t) => ['id' => $t->term_id, 'name' => $t->name], $terms);
+            wp_send_json_success(['terms' => $data]);
         }
 
         private static function parseValues(string $raw): array
