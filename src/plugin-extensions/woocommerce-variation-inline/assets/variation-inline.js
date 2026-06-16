@@ -374,10 +374,6 @@
     $(function () {
         initAll();
 
-        // 滚动时移除错误提示，避免定位错位
-        $(window).on('scroll.oyiso-vi-tip', function () {
-            $('.oyiso-vi-price-error-tip').remove();
-        });
 
         var $container = $('#variable_product_options');
         if ($container.length) {
