@@ -171,7 +171,6 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
 
         private static function parseValues(string $raw): array
         {
-            $values = preg_split('/[,，\n\r]+/', $raw);
             $values = preg_split('/[,，\|\n\r]+/', $raw);
             $values = array_map('trim', $values);
             $values = array_filter($values, fn($v) => $v !== '');
