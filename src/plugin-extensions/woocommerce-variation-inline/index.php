@@ -6,6 +6,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
     final class Oyiso_WC_Variation_Inline
     {
         private const OPTION_ENABLED = 'oyiso_wc_variation_inline_enabled';
+        private const OPTION_UNLIMITED_PAGINATION = 'oyiso_wc_variation_inline_unlimited_pagination';
         private const AJAX_ACTION = 'oyiso_wc_variation_inline_save';
         private const NONCE_ACTION = 'oyiso_wc_variation_inline_nonce';
 
@@ -15,6 +16,9 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 return;
             }
 
+            if (self::isUnlimitedPagination()) {
+                add_filter('woocommerce_admin_meta_boxes_variations_per_page', fn() => 9999);
+            }
             add_action('admin_enqueue_scripts', [__CLASS__, 'enqueueAssets']);
             add_action('wp_ajax_' . self::AJAX_ACTION, [__CLASS__, 'ajaxSave']);
         }
@@ -23,6 +27,12 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
         {
             $options = get_option('oyiso', []);
             return !empty($options[self::OPTION_ENABLED]);
+        }
+
+        public static function isUnlimitedPagination(): bool
+        {
+            $options = get_option('oyiso', []);
+            return !empty($options[self::OPTION_UNLIMITED_PAGINATION]);
         }
 
         public static function enqueueAssets(string $hook): void
@@ -36,10 +46,11 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 return;
             }
 
+            wp_enqueue_media();
             wp_enqueue_script(
                 'oyiso-wc-variation-inline',
                 plugins_url('assets/variation-inline.js', __FILE__),
-                ['jquery'],
+                ['jquery', 'wp-mediaelement'],
                 '1.0.0',
                 true
             );
@@ -70,7 +81,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             $field = isset($_POST['field']) ? sanitize_text_field(wp_unslash($_POST['field'])) : '';
             $raw_value = isset($_POST['value']) ? wp_unslash($_POST['value']) : '';
 
-            $allowed = ['regular_price', 'sale_price', 'stock_status', 'enabled'];
+            $allowed = ['regular_price', 'sale_price', 'stock_status', 'enabled', 'image_id'];
             if (!$variation_id || !in_array($field, $allowed, true)) {
                 wp_send_json_error(['message' => '参数无效']);
             }
@@ -96,6 +107,9 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                     break;
                 case 'enabled':
                     $variation->set_status($raw_value ? 'publish' : 'private');
+                    break;
+                case 'image_id':
+                    $variation->set_image_id(absint($raw_value));
                     break;
             }
 

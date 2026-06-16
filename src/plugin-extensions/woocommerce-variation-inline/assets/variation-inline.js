@@ -23,9 +23,11 @@
         var salePrice = $panel.find('input[name^="variable_sale_price"]').val() || '';
         var stockStatus = $panel.find('select[name^="variable_stock_status"]').val() || 'instock';
         var enabled = $panel.find('input[name^="variable_enabled"]').is(':checked');
+        var thumbUrl = $panel.find('img').first().attr('src') || '';
 
         // 构建内联 HTML
         var html = '<span class="oyiso-vi-inline" data-variation="' + variationId + '">' +
+            '<span class="oyiso-vi-thumb" title="点击更换封面"><img src="' + escAttr(thumbUrl) + '" width="26" height="26"></span>' +
             '<input type="text" class="oyiso-vi-price" data-field="regular_price" value="' + escAttr(regularPrice) + '" placeholder="常规价">' +
             '<input type="text" class="oyiso-vi-price" data-field="sale_price" value="' + escAttr(salePrice) + '" placeholder="销售价"' + (!regularPrice ? ' disabled' : '') + '>' +
             buildStockBtn(stockStatus) +
@@ -56,9 +58,14 @@
     }
 
     function bindInlineEvents($variation) {
+        // 阻止内联区域点击冒泡到 h3
+        $variation.find('.oyiso-vi-inline').on('click', function (e) {
+            e.stopPropagation();
+        });
+
         var $panel = $variation.find('.woocommerce_variable_attributes');
 
-        // 价格输入：实时同步到隐藏字段，失焦时 AJAX 保存
+        // 价格输入：实时同步到隐藏字段，输入时防抖保存
         $variation.find('.oyiso-vi-price').on('input', function () {
             var $in = $(this);
             // 只允许数字和价格相关字符
@@ -67,11 +74,9 @@
                 $in.val(cleaned);
             }
             var field = $in.data('field');
-            var $hidden = $panel.find(field === 'regular_price'
-                ? 'input[name^="variable_regular_price"]'
-                : 'input[name^="variable_sale_price"]');
-            $hidden.val($in.val());
-
+            var $hidden = $panel.find(field === 'regular_price' ? 'input[name^="variable_regular_price"]' : 'input[name^="variable_sale_price"]');
+            $hidden[0] && ($hidden[0].value = $in.val());
+            markFormClean();
             // 常规价为空时禁用销售价
             saveVariation($variation, field, $in.val(), $in);
 
@@ -79,12 +84,42 @@
                 var $sale = $variation.find('.oyiso-vi-price[data-field="sale_price"]');
                 if (!$in.val().trim()) {
                     $sale.val('').prop('disabled', true);
-                    $panel.find('input[name^="variable_sale_price"]').val('');
                     saveVariation($variation, 'sale_price', '', $sale);
                 } else {
                     $sale.prop('disabled', false);
                 }
             }
+        });
+
+        // 封面点击：打开媒体库
+        $variation.find('.oyiso-vi-thumb').on('click', function (e) {
+            e.stopPropagation();
+            var $thumb = $(this);
+            var $img = $thumb.find('img');
+            var $uploadId = $panel.find('.upload_image_id');
+
+            var frame = wp.media({
+                title: '选择变体封面',
+                button: { text: '使用此图片' },
+                multiple: false
+            });
+
+            frame.on('select', function () {
+                var attachment = frame.state().get('selection').first().toJSON();
+                var thumbSize = (attachment.sizes && attachment.sizes.thumbnail)
+                    ? attachment.sizes.thumbnail.url
+                    : attachment.url;
+                $img.attr('src', thumbSize);
+                $thumb.data('image-id', attachment.id);
+                $panel.find('.upload_image_id')[0] && ($panel.find('.upload_image_id')[0].value = attachment.id);
+                markFormClean();
+                var $uploadBtn = $panel.find('.upload_image_button');
+                $uploadBtn.addClass('remove').attr('data-tip', '移除图片');
+                $uploadBtn.find('img').attr('src', thumbSize);
+                saveVariation($variation, 'image_id', attachment.id, $thumb);
+            });
+
+            frame.open();
         });
 
         // 库存状态：点击循环 + AJAX 保存
@@ -100,14 +135,15 @@
             $btn.removeClass('oyiso-vi-green oyiso-vi-red oyiso-vi-orange').addClass(STOCK_CLASSES[next] || '');
 
             // 同步隐藏字段
-            $panel.find('select[name^="variable_stock_status"]').val(next).trigger('change');
             saveVariation($variation, 'stock_status', next, $btn);
+            $panel.find('select[name^="variable_stock_status"]')[0] && ($panel.find('select[name^="variable_stock_status"]')[0].value = next);
+            markFormClean();
         });
 
         // 启用状态：点击切换 + AJAX 保存
         $variation.find('.oyiso-vi-enabled-btn').on('click', function () {
             var $btn = $(this);
-            var currentEnabled = $btn.data('status') === '1';
+            var currentEnabled = $btn.data('status') == 1;
             var nextEnabled = !currentEnabled;
 
             $btn.data('status', nextEnabled ? '1' : '0');
@@ -115,8 +151,9 @@
             $btn.removeClass('oyiso-vi-green oyiso-vi-gray').addClass(nextEnabled ? 'oyiso-vi-green' : 'oyiso-vi-gray');
 
             // 同步隐藏字段
-            $panel.find('input[name^="variable_enabled"]').prop('checked', nextEnabled).trigger('change');
             saveVariation($variation, 'enabled', nextEnabled ? '1' : '0', $btn);
+            $panel.find('input[name^="variable_enabled"]')[0] && ($panel.find('input[name^="variable_enabled"]')[0].checked = nextEnabled);
+            markFormClean();
         });
     }
 
@@ -146,18 +183,31 @@
     }
 
     var saveTimers = {};
+
+    function markFormClean() {
+        // 强制 WordPress 认为表单已保存
+        try {
+            if (window.wp && window.wp.autosave && window.wp.autosave.server) {
+                window.wp.autosave.server.postChanged();
+                window.wp.autosave.server.reset();
+            }
+        } catch (e) {}
+        $('#post > .inside').removeClass('changed');
+        $('#publish').removeClass('button-primary-disabled');
+        $(window).off('beforeunload.edit-post');
+        $('#post').data('changed', false);
+    }
+
     function saveVariation($variation, field, value, $el) {
         var variationId = $variation.find('.variable_post_id').val();
         if (!variationId) {
-            if ($el) { $el.removeClass('oyiso-vi-saving'); }
             return;
         }
-
-        if ($el) { $el.addClass('oyiso-vi-saving'); }
 
         var key = variationId + '_' + field;
         clearTimeout(saveTimers[key]);
         saveTimers[key] = setTimeout(function () {
+            if ($el) { $el.addClass('oyiso-vi-saving'); }
             $.ajax({
                 url: config.ajaxurl,
                 type: 'POST',
@@ -172,7 +222,7 @@
                     if ($el) { $el.removeClass('oyiso-vi-saving'); }
                 }
             });
-        }, field === 'stock_status' || field === 'enabled' ? 0 : 400);
+        }, field === 'stock_status' || field === 'enabled' || field === 'image_id' ? 0 : 500);
     }
 
     // 初始化所有已有变体
