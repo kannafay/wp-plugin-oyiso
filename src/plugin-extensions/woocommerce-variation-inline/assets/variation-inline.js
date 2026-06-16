@@ -39,7 +39,6 @@
 
         // 绑定事件
         bindInlineEvents($variation);
-        bindPanelSync($variation);
     }
 
     function buildStockBtn(status) {
