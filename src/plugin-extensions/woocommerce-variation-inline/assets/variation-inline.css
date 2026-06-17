@@ -34,6 +34,7 @@
 }
 
 .oyiso-vi-btn {
+    position: relative;
     height: 26px;
     margin: 0 !important;
     padding: 0 8px;
@@ -91,6 +92,79 @@
     opacity: .5;
     pointer-events: none;
     transition: opacity .15s;
+}
+
+/* 库存 / 启用按钮保存中：蒙版 + 转圈，complete 后移除 saving 类即消失 */
+.oyiso-vi-btn.oyiso-vi-saving {
+    opacity: 1;
+    pointer-events: none;
+}
+
+/* 蒙版：盖住按钮内容 */
+.oyiso-vi-btn.oyiso-vi-saving::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: inherit;
+    background: rgba(255, 255, 255, .65);
+    z-index: 1;
+}
+
+/* spinner：最上层转圈 */
+.oyiso-vi-btn.oyiso-vi-saving::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    margin: -6px 0 0 -6px;
+    box-sizing: border-box;
+    border: 2px solid rgba(0, 0, 0, .15);
+    border-top-color: #646970;
+    border-radius: 50%;
+    z-index: 2;
+    animation: oyiso-vi-btn-spin .6s linear infinite;
+}
+
+@keyframes oyiso-vi-btn-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 封面保存中：蒙版 + 转圈，与按钮一致 */
+.oyiso-vi-thumb.oyiso-vi-saving {
+    opacity: 1;
+}
+
+.oyiso-vi-thumb.oyiso-vi-saving::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: inherit;
+    background: rgba(255, 255, 255, .65);
+    z-index: 2;
+}
+
+.oyiso-vi-thumb.oyiso-vi-saving::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    box-sizing: border-box;
+    border: 2px solid rgba(0, 0, 0, .15);
+    border-top-color: #646970;
+    border-radius: 50%;
+    z-index: 3;
+    animation: oyiso-vi-btn-spin .6s linear infinite;
 }
 
 .oyiso-vi-price:disabled {
@@ -192,20 +266,20 @@
     right: -3px;
     width: 16px;
     height: 16px;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
+    box-sizing: border-box;
+    text-align: center;
+    font-size: 12px;
     font-weight: 700;
     color: #fff;
     background: #d63638;
     border-radius: 50%;
-    line-height: 1;
+    line-height: 16px;
     z-index: 1;
     box-shadow: 0 0 0 2px #fff;
 }
 
 .oyiso-vi-thumb-has-image:hover .oyiso-vi-thumb-x {
-    display: flex;
+    display: block;
     pointer-events: auto;
 }
 

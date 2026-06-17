@@ -271,38 +271,44 @@
             saveVariation($variation, 'image_id', '', $thumb);
         });
 
-        // 库存状态：点击循环 + AJAX 保存
+        // 库存状态：点击循环 + AJAX 保存（保存成功后再更新外观）
         $variation.find('.oyiso-vi-stock-btn').on('click', function () {
             var $btn = $(this);
+            if ($btn.hasClass('oyiso-vi-saving')) return;
             var current = $btn.data('status');
             var next = current === 'instock' ? 'outofstock'
                 : current === 'outofstock' ? 'onbackorder'
                 : 'instock';
 
-            $btn.data('status', next);
-            $btn.text(STOCK_LABELS[next] || next);
-            $btn.removeClass('oyiso-vi-green oyiso-vi-red oyiso-vi-orange').addClass(STOCK_CLASSES[next] || '');
-
-            // 同步隐藏字段
-            saveVariation($variation, 'stock_status', next, $btn);
-            $panel.find('select[name^="variable_stock_status"]')[0] && ($panel.find('select[name^="variable_stock_status"]')[0].value = next);
-            markFormClean();
+            // 立即转圈锁定，保存成功后再切换按钮状态
+            $btn.addClass('oyiso-vi-saving');
+            saveVariation($variation, 'stock_status', next, $btn, function () {
+                $btn.data('status', next);
+                $btn.text(STOCK_LABELS[next] || next);
+                $btn.removeClass('oyiso-vi-green oyiso-vi-red oyiso-vi-orange').addClass(STOCK_CLASSES[next] || '');
+                var sel = $panel.find('select[name^="variable_stock_status"]')[0];
+                if (sel) sel.value = next;
+                markFormClean();
+            });
         });
 
-        // 启用状态：点击切换 + AJAX 保存
+        // 启用状态：点击切换 + AJAX 保存（保存成功后再更新外观）
         $variation.find('.oyiso-vi-enabled-btn').on('click', function () {
             var $btn = $(this);
+            if ($btn.hasClass('oyiso-vi-saving')) return;
             var currentEnabled = $btn.data('status') == 1;
             var nextEnabled = !currentEnabled;
 
-            $btn.data('status', nextEnabled ? '1' : '0');
-            $btn.text(nextEnabled ? '启用' : '禁用');
-            $btn.removeClass('oyiso-vi-green oyiso-vi-gray').addClass(nextEnabled ? 'oyiso-vi-green' : 'oyiso-vi-gray');
-
-            // 同步隐藏字段
-            saveVariation($variation, 'enabled', nextEnabled ? '1' : '0', $btn);
-            $panel.find('input[name^="variable_enabled"]')[0] && ($panel.find('input[name^="variable_enabled"]')[0].checked = nextEnabled);
-            markFormClean();
+            // 立即转圈锁定，保存成功后再切换按钮状态
+            $btn.addClass('oyiso-vi-saving');
+            saveVariation($variation, 'enabled', nextEnabled ? '1' : '0', $btn, function () {
+                $btn.data('status', nextEnabled ? '1' : '0');
+                $btn.text(nextEnabled ? '启用' : '禁用');
+                $btn.removeClass('oyiso-vi-green oyiso-vi-gray').addClass(nextEnabled ? 'oyiso-vi-green' : 'oyiso-vi-gray');
+                var chk = $panel.find('input[name^="variable_enabled"]')[0];
+                if (chk) chk.checked = nextEnabled;
+                markFormClean();
+            });
         });
 
         // 初始化 lastSavedValues，防止首次失焦重复保存
@@ -357,7 +363,7 @@
         $('#post').data('changed', false);
     }
 
-    function saveVariation($variation, field, value, $el) {
+    function saveVariation($variation, field, value, $el, onSuccess) {
         var variationId = $variation.find('.variable_post_id').val();
         if (!variationId) {
             return;
@@ -377,6 +383,11 @@
                     variation_id: variationId,
                     field: field,
                     value: value
+                },
+                success: function (resp) {
+                    if (onSuccess && resp && resp.success) {
+                        onSuccess(resp);
+                    }
                 },
                 complete: function () {
                     if ($el) { $el.removeClass('oyiso-vi-saving'); }

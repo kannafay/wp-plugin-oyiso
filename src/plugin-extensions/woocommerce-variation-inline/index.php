@@ -142,9 +142,9 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
         {
             ?>
             <optgroup label="SKU">
-                <option value="oyiso_clear_sku">清除全部SKU</option>
                 <option value="oyiso_regenerate_sku">生成全部SKU</option>
                 <option value="oyiso_generate_missing_sku">补全缺失SKU</option>
+                <option value="oyiso_clear_sku">清除全部SKU</option>
             </optgroup>
             <?php
         }
