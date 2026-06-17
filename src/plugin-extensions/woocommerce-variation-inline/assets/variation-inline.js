@@ -637,4 +637,99 @@
         });
     }
 
+    // 封面大图预览：hover 延迟后弹出
+    if (enableInline) {
+        var thumbPreviewTimer = null;
+        var $thumbPreview = null;
+
+        function removeThumbPreview() {
+            clearTimeout(thumbPreviewTimer);
+            thumbPreviewTimer = null;
+            if ($thumbPreview) { $thumbPreview.remove(); $thumbPreview = null; }
+        }
+
+        // 缩略图 url（xxx-150x150.jpg）推导原图地址
+        function fullImageUrl(src) {
+            if (!src) return src;
+            return src.replace(/-\d+x\d+(\.[a-z0-9]+)(\?.*)?$/i, '$1$2');
+        }
+
+        // 从 url 取文件名
+        function fileNameFromUrl(src) {
+            if (!src) return '';
+            var path = src.split('?')[0].split('#')[0];
+            var name = path.substring(path.lastIndexOf('/') + 1);
+            try { name = decodeURIComponent(name); } catch (e) {}
+            return name;
+        }
+
+        function positionThumbPreview($thumb) {
+            if (!$thumbPreview) return;
+            var rect = $thumb[0].getBoundingClientRect();
+            var pw = $thumbPreview.outerWidth();
+            var ph = $thumbPreview.outerHeight();
+            var gap = 10;
+
+            // 水平居中对齐缩略图中心，并夹在视口内
+            var centerX = rect.left + rect.width / 2;
+            var left = centerX - pw / 2;
+            var minLeft = 4;
+            var maxLeft = window.innerWidth - pw - 4;
+            if (left < minLeft) left = minLeft;
+            if (left > maxLeft) left = maxLeft;
+
+            // 默认放上方，上方放不下则翻到下方
+            var placeBelow = false;
+            var top = rect.top - gap - ph;
+            if (top < 4) {
+                top = rect.bottom + gap;
+                placeBelow = true;
+            }
+            $thumbPreview.toggleClass('is-below', placeBelow);
+
+            // 尖角对准缩略图中心（相对浮层左边的偏移，夹在两端避免溢出圆角）
+            var arrowLeft = centerX - left;
+            arrowLeft = Math.max(12, Math.min(pw - 12, arrowLeft));
+            $thumbPreview[0].style.setProperty('--arrow-left', arrowLeft + 'px');
+
+            $thumbPreview.css({ left: (left + window.scrollX) + 'px', top: (top + window.scrollY) + 'px' });
+        }
+
+        $(document).on('mouseenter', '.oyiso-vi-thumb-has-image', function () {
+            var $thumb = $(this);
+            var thumbSrc = $thumb.find('img').attr('src');
+            if (!thumbSrc) return;
+            var fullSrc = fullImageUrl(thumbSrc);
+            var fileName = fileNameFromUrl(fullSrc);
+
+            clearTimeout(thumbPreviewTimer);
+            thumbPreviewTimer = setTimeout(function () {
+                removeThumbPreview();
+                $thumbPreview = $('<div class="oyiso-vi-thumb-preview"><div class="oyiso-vi-thumb-preview-loading"></div></div>').appendTo('body');
+                positionThumbPreview($thumb);
+                $thumbPreview[0].offsetHeight; // 触发淡入
+                $thumbPreview.addClass('is-visible');
+
+                var img = new Image();
+                img.onload = function () {
+                    if (!$thumbPreview) return;
+                    $thumbPreview.empty().append(img);
+                    if (fileName) {
+                        $('<div class="oyiso-vi-thumb-preview-name"></div>').text(fileName).appendTo($thumbPreview);
+                    }
+                    positionThumbPreview($thumb);
+                };
+                img.onerror = function () {
+                    if (!$thumbPreview) return;
+                    img.onerror = null;
+                    img.src = thumbSrc; // 原图取不到则回退缩略图
+                };
+                img.src = fullSrc;
+            }, 500);
+        }).on('mouseleave', '.oyiso-vi-thumb-has-image', removeThumbPreview);
+
+        // 点击缩略图（打开媒体库 / 清除）时立即收起预览
+        $(document).on('click', '.oyiso-vi-thumb', removeThumbPreview);
+    }
+
 })(jQuery);

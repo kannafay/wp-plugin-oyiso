@@ -438,3 +438,101 @@
     border: 5px solid transparent;
     border-top-color: #1e1e1e;
 }
+
+/* 封面大图预览浮层 */
+.oyiso-vi-thumb-preview {
+    position: absolute;
+    z-index: 999999;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .18);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .15s ease-out, transform .15s ease-out;
+}
+/* 浮层在下方时改为从上往下弹出 */
+.oyiso-vi-thumb-preview.is-below {
+    transform: translateY(-6px);
+}
+.oyiso-vi-thumb-preview.is-visible,
+.oyiso-vi-thumb-preview.is-below.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 尖角:双三角,外层描边色 + 内层白色错开 1px,默认浮层在上方尖角朝下 */
+.oyiso-vi-thumb-preview::before,
+.oyiso-vi-thumb-preview::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: var(--arrow-left, 50%);
+    width: 0;
+    height: 0;
+    border: 8px solid transparent;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+.oyiso-vi-thumb-preview::before {
+    border-top-color: #dcdcde;
+}
+.oyiso-vi-thumb-preview::after {
+    border-width: 7px;
+    border-top-color: #fff;
+    margin-top: -1px;
+}
+/* 浮层在下方时,尖角朝上 */
+.oyiso-vi-thumb-preview.is-below::before,
+.oyiso-vi-thumb-preview.is-below::after {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+}
+.oyiso-vi-thumb-preview.is-below::before {
+    border-bottom-color: #dcdcde;
+}
+.oyiso-vi-thumb-preview.is-below::after {
+    border-bottom-color: #fff;
+    margin-top: 0;
+    margin-bottom: -1px;
+}
+.oyiso-vi-thumb-preview img {
+    display: block;
+    max-width: 240px;
+    max-height: 240px;
+    width: auto;
+    height: auto;
+    border-radius: 3px;
+}
+.oyiso-vi-thumb-preview-name {
+    max-width: 240px;
+    margin-top: 4px;
+    padding: 0 2px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #646970;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.oyiso-vi-thumb-preview-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 120px;
+}
+.oyiso-vi-thumb-preview-loading::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    box-sizing: border-box;
+    border: 2px solid rgba(0, 0, 0, .15);
+    border-top-color: #646970;
+    border-radius: 50%;
+    animation: oyiso-vi-btn-spin .6s linear infinite;
+}
