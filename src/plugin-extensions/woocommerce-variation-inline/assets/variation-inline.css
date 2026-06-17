@@ -380,7 +380,9 @@
     color: #757575;
 }
 .oyiso-vi-sku-prefix-input {
+    display: block;
     width: 100%;
+    margin: 0;
     padding: 6px 10px;
     font-size: 14px;
     border: 1px solid #949494;

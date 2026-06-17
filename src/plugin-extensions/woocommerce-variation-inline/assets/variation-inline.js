@@ -452,9 +452,8 @@
         $skuModalTitle.text(title);
         $skuModalMsg.text(msg);
 
-        // 检查父产品是否有 SKU，无则显示前缀输入框
-        var hasParentSku = !!$('#_sku').val();
-        if (mode === 'clear' || hasParentSku) {
+        // 前缀框：除清除外永久显示，留空则使用父产品 SKU
+        if (mode === 'clear') {
             $('.oyiso-vi-sku-prefix-field').hide();
         } else {
             $('.oyiso-vi-sku-prefix-field').show().find('input').val('');
@@ -605,9 +604,9 @@
                     missing: '补全缺失SKU'
                 };
                 var messages = {
-                    clear: '确认清除当前所有变体的 SKU？此操作不可撤销，已存在的 SKU 将被永久删除。',
-                    all: '确认对当前所有变体生成 SKU？已存在的 SKU 将被重新生成并覆盖。',
-                    missing: '确认对当前所有变体补全缺失的 SKU？已有 SKU 的变体将被跳过。'
+                    clear: '确认清除全部变体 SKU？此操作不可撤销。',
+                    all: '确认重新生成全部变体 SKU？已有 SKU 将被覆盖。\n规则：SKU = 前缀 + 属性值，自动转为大写。',
+                    missing: '确认补全缺失的变体 SKU？已有 SKU 的变体会跳过。\n规则：SKU = 前缀 + 属性值，自动转为大写。'
                 };
 
                 showSkuModal('确认操作 - ' + titles[mode], messages[mode], mode);

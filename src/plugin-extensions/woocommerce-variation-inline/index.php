@@ -254,40 +254,24 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                     continue;
                 }
 
-                $child_sku = get_post_meta($variation_id, '_sku', true);
-
-                if ($mode === 'missing' && !empty($child_sku)) {
+                if ($mode === 'missing' && !empty(get_post_meta($variation_id, '_sku', true))) {
                     $skipped++;
                     continue;
                 }
 
-                $pending_sku = '';
+                // 规则：base（前缀，留空用父产品 SKU）+ 各属性值拼接；base 不存在则仅用属性值
+                $attr_slugs = [];
+                foreach ($variation->get_attributes() as $attr_value) {
+                    if ($attr_value && '' !== $attr_value) {
+                        $attr_slugs[] = sanitize_title($attr_value);
+                    }
+                }
+                $attr_part = implode('-', $attr_slugs);
 
-                if ($base_sku && !$child_sku) {
-                    $attr_slugs = [];
-                    $attributes = $variation->get_attributes();
-                    foreach ($attributes as $attr_value) {
-                        if ($attr_value && '' !== $attr_value) {
-                            $attr_slugs[] = sanitize_title($attr_value);
-                        }
-                    }
-                    $pending_sku = $base_sku . ($attr_slugs ? '-' . implode('-', $attr_slugs) : '');
-                } elseif ($base_sku && $child_sku) {
-                    $p = strtoupper($base_sku);
-                    $c = strtoupper($child_sku);
-                    $pending_sku = str_starts_with($c, $p) ? $c : $p . '-' . $c;
-                } elseif (!$base_sku && !$child_sku) {
-                    // 无前缀无子SKU：直接用属性值拼接
-                    $attr_slugs = [];
-                    $attributes = $variation->get_attributes();
-                    foreach ($attributes as $attr_value) {
-                        if ($attr_value && '' !== $attr_value) {
-                            $attr_slugs[] = sanitize_title($attr_value);
-                        }
-                    }
-                    $pending_sku = $attr_slugs ? implode('-', $attr_slugs) : '';
+                if ($base_sku) {
+                    $pending_sku = $attr_part ? $base_sku . '-' . $attr_part : $base_sku;
                 } else {
-                    $pending_sku = $child_sku;
+                    $pending_sku = $attr_part;
                 }
 
                 $pending_sku = strtoupper(trim($pending_sku, '- '));
@@ -341,7 +325,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                     <div class="oyiso-vi-sku-modal-body">
                         <p id="oyiso-vi-sku-modal-message"></p>
                         <div class="oyiso-vi-sku-prefix-field" style="display:none;">
-                            <label for="oyiso-vi-sku-prefix">SKU 前缀（可选，留空则用属性值直接拼接）</label>
+                            <label for="oyiso-vi-sku-prefix">SKU 前缀（留空默认用父产品 SKU，父产品无 SKU 则无前缀）</label>
                             <input type="text" id="oyiso-vi-sku-prefix" class="oyiso-vi-sku-prefix-input" placeholder="例：VAPE-100" />
                         </div>
                     </div>
