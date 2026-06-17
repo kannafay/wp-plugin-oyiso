@@ -132,27 +132,36 @@ jQuery(function ($) {
 
     function syncHeaderBadge(payload) {
         var $title = $('.csf-header-left h1').first();
+        var $adminBarLink = $('#wp-admin-bar-oyiso > a').first();
+        var adminBarDot = '<span class="oyiso-admin-bar-update-dot"></span>';
 
         if (!$title.length) {
-            return;
+            $title = $();
         }
 
         $title.find(badgeSelector).remove();
+        $adminBarLink.find('.oyiso-admin-bar-update-dot').remove();
 
-        if (!payload || !payload.show || !payload.text) {
+        if (!payload || !payload.show) {
             return;
         }
 
-        $('<a/>', {
-            'class': 'oyiso-update-header-badge',
-            text: payload.text,
-            href: '?page=oyiso#tab=oyiso-update'
-        }).on('click', function (e) {
-            var $targetTab = $('a[href="#tab=oyiso-update"]');
-            if ($targetTab.length) {
-                $targetTab.trigger('click');
-            }
-        }).appendTo($title);
+        if ($adminBarLink.length) {
+            $adminBarLink.append(adminBarDot);
+        }
+
+        if (payload.text) {
+            $('<a/>', {
+                'class': 'oyiso-update-header-badge',
+                text: payload.text,
+                href: '?page=oyiso#tab=oyiso-update'
+            }).on('click', function (e) {
+                var $targetTab = $('a[href="#tab=oyiso-update"]');
+                if ($targetTab.length) {
+                    $targetTab.trigger('click');
+                }
+            }).appendTo($title);
+        }
     }
 
     syncHeaderBadge(oyisoPluginUpdate.headerBadge);
