@@ -443,6 +443,10 @@
 .oyiso-vi-thumb-preview {
     position: absolute;
     z-index: 999999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
     padding: 4px;
     background: #fff;
     border: 1px solid #dcdcde;
@@ -509,10 +513,9 @@
 }
 .oyiso-vi-thumb-preview-name {
     max-width: 240px;
-    margin-top: 4px;
     padding: 0 2px;
     font-size: 11px;
-    line-height: 1.4;
+    line-height: 1.3;
     color: #646970;
     text-align: center;
     white-space: nowrap;
