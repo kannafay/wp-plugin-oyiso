@@ -15,6 +15,12 @@ if (!function_exists('oyiso_get_settings_page_url')) {
     }
 }
 
+if (!function_exists('oyiso_get_update_page_url')) {
+    function oyiso_get_update_page_url(): string {
+        return admin_url('plugins.php?page=oyiso#tab=oyiso-update');
+    }
+}
+
 if (!function_exists('oyiso_can_access_settings_page')) {
     function oyiso_can_access_settings_page(): bool {
         return current_user_can('manage_options');
@@ -62,6 +68,17 @@ if (!function_exists('oyiso_register_admin_bar_menu')) {
                 ]);
             }
         }
+
+        $admin_bar->add_node([
+            'id'     => 'oyiso-check-update',
+            'parent' => 'oyiso',
+            'title'  => '检查更新',
+            'href'   => '#oyiso-check-update',
+            'meta'   => [
+                'class' => 'oyiso-admin-bar-check-update',
+                'title' => '检查橘子猫头更新',
+            ],
+        ]);
     }
 }
 
@@ -112,6 +129,359 @@ if (!function_exists('oyiso_admin_bar_update_dot_css')) {
     }
     add_action('admin_head', 'oyiso_admin_bar_update_dot_css');
     add_action('wp_head', 'oyiso_admin_bar_update_dot_css');
+}
+
+if (!function_exists('oyiso_render_admin_bar_update_check_modal')) {
+    function oyiso_render_admin_bar_update_check_modal(): void {
+        if (!is_admin_bar_showing() || !oyiso_can_access_settings_page()) {
+            return;
+        }
+
+        $config = [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('oyiso_plugin_update_check'),
+            'updatePageUrl' => oyiso_get_update_page_url(),
+            'labels' => [
+                'checking' => '正在检查更新...',
+                'error' => '检查失败，请稍后重试。',
+                'openUpdatePage' => '前往更新页',
+            ],
+        ];
+        ?>
+        <style>
+        .oyiso-admin-update-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            box-sizing: border-box;
+        }
+        .oyiso-admin-update-modal-backdrop.is-open {
+            display: flex;
+        }
+        .oyiso-admin-update-modal {
+            width: min(460px, 100%);
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 4px;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+            color: #1d2327;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: left;
+        }
+        .oyiso-admin-update-modal__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid #dcdcde;
+        }
+        .oyiso-admin-update-modal__title {
+            margin: 0;
+            font-size: 15px;
+            line-height: 1.4;
+            font-weight: 600;
+            color: #1d2327;
+        }
+        .oyiso-admin-update-modal__close {
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: #646970;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            box-shadow: none;
+        }
+        .oyiso-admin-update-modal__close:hover {
+            color: #1d2327;
+            background: transparent;
+        }
+        .oyiso-admin-update-modal__body {
+            padding: 16px;
+        }
+        .oyiso-admin-update-modal__status p {
+            margin: 0 !important;
+            font-size: 13px !important;
+            line-height: 1.6 !important;
+        }
+        .oyiso-admin-update-modal__loading {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            color: #50575e;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .oyiso-admin-update-modal-backdrop.is-loading .oyiso-admin-update-modal__loading {
+            display: flex;
+        }
+        .oyiso-admin-update-modal__spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #dcdcde;
+            border-top-color: #e5702a;
+            border-radius: 50%;
+            animation: oyiso-admin-update-spin 0.8s linear infinite;
+            box-sizing: border-box;
+        }
+        .oyiso-admin-update-modal__footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 12px 16px;
+            border-top: 1px solid #dcdcde;
+            background: #f6f7f7;
+        }
+        .oyiso-admin-update-modal__footer .button,
+        .oyiso-admin-update-modal__footer .button-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            margin: 0;
+            padding: 0 14px;
+            border: 1px solid #3858e9;
+            border-radius: 3px;
+            box-sizing: border-box;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1;
+            text-decoration: none;
+            box-shadow: none;
+        }
+        .oyiso-admin-update-modal__footer .button {
+            background: #fff;
+            color: #3858e9;
+        }
+        .oyiso-admin-update-modal__footer .button:hover,
+        .oyiso-admin-update-modal__footer .button:focus {
+            background: #f0f5ff;
+            color: #3858e9;
+            outline: none;
+            box-shadow: none;
+        }
+        .oyiso-admin-update-modal__footer .button-primary {
+            background: #3858e9;
+            color: #fff;
+        }
+        .oyiso-admin-update-modal__footer .button-primary:hover,
+        .oyiso-admin-update-modal__footer .button-primary:focus {
+            background: #2145e6;
+            color: #fff;
+            outline: none;
+            box-shadow: none;
+        }
+        @keyframes oyiso-admin-update-spin {
+            to { transform: rotate(360deg); }
+        }
+        </style>
+        <div class="oyiso-admin-update-modal-backdrop" id="oyiso-admin-update-modal" aria-hidden="true">
+            <div class="oyiso-admin-update-modal" role="dialog" aria-modal="true" aria-labelledby="oyiso-admin-update-modal-title">
+                <div class="oyiso-admin-update-modal__header">
+                    <h2 class="oyiso-admin-update-modal__title" id="oyiso-admin-update-modal-title">检查更新</h2>
+                    <button type="button" class="oyiso-admin-update-modal__close" data-oyiso-update-close aria-label="关闭">×</button>
+                </div>
+                <div class="oyiso-admin-update-modal__body">
+                    <div class="oyiso-admin-update-modal__loading">
+                        <span class="oyiso-admin-update-modal__spinner" aria-hidden="true"></span>
+                        <span data-oyiso-update-loading-text>正在检查更新...</span>
+                    </div>
+                    <div class="oyiso-admin-update-modal__status" data-oyiso-update-status></div>
+                </div>
+                <div class="oyiso-admin-update-modal__footer">
+                    <button type="button" class="button" data-oyiso-update-close>关闭</button>
+                    <a class="button button-primary" href="<?php echo esc_url(oyiso_get_update_page_url()); ?>" data-oyiso-update-page data-oyiso-force-update-page>前往更新页</a>
+                </div>
+            </div>
+        </div>
+        <script>
+        (function () {
+            var config = <?php echo wp_json_encode($config); ?>;
+            var modal = document.getElementById('oyiso-admin-update-modal');
+            var trigger = document.querySelector('#wp-admin-bar-oyiso-check-update > a');
+            var status = modal ? modal.querySelector('[data-oyiso-update-status]') : null;
+            var updatePageLink = modal ? modal.querySelector('[data-oyiso-update-page]') : null;
+
+            if (!modal || !trigger || !status) {
+                return;
+            }
+
+            function setOpen(open) {
+                modal.classList.toggle('is-open', open);
+                modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+            }
+
+            function setLoading(loading) {
+                modal.classList.toggle('is-loading', loading);
+            }
+
+            function setStatus(html) {
+                status.innerHTML = html || '';
+            }
+
+            function escapeHtml(text) {
+                var div = document.createElement('div');
+                div.textContent = text || '';
+                return div.innerHTML;
+            }
+
+            function syncAdminBarDot(payload) {
+                var link = document.querySelector('#wp-admin-bar-oyiso > a');
+                if (!link) {
+                    return;
+                }
+
+                link.querySelectorAll('.oyiso-admin-bar-update-dot').forEach(function (dot) {
+                    dot.remove();
+                });
+
+                if (payload && payload.show) {
+                    var dot = document.createElement('span');
+                    dot.className = 'oyiso-admin-bar-update-dot';
+                    link.appendChild(dot);
+                }
+            }
+
+            function syncSettingsUpdatePanel(data) {
+                var panelStatus = document.getElementById('oyiso-plugin-update-status');
+                var panelAction = document.getElementById('oyiso-plugin-update-action');
+
+                if (!panelStatus || !panelAction || !data) {
+                    return;
+                }
+
+                if (data.statusHtml !== undefined) {
+                    panelStatus.innerHTML = data.statusHtml || '';
+                }
+
+                if (data.actionHtml !== undefined) {
+                    panelAction.innerHTML = data.actionHtml || '';
+                }
+            }
+
+            function openUpdatePage() {
+                var target = new URL(config.updatePageUrl, window.location.href);
+                var win = window.top || window;
+                var current = new URL(win.location.href);
+                var samePage = current.origin === target.origin
+                    && current.pathname === target.pathname
+                    && current.search === target.search;
+
+                if (samePage) {
+                    win.history.replaceState(null, '', target.toString());
+                    win.location.reload();
+                    return;
+                }
+
+                win.location.href = target.toString();
+            }
+
+            function checkUpdate() {
+                setOpen(true);
+                setLoading(true);
+                setStatus('');
+                syncSettingsUpdatePanel({
+                    statusHtml: '<p style="margin:12px 0 0;color:#6b7280;">' + escapeHtml(config.labels.checking) + '</p>',
+                    actionHtml: ''
+                });
+
+                var body = new URLSearchParams();
+                body.append('action', 'oyiso_plugin_update_check');
+                body.append('nonce', config.nonce);
+
+                fetch(config.ajaxUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                    },
+                    body: body.toString()
+                }).then(function (response) {
+                    return response.json();
+                }).then(function (response) {
+                    if (response && response.success && response.data) {
+                        setStatus(response.data.statusHtml || '');
+                        syncSettingsUpdatePanel(response.data);
+                        syncAdminBarDot(response.data.headerBadge || null);
+                        return;
+                    }
+
+                    var message = response && response.data && response.data.message
+                        ? response.data.message
+                        : config.labels.error;
+                    setStatus('<p style="color:#b91c1c;">' + escapeHtml(message) + '</p>');
+                    syncSettingsUpdatePanel({
+                        statusHtml: '<p style="margin:12px 0 0;color:#b91c1c;">' + escapeHtml(message) + '</p>',
+                        actionHtml: ''
+                    });
+                }).catch(function () {
+                    setStatus('<p style="color:#b91c1c;">' + escapeHtml(config.labels.error) + '</p>');
+                    syncSettingsUpdatePanel({
+                        statusHtml: '<p style="margin:12px 0 0;color:#b91c1c;">' + escapeHtml(config.labels.error) + '</p>',
+                        actionHtml: ''
+                    });
+                }).finally(function () {
+                    setLoading(false);
+                });
+            }
+
+            if (updatePageLink) {
+                updatePageLink.textContent = config.labels.openUpdatePage;
+                updatePageLink.setAttribute('href', config.updatePageUrl);
+            }
+
+            document.addEventListener('click', function (event) {
+                var link = event.target && event.target.closest
+                    ? event.target.closest('[data-oyiso-force-update-page]')
+                    : null;
+
+                if (!link) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.stopImmediatePropagation) {
+                    event.stopImmediatePropagation();
+                }
+                openUpdatePage();
+            }, true);
+
+            trigger.addEventListener('click', function (event) {
+                event.preventDefault();
+                checkUpdate();
+            });
+
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal || event.target.hasAttribute('data-oyiso-update-close')) {
+                    setOpen(false);
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+                    setOpen(false);
+                }
+            });
+        })();
+        </script>
+        <?php
+    }
+
+    add_action('admin_footer', 'oyiso_render_admin_bar_update_check_modal');
+    add_action('wp_footer', 'oyiso_render_admin_bar_update_check_modal');
 }
 
 // CSF 后台 UI 定义（前端 class_exists('CSF') 为 false，整块跳过）

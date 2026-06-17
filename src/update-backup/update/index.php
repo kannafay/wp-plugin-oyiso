@@ -78,6 +78,7 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce'   => wp_create_nonce('oyiso_plugin_update_check'),
                 'headerBadge' => $headerBadge,
+                'updatePageUrl' => function_exists('oyiso_get_update_page_url') ? oyiso_get_update_page_url() : admin_url('plugins.php?page=oyiso#tab=oyiso-update'),
                 'labels'  => [
                     'checking'      => '正在检查 GitHub 更新...',
                     'error'         => '检查失败，请稍后重试。',
@@ -130,6 +131,27 @@ jQuery(function ($) {
         return;
     }
 
+    function forceNavigate(url) {
+        if (!url) {
+            return;
+        }
+
+        var win = window.top || window;
+        var target = new URL(url, win.location.href);
+        var current = new URL(win.location.href);
+        var samePage = current.origin === target.origin
+            && current.pathname === target.pathname
+            && current.search === target.search;
+
+        if (samePage) {
+            win.history.replaceState(null, '', target.toString());
+            win.location.reload();
+            return;
+        }
+
+        win.location.href = target.toString();
+    }
+
     function syncHeaderBadge(payload) {
         var $title = $('.csf-header-left h1').first();
         var $adminBarLink = $('#wp-admin-bar-oyiso > a').first();
@@ -154,23 +176,34 @@ jQuery(function ($) {
             $('<a/>', {
                 'class': 'oyiso-update-header-badge',
                 text: payload.text,
-                href: '?page=oyiso#tab=oyiso-update'
-            }).on('click', function (e) {
-                var $targetTab = $('a[href="#tab=oyiso-update"]');
-                if ($targetTab.length) {
-                    $targetTab.trigger('click');
-                }
+                href: oyisoPluginUpdate.updatePageUrl
             }).appendTo($title);
         }
     }
 
     syncHeaderBadge(oyisoPluginUpdate.headerBadge);
 
-    $(document).on('click', '.oyiso-plugin-update-now', function (event) {
-        if (!window.confirm(oyisoPluginUpdate.labels.confirmUpdate)) {
-            event.preventDefault();
+    document.addEventListener('click', function (event) {
+        var link = event.target && event.target.closest
+            ? event.target.closest('.oyiso-update-header-badge, .oyiso-plugin-update-now')
+            : null;
+
+        if (!link) {
+            return;
         }
-    });
+
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) {
+            event.stopImmediatePropagation();
+        }
+
+        if (link.classList.contains('oyiso-plugin-update-now') && !window.confirm(oyisoPluginUpdate.labels.confirmUpdate)) {
+            return;
+        }
+
+        forceNavigate(link.href || oyisoPluginUpdate.updatePageUrl);
+    }, true);
 
     $button.on('click', function () {
         $button.prop('disabled', true);
