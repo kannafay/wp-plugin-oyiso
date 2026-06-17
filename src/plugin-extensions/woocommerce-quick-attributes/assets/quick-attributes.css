@@ -120,6 +120,32 @@
     font-style: normal;
 }
 
+.oyiso-qa-preview-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fafafa;
+    border: 1px solid #dcdcde;
+    color: #646970;
+    font-style: normal;
+}
+
+.oyiso-qa-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    border: 2px solid rgba(0, 0, 0, .15);
+    border-top-color: #646970;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: oyiso-qa-spin .6s linear infinite;
+}
+
+@keyframes oyiso-qa-spin {
+    to { transform: rotate(360deg); }
+}
+
 .oyiso-qa-modal-footer {
     display: flex;
     align-items: center;

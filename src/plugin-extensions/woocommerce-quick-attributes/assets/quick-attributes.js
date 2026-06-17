@@ -19,15 +19,23 @@
     function setPreviewHint() {
         $preview
             .html('输入后此处将显示哪些值新建、哪些复用')
-            .removeClass('oyiso-qa-preview-active oyiso-qa-preview-error')
+            .removeClass('oyiso-qa-preview-active oyiso-qa-preview-error oyiso-qa-preview-loading')
             .addClass('oyiso-qa-preview-hint');
     }
 
     function showInlineError(message) {
         $preview
             .text(message || '请求失败')
-            .removeClass('oyiso-qa-preview-active oyiso-qa-preview-hint')
+            .removeClass('oyiso-qa-preview-active oyiso-qa-preview-hint oyiso-qa-preview-loading')
             .addClass('oyiso-qa-preview-error')
+            .show();
+    }
+
+    function showPreviewLoading() {
+        $preview
+            .html('<span class="oyiso-qa-spinner"></span><span>正在查询...</span>')
+            .removeClass('oyiso-qa-preview-active oyiso-qa-preview-hint oyiso-qa-preview-error')
+            .addClass('oyiso-qa-preview-loading')
             .show();
     }
 
@@ -135,7 +143,7 @@
         $('.oyiso-qa-term-check').prop('checked', false);
     });
 
-    // 搜索过滤
+    // 搜索过滤（纯前端，无需防抖）
     $(document).on('input', '.oyiso-qa-term-search', function () {
         var q = $(this).val().toLowerCase();
         $('.oyiso-qa-term-item').each(function () {
@@ -172,6 +180,8 @@
             return;
         }
 
+        showPreviewLoading();
+
         $.ajax({
             url: config.ajaxurl,
             type: 'POST',
@@ -195,7 +205,7 @@
                     var names = d.existing.map(function (t) { return t.name; });
                     html += '<p style="margin:0;color:#646970;">复用 ' + d.existing.length + ' 个：' + names.join(', ') + '</p>';
                 }
-                $preview.html(html).removeClass('oyiso-qa-preview-hint').addClass('oyiso-qa-preview-active');
+                $preview.html(html).removeClass('oyiso-qa-preview-hint oyiso-qa-preview-loading oyiso-qa-preview-error').addClass('oyiso-qa-preview-active');
             },
             error: function () {
                 setPreviewHint();
