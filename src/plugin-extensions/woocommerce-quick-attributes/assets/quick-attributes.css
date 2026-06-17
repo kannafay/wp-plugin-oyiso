@@ -113,6 +113,13 @@
     color: #1e1e1e;
 }
 
+.oyiso-qa-preview-error {
+    background: #fcf0f1;
+    border: 1px solid #d63638;
+    color: #8a2424;
+    font-style: normal;
+}
+
 .oyiso-qa-modal-footer {
     display: flex;
     align-items: center;

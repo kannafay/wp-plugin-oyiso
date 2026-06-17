@@ -16,6 +16,21 @@
     var $modalTitle = $modal.find('.oyiso-qa-modal-header h2');
     var activeTab = 'new';
 
+    function setPreviewHint() {
+        $preview
+            .html('输入后此处将显示哪些值新建、哪些复用')
+            .removeClass('oyiso-qa-preview-active oyiso-qa-preview-error')
+            .addClass('oyiso-qa-preview-hint');
+    }
+
+    function showInlineError(message) {
+        $preview
+            .text(message || '请求失败')
+            .removeClass('oyiso-qa-preview-active oyiso-qa-preview-hint')
+            .addClass('oyiso-qa-preview-error')
+            .show();
+    }
+
     // 打开弹窗
     $(document).on('click', '.oyiso-qa-btn', function () {
         currentTaxonomy = $(this).data('taxonomy');
@@ -25,7 +40,7 @@
         activeTab = 'new';
         switchTab('new');
         $textarea.val('');
-        $preview.html('输入后此处将显示哪些值新建、哪些复用').removeClass('oyiso-qa-preview-active').addClass('oyiso-qa-preview-hint');
+        setPreviewHint();
         $doBtn.prop('disabled', false);
         $modal.css('display', 'flex');
         // force reflow then trigger transition
@@ -112,15 +127,6 @@
     }
 
     // 全选 / 取消全选
-    // 搜索过滤
-    $(document).on('input', '.oyiso-qa-term-search', function () {
-        var q = $(this).val().toLowerCase();
-        $('.oyiso-qa-term-item').each(function () {
-            var text = $(this).find('span').text().toLowerCase();
-            $(this).toggle(text.indexOf(q) !== -1);
-        });
-    });
-
     $(document).on('click', '.oyiso-qa-select-all', function () {
         $('.oyiso-qa-term-check').prop('checked', true);
     });
@@ -162,7 +168,7 @@
         var raw = $textarea.val().trim();
 
         if (!raw || !currentTaxonomy) {
-            $preview.html('输入后此处将显示哪些值新建、哪些复用').removeClass('oyiso-qa-preview-active').addClass('oyiso-qa-preview-hint');
+            setPreviewHint();
             return;
         }
 
@@ -177,7 +183,7 @@
             },
             success: function (resp) {
                 if (!resp.success || !resp.data) {
-                    $preview.hide();
+                    showInlineError(resp.data ? resp.data.message : '预览失败');
                     return;
                 }
                 var d = resp.data;
@@ -192,7 +198,7 @@
                 $preview.html(html).removeClass('oyiso-qa-preview-hint').addClass('oyiso-qa-preview-active');
             },
             error: function () {
-                $preview.html('输入后此处将显示哪些值新建、哪些复用').removeClass('oyiso-qa-preview-active').addClass('oyiso-qa-preview-hint');
+                setPreviewHint();
             }
         });
     }
@@ -235,7 +241,7 @@
             },
             success: function (resp) {
                 if (!resp.success || !resp.data) {
-                    alert(resp.data ? resp.data.message : '请求失败');
+                    showInlineError(resp.data ? resp.data.message : '请求失败');
                     return;
                 }
 
@@ -259,7 +265,7 @@
                 closeModal();
             },
             error: function () {
-                alert('请求失败，请重试。');
+                showInlineError('请求失败，请重试。');
             },
             complete: function () {
                 $doBtn.prop('disabled', false);

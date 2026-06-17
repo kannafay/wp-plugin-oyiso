@@ -209,6 +209,10 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 wp_send_json_error(['message' => '参数无效']);
             }
 
+            if (!in_array($mode, ['clear', 'all', 'missing'], true)) {
+                wp_send_json_error(['message' => '无效的 SKU 操作']);
+            }
+
             $product = wc_get_product($product_id);
             if (!$product || !$product->is_type('variable')) {
                 wp_send_json_error(['message' => '不是可变产品']);
@@ -233,7 +237,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 $variation = wc_get_product($variation_id);
                 if (!$variation) continue;
 
-        if ($mode === 'clear') {
+                if ($mode === 'clear') {
                     $child_sku = get_post_meta($variation_id, '_sku', true);
                     if (empty($child_sku)) {
                         $skipped++;
@@ -288,8 +292,17 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 if (!$pending_sku) continue;
 
                 $sku_to_set = $pending_sku;
-                if (wc_get_product_id_by_sku($sku_to_set)) {
-                    $sku_to_set .= '-' . strtoupper(wp_generate_password(4, false));
+                $existing_id = (int) wc_get_product_id_by_sku($sku_to_set);
+                $attempts = 0;
+                while ($existing_id && $existing_id !== (int) $variation_id && $attempts < 5) {
+                    $sku_to_set = $pending_sku . '-' . strtoupper(wp_generate_password(4, false));
+                    $existing_id = (int) wc_get_product_id_by_sku($sku_to_set);
+                    $attempts++;
+                }
+
+                if ($existing_id && $existing_id !== (int) $variation_id) {
+                    $skipped++;
+                    continue;
                 }
 
                 update_post_meta($variation_id, '_sku', $sku_to_set);

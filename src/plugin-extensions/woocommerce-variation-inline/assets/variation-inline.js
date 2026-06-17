@@ -31,7 +31,7 @@
 
         // 构建内联 HTML
         var html = '<span class="oyiso-vi-inline" data-variation="' + variationId + '">' +
-            '<span class="oyiso-vi-thumb' + (hasImage ? ' oyiso-vi-thumb-has-image' : '') + '" title="' + (hasImage ? '点击清除封面' : '点击更换封面') + '"><img src="' + escAttr(thumbUrl) + '" width="26" height="26"><span class="oyiso-vi-thumb-x">×</span></span>' +
+            '<span class="oyiso-vi-thumb' + (hasImage ? ' oyiso-vi-thumb-has-image' : '') + '"><img src="' + escAttr(thumbUrl) + '" width="26" height="26" title="点击更换封面"><span class="oyiso-vi-thumb-x" title="点击清除封面">×</span></span>' +
             '<span class="oyiso-vi-price-wrap"><input type="text" class="oyiso-vi-price" data-field="regular_price" value="' + escAttr(regularPrice) + '" placeholder="常规价"></span>' +
             '<span class="oyiso-vi-price-wrap"><input type="text" class="oyiso-vi-price" data-field="sale_price" value="' + escAttr(salePrice) + '" placeholder="销售价"' + (!regularPrice ? ' disabled' : '') + '></span>' +
             buildStockBtn(stockStatus) +
@@ -68,6 +68,33 @@
         return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    function isValidPriceValue(value) {
+        var val = (value || '').trim();
+        var decimalSep = config.wc_decimal_sep || '.';
+        if (!val) return true;
+
+        var parts = val.split(decimalSep);
+        if (parts.length > 2 || !parts[0] || !/^\d+$/.test(parts[0])) {
+            return false;
+        }
+
+        if (parts.length === 2 && (!parts[1] || !/^\d+$/.test(parts[1]))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    function parsePriceValue(value) {
+        var decimalSep = config.wc_decimal_sep || '.';
+        var val = (value || '').trim();
+        if (!isValidPriceValue(val)) {
+            return NaN;
+        }
+
+        return parseFloat(decimalSep === '.' ? val : val.split(decimalSep).join('.'));
+    }
+
     function validatePriceFormat($input) {
         var val = $input.val();
         var decimalSep = config.wc_decimal_sep || '.';
@@ -79,7 +106,7 @@
 
         var errorMsg = '';
 
-        if (/[^\d]/.test(val.split(decimalSep).join(''))) {
+        if (!isValidPriceValue(val)) {
             errorMsg = '请输入正确的价格格式（仅数字和' + decimalSep + '）';
         }
 
@@ -103,8 +130,8 @@
         $sale.removeClass('oyiso-vi-price-compare-error');
 
         if (rv && sv) {
-            var regNum = parseFloat(rv);
-            var saleNum = parseFloat(sv);
+            var regNum = parsePriceValue(rv);
+            var saleNum = parsePriceValue(sv);
             if (!isNaN(regNum) && !isNaN(saleNum) && saleNum >= regNum) {
                 $sale.addClass('oyiso-vi-price-compare-error');
                 if (!$sale.hasClass('oyiso-vi-price-error') && ($reg.is(':focus') || $sale.is(':focus'))) {
@@ -212,7 +239,7 @@
                     ? attachment.sizes.thumbnail.url
                     : attachment.url;
                 $img.attr('src', thumbSize);
-                $thumb.addClass('oyiso-vi-thumb-has-image').prop('title', '点击更换封面');
+                $thumb.addClass('oyiso-vi-thumb-has-image').removeAttr('title');
                 $thumb.data('image-id', attachment.id);
                 $panel.find('.upload_image_id')[0] && ($panel.find('.upload_image_id')[0].value = attachment.id);
                 markFormClean();

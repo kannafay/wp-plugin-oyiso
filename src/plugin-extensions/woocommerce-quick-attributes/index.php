@@ -137,7 +137,7 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
                 wp_send_json_error(['message' => '参数不完整']);
             }
 
-            if (!taxonomy_exists($taxonomy)) {
+            if (!self::isAllowedAttributeTaxonomy($taxonomy)) {
                 wp_send_json_error(['message' => '属性分类法不存在']);
             }
 
@@ -165,7 +165,7 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
                 wp_send_json_error(['message' => '参数不完整']);
             }
 
-            if (!taxonomy_exists($taxonomy)) {
+            if (!self::isAllowedAttributeTaxonomy($taxonomy)) {
                 wp_send_json_error(['message' => '属性分类法不存在']);
             }
 
@@ -203,7 +203,7 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
 
             $taxonomy = isset($_POST['taxonomy']) ? sanitize_text_field(wp_unslash($_POST['taxonomy'])) : '';
 
-            if (!$taxonomy || !taxonomy_exists($taxonomy)) {
+            if (!$taxonomy || !self::isAllowedAttributeTaxonomy($taxonomy)) {
                 wp_send_json_error(['message' => '属性分类法不存在']);
             }
 
@@ -228,6 +228,19 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
             $values = array_map('trim', $values);
             $values = array_filter($values, fn($v) => $v !== '');
             return array_values(array_unique($values));
+        }
+
+        private static function isAllowedAttributeTaxonomy(string $taxonomy): bool
+        {
+            if (!taxonomy_exists($taxonomy)) {
+                return false;
+            }
+
+            if (function_exists('taxonomy_is_product_attribute')) {
+                return taxonomy_is_product_attribute($taxonomy);
+            }
+
+            return strpos($taxonomy, 'pa_') === 0;
         }
 
         private static function syncTerms(string $taxonomy, array $names): array
