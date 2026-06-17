@@ -6,6 +6,8 @@
     }
 
     var config = window.oyisoVIConfig;
+    var enableInline = !!config.enable_inline;
+    var enableSkuBatch = !!config.enable_sku_batch;
     var STOCK_LABELS = { instock: '有货', outofstock: '无货', onbackorder: '预售' };
     var STOCK_CLASSES = { instock: 'oyiso-vi-green', outofstock: 'oyiso-vi-red', onbackorder: 'oyiso-vi-orange' };
 
@@ -381,34 +383,34 @@
 
     // 初始化和观察
     $(function () {
-        var $sku = $('select.variation_actions optgroup[label="SKU"]');
-        var $status = $('select.variation_actions optgroup[label="Status"], select.variation_actions optgroup[label="状态"]');
-        if ($sku.length && $status.length) {
-            $sku.insertBefore($status);
-        }
+        if (enableInline) {
+            initAll();
 
-        initAll();
-
-        var $container = $('#variable_product_options');
-        if ($container.length) {
-            observer.observe($container[0], { childList: true, subtree: true });
+            var $container = $('#variable_product_options');
+            if ($container.length) {
+                observer.observe($container[0], { childList: true, subtree: true });
+            }
         }
     });
 
     // 提交表单前把内联值写入隐藏字段
-    $(document).on('submit', '#post', function () {
-        $('[data-inline-value]').each(function () {
-            this.value = this.dataset.inlineValue;
+    if (enableInline) {
+        $(document).on('submit', '#post', function () {
+            $('[data-inline-value]').each(function () {
+                this.value = this.dataset.inlineValue;
+            });
         });
-    });
+    }
 
 
                 // 自定义确认弹窗
     var $skuModal = $('#oyiso-vi-sku-modal');
     var $skuModalTitle = $('#oyiso-vi-sku-modal-title');
     var $skuModalMsg = $('#oyiso-vi-sku-modal-message');
+    var skuRequestRunning = false;
 
     function showSkuModal(title, msg, mode) {
+        resetSkuModal();
         $skuModalTitle.text(title);
         $skuModalMsg.text(msg);
 
@@ -427,108 +429,175 @@
     }
 
     function closeSkuModal() {
+        if (skuRequestRunning) {
+            return;
+        }
         $skuModal.removeClass('is-open');
         setTimeout(function() { $skuModal.css('display', 'none'); }, 200);
         $('select.variation_actions, #field_to_edit').val($('select.variation_actions option:first').val());
     }
 
-    $skuModal.on('click', '.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel', closeSkuModal);
-    $skuModal.on('click', function(e) {
-        if (e.target === this) closeSkuModal();
-    });
+    function resetSkuModal() {
+        skuRequestRunning = false;
+        $skuModal.removeClass('is-loading is-result is-error');
+        $skuModal.find('.oyiso-vi-sku-modal-spinner').removeClass('is-active');
+        $skuModal.find('.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel, .oyiso-vi-sku-modal-do').prop('disabled', false);
+        $skuModal.find('.oyiso-vi-sku-modal-cancel').text('取消').show();
+        $skuModal.find('.oyiso-vi-sku-modal-do').text('确认').show();
+        $('#oyiso-vi-sku-prefix').prop('disabled', false);
+    }
 
-    $skuModal.on('click', '.oyiso-vi-sku-modal-do', function() {
-        var m = $skuModal.data('mode');
-        closeSkuModal();
-        if (!m) return;
+    function lockVariationEditor() {
+        if (document.activeElement) {
+            document.activeElement.blur();
+        }
 
-        var prefix = $('#oyiso-vi-sku-prefix').val().trim();
-
-        $.ajax({
-            url: config.ajaxurl,
-            type: 'POST',
-            data: {
-                action: config.generate_sku_action,
-                nonce: config.nonce,
-                product_id: config.product_id,
-                mode: m,
-                prefix: prefix,
-            },
-            success: function(resp) {
-                if (resp.success) {
-                    alert(resp.data.message);
-                    // 更新内联 SKU 显示
-                    if (resp.data.results) {
-                        $.each(resp.data.results, function(i, item) {
-                            var $inline = $('.oyiso-vi-inline[data-variation="' + item.variation_id + '"]');
-                            var $s = $inline.find('.oyiso-vi-sku-status');
-                            if ($s.length) {
-                                $s.text(item.sku ? 'SKU: ' + item.sku : '无SKU')
-                                    .toggleClass('oyiso-vi-sku-status-set', !!item.sku)
-                                    .toggleClass('oyiso-vi-sku-status-empty', !item.sku);
-                            }
-                        });
-                    }
-                    try { var pg = parseInt($('.variations-pagenav .page-selector').val()) || 1; $('.variations-pagenav .page-selector').val(pg).trigger('change'); } catch(e) {}
-                } else {
-                    alert('SKU 操作失败：' + (resp.data.message || '未知错误'));
+        $('#variable_product_options')
+            .find('input, select, textarea, button')
+            .each(function() {
+                var $el = $(this);
+                if (!$el.prop('disabled')) {
+                    $el.attr('data-oyiso-sku-locked', '1').prop('disabled', true);
                 }
-            },
-            error: function() {
-                alert('SKU 操作失败：网络错误');
-            },
-            complete: function() {
-                $('select.variation_actions, #field_to_edit').val($('select.variation_actions option:first').val());
-            }
+            });
+    }
+
+    function unlockVariationEditor() {
+        $('#variable_product_options')
+            .find('[data-oyiso-sku-locked]')
+            .prop('disabled', false)
+            .removeData('oyisoSkuLocked')
+            .removeAttr('data-oyiso-sku-locked');
+    }
+
+    function setSkuModalLoading() {
+        skuRequestRunning = true;
+        lockVariationEditor();
+        $skuModal.addClass('is-loading').removeClass('is-result is-error');
+        $skuModal.find('.oyiso-vi-sku-modal-spinner').addClass('is-active');
+        $skuModal.find('.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel').prop('disabled', true);
+        $skuModal.find('.oyiso-vi-sku-modal-do').prop('disabled', true).text('处理中...');
+        $('#oyiso-vi-sku-prefix').prop('disabled', true);
+    }
+
+    function setSkuModalResult(success, message) {
+        skuRequestRunning = false;
+        unlockVariationEditor();
+        $skuModal.removeClass('is-loading').addClass('is-result').toggleClass('is-error', !success);
+        $skuModal.find('.oyiso-vi-sku-modal-spinner').removeClass('is-active');
+        $skuModal.find('.oyiso-vi-sku-modal-close').prop('disabled', false);
+        $skuModal.find('.oyiso-vi-sku-modal-cancel').prop('disabled', false).text('关闭').show();
+        $skuModal.find('.oyiso-vi-sku-modal-do').hide();
+        $('.oyiso-vi-sku-prefix-field').hide();
+        $('#oyiso-vi-sku-prefix').prop('disabled', false);
+        $skuModalTitle.text(success ? 'SKU 操作完成' : 'SKU 操作失败');
+        $skuModalMsg.text(message);
+    }
+
+    if (enableSkuBatch && $skuModal.length) {
+        $skuModal.on('click', '.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel', closeSkuModal);
+        $skuModal.on('click', function(e) {
+            if (e.target === this) closeSkuModal();
         });
-    });
 
-    // 批量生成 SKU（capture phase 拦截 WC 之前）
-    var oyisoSkuBox = document.querySelector('#variable_product_options');
-    if (oyisoSkuBox) {
-        oyisoSkuBox.addEventListener('change', function(e) {
-            var target = e.target;
-            if (!target || !target.matches('#field_to_edit, select.variation_actions')) return;
-            var action = target.value;
-            if (action !== 'oyiso_regenerate_sku' && action !== 'oyiso_generate_missing_sku' && action !== 'oyiso_clear_sku') return;
+        $skuModal.on('click', '.oyiso-vi-sku-modal-do', function() {
+            var m = $skuModal.data('mode');
+            if (!m) return;
 
-            e.stopPropagation();
+            var prefix = $('#oyiso-vi-sku-prefix').val().trim();
+            setSkuModalLoading();
 
-            var mode = action === 'oyiso_clear_sku' ? 'clear' : (action === 'oyiso_regenerate_sku' ? 'all' : 'missing');
-            var titles = {
-                clear: '清除全部SKU',
-                all: '生成全部SKU',
-                missing: '补全缺失SKU'
-            };
-            var messages = {
-                clear: '确认清除当前所有变体的 SKU？\n此操作不可撤销，已存在的 SKU 将被永久删除。',
-                all: '确认对当前所有变体生成 SKU？\n已存在的 SKU 将被重新生成并覆盖。',
-                missing: '确认对当前所有变体补全缺失的 SKU？\n已有 SKU 的变体将被跳过。'
-            };
+            $.ajax({
+                url: config.ajaxurl,
+                type: 'POST',
+                data: {
+                    action: config.generate_sku_action,
+                    nonce: config.nonce,
+                    product_id: config.product_id,
+                    mode: m,
+                    prefix: prefix,
+                },
+                success: function(resp) {
+                    if (resp.success) {
+                        // 更新内联 SKU 显示
+                        if (resp.data.results) {
+                            $.each(resp.data.results, function(i, item) {
+                                var $inline = $('.oyiso-vi-inline[data-variation="' + item.variation_id + '"]');
+                                var $s = $inline.find('.oyiso-vi-sku-status');
+                                if ($s.length) {
+                                    $s.text('SKU')
+                                        .attr('data-sku', item.sku || '')
+                                        .data('sku', item.sku || '')
+                                        .toggle(!!item.sku)
+                                        .toggleClass('oyiso-vi-sku-status-set', !!item.sku)
+                                        .toggleClass('oyiso-vi-sku-status-empty', !item.sku);
+                                }
+                            });
+                        }
+                        try { var pg = parseInt($('.variations-pagenav .page-selector').val()) || 1; $('.variations-pagenav .page-selector').val(pg).trigger('change'); } catch(e) {}
+                        setSkuModalResult(true, resp.data.message || '操作完成');
+                    } else {
+                        setSkuModalResult(false, resp.data.message || '未知错误');
+                    }
+                },
+                error: function() {
+                    setSkuModalResult(false, '网络错误');
+                },
+                complete: function() {
+                    $('select.variation_actions, #field_to_edit').val($('select.variation_actions option:first').val());
+                }
+            });
+        });
 
-            showSkuModal('确认操作 - ' + titles[mode], messages[mode], mode);
-        }, true); // capture phase
+        // 批量生成 SKU（capture phase 拦截 WC 之前）
+        var oyisoSkuBox = document.querySelector('#variable_product_options');
+        if (oyisoSkuBox) {
+            oyisoSkuBox.addEventListener('change', function(e) {
+                var target = e.target;
+                if (!target || !target.matches('#field_to_edit, select.variation_actions')) return;
+                var action = target.value;
+                if (action !== 'oyiso_regenerate_sku' && action !== 'oyiso_generate_missing_sku' && action !== 'oyiso_clear_sku') return;
+
+                e.stopPropagation();
+
+                var mode = action === 'oyiso_clear_sku' ? 'clear' : (action === 'oyiso_regenerate_sku' ? 'all' : 'missing');
+                var titles = {
+                    clear: '清除全部SKU',
+                    all: '生成全部SKU',
+                    missing: '补全缺失SKU'
+                };
+                var messages = {
+                    clear: '确认清除当前所有变体的 SKU？此操作不可撤销，已存在的 SKU 将被永久删除。',
+                    all: '确认对当前所有变体生成 SKU？已存在的 SKU 将被重新生成并覆盖。',
+                    missing: '确认对当前所有变体补全缺失的 SKU？已有 SKU 的变体将被跳过。'
+                };
+
+                showSkuModal('确认操作 - ' + titles[mode], messages[mode], mode);
+            }, true); // capture phase
+        }
     }
 
 
 
     // SKU 浮层提示
-    $(document).on('mouseenter', '.oyiso-vi-sku-status-set', function() {
-        var $el = $(this);
-        var sku = $el.data('sku');
-        if (!sku) return;
+    if (enableInline) {
+        $(document).on('mouseenter', '.oyiso-vi-sku-status-set', function() {
+            var $el = $(this);
+            var sku = $el.data('sku');
+            if (!sku) return;
 
-        var $tip = $('<span class="oyiso-vi-sku-tip">' + sku + '</span>').appendTo('body');
-        var rect = $el[0].getBoundingClientRect();
-        $tip.css({
-            left: (rect.left + rect.width / 2 + window.scrollX) + 'px',
-            top: (rect.top + window.scrollY - $tip.outerHeight() - 6) + 'px',
-            transform: 'translateX(-50%)'
+            var $tip = $('<span class="oyiso-vi-sku-tip">' + sku + '</span>').appendTo('body');
+            var rect = $el[0].getBoundingClientRect();
+            $tip.css({
+                left: (rect.left + rect.width / 2 + window.scrollX) + 'px',
+                top: (rect.top + window.scrollY - $tip.outerHeight() - 6) + 'px',
+                transform: 'translateX(-50%)'
+            });
+            $el.data('tip', $tip);
+        }).on('mouseleave', '.oyiso-vi-sku-status-set', function() {
+            var $tip = $(this).data('tip');
+            if ($tip) { $tip.remove(); $(this).data('tip', null); }
         });
-        $el.data('tip', $tip);
-    }).on('mouseleave', '.oyiso-vi-sku-status-set', function() {
-        var $tip = $(this).data('tip');
-        if ($tip) { $tip.remove(); $(this).data('tip', null); }
-    });
+    }
 
 })(jQuery);

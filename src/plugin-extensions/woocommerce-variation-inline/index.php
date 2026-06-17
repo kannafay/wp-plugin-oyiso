@@ -10,33 +10,51 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
         private const AJAX_ACTION = 'oyiso_wc_variation_inline_save';
         private const NONCE_ACTION = 'oyiso_wc_variation_inline_nonce';
         private const AJAX_GENERATE_SKU = 'oyiso_wc_variation_inline_generate_sku';
+        private const OPTION_SKU_BATCH = 'oyiso_wc_variation_sku_batch_enabled';
+        private const OPTION_QUICK_OPS = 'oyiso_wc_variation_quick_ops';
 
         public static function init(): void
         {
-            if (!self::isEnabled()) {
-                return;
-            }
-
             if (self::isUnlimitedPagination()) {
                 add_filter('woocommerce_admin_meta_boxes_variations_per_page', fn() => 9999);
             }
-            add_action('admin_enqueue_scripts', [__CLASS__, 'enqueueAssets']);
-            add_action('wp_ajax_' . self::AJAX_ACTION, [__CLASS__, 'ajaxSave']);
-            add_action('woocommerce_variable_product_bulk_edit_actions', [__CLASS__, 'addSkuBulkActions']);
-            add_action('wp_ajax_' . self::AJAX_GENERATE_SKU, [__CLASS__, 'ajaxGenerateSku']);
-            add_action('admin_footer', [__CLASS__, 'renderSkuConfirmTemplate']);
+
+            if (self::isEnabled()) {
+                add_action('admin_enqueue_scripts', [__CLASS__, 'enqueueAssets']);
+                add_action('wp_ajax_' . self::AJAX_ACTION, [__CLASS__, 'ajaxSave']);
+            }
+
+            if (self::isSkuBatchEnabled()) {
+                add_action('woocommerce_variable_product_bulk_edit_actions', [__CLASS__, 'addSkuBulkActions']);
+                add_action('wp_ajax_' . self::AJAX_GENERATE_SKU, [__CLASS__, 'ajaxGenerateSku']);
+                add_action('admin_footer', [__CLASS__, 'renderSkuConfirmTemplate']);
+                if (!self::isEnabled()) {
+                    add_action('admin_enqueue_scripts', [__CLASS__, 'enqueueSkuAssets']);
+                }
+            }
         }
 
         public static function isEnabled(): bool
         {
-            $options = get_option('oyiso', []);
-            return !empty($options[self::OPTION_ENABLED]);
+            return self::getSwitchValue(self::OPTION_ENABLED);
         }
 
         public static function isUnlimitedPagination(): bool
         {
+            return self::getSwitchValue(self::OPTION_UNLIMITED_PAGINATION);
+        }
+
+        public static function isSkuBatchEnabled(): bool
+        {
+            return self::getSwitchValue(self::OPTION_SKU_BATCH);
+        }
+
+        private static function getSwitchValue(string $key): bool
+        {
             $options = get_option('oyiso', []);
-            return !empty($options[self::OPTION_UNLIMITED_PAGINATION]);
+            $quick_ops = $options[self::OPTION_QUICK_OPS] ?? [];
+
+            return is_array($quick_ops) && !empty($quick_ops[$key]);
         }
 
         public static function enqueueAssets(string $hook): void
@@ -68,6 +86,45 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'placeholder_img_src' => wc_placeholder_img_src(),
                 'generate_sku_action' => self::AJAX_GENERATE_SKU,
                 'product_id' => isset($_GET['post']) ? absint($_GET['post']) : 0,
+                'enable_inline' => self::isEnabled(),
+                'enable_sku_batch' => self::isSkuBatchEnabled(),
+            ]);
+
+            wp_enqueue_style(
+                'oyiso-wc-variation-inline',
+                plugins_url('assets/variation-inline.css', __FILE__),
+                [],
+                filemtime(__DIR__ . '/assets/variation-inline.css')
+            );
+        }
+
+        public static function enqueueSkuAssets(string $hook): void
+        {
+            if (!in_array($hook, ['post.php', 'post-new.php'], true)) {
+                return;
+            }
+
+            $screen = get_current_screen();
+            if (!$screen || $screen->post_type !== 'product') {
+                return;
+            }
+
+            wp_enqueue_script(
+                'oyiso-wc-variation-inline',
+                plugins_url('assets/variation-inline.js', __FILE__),
+                ['jquery', 'wp-mediaelement'],
+                filemtime(__DIR__ . '/assets/variation-inline.js'),
+                true
+            );
+
+            wp_localize_script('oyiso-wc-variation-inline', 'oyisoVIConfig', [
+                'nonce' => wp_create_nonce(self::AJAX_ACTION),
+                'ajaxurl' => admin_url('admin-ajax.php'),
+                'action' => self::AJAX_ACTION,
+                'generate_sku_action' => self::AJAX_GENERATE_SKU,
+                'product_id' => isset($_GET['post']) ? absint($_GET['post']) : 0,
+                'enable_inline' => self::isEnabled(),
+                'enable_sku_batch' => self::isSkuBatchEnabled(),
             ]);
 
             wp_enqueue_style(

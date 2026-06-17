@@ -6,6 +6,7 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
     final class Oyiso_WC_Quick_Attributes
     {
         private const OPTION_ENABLED = 'oyiso_wc_quick_attributes_enabled';
+        private const OPTION_QUICK_OPS = 'oyiso_wc_variation_quick_ops';
         private const AJAX_ACTION = 'oyiso_wc_quick_attributes';
         private const AJAX_PREVIEW_ACTION = 'oyiso_wc_quick_attributes_preview';
         private const AJAX_GET_TERMS_ACTION = 'oyiso_wc_quick_attributes_get_terms';
@@ -28,7 +29,9 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
         public static function isEnabled(): bool
         {
             $options = get_option('oyiso', []);
-            return !empty($options[self::OPTION_ENABLED]);
+            $quick_ops = $options[self::OPTION_QUICK_OPS] ?? [];
+
+            return is_array($quick_ops) && !empty($quick_ops[self::OPTION_ENABLED]);
         }
 
         public static function renderButton($attribute_taxonomy, int $i, $attribute): void
