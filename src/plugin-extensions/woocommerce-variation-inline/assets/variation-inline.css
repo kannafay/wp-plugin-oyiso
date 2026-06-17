@@ -362,35 +362,3 @@
     border: 5px solid transparent;
     border-top-color: #1e1e1e;
 }
-
-#variable_product_options .toolbar.oyiso-vi-sticky-actions {
-    box-sizing: border-box;
-    padding: 10px 12px;
-    background: #fff;
-    border-top: 1px solid #dcdcde;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
-}
-
-#variable_product_options .toolbar.oyiso-vi-fixed-actions {
-    position: fixed;
-    right: auto;
-    bottom: 0;
-    z-index: 10010;
-    margin: 0;
-    border: 1px solid #dcdcde;
-    border-bottom: 0;
-}
-
-#variable_product_options .toolbar.oyiso-vi-sticky-actions::after {
-    content: '';
-    display: block;
-    clear: both;
-}
-
-#variable_product_options .oyiso-vi-sticky-actions-placeholder {
-    display: none;
-}
-
-#variable_product_options .oyiso-vi-sticky-actions-placeholder.is-active {
-    display: block;
-}

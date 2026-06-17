@@ -19,7 +19,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 add_filter('woocommerce_admin_meta_boxes_variations_per_page', fn() => 9999);
             }
 
-            if (self::isEnabled() || self::isUnlimitedPagination()) {
+            if (self::isEnabled()) {
                 add_action('admin_enqueue_scripts', [__CLASS__, 'enqueueAssets']);
             }
 
@@ -91,7 +91,6 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'product_id' => isset($_GET['post']) ? absint($_GET['post']) : 0,
                 'enable_inline' => self::isEnabled(),
                 'enable_sku_batch' => self::isSkuBatchEnabled(),
-                'enable_sticky_variation_actions' => self::isUnlimitedPagination(),
             ]);
 
             wp_enqueue_style(
@@ -129,7 +128,6 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'product_id' => isset($_GET['post']) ? absint($_GET['post']) : 0,
                 'enable_inline' => self::isEnabled(),
                 'enable_sku_batch' => self::isSkuBatchEnabled(),
-                'enable_sticky_variation_actions' => self::isUnlimitedPagination(),
             ]);
 
             wp_enqueue_style(
