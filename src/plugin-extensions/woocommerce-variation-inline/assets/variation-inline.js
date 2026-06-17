@@ -8,6 +8,7 @@
     var config = window.oyisoVIConfig;
     var enableInline = !!config.enable_inline;
     var enableSkuBatch = !!config.enable_sku_batch;
+    var enableStickyVariationActions = !!config.enable_sticky_variation_actions;
     var STOCK_LABELS = { instock: '有货', outofstock: '无货', onbackorder: '预售' };
     var STOCK_CLASSES = { instock: 'oyiso-vi-green', outofstock: 'oyiso-vi-red', onbackorder: 'oyiso-vi-orange' };
 
@@ -401,6 +402,86 @@
         });
     }
 
+    var stickyActionsRaf = null;
+    var $stickyActionsToolbar = $();
+    var $stickyActionsPlaceholder = $();
+
+    function getStickyVariationActionsToolbar($options) {
+        return $options
+            .find('.toolbar')
+            .filter(function() {
+                return $(this).find('button.save-variation-changes, button.cancel-variation-changes').length > 0;
+            })
+            .last();
+    }
+
+    function clearStickyVariationActions() {
+        $stickyActionsToolbar
+            .removeClass('oyiso-vi-sticky-actions oyiso-vi-fixed-actions')
+            .css({ left: '', width: '' });
+        $stickyActionsPlaceholder.removeClass('is-active').height(0);
+        $('#variable_product_options').removeClass('oyiso-vi-has-fixed-actions');
+    }
+
+    function updateStickyVariationActions() {
+        var $options = $('#variable_product_options');
+        if (!$options.length || !$options.is(':visible')) {
+            clearStickyVariationActions();
+            return;
+        }
+
+        var $toolbar = getStickyVariationActionsToolbar($options);
+        if (!$toolbar.length) {
+            clearStickyVariationActions();
+            return;
+        }
+
+        if (!$stickyActionsToolbar.is($toolbar)) {
+            clearStickyVariationActions();
+            $stickyActionsToolbar = $toolbar;
+            $stickyActionsPlaceholder = $('<div class="oyiso-vi-sticky-actions-placeholder" aria-hidden="true"></div>').insertBefore($toolbar);
+        }
+
+        var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        var optionsRect = $options[0].getBoundingClientRect();
+        var measureEl = $toolbar.hasClass('oyiso-vi-fixed-actions') ? $stickyActionsPlaceholder[0] : $toolbar[0];
+        var toolbarRect = measureEl.getBoundingClientRect();
+        var shouldFix = optionsRect.top < viewportHeight && optionsRect.bottom > viewportHeight && toolbarRect.top > viewportHeight;
+
+        if (!shouldFix) {
+            clearStickyVariationActions();
+            return;
+        }
+
+        var height = $toolbar.outerHeight(true);
+        var fixedLeft = Math.max(optionsRect.left, 0);
+        var fixedRight = Math.min(optionsRect.right, document.documentElement.clientWidth);
+        $stickyActionsPlaceholder.addClass('is-active').height(height);
+        $options.addClass('oyiso-vi-has-fixed-actions');
+        $toolbar
+            .addClass('oyiso-vi-sticky-actions oyiso-vi-fixed-actions')
+            .css({
+                left: fixedLeft + 'px',
+                width: Math.max(fixedRight - fixedLeft, 0) + 'px'
+            });
+    }
+
+    function scheduleStickyVariationActions() {
+        if (stickyActionsRaf) {
+            return;
+        }
+
+        stickyActionsRaf = window.requestAnimationFrame(function() {
+            stickyActionsRaf = null;
+            updateStickyVariationActions();
+        });
+    }
+
+    function initStickyVariationActions() {
+        updateStickyVariationActions();
+        setTimeout(updateStickyVariationActions, 100);
+    }
+
     // MutationObserver 捕获动态添加的变体
     var observerTimer = null;
     var observer = new MutationObserver(function () {
@@ -410,6 +491,14 @@
 
     // 初始化和观察
     $(function () {
+        if (enableStickyVariationActions) {
+            initStickyVariationActions();
+            $(window).on('scroll.oyisoVIStickyActions resize.oyisoVIStickyActions', scheduleStickyVariationActions);
+            $('#woocommerce-product-data').on('woocommerce_variations_loaded click', '.product_data_tabs a, .wc-tabs a', initStickyVariationActions);
+            $('#variable_product_options').on('reload woocommerce_variations_loaded', initStickyVariationActions);
+            $('#woocommerce-product-data').on('woocommerce_variations_loaded', initStickyVariationActions);
+        }
+
         if (enableInline) {
             initAll();
 
