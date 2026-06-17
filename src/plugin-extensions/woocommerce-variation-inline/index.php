@@ -29,11 +29,15 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
 
             if (self::isSkuBatchEnabled()) {
                 add_action('woocommerce_variable_product_bulk_edit_actions', [__CLASS__, 'addSkuBulkActions']);
-                add_action('wp_ajax_' . self::AJAX_GENERATE_SKU, [__CLASS__, 'ajaxGenerateSku']);
-                add_action('admin_footer', [__CLASS__, 'renderSkuConfirmTemplate']);
                 if (!self::isEnabled()) {
                     add_action('admin_enqueue_scripts', [__CLASS__, 'enqueueSkuAssets']);
                 }
+            }
+
+            // SKU 生成 AJAX 与确认弹窗：批量操作或变体快速编辑任一开启即可用
+            if (self::isEnabled() || self::isSkuBatchEnabled()) {
+                add_action('wp_ajax_' . self::AJAX_GENERATE_SKU, [__CLASS__, 'ajaxGenerateSku']);
+                add_action('admin_footer', [__CLASS__, 'renderSkuConfirmTemplate']);
             }
         }
 
@@ -224,14 +228,25 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             $parent_sku = get_post_meta($product_id, '_sku', true);
             $prefix = isset($_POST['prefix']) ? sanitize_text_field(wp_unslash($_POST['prefix'])) : '';
             $base_sku = !empty($prefix) ? $prefix : $parent_sku;
-            $variation_ids = $product->get_children();
-            if (empty($variation_ids)) {
-                // 降级：直接查数据库
-                global $wpdb;
-                $variation_ids = $wpdb->get_col($wpdb->prepare(
-                    "SELECT ID FROM {$wpdb->posts} WHERE post_parent = %d AND post_type = 'product_variation' AND post_status IN ('publish', 'private', 'draft')",
-                    $product_id
-                ));
+
+            $single_variation_id = isset($_POST['variation_id']) ? absint($_POST['variation_id']) : 0;
+            if ($single_variation_id) {
+                // 仅处理单个变体，校验其归属
+                $single = wc_get_product($single_variation_id);
+                if (!$single || !$single->is_type('variation') || (int) $single->get_parent_id() !== $product_id) {
+                    wp_send_json_error(['message' => '变体不存在']);
+                }
+                $variation_ids = [$single_variation_id];
+            } else {
+                $variation_ids = $product->get_children();
+                if (empty($variation_ids)) {
+                    // 降级：直接查数据库
+                    global $wpdb;
+                    $variation_ids = $wpdb->get_col($wpdb->prepare(
+                        "SELECT ID FROM {$wpdb->posts} WHERE post_parent = %d AND post_type = 'product_variation' AND post_status IN ('publish', 'private', 'draft')",
+                        $product_id
+                    ));
+                }
             }
             $results = [];
             $skipped = 0;
@@ -303,8 +318,22 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 ];
             }
 
+            if ($single_variation_id) {
+                if ($mode === 'clear') {
+                    $message = !empty($results) ? '已删除该变体 SKU' : '该变体没有 SKU';
+                } elseif (!empty($results) && !empty($results[0]['sku'])) {
+                    $message = sprintf('已生成 SKU：%s', $results[0]['sku']);
+                } else {
+                    $message = '生成失败：该变体可能缺少属性值或 SKU 已被占用';
+                }
+            } else {
+                $message = ($mode === 'clear')
+                    ? sprintf('SKU 清除完成：清除 %d 个，跳过 %d 个', count($results), $skipped)
+                    : sprintf('SKU 生成完成：成功 %d 个，跳过 %d 个', count($results), $skipped);
+            }
+
             wp_send_json_success([
-                'message' => ($mode === 'clear' ? sprintf('SKU 清除完成：清除 %d 个，跳过 %d 个', count($results), $skipped) : sprintf('SKU 生成完成：成功 %d 个，跳过 %d 个', count($results), $skipped)),
+                'message' => $message,
                 'results' => $results,
             ]);
         }
@@ -328,11 +357,26 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                             <label for="oyiso-vi-sku-prefix">SKU 前缀（留空默认用父产品 SKU，父产品无 SKU 则无前缀）</label>
                             <input type="text" id="oyiso-vi-sku-prefix" class="oyiso-vi-sku-prefix-input" placeholder="例：VAPE-100" />
                         </div>
+                        <div class="oyiso-vi-sku-preview" style="display:none;">
+                            <span class="oyiso-vi-sku-preview-label">生成预览</span>
+                            <code class="oyiso-vi-sku-preview-value"></code>
+                        </div>
                     </div>
                     <div class="oyiso-vi-sku-modal-footer">
+                        <button type="button" class="button oyiso-vi-sku-modal-delete" style="display:none;">删除 SKU</button>
                         <span class="spinner oyiso-vi-sku-modal-spinner" style="float:none;margin:0 6px 0 0;"></span>
                         <button type="button" class="button oyiso-vi-sku-modal-cancel">取消</button>
                         <button type="button" class="button button-primary oyiso-vi-sku-modal-do">确认</button>
+                    </div>
+                    <div class="oyiso-vi-sku-confirm" style="display:none;">
+                        <div class="oyiso-vi-sku-confirm-box">
+                            <h2>删除变体 SKU</h2>
+                            <p>确认删除当前变体 SKU？此操作不可撤销。</p>
+                            <div class="oyiso-vi-sku-confirm-footer">
+                                <button type="button" class="button oyiso-vi-sku-confirm-cancel">取消</button>
+                                <button type="button" class="button oyiso-vi-sku-confirm-ok">确认删除</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

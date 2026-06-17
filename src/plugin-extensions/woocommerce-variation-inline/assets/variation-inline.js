@@ -53,9 +53,9 @@
 
     function buildSkuStatus(sku) {
         if (sku) {
-            return '<span class="oyiso-vi-sku-status oyiso-vi-sku-status-set" data-sku="' + escAttr(sku) + '">SKU</span>';
+            return '<span class="oyiso-vi-sku-status oyiso-vi-sku-status-set" data-sku="' + escAttr(sku) + '" title="点击生成 SKU">SKU</span>';
         }
-        return '<span class="oyiso-vi-sku-status oyiso-vi-sku-status-set" style="display:none" data-sku="">SKU</span>';
+        return '<span class="oyiso-vi-sku-status oyiso-vi-sku-status-empty" data-sku="" title="点击生成 SKU">SKU</span>';
     }
 
     function buildEnabledBtn(enabled) {
@@ -311,6 +311,39 @@
             });
         });
 
+        // 点击 SKU 徽章：仅为当前变体生成（直接绑定，避免被 .oyiso-vi-inline 的 stopPropagation 截断）
+        $variation.find('.oyiso-vi-sku-status').on('click', function (e) {
+            e.stopPropagation();
+            if (!$skuModal.length) return;
+
+            var $el = $(this);
+            var $tip = $el.data('tip');
+            if ($tip) { $tip.remove(); $el.data('tip', null); }
+
+            var variationId = $el.closest('.oyiso-vi-inline').data('variation') || 0;
+            if (!variationId) return;
+
+            var hasSku = !!$el.data('sku');
+
+            // 收集该变体的属性值 slug（用于实时预览）
+            var attrSlugs = [];
+            $variation.find('select[name^="attribute_"]').each(function () {
+                var v = slugifyAttr($(this).val());
+                if (v) attrSlugs.push(v);
+            });
+
+            showSkuModal(
+                '生成变体 SKU',
+                '确认为当前变体生成 SKU？已有 SKU 将被覆盖。\n规则：SKU = 前缀 + 属性值，自动转为大写。',
+                'all',
+                variationId,
+                attrSlugs
+            );
+
+            // 已有 SKU 才显示删除按钮
+            $skuModal.find('.oyiso-vi-sku-modal-delete').toggle(hasSku);
+        });
+
         // 初始化 lastSavedValues，防止首次失焦重复保存
         var vid = $variation.find('.variable_post_id').val();
         if (vid) {
@@ -446,8 +479,37 @@
     var $skuModalTitle = $('#oyiso-vi-sku-modal-title');
     var $skuModalMsg = $('#oyiso-vi-sku-modal-message');
     var skuRequestRunning = false;
+    var skuPreviewSlugs = [];
 
-    function showSkuModal(title, msg, mode) {
+    // 近似后端 sanitize_title：小写、空格/下划线转连字符、去特殊字符（保留中文）
+    function slugifyAttr(v) {
+        return (v || '').toString().toLowerCase()
+            .replace(/[\s_]+/g, '-')
+            .replace(/[^a-z0-9一-鿿-]/g, '')
+            .replace(/-+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+
+    // 实时计算预览 SKU：base(前缀，留空用父SKU) + 属性值，大写
+    function renderSkuPreview() {
+        var prefix = ($('#oyiso-vi-sku-prefix').val() || '').trim();
+        var parentSku = ($('#_sku').val() || '').trim();
+        var base = prefix || parentSku;
+        var attrPart = skuPreviewSlugs.join('-');
+        var sku;
+        if (base) { sku = attrPart ? base + '-' + attrPart : base; }
+        else { sku = attrPart; }
+        sku = sku.replace(/^[-\s]+|[-\s]+$/g, '').toUpperCase();
+
+        var $val = $('.oyiso-vi-sku-preview-value');
+        if (sku) {
+            $val.text(sku).removeClass('oyiso-vi-sku-preview-empty');
+        } else {
+            $val.text('（缺少属性值，无法生成）').addClass('oyiso-vi-sku-preview-empty');
+        }
+    }
+
+    function showSkuModal(title, msg, mode, variationId, attrSlugs) {
         resetSkuModal();
         $skuModalTitle.text(title);
         $skuModalMsg.text(msg);
@@ -459,10 +521,21 @@
             $('.oyiso-vi-sku-prefix-field').show().find('input').val('');
         }
 
+        // 单变体生成：显示实时预览
+        if (mode !== 'clear' && variationId && $.isArray(attrSlugs)) {
+            skuPreviewSlugs = attrSlugs;
+            $('.oyiso-vi-sku-preview').show();
+            renderSkuPreview();
+        } else {
+            skuPreviewSlugs = [];
+            $('.oyiso-vi-sku-preview').hide();
+        }
+
         $skuModal.css('display', 'flex');
         $skuModal[0].offsetHeight;
         $skuModal.addClass('is-open');
         $skuModal.data('mode', mode);
+        $skuModal.data('variation', variationId || 0);
     }
 
     function closeSkuModal() {
@@ -478,9 +551,13 @@
         skuRequestRunning = false;
         $skuModal.removeClass('is-loading is-result is-error');
         $skuModal.find('.oyiso-vi-sku-modal-spinner').removeClass('is-active');
-        $skuModal.find('.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel, .oyiso-vi-sku-modal-do').prop('disabled', false);
+        $skuModal.find('.oyiso-vi-sku-modal-close').prop('disabled', false);
+        $skuModal.find('.oyiso-vi-sku-modal-footer button').prop('disabled', false);
         $skuModal.find('.oyiso-vi-sku-modal-cancel').text('取消').show();
         $skuModal.find('.oyiso-vi-sku-modal-do').text('确认').show();
+        $skuModal.find('.oyiso-vi-sku-modal-delete').hide();
+        $skuModal.find('.oyiso-vi-sku-confirm').removeClass('is-open').css('display', 'none');
+        $('.oyiso-vi-sku-preview').hide();
         $('#oyiso-vi-sku-prefix').prop('disabled', false);
     }
 
@@ -517,7 +594,7 @@
         $('#oyiso-vi-sku-prefix').prop('disabled', true);
     }
 
-    function setSkuModalResult(success, message) {
+    function setSkuModalResult(success, message, title) {
         skuRequestRunning = false;
         unlockVariationEditor();
         $skuModal.removeClass('is-loading').addClass('is-result').toggleClass('is-error', !success);
@@ -525,23 +602,56 @@
         $skuModal.find('.oyiso-vi-sku-modal-close').prop('disabled', false);
         $skuModal.find('.oyiso-vi-sku-modal-cancel').prop('disabled', false).text('关闭').show();
         $skuModal.find('.oyiso-vi-sku-modal-do').hide();
-        $('.oyiso-vi-sku-prefix-field').hide();
+        $skuModal.find('.oyiso-vi-sku-modal-delete').hide();
+        $('.oyiso-vi-sku-prefix-field, .oyiso-vi-sku-preview').hide();
         $('#oyiso-vi-sku-prefix').prop('disabled', false);
-        $skuModalTitle.text(success ? 'SKU 操作完成' : 'SKU 操作失败');
+        $skuModalTitle.text(title || (success ? 'SKU 操作完成' : 'SKU 操作失败'));
         $skuModalMsg.text(message);
     }
 
-    if (enableSkuBatch && $skuModal.length) {
+    if ((enableInline || enableSkuBatch) && $skuModal.length) {
         $skuModal.on('click', '.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel', closeSkuModal);
         $skuModal.on('click', function(e) {
             if (e.target === this) closeSkuModal();
         });
 
+        // 前缀输入实时刷新预览（纯前端，无需防抖）
+        $skuModal.on('input', '#oyiso-vi-sku-prefix', renderSkuPreview);
+
+        // 删除 SKU：打开叠加确认层（不替换主弹窗，取消后主弹窗仍在）
+        $skuModal.on('click', '.oyiso-vi-sku-modal-delete', function() {
+            var vid = $skuModal.data('variation') || 0;
+            if (!vid) return;
+            // 禁用底层按钮，避免透过半透明层误触
+            $skuModal.find('.oyiso-vi-sku-modal-footer button').prop('disabled', true);
+            $skuModal.find('.oyiso-vi-sku-confirm').css('display', 'flex');
+            $skuModal.find('.oyiso-vi-sku-confirm')[0].offsetHeight;
+            $skuModal.find('.oyiso-vi-sku-confirm').addClass('is-open');
+        });
+
+        // 叠加层取消：仅关闭叠加层
+        $skuModal.on('click', '.oyiso-vi-sku-confirm-cancel', function() {
+            var $c = $skuModal.find('.oyiso-vi-sku-confirm');
+            $c.removeClass('is-open');
+            setTimeout(function() { $c.css('display', 'none'); }, 150);
+            $skuModal.find('.oyiso-vi-sku-modal-footer button').prop('disabled', false);
+        });
+
+        // 叠加层确认删除：执行 clear
+        $skuModal.on('click', '.oyiso-vi-sku-confirm-ok', function() {
+            $skuModal.find('.oyiso-vi-sku-confirm').removeClass('is-open').css('display', 'none');
+            submitSkuOp('clear');
+        });
+
         $skuModal.on('click', '.oyiso-vi-sku-modal-do', function() {
             var m = $skuModal.data('mode');
             if (!m) return;
+            submitSkuOp(m);
+        });
 
+        function submitSkuOp(m) {
             var prefix = $('#oyiso-vi-sku-prefix').val().trim();
+            var variationId = $skuModal.data('variation') || 0;
             setSkuModalLoading();
 
             $.ajax({
@@ -553,6 +663,7 @@
                     product_id: config.product_id,
                     mode: m,
                     prefix: prefix,
+                    variation_id: variationId,
                 },
                 success: function(resp) {
                     if (resp.success) {
@@ -565,16 +676,16 @@
                                     $s.text('SKU')
                                         .attr('data-sku', item.sku || '')
                                         .data('sku', item.sku || '')
-                                        .toggle(!!item.sku)
+                                        .show()
                                         .toggleClass('oyiso-vi-sku-status-set', !!item.sku)
                                         .toggleClass('oyiso-vi-sku-status-empty', !item.sku);
                                 }
                             });
                         }
                         try { var pg = parseInt($('.variations-pagenav .page-selector').val()) || 1; $('.variations-pagenav .page-selector').val(pg).trigger('change'); } catch(e) {}
-                        setSkuModalResult(true, resp.data.message || '操作完成');
+                        setSkuModalResult(true, resp.data.message || '操作完成', variationId ? (m === 'clear' ? '删除完成' : '生成完成') : null);
                     } else {
-                        setSkuModalResult(false, resp.data.message || '未知错误');
+                        setSkuModalResult(false, resp.data.message || '未知错误', variationId ? (m === 'clear' ? '删除失败' : '生成失败') : null);
                     }
                 },
                 error: function() {
@@ -584,10 +695,10 @@
                     $('select.variation_actions, #field_to_edit').val($('select.variation_actions option:first').val());
                 }
             });
-        });
+        }
 
         // 批量生成 SKU（capture phase 拦截 WC 之前）
-        var oyisoSkuBox = document.querySelector('#variable_product_options');
+        var oyisoSkuBox = enableSkuBatch ? document.querySelector('#variable_product_options') : null;
         if (oyisoSkuBox) {
             oyisoSkuBox.addEventListener('change', function(e) {
                 var target = e.target;
@@ -612,6 +723,7 @@
                 showSkuModal('确认操作 - ' + titles[mode], messages[mode], mode);
             }, true); // capture phase
         }
+
     }
 
 
