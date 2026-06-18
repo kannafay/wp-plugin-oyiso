@@ -65,20 +65,6 @@ body.oyiso-wc-product-table-body {
     gap: 16px;
 }
 
-.opt-header__badge {
-    display: inline-flex;
-    align-items: center;
-    height: 24px;
-    padding: 0 10px;
-    border-radius: 4px;
-    background: var(--opt-text);
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-}
-
 .opt-header__title {
     margin: 0;
     font-size: 20px;
@@ -100,7 +86,7 @@ body.oyiso-wc-product-table-body {
 .opt-header__stat {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 1px;
 }
 
@@ -264,76 +250,6 @@ body.oyiso-wc-product-table-body {
 }
 
 /* Field chips */
-.opt-fields {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-}
-
-.opt-fields__label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--opt-text-tertiary);
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.opt-fields__list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.opt button.opt-chip {
-    appearance: none;
-    -webkit-appearance: none;
-    display: inline-flex;
-    align-items: center;
-    height: 30px;
-    padding: 0 12px;
-    border: 1px solid var(--opt-border);
-    border-radius: 999px;
-    background: var(--opt-surface);
-    color: var(--opt-text-secondary);
-    font-family: var(--opt-font);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-
-.opt button.opt-chip:hover:not(:disabled) {
-    border-color: var(--opt-accent-border);
-    color: var(--opt-accent);
-}
-
-.opt button.opt-chip[data-active="true"] {
-    border-color: var(--opt-accent-border);
-    background: var(--opt-accent-soft);
-    color: var(--opt-accent);
-}
-
-.opt button.opt-chip[data-active="false"] {
-    background: transparent;
-    color: var(--opt-text-tertiary);
-    border-color: var(--opt-border-light);
-}
-
-.opt button.opt-chip--locked:disabled {
-    opacity: 1;
-    cursor: default;
-    border-color: var(--opt-accent-border);
-    background: var(--opt-accent-soft);
-    color: var(--opt-accent);
-}
-
-.opt button.opt-chip:disabled:not(.opt-chip--locked) {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
 /* Status */
 .opt-status {
     font-size: 12px;
@@ -860,10 +776,14 @@ body.oyiso-wc-product-table-body {
         flex-wrap: wrap;
     }
 
-    .opt-fields {
+    .opt-controls__row--sub {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .opt-status {
+        white-space: normal;
     }
 }
 
