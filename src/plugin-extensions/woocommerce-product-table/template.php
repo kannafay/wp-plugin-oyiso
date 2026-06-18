@@ -11,6 +11,8 @@ $has_woo = Oyiso_WC_Product_Table::isWooCommerceAvailable();
 $is_admin_viewer = Oyiso_WC_Product_Table::isAdminViewer();
 $status_filters = $is_admin_viewer ? Oyiso_WC_Product_Table::getPublishStatusFilters() : [];
 $has_stock_column = isset($columns['stock_status']);
+$has_category_column = isset($columns['categories']);
+$has_brand_column = isset($columns['brand']);
 $document_title = '产品资料总览 - ' . $summary['site_name'];
 $toolbar_status_text = $has_rows ? '导出将以当前字段视图为准' : '当前暂无可导出数据';
 $locked_column_keys = ['name'];
@@ -21,6 +23,18 @@ $stock_filters = [
 ];
 $status_filter_counts = array_fill_keys(array_keys($status_filters), 0);
 $stock_filter_counts = array_fill_keys(array_keys($stock_filters), 0);
+$category_filter_counts = [];
+$brand_filter_counts = [];
+
+$split_terms = static function ($value): array {
+    if (!is_string($value) || $value === '') {
+        return [];
+    }
+
+    return array_values(array_filter(array_map('trim', explode('；', $value)), static function ($item) {
+        return $item !== '';
+    }));
+};
 
 foreach ($rows as $row) {
     $status_key = (string) ($row['status_key'] ?? '');
@@ -33,9 +47,31 @@ foreach ($rows as $row) {
     if ($stock_key !== '' && array_key_exists($stock_key, $stock_filter_counts)) {
         $stock_filter_counts[$stock_key]++;
     }
+
+    if ($has_category_column) {
+        foreach ($split_terms($row['categories'] ?? '') as $term) {
+            $category_filter_counts[$term] = ($category_filter_counts[$term] ?? 0) + 1;
+        }
+    }
+
+    if ($has_brand_column) {
+        foreach ($split_terms($row['brand'] ?? '') as $term) {
+            $brand_filter_counts[$term] = ($brand_filter_counts[$term] ?? 0) + 1;
+        }
+    }
 }
+
+if (!empty($category_filter_counts)) {
+    uksort($category_filter_counts, 'strnatcasecmp');
+}
+if (!empty($brand_filter_counts)) {
+    uksort($brand_filter_counts, 'strnatcasecmp');
+}
+
 $status_filter_total = count($rows);
 $stock_filter_total = count($rows);
+$category_filter_total = count($rows);
+$brand_filter_total = count($rows);
 ?>
 <!doctype html>
 <html <?php language_attributes(); ?>>
@@ -174,6 +210,38 @@ if (function_exists('wp_body_open')) {
                     </div>
                 </div>
                 <?php endif; ?>
+
+                <?php if ($has_category_column && !empty($category_filter_counts)) : ?>
+                <div class="opt-dropdown opt-categoryfilter" data-dropdown data-role="category-filter">
+                    <button type="button" class="opt-btn" data-dropdown-trigger data-role="category-filter-trigger" <?php disabled(!$has_rows); ?>>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+                        分类：<span data-role="category-filter-label">全部（<?php echo esc_html((string) $category_filter_total); ?>）</span>
+                        <svg class="opt-dropdown__caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="opt-dropdown__menu opt-dropdown__menu--left" data-dropdown-menu hidden style="padding: 6px; min-width: 160px; max-height: 400px; overflow-y: auto;">
+                        <button type="button" class="opt-dropdown__item is-active" data-action="filter-category" data-category-value="all">全部（<?php echo esc_html((string) $category_filter_total); ?>）</button>
+                        <?php foreach ($category_filter_counts as $category_name => $category_count) : ?>
+                        <button type="button" class="opt-dropdown__item" data-action="filter-category" data-category-value="<?php echo esc_attr($category_name); ?>"><?php echo esc_html($category_name); ?>（<?php echo esc_html((string) $category_count); ?>）</button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php if ($has_brand_column && !empty($brand_filter_counts)) : ?>
+                <div class="opt-dropdown opt-brandfilter" data-dropdown data-role="brand-filter">
+                    <button type="button" class="opt-btn" data-dropdown-trigger data-role="brand-filter-trigger" <?php disabled(!$has_rows); ?>>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                        品牌：<span data-role="brand-filter-label">全部（<?php echo esc_html((string) $brand_filter_total); ?>）</span>
+                        <svg class="opt-dropdown__caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="opt-dropdown__menu opt-dropdown__menu--left" data-dropdown-menu hidden style="padding: 6px; min-width: 160px; max-height: 400px; overflow-y: auto;">
+                        <button type="button" class="opt-dropdown__item is-active" data-action="filter-brand" data-brand-value="all">全部（<?php echo esc_html((string) $brand_filter_total); ?>）</button>
+                        <?php foreach ($brand_filter_counts as $brand_name => $brand_count) : ?>
+                        <button type="button" class="opt-dropdown__item" data-action="filter-brand" data-brand-value="<?php echo esc_attr($brand_name); ?>"><?php echo esc_html($brand_name); ?>（<?php echo esc_html((string) $brand_count); ?>）</button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
                 </div>
 
                 <div class="opt-status" data-role="action-status" data-tone="neutral" aria-live="polite">
@@ -215,7 +283,7 @@ if (function_exists('wp_body_open')) {
                         </thead>
                         <tbody>
                         <?php foreach ($rows as $row) : ?>
-                            <tr data-product-row data-search="<?php echo esc_attr(Oyiso_WC_Product_Table::getRowSearchText($row)); ?>" data-stock-key="<?php echo esc_attr($row['stock_status_key'] ?? ''); ?>"<?php if ($is_admin_viewer) : ?> data-status="<?php echo esc_attr($row['status_key'] ?? ''); ?>"<?php endif; ?>>
+                            <tr data-product-row data-search="<?php echo esc_attr(Oyiso_WC_Product_Table::getRowSearchText($row)); ?>" data-stock-key="<?php echo esc_attr($row['stock_status_key'] ?? ''); ?>" data-categories="<?php echo esc_attr($row['categories'] ?? ''); ?>" data-brands="<?php echo esc_attr($row['brand'] ?? ''); ?>"<?php if ($is_admin_viewer) : ?> data-status="<?php echo esc_attr($row['status_key'] ?? ''); ?>"<?php endif; ?>>
                                 <td class="opt-table__check"><input type="checkbox" data-role="select-row"></td>
                                 <?php foreach ($columns as $column_key => $column) : ?>
                                     <td

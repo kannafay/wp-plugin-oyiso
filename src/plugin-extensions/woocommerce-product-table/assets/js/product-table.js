@@ -24,8 +24,14 @@ document.addEventListener('DOMContentLoaded', function () {
     var statusFilterLabel = root.querySelector('[data-role="status-filter-label"]');
     var stockFilterNodes = Array.prototype.slice.call(root.querySelectorAll('[data-action="filter-stock"]'));
     var stockFilterLabel = root.querySelector('[data-role="stock-filter-label"]');
+    var categoryFilterNodes = Array.prototype.slice.call(root.querySelectorAll('[data-action="filter-category"]'));
+    var categoryFilterLabel = root.querySelector('[data-role="category-filter-label"]');
+    var brandFilterNodes = Array.prototype.slice.call(root.querySelectorAll('[data-action="filter-brand"]'));
+    var brandFilterLabel = root.querySelector('[data-role="brand-filter-label"]');
     var currentStatusFilter = 'all';
     var currentStockFilter = 'all';
+    var currentCategoryFilter = 'all';
+    var currentBrandFilter = 'all';
 
     function saveColumnState() {
         var state = {};
@@ -392,6 +398,21 @@ document.addEventListener('DOMContentLoaded', function () {
         setStatus('Markdown 文件已开始下载', 'success', true);
     }
 
+    function rowHasTerm(rawValue, target) {
+        if (!rawValue) {
+            return false;
+        }
+
+        var items = rawValue.split('；');
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].trim() === target) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     function applyFilter() {
         var keyword = searchInput ? String(searchInput.value || '').trim().toLowerCase() : '';
         var visibleCount = 0;
@@ -403,7 +424,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 || (row.getAttribute('data-status') || '') === currentStatusFilter;
             var stockMatched = currentStockFilter === 'all'
                 || (row.getAttribute('data-stock-key') || '') === currentStockFilter;
-            var matched = keywordMatched && statusMatched && stockMatched;
+            var categoryMatched = currentCategoryFilter === 'all'
+                || rowHasTerm(row.getAttribute('data-categories'), currentCategoryFilter);
+            var brandMatched = currentBrandFilter === 'all'
+                || rowHasTerm(row.getAttribute('data-brands'), currentBrandFilter);
+            var matched = keywordMatched && statusMatched && stockMatched && categoryMatched && brandMatched;
 
             row.hidden = !matched;
 
@@ -468,6 +493,36 @@ document.addEventListener('DOMContentLoaded', function () {
         syncSelectAll();
     }
 
+    function applyCategoryFilter(node) {
+        currentCategoryFilter = node.getAttribute('data-category-value') || 'all';
+
+        categoryFilterNodes.forEach(function (item) {
+            item.classList.toggle('is-active', item === node);
+        });
+
+        if (categoryFilterLabel) {
+            categoryFilterLabel.textContent = (node.textContent || '').trim();
+        }
+
+        applyFilter();
+        syncSelectAll();
+    }
+
+    function applyBrandFilter(node) {
+        currentBrandFilter = node.getAttribute('data-brand-value') || 'all';
+
+        brandFilterNodes.forEach(function (item) {
+            item.classList.toggle('is-active', item === node);
+        });
+
+        if (brandFilterLabel) {
+            brandFilterLabel.textContent = (node.textContent || '').trim();
+        }
+
+        applyFilter();
+        syncSelectAll();
+    }
+
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function () {
             var checked = selectAllCheckbox.checked;
@@ -522,6 +577,22 @@ document.addEventListener('DOMContentLoaded', function () {
         node.addEventListener('click', function (e) {
             e.stopPropagation();
             applyStockFilter(node);
+            dropdowns.forEach(closeDropdown);
+        });
+    });
+
+    categoryFilterNodes.forEach(function (node) {
+        node.addEventListener('click', function (e) {
+            e.stopPropagation();
+            applyCategoryFilter(node);
+            dropdowns.forEach(closeDropdown);
+        });
+    });
+
+    brandFilterNodes.forEach(function (node) {
+        node.addEventListener('click', function (e) {
+            e.stopPropagation();
+            applyBrandFilter(node);
             dropdowns.forEach(closeDropdown);
         });
     });
