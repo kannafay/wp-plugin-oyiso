@@ -888,3 +888,86 @@ body.oyiso-wc-product-table-body {
         padding: 16px;
     }
 }
+
+/* ===== 发布状态筛选 + 库存排序工具 ===== */
+.opt-tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.opt-btn.is-active {
+    border-color: var(--opt-accent);
+    color: var(--opt-accent-strong);
+    background: var(--opt-accent-soft);
+}
+
+.opt-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.opt-dropdown__item.is-active {
+    background: var(--opt-accent-soft);
+    color: var(--opt-accent-strong);
+    font-weight: 600;
+}
+
+.opt-sortstock__arrow {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-left: 2px;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+}
+
+.opt-sortstock[data-sort="asc"] .opt-sortstock__arrow {
+    border-bottom: 5px solid currentColor;
+}
+
+.opt-sortstock[data-sort="none"] .opt-sortstock__arrow {
+    opacity: 0.35;
+    border-bottom: 5px solid currentColor;
+}
+
+/* 发布状态徽标（仅管理员视角，挂在产品名下方） */
+.oyiso-product-table__status {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    height: 18px;
+    margin-top: 2px;
+    padding: 0 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.oyiso-product-table__status--draft {
+    color: var(--opt-warning);
+    background: rgba(217, 119, 6, 0.12);
+    border-color: rgba(217, 119, 6, 0.25);
+}
+
+.oyiso-product-table__status--pending {
+    color: var(--opt-accent-strong);
+    background: var(--opt-accent-soft);
+    border-color: rgba(45, 108, 223, 0.25);
+}
+
+.oyiso-product-table__status--private {
+    color: var(--opt-danger);
+    background: rgba(220, 38, 38, 0.12);
+    border-color: rgba(220, 38, 38, 0.25);
+}
+
+.oyiso-product-table__status--future {
+    color: var(--opt-text-secondary);
+    background: rgba(100, 116, 139, 0.1);
+    border-color: rgba(100, 116, 139, 0.2);
+}

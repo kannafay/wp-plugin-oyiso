@@ -8,6 +8,9 @@ $columns = Oyiso_WC_Product_Table::getColumns();
 $rows = Oyiso_WC_Product_Table::getRows();
 $has_rows = !empty($rows);
 $has_woo = Oyiso_WC_Product_Table::isWooCommerceAvailable();
+$is_admin_viewer = Oyiso_WC_Product_Table::isAdminViewer();
+$status_filters = $is_admin_viewer ? Oyiso_WC_Product_Table::getPublishStatusFilters() : [];
+$has_stock_column = isset($columns['stock_status']);
 $document_title = '产品资料总览 - ' . $summary['site_name'];
 $toolbar_status_text = $has_rows ? '导出将以当前字段视图为准' : '当前暂无可导出数据';
 $locked_column_keys = ['name'];
@@ -91,6 +94,7 @@ if (function_exists('wp_body_open')) {
             </div>
 
             <div class="opt-controls__row opt-controls__row--sub">
+                <div class="opt-tools">
                 <div class="opt-fields">
                     <span class="opt-fields__label">显示字段</span>
                     <div class="opt-dropdown" data-dropdown>
@@ -120,6 +124,32 @@ if (function_exists('wp_body_open')) {
                         </div>
                     </div>
                 </div>
+
+                <?php if ($is_admin_viewer) : ?>
+                <div class="opt-dropdown opt-statusfilter" data-dropdown data-role="status-filter">
+                    <button type="button" class="opt-btn" data-dropdown-trigger data-role="status-filter-trigger" <?php disabled(!$has_rows); ?>>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+                        发布状态：<span data-role="status-filter-label">全部</span>
+                        <svg class="opt-dropdown__caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="opt-dropdown__menu opt-dropdown__menu--left" data-dropdown-menu hidden style="padding: 6px; min-width: 160px;">
+                        <button type="button" class="opt-dropdown__item is-active" data-action="filter-status" data-status-value="all">全部</button>
+                        <?php foreach ($status_filters as $status_key => $status_label) : ?>
+                        <button type="button" class="opt-dropdown__item" data-action="filter-status" data-status-value="<?php echo esc_attr($status_key); ?>"><?php echo esc_html($status_label); ?></button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php if ($has_stock_column) : ?>
+                <button type="button" class="opt-btn opt-sortstock" data-action="sort-stock" data-sort="none" <?php disabled(!$has_rows); ?>>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                    库存排序
+                    <span class="opt-sortstock__arrow" aria-hidden="true"></span>
+                </button>
+                <?php endif; ?>
+                </div>
+
                 <div class="opt-status" data-role="action-status" data-tone="neutral" aria-live="polite">
                     <?php echo esc_html($toolbar_status_text); ?>
                 </div>
@@ -159,7 +189,7 @@ if (function_exists('wp_body_open')) {
                         </thead>
                         <tbody>
                         <?php foreach ($rows as $row) : ?>
-                            <tr data-product-row data-search="<?php echo esc_attr(Oyiso_WC_Product_Table::getRowSearchText($row)); ?>">
+                            <tr data-product-row data-search="<?php echo esc_attr(Oyiso_WC_Product_Table::getRowSearchText($row)); ?>" data-stock-key="<?php echo esc_attr($row['stock_status_key'] ?? ''); ?>"<?php if ($is_admin_viewer) : ?> data-status="<?php echo esc_attr($row['status_key'] ?? ''); ?>"<?php endif; ?>>
                                 <td class="opt-table__check"><input type="checkbox" data-role="select-row"></td>
                                 <?php foreach ($columns as $column_key => $column) : ?>
                                     <td

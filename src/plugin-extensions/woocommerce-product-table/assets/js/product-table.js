@@ -20,6 +20,14 @@ document.addEventListener('DOMContentLoaded', function () {
     var statusResetTimer = 0;
     var LOCAL_STORAGE_KEY = 'oyiso_wc_product_table_columns_v1';
 
+    var statusFilterNodes = Array.prototype.slice.call(root.querySelectorAll('[data-action="filter-status"]'));
+    var statusFilterLabel = root.querySelector('[data-role="status-filter-label"]');
+    var stockSortButton = root.querySelector('[data-action="sort-stock"]');
+    var currentStatusFilter = 'all';
+    var stockSortState = 'none';
+    var originalRowOrder = rowNodes.slice();
+    var STOCK_RANK = { instock: 0, onbackorder: 1, outofstock: 2 };
+
     function saveColumnState() {
         var state = {};
         columnToggleNodes.forEach(function (node) {
@@ -391,7 +399,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         rowNodes.forEach(function (row) {
             var searchText = (row.getAttribute('data-search') || '').toLowerCase();
-            var matched = keyword === '' || searchText.indexOf(keyword) !== -1;
+            var keywordMatched = keyword === '' || searchText.indexOf(keyword) !== -1;
+            var statusMatched = currentStatusFilter === 'all'
+                || (row.getAttribute('data-status') || '') === currentStatusFilter;
+            var matched = keywordMatched && statusMatched;
 
             row.hidden = !matched;
 
@@ -424,6 +435,92 @@ document.addEventListener('DOMContentLoaded', function () {
         syncVisibleColumns();
         saveColumnState();
         setStatus('字段视图已更新，后续复制与导出会自动同步', 'neutral', true);
+    }
+
+    function applyStatusFilter(node) {
+        currentStatusFilter = node.getAttribute('data-status-value') || 'all';
+
+        statusFilterNodes.forEach(function (item) {
+            item.classList.toggle('is-active', item === node);
+        });
+
+        if (statusFilterLabel) {
+            statusFilterLabel.textContent = (node.textContent || '').trim();
+        }
+
+        applyFilter();
+        syncSelectAll();
+    }
+
+    function stockRank(row) {
+        var key = row.getAttribute('data-stock-key') || '';
+        return Object.prototype.hasOwnProperty.call(STOCK_RANK, key) ? STOCK_RANK[key] : 99;
+    }
+
+    function reorderRows(orderedRows) {
+        var tbody = root.querySelector('.opt-table tbody');
+        if (!tbody) {
+            return;
+        }
+
+        orderedRows.forEach(function (row) {
+            tbody.appendChild(row);
+        });
+
+        rowNodes = orderedRows.slice();
+    }
+
+    function applyStockSort() {
+        var sorted;
+
+        if (stockSortState === 'asc') {
+            sorted = rowNodes.slice().sort(function (a, b) {
+                var diff = stockRank(a) - stockRank(b);
+                if (diff !== 0) {
+                    return diff;
+                }
+                return originalRowOrder.indexOf(a) - originalRowOrder.indexOf(b);
+            });
+        } else {
+            sorted = originalRowOrder.slice();
+        }
+
+        reorderRows(sorted);
+    }
+
+    function updateStockSortButton() {
+        if (!stockSortButton) {
+            return;
+        }
+
+        stockSortButton.setAttribute('data-sort', stockSortState);
+        stockSortButton.classList.toggle('is-active', stockSortState !== 'none');
+        stockSortButton.title = stockSortState === 'asc'
+            ? '库存：有货优先（点击恢复原序）'
+            : '按库存状态排序';
+    }
+
+    function isStockColumnVisible() {
+        var toggle = columnToggleNodes.filter(function (node) {
+            return node.getAttribute('data-column-key') === 'stock_status';
+        })[0];
+
+        return toggle ? toggle.checked : false;
+    }
+
+    function updateStockSortAvailability() {
+        if (!stockSortButton) {
+            return;
+        }
+
+        var available = isStockColumnVisible();
+        stockSortButton.disabled = !available;
+
+        if (!available && stockSortState !== 'none') {
+            stockSortState = 'none';
+            applyStockSort();
+            updateStockSortButton();
+        }
     }
 
     if (selectAllCheckbox) {
@@ -465,8 +562,31 @@ document.addEventListener('DOMContentLoaded', function () {
     columnToggleNodes.forEach(function (node) {
         node.addEventListener('change', function () {
             toggleColumn(node);
+            updateStockSortAvailability();
         });
     });
+
+    statusFilterNodes.forEach(function (node) {
+        node.addEventListener('click', function (e) {
+            e.stopPropagation();
+            applyStatusFilter(node);
+            dropdowns.forEach(closeDropdown);
+        });
+    });
+
+    if (stockSortButton) {
+        stockSortButton.addEventListener('click', function () {
+            if (stockSortButton.disabled) {
+                return;
+            }
+
+            stockSortState = stockSortState === 'asc' ? 'none' : 'asc';
+
+            applyStockSort();
+            updateStockSortButton();
+            syncSelectAll();
+        });
+    }
 
     function openDropdown(dropdown) {
         var menu = dropdown.querySelector('[data-dropdown-menu]');
@@ -586,4 +706,6 @@ document.addEventListener('DOMContentLoaded', function () {
     loadColumnState();
     syncVisibleColumns();
     applyFilter();
+    updateStockSortButton();
+    updateStockSortAvailability();
 });

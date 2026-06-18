@@ -90,8 +90,17 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
             'outofstock' => '缺货',
             'onbackorder' => '预售',
         ];
+        private const POST_STATUS_LABELS = [
+            'publish' => '已发布',
+            'draft' => '草稿',
+            'pending' => '待审',
+            'private' => '私密',
+            'future' => '计划',
+        ];
+        private const ADMIN_POST_STATUSES = ['publish', 'draft', 'pending', 'private', 'future'];
         private static ?array $rows = null;
         private static ?array $columns = null;
+        private static ?bool $is_admin_viewer = null;
 
         public static function init(): void
         {
@@ -243,6 +252,15 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
             return class_exists('WooCommerce') && function_exists('wc_get_product');
         }
 
+        public static function isAdminViewer(): bool
+        {
+            if (self::$is_admin_viewer !== null) {
+                return self::$is_admin_viewer;
+            }
+
+            return self::$is_admin_viewer = is_user_logged_in() && current_user_can('manage_options');
+        }
+
         public static function sanitizeSlug($value): string
         {
             $slug = sanitize_title((string) $value);
@@ -351,7 +369,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
 
             $query = new WP_Query([
                 'post_type' => 'product',
-                'post_status' => 'publish',
+                'post_status' => self::isAdminViewer() ? self::ADMIN_POST_STATUSES : 'publish',
                 'posts_per_page' => -1,
                 'fields' => 'ids',
                 'orderby' => 'ID',
@@ -396,10 +414,39 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
                 'page_url' => self::getRouteUrl(),
                 'slug' => $settings['slug'],
                 'generated_at' => current_time('Y-m-d H:i:s'),
-                'product_count' => count(self::getRows()),
+                'product_count' => count(array_filter(self::getRows(), static function (array $row): bool {
+                    return ($row['status_key'] ?? 'publish') === 'publish';
+                })),
                 'column_count' => count(self::getColumns()),
                 'has_woo' => self::isWooCommerceAvailable(),
             ];
+        }
+
+        public static function getPublishStatusFilters(): array
+        {
+            if (!self::isAdminViewer()) {
+                return [];
+            }
+
+            $present = [];
+
+            foreach (self::getRows() as $row) {
+                $status_key = (string) ($row['status_key'] ?? '');
+
+                if ($status_key !== '') {
+                    $present[$status_key] = true;
+                }
+            }
+
+            $filters = [];
+
+            foreach (self::POST_STATUS_LABELS as $status_key => $label) {
+                if (isset($present[$status_key])) {
+                    $filters[$status_key] = $label;
+                }
+            }
+
+            return $filters;
         }
 
         public static function getRowSearchText(array $row): string
@@ -416,6 +463,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
                 $row['categories'],
                 $row['tags'],
                 $row['stock_status'],
+                self::isAdminViewer() ? ($row['status_label'] ?? '') : '',
             ];
 
             return strtolower(implode(' ', array_filter($fragments)));
@@ -437,9 +485,10 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
 
                 case 'name':
                     return sprintf(
-                        '<div class="oyiso-product-table__name"><strong>%1$s</strong><span>#%2$d</span></div>',
+                        '<div class="oyiso-product-table__name"><strong>%1$s</strong><span>#%2$d</span>%3$s</div>',
                         esc_html($row['name']),
-                        (int) $row['product_id']
+                        (int) $row['product_id'],
+                        self::renderStatusBadge($row)
                     );
 
                 case 'link':
@@ -621,7 +670,14 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
                 'tags' => self::getProductTermsText($product_id, 'product_tag'),
                 'stock_status' => self::getStockStatusLabel((string) $product->get_stock_status()),
                 'stock_status_key' => (string) $product->get_stock_status(),
+                'status_key' => (string) get_post_status($product_id),
+                'status_label' => self::getPostStatusLabel((string) get_post_status($product_id)),
             ];
+        }
+
+        private static function getPostStatusLabel(string $status_key): string
+        {
+            return self::POST_STATUS_LABELS[$status_key] ?? ($status_key !== '' ? $status_key : '');
         }
 
         private static function getProductTypeLabel($product): string
@@ -841,6 +897,25 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
         private static function getStockStatusLabel(string $stock_status): string
         {
             return self::STOCK_STATUS_LABELS[$stock_status] ?? ($stock_status !== '' ? $stock_status : '');
+        }
+
+        private static function renderStatusBadge(array $row): string
+        {
+            if (!self::isAdminViewer()) {
+                return '';
+            }
+
+            $status_key = (string) ($row['status_key'] ?? '');
+
+            if ($status_key === '' || $status_key === 'publish') {
+                return '';
+            }
+
+            return sprintf(
+                '<span class="oyiso-product-table__status oyiso-product-table__status--%1$s">%2$s</span>',
+                esc_attr($status_key),
+                esc_html((string) ($row['status_label'] ?? $status_key))
+            );
         }
 
         private static function renderBadge(string $label, string $tone): string
