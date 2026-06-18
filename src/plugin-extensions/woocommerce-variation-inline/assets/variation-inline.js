@@ -11,6 +11,65 @@
     var STOCK_LABELS = { instock: '有货', outofstock: '无货', onbackorder: '预售' };
     var STOCK_CLASSES = { instock: 'oyiso-vi-green', outofstock: 'oyiso-vi-red', onbackorder: 'oyiso-vi-orange' };
 
+    // 全表共享的媒体库 frame：只创建一次，列表只加载一次。
+    // 点击不同变体封面时，仅切换当前目标，frame 复用，不再重新加载媒体库。
+    var sharedMediaFrame = null;
+    var mediaTarget = null;
+
+    function getSharedMediaFrame() {
+        if (sharedMediaFrame) {
+            return sharedMediaFrame;
+        }
+
+        sharedMediaFrame = wp.media({
+            title: '选择变体封面',
+            button: { text: '使用此图片' },
+            multiple: false
+        });
+
+        sharedMediaFrame.on('select', function () {
+            if (!mediaTarget) {
+                return;
+            }
+
+            var t = mediaTarget;
+            var attachment = sharedMediaFrame.state().get('selection').first().toJSON();
+            var thumbSize = (attachment.sizes && attachment.sizes.thumbnail)
+                ? attachment.sizes.thumbnail.url
+                : attachment.url;
+
+            t.$img.attr('src', thumbSize);
+            t.$thumb.addClass('oyiso-vi-thumb-has-image').removeAttr('title');
+            t.$thumb.data('image-id', attachment.id);
+            t.$panel.find('.upload_image_id')[0] && (t.$panel.find('.upload_image_id')[0].value = attachment.id);
+            markFormClean();
+            var $uploadBtn = t.$panel.find('.upload_image_button');
+            $uploadBtn.addClass('remove').attr('data-tip', '移除图片');
+            $uploadBtn.find('img').attr('src', thumbSize);
+            saveVariation(t.$variation, 'image_id', attachment.id, t.$thumb);
+        });
+
+        // 打开时用当前目标图片预选中，右侧详情面板直接显示当前图片信息
+        sharedMediaFrame.on('open', function () {
+            if (!mediaTarget) {
+                return;
+            }
+
+            var selection = sharedMediaFrame.state().get('selection');
+            var currentId = parseInt(mediaTarget.$panel.find('.upload_image_id').val(), 10);
+
+            selection.reset();
+
+            if (currentId > 0 && wp.media.attachment) {
+                var current = wp.media.attachment(currentId);
+                current.fetch();
+                selection.add(current);
+            }
+        });
+
+        return sharedMediaFrame;
+    }
+
     function initVariation($variation) {
         if ($variation.find('.oyiso-vi-inline').length) {
             return;
@@ -220,36 +279,19 @@
             saveVariation($variation, field, value, $input);
         });
 
-        // 封面点击：打开媒体库选图
+        // 封面点击：打开全表共享的媒体库 frame（只切换当前目标，不重新加载）
         $variation.find('.oyiso-vi-thumb').on('click', function (e) {
             e.stopPropagation();
             var $thumb = $(this);
-            var $img = $thumb.find('img');
-            var $uploadId = $panel.find('.upload_image_id');
 
-            var frame = wp.media({
-                title: '选择变体封面',
-                button: { text: '使用此图片' },
-                multiple: false
-            });
+            mediaTarget = {
+                $variation: $variation,
+                $panel: $panel,
+                $thumb: $thumb,
+                $img: $thumb.find('img')
+            };
 
-            frame.on('select', function () {
-                var attachment = frame.state().get('selection').first().toJSON();
-                var thumbSize = (attachment.sizes && attachment.sizes.thumbnail)
-                    ? attachment.sizes.thumbnail.url
-                    : attachment.url;
-                $img.attr('src', thumbSize);
-                $thumb.addClass('oyiso-vi-thumb-has-image').removeAttr('title');
-                $thumb.data('image-id', attachment.id);
-                $panel.find('.upload_image_id')[0] && ($panel.find('.upload_image_id')[0].value = attachment.id);
-                markFormClean();
-                var $uploadBtn = $panel.find('.upload_image_button');
-                $uploadBtn.addClass('remove').attr('data-tip', '移除图片');
-                $uploadBtn.find('img').attr('src', thumbSize);
-                saveVariation($variation, 'image_id', attachment.id, $thumb);
-            });
-
-            frame.open();
+            getSharedMediaFrame().open();
         });
 
         // 点击红叉：清除封面
