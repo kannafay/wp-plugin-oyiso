@@ -333,7 +333,7 @@
             });
 
             showSkuModal(
-                '生成变体 SKU',
+                '生成变体 SKU（#' + variationId + '）',
                 '确认为当前变体生成 SKU？已有 SKU 将被覆盖。\n规则：SKU = 前缀 + 属性值，自动转为大写。',
                 'all',
                 variationId,
@@ -622,6 +622,7 @@
         $skuModal.on('click', '.oyiso-vi-sku-modal-delete', function() {
             var vid = $skuModal.data('variation') || 0;
             if (!vid) return;
+            $skuModal.find('.oyiso-vi-sku-confirm-box h2').text('删除变体 SKU（#' + vid + '）');
             // 禁用底层按钮，避免透过半透明层误触
             $skuModal.find('.oyiso-vi-sku-modal-footer button').prop('disabled', true);
             $skuModal.find('.oyiso-vi-sku-confirm').css('display', 'flex');
