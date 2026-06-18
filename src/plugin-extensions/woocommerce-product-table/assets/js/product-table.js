@@ -22,11 +22,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var statusFilterNodes = Array.prototype.slice.call(root.querySelectorAll('[data-action="filter-status"]'));
     var statusFilterLabel = root.querySelector('[data-role="status-filter-label"]');
-    var stockSortButton = root.querySelector('[data-action="sort-stock"]');
+    var stockFilterNodes = Array.prototype.slice.call(root.querySelectorAll('[data-action="filter-stock"]'));
+    var stockFilterLabel = root.querySelector('[data-role="stock-filter-label"]');
     var currentStatusFilter = 'all';
-    var stockSortState = 'none';
-    var originalRowOrder = rowNodes.slice();
-    var STOCK_RANK = { instock: 0, onbackorder: 1, outofstock: 2 };
+    var currentStockFilter = 'all';
 
     function saveColumnState() {
         var state = {};
@@ -402,7 +401,9 @@ document.addEventListener('DOMContentLoaded', function () {
             var keywordMatched = keyword === '' || searchText.indexOf(keyword) !== -1;
             var statusMatched = currentStatusFilter === 'all'
                 || (row.getAttribute('data-status') || '') === currentStatusFilter;
-            var matched = keywordMatched && statusMatched;
+            var stockMatched = currentStockFilter === 'all'
+                || (row.getAttribute('data-stock-key') || '') === currentStockFilter;
+            var matched = keywordMatched && statusMatched && stockMatched;
 
             row.hidden = !matched;
 
@@ -452,75 +453,19 @@ document.addEventListener('DOMContentLoaded', function () {
         syncSelectAll();
     }
 
-    function stockRank(row) {
-        var key = row.getAttribute('data-stock-key') || '';
-        return Object.prototype.hasOwnProperty.call(STOCK_RANK, key) ? STOCK_RANK[key] : 99;
-    }
+    function applyStockFilter(node) {
+        currentStockFilter = node.getAttribute('data-stock-value') || 'all';
 
-    function reorderRows(orderedRows) {
-        var tbody = root.querySelector('.opt-table tbody');
-        if (!tbody) {
-            return;
-        }
-
-        orderedRows.forEach(function (row) {
-            tbody.appendChild(row);
+        stockFilterNodes.forEach(function (item) {
+            item.classList.toggle('is-active', item === node);
         });
 
-        rowNodes = orderedRows.slice();
-    }
-
-    function applyStockSort() {
-        var sorted;
-
-        if (stockSortState === 'asc') {
-            sorted = rowNodes.slice().sort(function (a, b) {
-                var diff = stockRank(a) - stockRank(b);
-                if (diff !== 0) {
-                    return diff;
-                }
-                return originalRowOrder.indexOf(a) - originalRowOrder.indexOf(b);
-            });
-        } else {
-            sorted = originalRowOrder.slice();
+        if (stockFilterLabel) {
+            stockFilterLabel.textContent = (node.textContent || '').trim();
         }
 
-        reorderRows(sorted);
-    }
-
-    function updateStockSortButton() {
-        if (!stockSortButton) {
-            return;
-        }
-
-        stockSortButton.setAttribute('data-sort', stockSortState);
-        stockSortButton.classList.toggle('is-active', stockSortState !== 'none');
-        stockSortButton.title = stockSortState === 'asc'
-            ? '库存：有货优先（点击恢复原序）'
-            : '按库存状态排序';
-    }
-
-    function isStockColumnVisible() {
-        var toggle = columnToggleNodes.filter(function (node) {
-            return node.getAttribute('data-column-key') === 'stock_status';
-        })[0];
-
-        return toggle ? toggle.checked : false;
-    }
-
-    function updateStockSortAvailability() {
-        if (!stockSortButton) {
-            return;
-        }
-
-        var available = isStockColumnVisible();
-        stockSortButton.disabled = !available;
-
-        if (!available && stockSortState !== 'none') {
-            stockSortState = 'none';
-            applyStockSort();
-            updateStockSortButton();
-        }
+        applyFilter();
+        syncSelectAll();
     }
 
     if (selectAllCheckbox) {
@@ -562,7 +507,6 @@ document.addEventListener('DOMContentLoaded', function () {
     columnToggleNodes.forEach(function (node) {
         node.addEventListener('change', function () {
             toggleColumn(node);
-            updateStockSortAvailability();
         });
     });
 
@@ -574,19 +518,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    if (stockSortButton) {
-        stockSortButton.addEventListener('click', function () {
-            if (stockSortButton.disabled) {
-                return;
-            }
-
-            stockSortState = stockSortState === 'asc' ? 'none' : 'asc';
-
-            applyStockSort();
-            updateStockSortButton();
-            syncSelectAll();
+    stockFilterNodes.forEach(function (node) {
+        node.addEventListener('click', function (e) {
+            e.stopPropagation();
+            applyStockFilter(node);
+            dropdowns.forEach(closeDropdown);
         });
-    }
+    });
 
     function openDropdown(dropdown) {
         var menu = dropdown.querySelector('[data-dropdown-menu]');
@@ -706,6 +644,4 @@ document.addEventListener('DOMContentLoaded', function () {
     loadColumnState();
     syncVisibleColumns();
     applyFilter();
-    updateStockSortButton();
-    updateStockSortAvailability();
 });

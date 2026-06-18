@@ -803,7 +803,8 @@ body.oyiso-wc-product-table-body {
     justify-content: flex-start;
     width: 100%;
     height: auto;
-    padding: 8px;
+    min-height: 0;
+    padding: 10px;
     border: none;
     border-radius: 4px;
     background: transparent;
@@ -889,7 +890,7 @@ body.oyiso-wc-product-table-body {
     }
 }
 
-/* ===== 发布状态筛选 + 库存排序工具 ===== */
+/* ===== 发布状态筛选 + 库存筛选工具 ===== */
 .opt-tools {
     display: flex;
     align-items: center;
@@ -912,24 +913,6 @@ body.oyiso-wc-product-table-body {
     background: var(--opt-accent-soft);
     color: var(--opt-accent-strong);
     font-weight: 600;
-}
-
-.opt-sortstock__arrow {
-    display: inline-block;
-    width: 0;
-    height: 0;
-    margin-left: 2px;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-}
-
-.opt-sortstock[data-sort="asc"] .opt-sortstock__arrow {
-    border-bottom: 5px solid currentColor;
-}
-
-.opt-sortstock[data-sort="none"] .opt-sortstock__arrow {
-    opacity: 0.35;
-    border-bottom: 5px solid currentColor;
 }
 
 /* 发布状态徽标（仅管理员视角，挂在产品名下方） */

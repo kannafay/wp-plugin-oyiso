@@ -428,25 +428,7 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
                 return [];
             }
 
-            $present = [];
-
-            foreach (self::getRows() as $row) {
-                $status_key = (string) ($row['status_key'] ?? '');
-
-                if ($status_key !== '') {
-                    $present[$status_key] = true;
-                }
-            }
-
-            $filters = [];
-
-            foreach (self::POST_STATUS_LABELS as $status_key => $label) {
-                if (isset($present[$status_key])) {
-                    $filters[$status_key] = $label;
-                }
-            }
-
-            return $filters;
+            return self::POST_STATUS_LABELS;
         }
 
         public static function getRowSearchText(array $row): string
