@@ -228,6 +228,8 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             $parent_sku = get_post_meta($product_id, '_sku', true);
             $prefix = isset($_POST['prefix']) ? sanitize_text_field(wp_unslash($_POST['prefix'])) : '';
             $base_sku = !empty($prefix) ? $prefix : $parent_sku;
+            $use_abbr = !empty($_POST['use_abbr']);
+            $preview_only = !empty($_POST['preview']);
 
             $single_variation_id = isset($_POST['variation_id']) ? absint($_POST['variation_id']) : 0;
             if ($single_variation_id) {
@@ -261,6 +263,10 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                         $skipped++;
                         continue;
                     }
+                    if ($preview_only) {
+                        $results[] = ['variation_id' => $variation_id, 'sku' => $child_sku];
+                        continue;
+                    }
                     delete_post_meta($variation_id, '_sku');
                     if (function_exists('wc_update_product_lookup_tables_column')) {
                         wc_update_product_lookup_tables_column('sku', [$variation_id]);
@@ -275,13 +281,18 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 }
 
                 // 规则：base（前缀，留空用父产品 SKU）+ 各属性值拼接；base 不存在则仅用属性值
-                $attr_slugs = [];
-                foreach ($variation->get_attributes() as $attr_value) {
+                $attr_labels = [];
+                $attr_parts = [];
+                foreach ($variation->get_attributes() as $attr_name => $attr_value) {
                     if ($attr_value && '' !== $attr_value) {
-                        $attr_slugs[] = sanitize_title($attr_value);
+                        $attr_label = self::getVariationAttributeLabel($attr_name, $attr_value);
+                        $attr_labels[] = $attr_label;
+                        $attr_parts[] = $use_abbr
+                            ? self::abbreviateSkuAttribute($attr_label)
+                            : sanitize_title($attr_label);
                     }
                 }
-                $attr_part = implode('-', $attr_slugs);
+                $attr_part = implode('-', array_filter($attr_parts));
 
                 if ($base_sku) {
                     $pending_sku = $attr_part ? $base_sku . '-' . $attr_part : $base_sku;
@@ -307,18 +318,25 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                     continue;
                 }
 
-                update_post_meta($variation_id, '_sku', $sku_to_set);
-                if (function_exists('wc_update_product_lookup_tables_column')) {
-                    wc_update_product_lookup_tables_column('sku', [$variation_id]);
+                if (!$preview_only) {
+                    update_post_meta($variation_id, '_sku', $sku_to_set);
+                    if (function_exists('wc_update_product_lookup_tables_column')) {
+                        wc_update_product_lookup_tables_column('sku', [$variation_id]);
+                    }
                 }
 
                 $results[] = [
                     'variation_id' => $variation_id,
                     'sku' => $sku_to_set,
+                    'attrs' => $preview_only ? $attr_labels : [],
                 ];
             }
 
-            if ($single_variation_id) {
+            if ($preview_only) {
+                $message = ($mode === 'clear')
+                    ? sprintf('将清除 %d 个，跳过 %d 个', count($results), $skipped)
+                    : sprintf('将生成 %d 个，跳过 %d 个', count($results), $skipped);
+            } elseif ($single_variation_id) {
                 if ($mode === 'clear') {
                     $message = !empty($results) ? '已删除该变体 SKU' : '该变体没有 SKU';
                 } elseif (!empty($results) && !empty($results[0]['sku'])) {
@@ -336,6 +354,44 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'message' => $message,
                 'results' => $results,
             ]);
+        }
+
+        private static function getVariationAttributeLabel(string $attr_name, string $attr_value): string
+        {
+            if (taxonomy_exists($attr_name)) {
+                $term = get_term_by('slug', $attr_value, $attr_name);
+                if ($term && !is_wp_error($term)) {
+                    return $term->name;
+                }
+            }
+
+            return $attr_value;
+        }
+
+        private static function abbreviateSkuAttribute(string $value): string
+        {
+            $value = html_entity_decode($value, ENT_QUOTES, get_bloginfo('charset') ?: 'UTF-8');
+            $parts = preg_split('/[&+\/|,，、;；]+/u', $value, -1, PREG_SPLIT_NO_EMPTY);
+            $groups = [];
+
+            foreach ($parts ?: [] as $part) {
+                $words = preg_split('/[^\p{L}\p{N}]+/u', $part, -1, PREG_SPLIT_NO_EMPTY);
+                $initials = [];
+
+                foreach ($words ?: [] as $word) {
+                    $initial = function_exists('mb_substr') ? mb_substr($word, 0, 1) : substr($word, 0, 1);
+                    if ($initial !== '') {
+                        $initials[] = sanitize_title($initial);
+                    }
+                }
+
+                $group = implode('', array_filter($initials));
+                if ($group !== '') {
+                    $groups[] = $group;
+                }
+            }
+
+            return implode('-', $groups);
         }
 
         public static function renderSkuConfirmTemplate(): void
@@ -357,6 +413,10 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                             <label for="oyiso-vi-sku-prefix">SKU 前缀（留空默认用父产品 SKU，父产品无 SKU 则无前缀）</label>
                             <input type="text" id="oyiso-vi-sku-prefix" class="oyiso-vi-sku-prefix-input" placeholder="例：VAPE-100" />
                         </div>
+                        <label class="oyiso-vi-sku-abbr-field" style="display:none;">
+                            <input type="checkbox" id="oyiso-vi-sku-use-abbr" />
+                            <span>启用缩写：属性值按每个单词首字母生成，特殊字符作为分隔</span>
+                        </label>
                         <div class="oyiso-vi-sku-preview" style="display:none;">
                             <span class="oyiso-vi-sku-preview-label">生成预览</span>
                             <code class="oyiso-vi-sku-preview-value"></code>

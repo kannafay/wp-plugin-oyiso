@@ -367,19 +367,12 @@
 
             var hasSku = !!$el.data('sku');
 
-            // 收集该变体的属性值 slug（用于实时预览）
-            var attrSlugs = [];
-            $variation.find('select[name^="attribute_"]').each(function () {
-                var v = slugifyAttr($(this).val());
-                if (v) attrSlugs.push(v);
-            });
-
             showSkuModal(
                 '生成变体 SKU（#' + variationId + '）',
-                '确认为当前变体生成 SKU？已有 SKU 将被覆盖。\n规则：SKU = 前缀 + 属性值，自动转为大写。',
+                '确认为当前变体生成 SKU？已有 SKU 将被覆盖。\n规则：SKU = 前缀 + 属性值，可选择按单词首字母缩写。',
                 'all',
                 variationId,
-                attrSlugs
+                getVariationAttrValues($variation)
             );
 
             // 已有 SKU 才显示删除按钮
@@ -521,27 +514,76 @@
     var $skuModalTitle = $('#oyiso-vi-sku-modal-title');
     var $skuModalMsg = $('#oyiso-vi-sku-modal-message');
     var skuRequestRunning = false;
-    var skuPreviewSlugs = [];
+    var skuPreviewAttrs = [];
+    var skuPreviewRows = [];
+    var skuPreviewLoaded = false;
+    var skuPreviewMessage = '';
+    var skuPreviewTimer = null;
+    var skuPreviewRequest = null;
 
-    // 近似后端 sanitize_title：小写、空格/下划线转连字符、去特殊字符（保留中文）
+    function getVariationAttrValues($variation) {
+        var attrValues = [];
+
+        $variation.find('select[name^="attribute_"]').each(function () {
+            var value = $(this).val();
+            var label = $(this).find('option:selected').text() || value;
+            if (value) attrValues.push(label);
+        });
+
+        return attrValues;
+    }
+
+    // 近似后端 sanitize_title：小写、空格/下划线/特殊字符转连字符（保留中文）
     function slugifyAttr(v) {
         return (v || '').toString().toLowerCase()
             .replace(/[\s_]+/g, '-')
-            .replace(/[^a-z0-9一-鿿-]/g, '')
+            .replace(/[^a-z0-9一-鿿-]+/g, '-')
             .replace(/-+/g, '-')
             .replace(/^-+|-+$/g, '');
     }
 
-    // 实时计算预览 SKU：base(前缀，留空用父SKU) + 属性值，大写
-    function renderSkuPreview() {
+    function abbreviateSkuAttr(value) {
+        var groups = [];
+        var parts = (value || '').toString().split(/[&+\/|,，、;；]+/);
+
+        $.each(parts, function(_, part) {
+            var initials = [];
+            var words = part.split(/[^A-Za-z0-9\u4e00-\u9fff]+/);
+
+            $.each(words, function(__, word) {
+                var chars = Array.from(word || '');
+                if (chars.length) {
+                    var initial = slugifyAttr(chars[0]);
+                    if (initial) initials.push(initial);
+                }
+            });
+
+            var group = initials.join('');
+            if (group) groups.push(group);
+        });
+
+        return groups.join('-');
+    }
+
+    function buildSkuFromAttrs(attrs) {
         var prefix = ($('#oyiso-vi-sku-prefix').val() || '').trim();
         var parentSku = ($('#_sku').val() || '').trim();
         var base = prefix || parentSku;
-        var attrPart = skuPreviewSlugs.join('-');
+        var useAbbr = $('#oyiso-vi-sku-use-abbr').is(':checked');
+        var attrParts = $.map(attrs || [], function(value) {
+            return useAbbr ? abbreviateSkuAttr(value) : slugifyAttr(value);
+        });
+        var attrPart = $.grep(attrParts, function(value) { return !!value; }).join('-');
         var sku;
         if (base) { sku = attrPart ? base + '-' + attrPart : base; }
         else { sku = attrPart; }
-        sku = sku.replace(/^[-\s]+|[-\s]+$/g, '').toUpperCase();
+
+        return sku.replace(/^[-\s]+|[-\s]+$/g, '').toUpperCase();
+    }
+
+    // 实时计算预览 SKU：base(前缀，留空用父SKU) + 属性值，大写
+    function renderSkuPreview() {
+        var sku = buildSkuFromAttrs(skuPreviewAttrs);
 
         var $val = $('.oyiso-vi-sku-preview-value');
         if (sku) {
@@ -551,33 +593,134 @@
         }
     }
 
-    function showSkuModal(title, msg, mode, variationId, attrSlugs) {
+    function setSkuPreviewLoading() {
+        $('.oyiso-vi-sku-preview').show();
+        $('.oyiso-vi-sku-preview-value')
+            .text('正在生成预览...')
+            .addClass('oyiso-vi-sku-preview-empty');
+    }
+
+    function renderSkuPreviewList(results, message) {
+        var $val = $('.oyiso-vi-sku-preview-value');
+        $val.empty().removeClass('oyiso-vi-sku-preview-empty');
+
+        if (!results || !results.length) {
+            $val.text(message || '没有可处理的变体').addClass('oyiso-vi-sku-preview-empty');
+            return;
+        }
+
+        $.each(results, function(_, item) {
+            var sku = item.attrs && item.attrs.length ? buildSkuFromAttrs(item.attrs) : (item.sku || '');
+            $('<span class="oyiso-vi-sku-preview-row"></span>')
+                .append($('<span class="oyiso-vi-sku-preview-id"></span>').text('#' + item.variation_id))
+                .append($('<span class="oyiso-vi-sku-preview-sku"></span>').text(sku))
+                .appendTo($val);
+        });
+    }
+
+    function requestSkuPreview() {
+        var mode = $skuModal.data('mode');
+        var variationId = $skuModal.data('variation') || 0;
+
+        if (!mode || mode === 'clear' || variationId) {
+            return;
+        }
+
+        clearTimeout(skuPreviewTimer);
+        skuPreviewTimer = setTimeout(function() {
+            var prefix = $('#oyiso-vi-sku-prefix').val().trim();
+            var useAbbr = $('#oyiso-vi-sku-use-abbr').is(':checked') ? '1' : '';
+
+            if (skuPreviewRequest && skuPreviewRequest.readyState !== 4) {
+                skuPreviewRequest.abort();
+            }
+
+            setSkuPreviewLoading();
+            skuPreviewRequest = $.ajax({
+                url: config.ajaxurl,
+                type: 'POST',
+                data: {
+                    action: config.generate_sku_action,
+                    nonce: config.nonce,
+                    product_id: config.product_id,
+                    mode: mode,
+                    prefix: prefix,
+                    use_abbr: useAbbr,
+                    preview: '1'
+                },
+                success: function(resp) {
+                    if (resp && resp.success) {
+                        skuPreviewRows = resp.data.results || [];
+                        skuPreviewLoaded = true;
+                        skuPreviewMessage = resp.data.message || '';
+                        renderSkuPreviewList(skuPreviewRows, skuPreviewMessage);
+                    } else {
+                        skuPreviewRows = [];
+                        skuPreviewLoaded = false;
+                        skuPreviewMessage = '';
+                        renderSkuPreviewList([], resp && resp.data ? resp.data.message : '预览生成失败');
+                    }
+                },
+                error: function(xhr, status) {
+                    if (status !== 'abort') {
+                        renderSkuPreviewList([], '预览生成失败');
+                    }
+                }
+            });
+        }, 200);
+    }
+
+    function updateSkuPreview() {
+        if ($skuModal.data('previewRemote')) {
+            if (skuPreviewLoaded) {
+                renderSkuPreviewList(skuPreviewRows, skuPreviewMessage);
+            } else {
+                requestSkuPreview();
+            }
+            return;
+        }
+
+        renderSkuPreview();
+    }
+
+    function showSkuModal(title, msg, mode, variationId, attrValues) {
         resetSkuModal();
         $skuModalTitle.text(title);
         $skuModalMsg.text(msg);
+        $skuModal.data('mode', mode);
+        $skuModal.data('variation', variationId || 0);
+        $skuModal.data('previewRemote', false);
 
         // 前缀框：除清除外永久显示，留空则使用父产品 SKU
         if (mode === 'clear') {
             $('.oyiso-vi-sku-prefix-field').hide();
+            $('.oyiso-vi-sku-abbr-field').hide();
         } else {
             $('.oyiso-vi-sku-prefix-field').show().find('input').val('');
+            $('.oyiso-vi-sku-abbr-field').show().find('input').prop('checked', false);
         }
 
-        // 单变体生成：显示实时预览
-        if (mode !== 'clear' && variationId && $.isArray(attrSlugs)) {
-            skuPreviewSlugs = attrSlugs;
+        // 生成预览：单个变体本地实时算；批量操作走后端，返回全部目标变体。
+        if (mode !== 'clear' && $.isArray(attrValues) && attrValues.length) {
+            skuPreviewAttrs = attrValues;
             $('.oyiso-vi-sku-preview').show();
             renderSkuPreview();
+        } else if (mode !== 'clear') {
+            skuPreviewAttrs = [];
+            $skuModal.data('previewRemote', true);
+            setSkuPreviewLoading();
+            requestSkuPreview();
         } else {
-            skuPreviewSlugs = [];
+            skuPreviewAttrs = [];
+            skuPreviewRows = [];
+            skuPreviewLoaded = false;
+            skuPreviewMessage = '';
             $('.oyiso-vi-sku-preview').hide();
         }
 
         $skuModal.css('display', 'flex');
         $skuModal[0].offsetHeight;
         $skuModal.addClass('is-open');
-        $skuModal.data('mode', mode);
-        $skuModal.data('variation', variationId || 0);
     }
 
     function closeSkuModal() {
@@ -599,8 +742,16 @@
         $skuModal.find('.oyiso-vi-sku-modal-do').text('确认').show();
         $skuModal.find('.oyiso-vi-sku-modal-delete').hide();
         $skuModal.find('.oyiso-vi-sku-confirm').removeClass('is-open').css('display', 'none');
-        $('.oyiso-vi-sku-preview').hide();
-        $('#oyiso-vi-sku-prefix').prop('disabled', false);
+        $('.oyiso-vi-sku-abbr-field, .oyiso-vi-sku-preview').hide();
+        $('#oyiso-vi-sku-prefix, #oyiso-vi-sku-use-abbr').prop('disabled', false);
+        $skuModal.removeData('previewRemote');
+        skuPreviewRows = [];
+        skuPreviewLoaded = false;
+        skuPreviewMessage = '';
+        clearTimeout(skuPreviewTimer);
+        if (skuPreviewRequest && skuPreviewRequest.readyState !== 4) {
+            skuPreviewRequest.abort();
+        }
     }
 
     function lockVariationEditor() {
@@ -633,7 +784,7 @@
         $skuModal.find('.oyiso-vi-sku-modal-spinner').addClass('is-active');
         $skuModal.find('.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel').prop('disabled', true);
         $skuModal.find('.oyiso-vi-sku-modal-do').prop('disabled', true).text('处理中...');
-        $('#oyiso-vi-sku-prefix').prop('disabled', true);
+        $('#oyiso-vi-sku-prefix, #oyiso-vi-sku-use-abbr').prop('disabled', true);
     }
 
     function setSkuModalResult(success, message, title) {
@@ -645,8 +796,8 @@
         $skuModal.find('.oyiso-vi-sku-modal-cancel').prop('disabled', false).text('关闭').show();
         $skuModal.find('.oyiso-vi-sku-modal-do').hide();
         $skuModal.find('.oyiso-vi-sku-modal-delete').hide();
-        $('.oyiso-vi-sku-prefix-field, .oyiso-vi-sku-preview').hide();
-        $('#oyiso-vi-sku-prefix').prop('disabled', false);
+        $('.oyiso-vi-sku-prefix-field, .oyiso-vi-sku-abbr-field, .oyiso-vi-sku-preview').hide();
+        $('#oyiso-vi-sku-prefix, #oyiso-vi-sku-use-abbr').prop('disabled', false);
         $skuModalTitle.text(title || (success ? 'SKU 操作完成' : 'SKU 操作失败'));
         $skuModalMsg.text(message);
     }
@@ -657,8 +808,8 @@
             if (e.target === this) closeSkuModal();
         });
 
-        // 前缀输入实时刷新预览（纯前端，无需防抖）
-        $skuModal.on('input', '#oyiso-vi-sku-prefix', renderSkuPreview);
+        // 前缀/缩写选项实时刷新预览（纯前端，无需防抖）
+        $skuModal.on('input change', '#oyiso-vi-sku-prefix, #oyiso-vi-sku-use-abbr', updateSkuPreview);
 
         // 删除 SKU：打开叠加确认层（不替换主弹窗，取消后主弹窗仍在）
         $skuModal.on('click', '.oyiso-vi-sku-modal-delete', function() {
@@ -694,6 +845,7 @@
 
         function submitSkuOp(m) {
             var prefix = $('#oyiso-vi-sku-prefix').val().trim();
+            var useAbbr = $('#oyiso-vi-sku-use-abbr').is(':checked') ? '1' : '';
             var variationId = $skuModal.data('variation') || 0;
             setSkuModalLoading();
 
@@ -706,6 +858,7 @@
                     product_id: config.product_id,
                     mode: m,
                     prefix: prefix,
+                    use_abbr: useAbbr,
                     variation_id: variationId,
                 },
                 success: function(resp) {
@@ -759,8 +912,8 @@
                 };
                 var messages = {
                     clear: '确认清除全部变体 SKU？此操作不可撤销。',
-                    all: '确认重新生成全部变体 SKU？已有 SKU 将被覆盖。\n规则：SKU = 前缀 + 属性值，自动转为大写。',
-                    missing: '确认补全缺失的变体 SKU？已有 SKU 的变体会跳过。\n规则：SKU = 前缀 + 属性值，自动转为大写。'
+                    all: '确认重新生成全部变体 SKU？已有 SKU 将被覆盖。\n规则：SKU = 前缀 + 属性值，可选择按单词首字母缩写。',
+                    missing: '确认补全缺失的变体 SKU？已有 SKU 的变体会跳过。\n规则：SKU = 前缀 + 属性值，可选择按单词首字母缩写。'
                 };
 
                 showSkuModal('确认操作 - ' + titles[mode], messages[mode], mode);

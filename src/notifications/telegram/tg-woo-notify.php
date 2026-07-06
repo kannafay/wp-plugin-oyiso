@@ -310,19 +310,22 @@ if (!function_exists('oyiso_build_order_products_section')) {
 
 if (!function_exists('oyiso_build_order_payment_shipping_section')) {
     function oyiso_build_order_payment_shipping_section(WC_Order $order): string {
-        return sprintf(
-            "<b>🚚【支付与配送】：</b>\n" .
-            "<b>支付方式：</b>%s\n" .
-            "<b>配送方式：</b>%s\n" .
-            "<b>金额：</b>%s\n" .
-            "<b>运费：</b>%s\n" .
-            "<b>总金额：</b>%s",
-            $order->get_payment_method_title(),
-            $order->get_shipping_method(),
-            oyiso_wc_price($order->get_subtotal()),
-            oyiso_wc_price($order->get_shipping_total()),
-            oyiso_wc_price($order->get_total())
-        );
+        $lines = [
+            '<b>🚚【支付与配送】：</b>',
+            sprintf('<b>支付方式：</b>%s', $order->get_payment_method_title()),
+            sprintf('<b>配送方式：</b>%s', $order->get_shipping_method()),
+            sprintf('<b>金额：</b>%s', oyiso_wc_price($order->get_subtotal())),
+        ];
+
+        $discountTotal = (float) $order->get_discount_total();
+        if ($discountTotal > 0) {
+            $lines[] = sprintf('<b>折扣：</b>-%s', oyiso_wc_price($discountTotal));
+        }
+
+        $lines[] = sprintf('<b>运费：</b>%s', oyiso_wc_price($order->get_shipping_total()));
+        $lines[] = sprintf('<b>总金额：</b>%s', oyiso_wc_price($order->get_total()));
+
+        return implode("\n", $lines);
     }
 }
 
