@@ -527,15 +527,21 @@
         $variation.find('select[name^="attribute_"]').each(function () {
             var value = $(this).val();
             var label = $(this).find('option:selected').text() || value;
-            if (value) attrValues.push(label);
+            if (value) attrValues.push(decodeHtmlEntities(label));
         });
 
         return attrValues;
     }
 
+    function decodeHtmlEntities(value) {
+        var textarea = document.createElement('textarea');
+        textarea.innerHTML = (value || '').toString();
+        return textarea.value;
+    }
+
     // 近似后端 sanitize_title：小写、空格/下划线/特殊字符转连字符（保留中文）
     function slugifyAttr(v) {
-        return (v || '').toString().toLowerCase()
+        return decodeHtmlEntities(v).toLowerCase()
             .replace(/[\s_]+/g, '-')
             .replace(/[^a-z0-9一-鿿-]+/g, '-')
             .replace(/-+/g, '-')
@@ -544,7 +550,7 @@
 
     function abbreviateSkuAttr(value) {
         var groups = [];
-        var parts = (value || '').toString().split(/[&+\/|,，、;；]+/);
+        var parts = decodeHtmlEntities(value).split(/[&+\/|,，、;；]+/);
 
         $.each(parts, function(_, part) {
             var initials = [];
