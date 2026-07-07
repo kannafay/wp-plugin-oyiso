@@ -195,22 +195,6 @@ if (function_exists('wp_body_open')) {
                 </div>
                 <?php endif; ?>
 
-                <?php if ($has_stock_column) : ?>
-                <div class="opt-dropdown opt-stockfilter" data-dropdown data-role="stock-filter">
-                    <button type="button" class="opt-btn" data-dropdown-trigger data-role="stock-filter-trigger" <?php disabled(!$has_rows); ?>>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
-                        库存：<span data-role="stock-filter-label">全部（<?php echo esc_html((string) $stock_filter_total); ?>）</span>
-                        <svg class="opt-dropdown__caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                    </button>
-                    <div class="opt-dropdown__menu opt-dropdown__menu--left" data-dropdown-menu hidden style="padding: 6px; min-width: 140px;">
-                        <button type="button" class="opt-dropdown__item is-active" data-action="filter-stock" data-stock-value="all">全部（<?php echo esc_html((string) $stock_filter_total); ?>）</button>
-                        <?php foreach ($stock_filters as $stock_key => $stock_label) : ?>
-                        <button type="button" class="opt-dropdown__item" data-action="filter-stock" data-stock-value="<?php echo esc_attr($stock_key); ?>"><?php echo esc_html($stock_label); ?>（<?php echo esc_html((string) ($stock_filter_counts[$stock_key] ?? 0)); ?>）</button>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-
                 <?php if ($has_category_column && !empty($category_filter_counts)) : ?>
                 <div class="opt-dropdown opt-categoryfilter" data-dropdown data-role="category-filter">
                     <button type="button" class="opt-btn" data-dropdown-trigger data-role="category-filter-trigger" <?php disabled(!$has_rows); ?>>
@@ -238,6 +222,22 @@ if (function_exists('wp_body_open')) {
                         <button type="button" class="opt-dropdown__item is-active" data-action="filter-brand" data-brand-value="all">全部（<?php echo esc_html((string) $brand_filter_total); ?>）</button>
                         <?php foreach ($brand_filter_counts as $brand_name => $brand_count) : ?>
                         <button type="button" class="opt-dropdown__item" data-action="filter-brand" data-brand-value="<?php echo esc_attr($brand_name); ?>"><?php echo esc_html($brand_name); ?>（<?php echo esc_html((string) $brand_count); ?>）</button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php if ($has_stock_column) : ?>
+                <div class="opt-dropdown opt-stockfilter" data-dropdown data-role="stock-filter">
+                    <button type="button" class="opt-btn" data-dropdown-trigger data-role="stock-filter-trigger" <?php disabled(!$has_rows); ?>>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                        库存：<span data-role="stock-filter-label">全部（<?php echo esc_html((string) $stock_filter_total); ?>）</span>
+                        <svg class="opt-dropdown__caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="opt-dropdown__menu opt-dropdown__menu--left" data-dropdown-menu hidden style="padding: 6px; min-width: 140px;">
+                        <button type="button" class="opt-dropdown__item is-active" data-action="filter-stock" data-stock-value="all">全部（<?php echo esc_html((string) $stock_filter_total); ?>）</button>
+                        <?php foreach ($stock_filters as $stock_key => $stock_label) : ?>
+                        <button type="button" class="opt-dropdown__item" data-action="filter-stock" data-stock-value="<?php echo esc_attr($stock_key); ?>"><?php echo esc_html($stock_label); ?>（<?php echo esc_html((string) ($stock_filter_counts[$stock_key] ?? 0)); ?>）</button>
                         <?php endforeach; ?>
                     </div>
                 </div>
