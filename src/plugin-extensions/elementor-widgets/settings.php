@@ -22,7 +22,7 @@ CSF::createSection($prefix, [
             'type' => 'switcher',
             'title' => '启用小部件',
             'label' => '开启后将在 Elementor 编辑器中启用橘子猫头小部件分类及相关组件。',
-            'default' => true,
+            'default' => false,
         ],
     ],
 ]);

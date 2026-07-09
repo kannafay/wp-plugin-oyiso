@@ -11,7 +11,7 @@ if (class_exists('CSF')) {
         'id'       => 'content-view-metrics',
         'title'    => '内容浏览量',
         'icon'     => 'fas fa-chart-line',
-        'priority' => 30,
+        'priority' => 5,
         'fields'   => [
             [
                 'type'    => 'heading',
@@ -21,8 +21,15 @@ if (class_exists('CSF')) {
                 'id'      => 'oyiso_content_view_metrics_enabled',
                 'type'    => 'switcher',
                 'title'   => '启用内容浏览量统计',
-                'desc'    => '统计文章、页面、产品页的浏览量，仅在后台列表展示。',
+                'desc'    => '开启后会记录文章、页面、产品页的浏览量。关闭显示列不会影响统计数据继续累积。',
                 'default' => true,
+            ],
+            [
+                'id'      => 'oyiso_content_view_metrics_show_column',
+                'type'    => 'switcher',
+                'title'   => '后台列表显示浏览量',
+                'desc'    => '仅控制文章、页面、产品列表是否显示浏览量列，不影响浏览量记录。',
+                'default' => false,
             ],
         ],
     ]);
@@ -34,14 +41,19 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
         private const META_KEY = '_oyiso_view_count';
         private const DAILY_META_KEY = '_oyiso_daily_view_counts';
         private const LEGACY_META_KEY = '_oyiso_click_count';
+        private const OPTION_ENABLED = 'oyiso_content_view_metrics_enabled';
+        private const OPTION_SHOW_COLUMN = 'oyiso_content_view_metrics_show_column';
         private const POST_TYPES = ['post', 'page', 'product'];
 
         public static function init(): void {
-            if (!self::isEnabled()) {
+            if (self::isTrackingEnabled()) {
+                add_action('template_redirect', [self::class, 'trackView']);
+            }
+
+            if (!self::shouldShowColumn()) {
                 return;
             }
 
-            add_action('template_redirect', [self::class, 'trackView']);
             add_action('admin_head-edit.php', [self::class, 'renderAdminStyles']);
 
             foreach (self::POST_TYPES as $post_type) {
@@ -243,14 +255,24 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             <?php
         }
 
-        private static function isEnabled(): bool {
+        private static function isTrackingEnabled(): bool {
             $options = get_option('oyiso', []);
 
-            if (!is_array($options) || !array_key_exists('oyiso_content_view_metrics_enabled', $options)) {
+            if (!is_array($options) || !array_key_exists(self::OPTION_ENABLED, $options)) {
                 return true;
             }
 
-            return !empty($options['oyiso_content_view_metrics_enabled']);
+            return !empty($options[self::OPTION_ENABLED]);
+        }
+
+        private static function shouldShowColumn(): bool {
+            $options = get_option('oyiso', []);
+
+            if (!is_array($options) || !array_key_exists(self::OPTION_SHOW_COLUMN, $options)) {
+                return false;
+            }
+
+            return !empty($options[self::OPTION_SHOW_COLUMN]);
         }
 
         private static function getViewCount(int $post_id): int {

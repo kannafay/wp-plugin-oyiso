@@ -168,6 +168,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'sending' => '发送中...',
             'success' => '测试消息已发送',
             'error'   => '发送失败',
+            'unsaved' => '当前 Token 或 Chat ID 尚未保存，请先保存设置后再测试。',
         ],
     ]);
 
@@ -175,12 +176,25 @@ add_action('admin_enqueue_scripts', function ($hook) {
 jQuery(function ($) {
     var $button = $('#oyiso-tg-test-button');
     var $status = $('#oyiso-tg-test-status');
+    var $token = $('[name="oyiso[bot_token]"]');
+    var $chatIds = $('[name="oyiso[tg_chatids]"]');
 
     if (!$button.length) {
         return;
     }
 
+    var savedToken = $token.val() || '';
+    var savedChatIds = $chatIds.val() || '';
+
     $button.on('click', function () {
+        var currentToken = $token.val() || '';
+        var currentChatIds = $chatIds.val() || '';
+
+        if (currentToken !== savedToken || currentChatIds !== savedChatIds) {
+            $status.css('color', '#b91c1c').text(oyisoTgTest.labels.unsaved);
+            return;
+        }
+
         $button.prop('disabled', true);
         $status.css('color', '').text(oyisoTgTest.labels.sending);
 

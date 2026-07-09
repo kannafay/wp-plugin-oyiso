@@ -488,7 +488,7 @@ if (did_action('plugins_loaded')) {
     add_action('plugins_loaded', 'oyiso_register_inactive_elementor_widget_filter', 20);
 }
 
-$oyiso_elementor_widgets_enabled = $options['opt-elementor-widgets'] ?? true;
+$oyiso_elementor_widgets_enabled = $options['opt-elementor-widgets'] ?? false;
 
 if (!$oyiso_elementor_widgets_enabled) {
     return;
