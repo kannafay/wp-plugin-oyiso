@@ -9,52 +9,52 @@ if (class_exists('CSF')) {
 CSF::createSection($prefix, [
     'parent'   => 'wp-optimize',
     'id'       => 'wp-update',
-    'title'    => '自动更新管理',
+    'title'    => '后台自动更新屏蔽',
     'icon'     => 'fas fa-sync-alt',
     'priority' => 1,
     'fields' => [
         [
             'type' => 'heading',
-            'content' => '自动更新管理',
+            'content' => '后台自动更新屏蔽',
         ],
         [
             'id' => 'opt-ban-wp-core-auto-update',
             'type' => 'switcher',
-            'title' => '禁用WordPress核心自动更新',
-            'label' => '开启后将禁用WordPress核心自动更新功能',
+            'title' => '屏蔽WordPress核心自动更新',
+            'label' => '开启后将屏蔽WordPress核心自动更新及相关更新通知',
             'default' => false
         ],
         [
             'id' => 'opt-ban-wp-plugin-auto-update',
             'type' => 'switcher',
-            'title' => '禁用WordPress插件自动更新',
-            'label' => '开启后将禁用WordPress插件自动更新功能',
+            'title' => '屏蔽WordPress插件自动更新',
+            'label' => '开启后将屏蔽WordPress插件自动更新及相关更新通知',
             'default' => false
         ],
         [
             'id' => 'opt-ban-wp-theme-auto-update',
             'type' => 'switcher',
-            'title' => '禁用WordPress主题自动更新',
-            'label' => '开启后将禁用WordPress主题自动更新功能',
+            'title' => '屏蔽WordPress主题自动更新',
+            'label' => '开启后将屏蔽WordPress主题自动更新及相关更新通知',
             'default' => false
         ],
     ]
 ]);
 }
 
-// 禁用WordPress核心自动更新
+// 屏蔽WordPress核心自动更新及相关更新通知
 if (!empty($options['opt-ban-wp-core-auto-update'])) {
     add_filter('auto_update_core', '__return_false');
     add_filter('pre_site_transient_update_core', 'oyiso_clear_core_update_data');
 }
 
-// 禁用WordPress插件自动更新
+// 屏蔽WordPress插件自动更新及相关更新通知
 if (!empty($options['opt-ban-wp-plugin-auto-update'])) {
     add_filter('auto_update_plugin', '__return_false');
     add_filter('pre_site_transient_update_plugins', 'oyiso_clear_plugin_update_data');
 }
 
-// 禁用WordPress主题自动更新
+// 屏蔽WordPress主题自动更新及相关更新通知
 if (!empty($options['opt-ban-wp-theme-auto-update'])) {
     add_filter('auto_update_theme', '__return_false');
     add_filter('pre_site_transient_update_themes', 'oyiso_clear_theme_update_data');
