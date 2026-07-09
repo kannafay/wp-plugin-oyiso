@@ -22,7 +22,7 @@ if (class_exists('CSF')) {
                 'type'    => 'switcher',
                 'title'   => '启用内容浏览量统计',
                 'desc'    => '开启后会记录文章、页面、产品页的浏览量。关闭显示列不会影响统计数据继续累积。',
-                'default' => true,
+                'default' => false,
             ],
             [
                 'id'      => 'oyiso_content_view_metrics_show_column',
@@ -259,7 +259,7 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             $options = get_option('oyiso', []);
 
             if (!is_array($options) || !array_key_exists(self::OPTION_ENABLED, $options)) {
-                return true;
+                return false;
             }
 
             return !empty($options[self::OPTION_ENABLED]);
