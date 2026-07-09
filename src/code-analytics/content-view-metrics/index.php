@@ -140,7 +140,8 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 align-items: center;
                 justify-content: center;
                 gap: 2px;
-                width: 54px;
+                width: max-content;
+                max-width: 82px;
                 min-width: 0;
                 height: 12px;
                 padding: 0 4px;
