@@ -55,9 +55,12 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             }
 
             add_action('admin_head-edit.php', [self::class, 'renderAdminStyles']);
+            add_action('pre_get_posts', [self::class, 'applyColumnSorting']);
+            add_filter('posts_clauses', [self::class, 'applyColumnSortingClauses'], 10, 2);
 
             foreach (self::POST_TYPES as $post_type) {
                 add_filter("manage_{$post_type}_posts_columns", [self::class, 'addColumn'], 99);
+                add_filter("manage_edit-{$post_type}_sortable_columns", [self::class, 'addSortableColumn']);
                 add_action("manage_{$post_type}_posts_custom_column", [self::class, 'renderColumn'], 10, 2);
             }
         }
@@ -90,6 +93,56 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             return $columns;
         }
 
+        public static function addSortableColumn(array $columns): array {
+            $columns[self::COLUMN_KEY] = self::COLUMN_KEY;
+            return $columns;
+        }
+
+        public static function applyColumnSorting(WP_Query $query): void {
+            if (
+                !is_admin()
+                || !$query->is_main_query()
+                || $query->get('orderby') !== self::COLUMN_KEY
+            ) {
+                return;
+            }
+
+            $post_type = $query->get('post_type');
+
+            if (is_array($post_type)) {
+                $is_supported = count(array_intersect($post_type, self::POST_TYPES)) > 0;
+            } else {
+                $is_supported = in_array((string) ($post_type ?: 'post'), self::POST_TYPES, true);
+            }
+
+            if (!$is_supported) {
+                return;
+            }
+
+            $query->set('oyiso_view_count_sort', true);
+            $query->set('orderby', 'none');
+        }
+
+        public static function applyColumnSortingClauses(array $clauses, WP_Query $query): array {
+            if (!is_admin() || !$query->get('oyiso_view_count_sort')) {
+                return $clauses;
+            }
+
+            global $wpdb;
+
+            $alias = 'oyiso_view_count_meta';
+            $join = " LEFT JOIN {$wpdb->postmeta} AS {$alias} ON ({$wpdb->posts}.ID = {$alias}.post_id AND {$alias}.meta_key = '" . esc_sql(self::META_KEY) . "')";
+
+            if (strpos($clauses['join'], " {$alias} ") === false) {
+                $clauses['join'] .= $join;
+            }
+
+            $order = strtoupper((string) $query->get('order')) === 'ASC' ? 'ASC' : 'DESC';
+            $clauses['orderby'] = "CAST(COALESCE({$alias}.meta_value, '0') AS UNSIGNED) {$order}, {$wpdb->posts}.ID DESC";
+
+            return $clauses;
+        }
+
         public static function renderColumn(string $column, int $post_id): void {
             if ($column !== self::COLUMN_KEY) {
                 return;
@@ -111,7 +164,7 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             }
             echo '</svg>';
             foreach ($chart['points'] as $point) {
-                echo '<span class="oyiso-view-tooltip-point" style="left:' . esc_attr((string) $point['x_percent']) . '%;top:' . esc_attr((string) $point['y_percent']) . '%;">';
+                echo '<span class="oyiso-view-tooltip-point oyiso-view-tooltip-point--' . esc_attr($point['edge']) . '" style="left:' . esc_attr((string) $point['x_percent']) . '%;top:' . esc_attr((string) $point['y_percent']) . '%;">';
                 echo '<span class="oyiso-view-tooltip">' . esc_html($point['date'] . ' · ' . number_format_i18n((int) $point['count'])) . '</span>';
                 echo '</span>';
             }
@@ -128,14 +181,16 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             ?>
             <style>
             .wp-list-table .column-<?php echo esc_attr(self::COLUMN_KEY); ?> {
-                width: 96px;
+                width: 104px;
+                text-align: left;
             }
             .oyiso-view-metrics {
                 position: relative;
-                display: inline-block;
-                width: 86px;
+                display: block;
+                width: 68px;
                 height: 29px;
                 max-width: 100%;
+                margin: 0;
                 padding: 0;
                 color: #50575e;
                 font-size: 12px;
@@ -153,7 +208,7 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 justify-content: center;
                 gap: 2px;
                 width: max-content;
-                max-width: 82px;
+                max-width: 64px;
                 min-width: 0;
                 height: 12px;
                 padding: 0 4px;
@@ -179,12 +234,12 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             .oyiso-view-chart {
                 position: relative;
                 display: block;
-                width: 86px;
+                width: 68px;
                 height: 16px;
             }
             .oyiso-view-sparkline {
                 display: block;
-                width: 86px;
+                width: 68px;
                 height: 16px;
                 overflow: visible;
             }
@@ -221,7 +276,7 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 left: 50%;
                 bottom: calc(100% + 4px);
                 z-index: 9999;
-                display: block;
+                display: none;
                 padding: 3px 6px;
                 border-radius: 4px;
                 background: #1d2327;
@@ -236,6 +291,15 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 transform: translate(-50%, 2px);
                 transition: opacity .12s ease, transform .12s ease;
             }
+            .oyiso-view-tooltip-point--start .oyiso-view-tooltip {
+                left: 0;
+                transform: translate(0, 2px);
+            }
+            .oyiso-view-tooltip-point--end .oyiso-view-tooltip {
+                left: auto;
+                right: 0;
+                transform: translate(0, 2px);
+            }
             .oyiso-view-tooltip::after {
                 content: "";
                 position: absolute;
@@ -247,9 +311,23 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 border-top-color: #1d2327;
                 transform: translateX(-50%);
             }
+            .oyiso-view-tooltip-point--start .oyiso-view-tooltip::after {
+                left: 6px;
+                transform: none;
+            }
+            .oyiso-view-tooltip-point--end .oyiso-view-tooltip::after {
+                left: auto;
+                right: 6px;
+                transform: none;
+            }
             .oyiso-view-tooltip-point:hover .oyiso-view-tooltip {
+                display: block;
                 opacity: 1;
                 transform: translate(-50%, 0);
+            }
+            .oyiso-view-tooltip-point--start:hover .oyiso-view-tooltip,
+            .oyiso-view-tooltip-point--end:hover .oyiso-view-tooltip {
+                transform: translate(0, 0);
             }
             </style>
             <?php
@@ -334,6 +412,7 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 $points[] = [
                     'date' => $date,
                     'count' => $count,
+                    'edge' => $index === 0 ? 'start' : ($index === $last_index ? 'end' : 'middle'),
                     'x' => round($x, 2),
                     'y' => round($y, 2),
                     'x_percent' => round(($x / $width) * 100, 2),
