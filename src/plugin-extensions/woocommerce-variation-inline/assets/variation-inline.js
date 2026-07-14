@@ -15,6 +15,14 @@
     // 点击不同变体封面时，仅切换当前目标，frame 复用，不再重新加载媒体库。
     var sharedMediaFrame = null;
     var mediaTarget = null;
+    var thumbPreviewTimer = null;
+    var $thumbPreview = null;
+
+    function removeThumbPreview() {
+        clearTimeout(thumbPreviewTimer);
+        thumbPreviewTimer = null;
+        if ($thumbPreview) { $thumbPreview.remove(); $thumbPreview = null; }
+    }
 
     function getSharedMediaFrame() {
         if (sharedMediaFrame) {
@@ -282,6 +290,7 @@
         // 封面点击：打开全表共享的媒体库 frame（只切换当前目标，不重新加载）
         $variation.find('.oyiso-vi-thumb').on('click', function (e) {
             e.stopPropagation();
+            removeThumbPreview();
             var $thumb = $(this);
 
             mediaTarget = {
@@ -297,6 +306,7 @@
         // 点击红叉：清除封面
         $variation.find('.oyiso-vi-thumb-x').on('click', function (e) {
             e.stopPropagation();
+            removeThumbPreview();
             var $thumb = $(this).closest('.oyiso-vi-thumb');
             var $img = $thumb.find('img');
             var $uploadId = $panel.find('.upload_image_id');
@@ -953,15 +963,6 @@
 
     // 封面大图预览：hover 延迟后弹出
     if (enableInline) {
-        var thumbPreviewTimer = null;
-        var $thumbPreview = null;
-
-        function removeThumbPreview() {
-            clearTimeout(thumbPreviewTimer);
-            thumbPreviewTimer = null;
-            if ($thumbPreview) { $thumbPreview.remove(); $thumbPreview = null; }
-        }
-
         // 缩略图 url（xxx-150x150.jpg）推导原图地址
         function fullImageUrl(src) {
             if (!src) return src;
