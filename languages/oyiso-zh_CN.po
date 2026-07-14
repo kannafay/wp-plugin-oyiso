@@ -892,3 +892,8 @@ msgstr "每人每日中奖次数"
 #: src/plugin-extensions/elementor-widgets/coupon-lottery-module.php:867
 msgid "You have reached today's winning limit."
 msgstr "你今天的中奖次数已达上限。"
+
+#: src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1771 src/plugin-extensions/elementor-widgets/widgets/coupon-display.php:1812
+msgid "%d more"
+msgstr "另有 %d 个"
+
