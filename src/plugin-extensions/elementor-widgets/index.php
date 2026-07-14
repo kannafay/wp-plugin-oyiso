@@ -72,23 +72,7 @@ if (!function_exists('oyiso_t_sprintf')) {
 if (!function_exists('oyiso_get_editor_locale')) {
     function oyiso_get_editor_locale(): string
     {
-        if (function_exists('get_user_locale')) {
-            $locale = (string) get_user_locale();
-
-            if ($locale !== '') {
-                return $locale;
-            }
-        }
-
-        if (function_exists('determine_locale')) {
-            $locale = (string) determine_locale();
-
-            if ($locale !== '') {
-                return $locale;
-            }
-        }
-
-        return function_exists('get_locale') ? (string) get_locale() : 'en_US';
+        return 'en_US';
     }
 }
 
