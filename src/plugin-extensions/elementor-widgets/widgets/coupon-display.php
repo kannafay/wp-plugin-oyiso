@@ -1223,6 +1223,13 @@ class Coupons extends Widget_Base
         return ($settings['banner_background'] ?? 'none') !== 'none';
     }
 
+    private function is_elementor_edit_mode(): bool
+    {
+        return class_exists('\\Elementor\\Plugin')
+            && isset(\Elementor\Plugin::$instance->editor)
+            && \Elementor\Plugin::$instance->editor->is_edit_mode();
+    }
+
     protected function render()
     {
         $settings = $this->get_settings_for_display();
@@ -1239,12 +1246,15 @@ class Coupons extends Widget_Base
         }
 
         if (empty($groups)) {
-            $has_configured_groups = !empty($settings['coupon_groups']) && is_array($settings['coupon_groups']);
-            $this->render_notice(
-                $has_configured_groups
-                    ? oyiso_t('No active coupons are available right now.')
-                    : oyiso_t('Add a coupon group and choose WooCommerce coupons in the widget settings first.')
-            );
+            if ($this->is_elementor_edit_mode()) {
+                $has_configured_groups = !empty($settings['coupon_groups']) && is_array($settings['coupon_groups']);
+                $this->render_notice(
+                    $has_configured_groups
+                        ? oyiso_t('No active coupons are available right now.')
+                        : oyiso_t('Add a coupon group and choose WooCommerce coupons in the widget settings first.')
+                );
+            }
+
             return;
         }
         ?>
