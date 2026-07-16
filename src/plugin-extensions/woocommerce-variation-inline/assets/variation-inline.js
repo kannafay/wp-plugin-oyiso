@@ -428,6 +428,86 @@
     var saveTimers = {};
     var lastSavedValues = {};
 
+    function prepareNativeVariationValue($variation, field, value) {
+        var $panel = $variation.find('.woocommerce_variable_attributes');
+        var $native = $();
+        var isCheckbox = false;
+
+        switch (field) {
+            case 'regular_price':
+                $native = $panel.find('input[name^="variable_regular_price"]');
+                break;
+            case 'sale_price':
+                $native = $panel.find('input[name^="variable_sale_price"]');
+                break;
+            case 'stock_status':
+                $native = $panel.find('select[name^="variable_stock_status"]');
+                break;
+            case 'enabled':
+                $native = $panel.find('input[name^="variable_enabled"]');
+                isCheckbox = true;
+                break;
+            case 'image_id':
+                $native = $panel.find('.upload_image_id');
+                break;
+        }
+
+        if (!$native.length) {
+            return { commit: $.noop, rollback: $.noop };
+        }
+
+        var previous = isCheckbox ? $native.prop('checked') : $native.val();
+        if (isCheckbox) {
+            $native.prop('checked', value === '1');
+        } else {
+            $native.val(value);
+        }
+
+        return {
+            commit: function () {
+                if (field === 'regular_price' || field === 'sale_price') {
+                    $native.removeAttr('data-inline-value');
+                }
+            },
+            rollback: function () {
+                if (isCheckbox) {
+                    $native.prop('checked', previous);
+                } else {
+                    $native.val(previous);
+                }
+            }
+        };
+    }
+
+    function canUseOfficialVariationSave() {
+        return !!(
+            config.product_id &&
+            config.variation_save_action &&
+            config.variation_save_nonce
+        );
+    }
+
+    function buildOfficialVariationSaveData($variation) {
+        var data = $variation.find(':input[name]').serializeArray();
+        data = data.concat($('.variations-defaults select[name]').serializeArray());
+        data.push(
+            { name: 'action', value: config.variation_save_action },
+            { name: 'security', value: config.variation_save_nonce },
+            { name: 'product_id', value: config.product_id },
+            { name: 'product-type', value: $('#product-type').val() || 'variable' }
+        );
+        return data;
+    }
+
+    function officialVariationSaveFailed(response) {
+        if (typeof response !== 'string') {
+            return false;
+        }
+
+        var output = $.trim(response);
+        return output === '-1' || /class=(['"])[^'"]*\berror\b[^'"]*\1/i.test(output);
+    }
+
     function markFormClean() {
         // 强制 WordPress 认为表单已保存
         try {
@@ -452,10 +532,14 @@
         clearTimeout(saveTimers[key]);
         saveTimers[key] = setTimeout(function () {
             if ($el) { $el.addClass('oyiso-vi-saving'); }
+            var useOfficialSave = canUseOfficialVariationSave();
+            var nativeValue = prepareNativeVariationValue($variation, field, value);
+            var saved = false;
             $.ajax({
                 url: config.ajaxurl,
                 type: 'POST',
-                data: {
+                dataType: useOfficialSave ? 'html' : 'json',
+                data: useOfficialSave ? buildOfficialVariationSaveData($variation) : {
                     action: config.action,
                     nonce: config.nonce,
                     variation_id: variationId,
@@ -463,20 +547,36 @@
                     value: value
                 },
                 success: function (resp) {
-                    if (onSuccess && resp && resp.success) {
+                    var success = useOfficialSave
+                        ? !officialVariationSaveFailed(resp)
+                        : !!(resp && resp.success);
+
+                    if (!success) {
+                        nativeValue.rollback();
+                        return;
+                    }
+
+                    saved = true;
+                    nativeValue.commit();
+                    if (onSuccess) {
                         onSuccess(resp);
                     }
+                    if (useOfficialSave) {
+                        $('#woocommerce-product-data').trigger('woocommerce_variations_saved');
+                    }
+                },
+                error: function () {
+                    nativeValue.rollback();
                 },
                 complete: function () {
                     if ($el) { $el.removeClass('oyiso-vi-saving'); }
+                    if (!saved) {
+                        delete lastSavedValues[key];
+                        return;
+                    }
+
                     markFormClean();
                     $el && $el.closest('.woocommerce_variation').removeClass('variation-needs-update');
-                    if ($el && $el.is('.oyiso-vi-price')) {
-                        var f = $el.data('field');
-                        var $p = $el.closest('.woocommerce_variation').find('.woocommerce_variable_attributes');
-                        var $h = $p.find(f === 'regular_price' ? 'input[name^="variable_regular_price"]' : 'input[name^="variable_sale_price"]');
-                        if ($h.length) { $h.val($el.val()); }
-                    }
                     $('button.cancel-variation-changes, button.save-variation-changes').prop('disabled', true);
                 }
             });
