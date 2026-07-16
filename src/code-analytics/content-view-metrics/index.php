@@ -18,18 +18,71 @@ if (class_exists('CSF')) {
                 'content' => '内容浏览量统计',
             ],
             [
-                'id'      => 'oyiso_content_view_metrics_enabled',
-                'type'    => 'switcher',
-                'title'   => '启用内容浏览量统计',
-                'desc'    => '开启后会记录文章、页面、产品页的浏览量。关闭显示列不会影响统计数据继续累积。',
-                'default' => false,
-            ],
-            [
-                'id'      => 'oyiso_content_view_metrics_show_column',
-                'type'    => 'switcher',
-                'title'   => '后台列表显示浏览量',
-                'desc'    => '仅控制文章、页面、产品列表是否显示浏览量列，不影响浏览量记录。',
-                'default' => false,
+                'id'    => 'oyiso_content_view_metrics_options',
+                'type'  => 'tabbed',
+                'title' => '内容类型',
+                'tabs'  => [
+                    [
+                        'title'  => '文章',
+                        'icon'   => 'fas fa-thumbtack',
+                        'fields' => [
+                            [
+                                'id'      => 'oyiso_content_view_metrics_post_enabled',
+                                'type'    => 'switcher',
+                                'title'   => '统计开关',
+                                'label'   => '开启后记录文章浏览量。',
+                                'default' => true,
+                            ],
+                            [
+                                'id'      => 'oyiso_content_view_metrics_post_show_column',
+                                'type'    => 'switcher',
+                                'title'   => '显示开关',
+                                'label'   => '在后台文章列表显示浏览量列，不影响浏览量统计。',
+                                'default' => false,
+                            ],
+                        ],
+                    ],
+                    [
+                        'title'  => '产品',
+                        'icon'   => 'fas fa-box',
+                        'fields' => [
+                            [
+                                'id'      => 'oyiso_content_view_metrics_product_enabled',
+                                'type'    => 'switcher',
+                                'title'   => '统计开关',
+                                'label'   => '开启后记录产品浏览量。',
+                                'default' => true,
+                            ],
+                            [
+                                'id'      => 'oyiso_content_view_metrics_product_show_column',
+                                'type'    => 'switcher',
+                                'title'   => '显示开关',
+                                'label'   => '在后台产品列表显示浏览量列，不影响浏览量统计。',
+                                'default' => false,
+                            ],
+                        ],
+                    ],
+                    [
+                        'title'  => '页面',
+                        'icon'   => 'fas fa-file',
+                        'fields' => [
+                            [
+                                'id'      => 'oyiso_content_view_metrics_page_enabled',
+                                'type'    => 'switcher',
+                                'title'   => '统计开关',
+                                'label'   => '开启后记录页面浏览量。',
+                                'default' => true,
+                            ],
+                            [
+                                'id'      => 'oyiso_content_view_metrics_page_show_column',
+                                'type'    => 'switcher',
+                                'title'   => '显示开关',
+                                'label'   => '在后台页面列表显示浏览量列，不影响浏览量统计。',
+                                'default' => false,
+                            ],
+                        ],
+                    ],
+                ],
             ],
         ],
     ]);
@@ -41,16 +94,32 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
         private const META_KEY = '_oyiso_view_count';
         private const DAILY_META_KEY = '_oyiso_daily_view_counts';
         private const LEGACY_META_KEY = '_oyiso_click_count';
-        private const OPTION_ENABLED = 'oyiso_content_view_metrics_enabled';
-        private const OPTION_SHOW_COLUMN = 'oyiso_content_view_metrics_show_column';
-        private const POST_TYPES = ['post', 'page', 'product'];
+        private const LEGACY_OPTION_ENABLED = 'oyiso_content_view_metrics_enabled';
+        private const LEGACY_OPTION_SHOW_COLUMN = 'oyiso_content_view_metrics_show_column';
+        private const OPTION_GROUP = 'oyiso_content_view_metrics_options';
+        private const POST_TYPE_OPTIONS = [
+            'post' => [
+                'tracking' => 'oyiso_content_view_metrics_post_enabled',
+                'column' => 'oyiso_content_view_metrics_post_show_column',
+            ],
+            'product' => [
+                'tracking' => 'oyiso_content_view_metrics_product_enabled',
+                'column' => 'oyiso_content_view_metrics_product_show_column',
+            ],
+            'page' => [
+                'tracking' => 'oyiso_content_view_metrics_page_enabled',
+                'column' => 'oyiso_content_view_metrics_page_show_column',
+            ],
+        ];
 
         public static function init(): void {
-            if (self::isTrackingEnabled()) {
+            $tracked_post_types = self::getEnabledPostTypes('tracking');
+            if ($tracked_post_types !== []) {
                 add_action('template_redirect', [self::class, 'trackView']);
             }
 
-            if (!self::shouldShowColumn()) {
+            $visible_post_types = self::getEnabledPostTypes('column');
+            if ($visible_post_types === []) {
                 return;
             }
 
@@ -58,7 +127,7 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             add_action('pre_get_posts', [self::class, 'applyColumnSorting']);
             add_filter('posts_clauses', [self::class, 'applyColumnSortingClauses'], 10, 2);
 
-            foreach (self::POST_TYPES as $post_type) {
+            foreach ($visible_post_types as $post_type) {
                 add_filter("manage_{$post_type}_posts_columns", [self::class, 'addColumn'], 99);
                 add_filter("manage_edit-{$post_type}_sortable_columns", [self::class, 'addSortableColumn']);
                 add_action("manage_{$post_type}_posts_custom_column", [self::class, 'renderColumn'], 10, 2);
@@ -76,7 +145,8 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 return;
             }
 
-            if (!is_singular(self::POST_TYPES)) {
+            $tracked_post_types = self::getEnabledPostTypes('tracking');
+            if ($tracked_post_types === [] || !is_singular($tracked_post_types)) {
                 return;
             }
 
@@ -110,9 +180,9 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             $post_type = $query->get('post_type');
 
             if (is_array($post_type)) {
-                $is_supported = count(array_intersect($post_type, self::POST_TYPES)) > 0;
+                $is_supported = count(array_intersect($post_type, self::getEnabledPostTypes('column'))) > 0;
             } else {
-                $is_supported = in_array((string) ($post_type ?: 'post'), self::POST_TYPES, true);
+                $is_supported = in_array((string) ($post_type ?: 'post'), self::getEnabledPostTypes('column'), true);
             }
 
             if (!$is_supported) {
@@ -175,7 +245,7 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
 
         public static function renderAdminStyles(): void {
             $screen = get_current_screen();
-            if (!$screen || !in_array($screen->post_type, self::POST_TYPES, true)) {
+            if (!$screen || !in_array($screen->post_type, self::getEnabledPostTypes('column'), true)) {
                 return;
             }
             ?>
@@ -333,24 +403,37 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             <?php
         }
 
-        private static function isTrackingEnabled(): bool {
+        private static function getEnabledPostTypes(string $setting): array {
             $options = get_option('oyiso', []);
+            $options = is_array($options) ? $options : [];
+            $content_options = $options[self::OPTION_GROUP] ?? [];
+            $content_options = is_array($content_options) ? $content_options : [];
+            $legacy_option = $setting === 'tracking'
+                ? self::LEGACY_OPTION_ENABLED
+                : self::LEGACY_OPTION_SHOW_COLUMN;
+            $default = $setting === 'tracking';
+            $post_types = [];
 
-            if (!is_array($options) || !array_key_exists(self::OPTION_ENABLED, $options)) {
-                return false;
+            foreach (self::POST_TYPE_OPTIONS as $post_type => $option_keys) {
+                $option_key = $option_keys[$setting] ?? '';
+                if ($option_key === '') {
+                    continue;
+                }
+
+                if (array_key_exists($option_key, $content_options)) {
+                    $enabled = !empty($content_options[$option_key]);
+                } elseif (array_key_exists($legacy_option, $options)) {
+                    $enabled = !empty($options[$legacy_option]);
+                } else {
+                    $enabled = $default;
+                }
+
+                if ($enabled) {
+                    $post_types[] = $post_type;
+                }
             }
 
-            return !empty($options[self::OPTION_ENABLED]);
-        }
-
-        private static function shouldShowColumn(): bool {
-            $options = get_option('oyiso', []);
-
-            if (!is_array($options) || !array_key_exists(self::OPTION_SHOW_COLUMN, $options)) {
-                return false;
-            }
-
-            return !empty($options[self::OPTION_SHOW_COLUMN]);
+            return $post_types;
         }
 
         private static function getViewCount(int $post_id): int {

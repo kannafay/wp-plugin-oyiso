@@ -186,6 +186,42 @@ jQuery(function ($) {
     var savedToken = $token.val() || '';
     var savedChatIds = $chatIds.val() || '';
 
+    function getAjaxAction(settings) {
+        var data = settings && settings.data ? settings.data : '';
+
+        if (data && typeof data === 'object') {
+            return data.action || '';
+        }
+
+        if (typeof data !== 'string') {
+            return '';
+        }
+
+        var match = data.match(/(?:^|&)action=([^&]*)/);
+        return match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
+    }
+
+    $(document).on('ajaxSuccess.oyisoTgTest', function (event, xhr, settings, response) {
+        if (getAjaxAction(settings) !== 'csf_oyiso_ajax_save') {
+            return;
+        }
+
+        var payload = response && typeof response === 'object'
+            ? response
+            : (xhr && xhr.responseJSON ? xhr.responseJSON : null);
+
+        if (!payload || payload.success !== true) {
+            return;
+        }
+
+        savedToken = $token.val() || '';
+        savedChatIds = $chatIds.val() || '';
+
+        if ($status.text() === oyisoTgTest.labels.unsaved) {
+            $status.empty();
+        }
+    });
+
     $button.on('click', function () {
         var currentToken = $token.val() || '';
         var currentChatIds = $chatIds.val() || '';
