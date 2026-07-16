@@ -40,6 +40,14 @@ if (class_exists('CSF')) {
                                 'label'   => '在后台文章列表显示浏览量列，不影响浏览量统计。',
                                 'default' => false,
                             ],
+                            [
+                                'id'         => 'oyiso_content_view_metrics_post_polling',
+                                'type'       => 'switcher',
+                                'title'      => '实时刷新开关',
+                                'label'      => '每轮请求完成 5 秒后，通过 AJAX 刷新后台文章列表中的浏览量。',
+                                'default'    => false,
+                                'dependency' => ['oyiso_content_view_metrics_post_show_column', '==', true],
+                            ],
                         ],
                     ],
                     [
@@ -59,6 +67,14 @@ if (class_exists('CSF')) {
                                 'title'   => '显示开关',
                                 'label'   => '在后台产品列表显示浏览量列，不影响浏览量统计。',
                                 'default' => false,
+                            ],
+                            [
+                                'id'         => 'oyiso_content_view_metrics_product_polling',
+                                'type'       => 'switcher',
+                                'title'      => '实时刷新开关',
+                                'label'      => '每轮请求完成 5 秒后，通过 AJAX 刷新后台产品列表中的浏览量。',
+                                'default'    => false,
+                                'dependency' => ['oyiso_content_view_metrics_product_show_column', '==', true],
                             ],
                         ],
                     ],
@@ -80,6 +96,14 @@ if (class_exists('CSF')) {
                                 'label'   => '在后台页面列表显示浏览量列，不影响浏览量统计。',
                                 'default' => false,
                             ],
+                            [
+                                'id'         => 'oyiso_content_view_metrics_page_polling',
+                                'type'       => 'switcher',
+                                'title'      => '实时刷新开关',
+                                'label'      => '每轮请求完成 5 秒后，通过 AJAX 刷新后台页面列表中的浏览量。',
+                                'default'    => false,
+                                'dependency' => ['oyiso_content_view_metrics_page_show_column', '==', true],
+                            ],
                         ],
                     ],
                 ],
@@ -97,18 +121,24 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
         private const LEGACY_OPTION_ENABLED = 'oyiso_content_view_metrics_enabled';
         private const LEGACY_OPTION_SHOW_COLUMN = 'oyiso_content_view_metrics_show_column';
         private const OPTION_GROUP = 'oyiso_content_view_metrics_options';
+        private const POLLING_ACTION = 'oyiso_content_view_metrics_poll';
+        private const POLLING_NONCE_ACTION = 'oyiso_content_view_metrics_poll';
+        private const POLLING_MAX_POSTS = 100;
         private const POST_TYPE_OPTIONS = [
             'post' => [
                 'tracking' => 'oyiso_content_view_metrics_post_enabled',
                 'column' => 'oyiso_content_view_metrics_post_show_column',
+                'polling' => 'oyiso_content_view_metrics_post_polling',
             ],
             'product' => [
                 'tracking' => 'oyiso_content_view_metrics_product_enabled',
                 'column' => 'oyiso_content_view_metrics_product_show_column',
+                'polling' => 'oyiso_content_view_metrics_product_polling',
             ],
             'page' => [
                 'tracking' => 'oyiso_content_view_metrics_page_enabled',
                 'column' => 'oyiso_content_view_metrics_page_show_column',
+                'polling' => 'oyiso_content_view_metrics_page_polling',
             ],
         ];
 
@@ -118,9 +148,18 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 add_action('template_redirect', [self::class, 'trackView']);
             }
 
+            $polling_post_types = self::getEnabledPostTypes('polling');
+            if ($polling_post_types !== []) {
+                add_action('wp_ajax_' . self::POLLING_ACTION, [self::class, 'pollMetrics']);
+            }
+
             $visible_post_types = self::getEnabledPostTypes('column');
             if ($visible_post_types === []) {
                 return;
+            }
+
+            if (array_intersect($visible_post_types, $polling_post_types) !== []) {
+                add_action('admin_enqueue_scripts', [self::class, 'enqueuePollingAssets']);
             }
 
             add_action('admin_head-edit.php', [self::class, 'renderAdminStyles']);
@@ -218,29 +257,110 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 return;
             }
 
-            $metrics = self::getViewMetrics($post_id);
-            $chart = self::buildSparklineChart($metrics['recent_days']);
-            $total_display = self::formatCompactCount((int) $metrics['total']);
+            echo self::renderMetricsMarkup($post_id);
+        }
 
-            echo '<span class="oyiso-view-metrics">';
-            echo '<span class="oyiso-view-chart">';
-            echo '<svg class="oyiso-view-sparkline" viewBox="0 0 86 16" role="img" aria-label="最近 7 天每日浏览量趋势">';
-            echo '<defs><linearGradient id="oyiso-view-fill-' . esc_attr((string) $post_id) . '" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#e5702a" stop-opacity="0.2"/><stop offset="100%" stop-color="#e5702a" stop-opacity="0"/></linearGradient></defs>';
-            echo '<path class="oyiso-view-sparkline__grid" d="M3 13H83"></path>';
-            echo '<polygon class="oyiso-view-sparkline__area" points="' . esc_attr($chart['area']) . '" fill="url(#oyiso-view-fill-' . esc_attr((string) $post_id) . ')"></polygon>';
-            echo '<polyline class="oyiso-view-sparkline__line" points="' . esc_attr($chart['line']) . '"></polyline>';
-            foreach ($chart['points'] as $point) {
-                echo '<circle class="oyiso-view-sparkline__dot" cx="' . esc_attr((string) $point['x']) . '" cy="' . esc_attr((string) $point['y']) . '" r="1.7"></circle>';
+        public static function enqueuePollingAssets(string $hook): void {
+            if ($hook !== 'edit.php') {
+                return;
             }
-            echo '</svg>';
-            foreach ($chart['points'] as $point) {
-                echo '<span class="oyiso-view-tooltip-point oyiso-view-tooltip-point--' . esc_attr($point['edge']) . '" style="left:' . esc_attr((string) $point['x_percent']) . '%;top:' . esc_attr((string) $point['y_percent']) . '%;">';
-                echo '<span class="oyiso-view-tooltip">' . esc_html($point['date'] . ' · ' . number_format_i18n((int) $point['count'])) . '</span>';
-                echo '</span>';
+
+            $screen = get_current_screen();
+            if (!$screen || !in_array($screen->post_type, self::getEnabledPostTypes('polling'), true)) {
+                return;
             }
-            echo '</span>';
-            echo '<span class="oyiso-view-total"><span>总</span><strong>' . esc_html($total_display) . '</strong></span>';
-            echo '</span>';
+
+            if (!in_array($screen->post_type, self::getEnabledPostTypes('column'), true)) {
+                return;
+            }
+
+            $script_path = __DIR__ . '/assets/js/admin-polling.js';
+            if (!is_readable($script_path)) {
+                return;
+            }
+
+            wp_enqueue_script(
+                'oyiso-content-view-metrics-polling',
+                plugins_url('assets/js/admin-polling.js', __FILE__),
+                ['jquery'],
+                (string) filemtime($script_path),
+                true
+            );
+
+            wp_localize_script('oyiso-content-view-metrics-polling', 'oyisoContentViewMetricsPolling', [
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'action' => self::POLLING_ACTION,
+                'nonce' => wp_create_nonce(self::POLLING_NONCE_ACTION),
+                'postType' => $screen->post_type,
+                'pollInterval' => 5000,
+                'requestTimeout' => 10000,
+                'retryDelay' => 5000,
+            ]);
+        }
+
+        public static function pollMetrics(): void {
+            check_ajax_referer(self::POLLING_NONCE_ACTION, 'nonce');
+
+            $post_type = isset($_POST['post_type'])
+                ? sanitize_key((string) wp_unslash($_POST['post_type']))
+                : '';
+
+            if (
+                !isset(self::POST_TYPE_OPTIONS[$post_type])
+                || !in_array($post_type, self::getEnabledPostTypes('column'), true)
+                || !in_array($post_type, self::getEnabledPostTypes('polling'), true)
+            ) {
+                wp_send_json_error(['message' => '当前内容类型未启用浏览量实时刷新。'], 400);
+            }
+
+            $post_type_object = get_post_type_object($post_type);
+            $edit_capability = $post_type_object && isset($post_type_object->cap->edit_posts)
+                ? (string) $post_type_object->cap->edit_posts
+                : 'edit_posts';
+
+            if (!current_user_can($edit_capability)) {
+                wp_send_json_error(['message' => '无权限读取浏览量数据。'], 403);
+            }
+
+            $raw_post_ids = isset($_POST['post_ids'])
+                ? (array) wp_unslash($_POST['post_ids'])
+                : [];
+            $post_ids = array_values(array_unique(array_filter(array_map('absint', $raw_post_ids))));
+            $post_ids = array_slice($post_ids, 0, self::POLLING_MAX_POSTS);
+            $post_ids = array_values(array_filter($post_ids, static function (int $post_id) use ($post_type): bool {
+                return get_post_type($post_id) === $post_type;
+            }));
+
+            if ($post_ids === []) {
+                wp_send_json_error(['message' => '没有可刷新的内容。'], 400);
+            }
+
+            $state_json = isset($_POST['state'])
+                ? (string) wp_unslash($_POST['state'])
+                : '{}';
+            $client_state = json_decode($state_json, true);
+            $client_state = is_array($client_state) ? $client_state : [];
+            $items = [];
+            $metrics_by_post_id = self::getViewMetricsBatch($post_ids);
+
+            foreach ($post_ids as $post_id) {
+                $metrics = $metrics_by_post_id[$post_id] ?? self::getEmptyViewMetrics();
+                $hash = self::getMetricsHash($metrics);
+
+                if ((string) ($client_state[(string) $post_id] ?? '') === $hash) {
+                    continue;
+                }
+
+                $items[(string) $post_id] = [
+                    'hash' => $hash,
+                    'html' => self::renderMetricsMarkup($post_id, $metrics),
+                ];
+            }
+
+            wp_send_json_success([
+                'changed' => $items !== [],
+                'items' => $items,
+            ]);
         }
 
         public static function renderAdminStyles(): void {
@@ -408,9 +528,13 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             $options = is_array($options) ? $options : [];
             $content_options = $options[self::OPTION_GROUP] ?? [];
             $content_options = is_array($content_options) ? $content_options : [];
-            $legacy_option = $setting === 'tracking'
-                ? self::LEGACY_OPTION_ENABLED
-                : self::LEGACY_OPTION_SHOW_COLUMN;
+            if ($setting === 'tracking') {
+                $legacy_option = self::LEGACY_OPTION_ENABLED;
+            } elseif ($setting === 'column') {
+                $legacy_option = self::LEGACY_OPTION_SHOW_COLUMN;
+            } else {
+                $legacy_option = '';
+            }
             $default = $setting === 'tracking';
             $post_types = [];
 
@@ -422,7 +546,7 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
 
                 if (array_key_exists($option_key, $content_options)) {
                     $enabled = !empty($content_options[$option_key]);
-                } elseif (array_key_exists($legacy_option, $options)) {
+                } elseif ($legacy_option !== '' && array_key_exists($legacy_option, $options)) {
                     $enabled = !empty($options[$legacy_option]);
                 } else {
                     $enabled = $default;
@@ -434,6 +558,41 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             }
 
             return $post_types;
+        }
+
+        private static function renderMetricsMarkup(int $post_id, ?array $metrics = null): string {
+            $metrics = $metrics ?? self::getViewMetrics($post_id);
+            $chart = self::buildSparklineChart($metrics['recent_days']);
+            $metrics_hash = self::getMetricsHash($metrics);
+            $total_display = self::formatCompactCount((int) $metrics['total']);
+
+            ob_start();
+            echo '<span class="oyiso-view-metrics" data-oyiso-view-metrics data-post-id="' . esc_attr((string) $post_id) . '" data-metrics-hash="' . esc_attr($metrics_hash) . '">';
+            echo '<span class="oyiso-view-chart">';
+            echo '<svg class="oyiso-view-sparkline" viewBox="0 0 86 16" role="img" aria-label="最近 7 天每日浏览量趋势">';
+            echo '<defs><linearGradient id="oyiso-view-fill-' . esc_attr((string) $post_id) . '" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#e5702a" stop-opacity="0.2"/><stop offset="100%" stop-color="#e5702a" stop-opacity="0"/></linearGradient></defs>';
+            echo '<path class="oyiso-view-sparkline__grid" d="M3 13H83"></path>';
+            echo '<polygon class="oyiso-view-sparkline__area" points="' . esc_attr($chart['area']) . '" fill="url(#oyiso-view-fill-' . esc_attr((string) $post_id) . ')"></polygon>';
+            echo '<polyline class="oyiso-view-sparkline__line" points="' . esc_attr($chart['line']) . '"></polyline>';
+            foreach ($chart['points'] as $point) {
+                echo '<circle class="oyiso-view-sparkline__dot" cx="' . esc_attr((string) $point['x']) . '" cy="' . esc_attr((string) $point['y']) . '" r="1.7"></circle>';
+            }
+            echo '</svg>';
+            foreach ($chart['points'] as $point) {
+                echo '<span class="oyiso-view-tooltip-point oyiso-view-tooltip-point--' . esc_attr($point['edge']) . '" style="left:' . esc_attr((string) $point['x_percent']) . '%;top:' . esc_attr((string) $point['y_percent']) . '%;">';
+                echo '<span class="oyiso-view-tooltip">' . esc_html($point['date'] . ' · ' . number_format_i18n((int) $point['count'])) . '</span>';
+                echo '</span>';
+            }
+            echo '</span>';
+            echo '<span class="oyiso-view-total"><span>总</span><strong>' . esc_html($total_display) . '</strong></span>';
+            echo '</span>';
+
+            $markup = ob_get_clean();
+            return is_string($markup) ? $markup : '';
+        }
+
+        private static function getMetricsHash(array $metrics): string {
+            return md5((string) wp_json_encode($metrics));
         }
 
         private static function getViewCount(int $post_id): int {
@@ -453,6 +612,83 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             return [
                 'total' => self::getViewCount($post_id),
                 'recent_days' => self::getRecentDailyCounts($daily_counts, $now, 7),
+            ];
+        }
+
+        private static function getViewMetricsBatch(array $post_ids): array {
+            global $wpdb;
+
+            $post_ids = array_values(array_unique(array_filter(array_map('absint', $post_ids))));
+            if ($post_ids === []) {
+                return [];
+            }
+
+            $id_placeholders = implode(', ', array_fill(0, count($post_ids), '%d'));
+            $query = "SELECT post_id, meta_key, meta_value
+                FROM {$wpdb->postmeta}
+                WHERE post_id IN ({$id_placeholders})
+                AND meta_key IN (%s, %s, %s)";
+            $query_params = array_merge($post_ids, [self::META_KEY, self::DAILY_META_KEY, self::LEGACY_META_KEY]);
+            $prepared_query = $wpdb->prepare($query, $query_params);
+            $rows = is_string($prepared_query) ? $wpdb->get_results($prepared_query, ARRAY_A) : [];
+            $raw_metrics = [];
+
+            foreach ($post_ids as $post_id) {
+                $raw_metrics[$post_id] = [
+                    'total' => 0,
+                    'legacy_total' => 0,
+                    'daily_counts' => [],
+                ];
+            }
+
+            foreach ((array) $rows as $row) {
+                $post_id = (int) ($row['post_id'] ?? 0);
+                $meta_key = (string) ($row['meta_key'] ?? '');
+                if (!isset($raw_metrics[$post_id])) {
+                    continue;
+                }
+
+                if ($meta_key === self::META_KEY) {
+                    $raw_metrics[$post_id]['total'] = max(
+                        $raw_metrics[$post_id]['total'],
+                        max(0, (int) ($row['meta_value'] ?? 0))
+                    );
+                } elseif ($meta_key === self::LEGACY_META_KEY) {
+                    $raw_metrics[$post_id]['legacy_total'] = max(
+                        $raw_metrics[$post_id]['legacy_total'],
+                        max(0, (int) ($row['meta_value'] ?? 0))
+                    );
+                } elseif ($meta_key === self::DAILY_META_KEY) {
+                    $daily_counts = maybe_unserialize($row['meta_value'] ?? '');
+                    if (is_array($daily_counts)) {
+                        $raw_metrics[$post_id]['daily_counts'] = $daily_counts;
+                    }
+                }
+            }
+
+            $now = (int) current_time('timestamp');
+            $metrics_by_post_id = [];
+            foreach ($raw_metrics as $post_id => $raw_metric) {
+                $total = $raw_metric['total'] > 0
+                    ? $raw_metric['total']
+                    : $raw_metric['legacy_total'];
+                $metrics_by_post_id[$post_id] = [
+                    'total' => $total,
+                    'recent_days' => self::getRecentDailyCounts(
+                        self::normalizeDailyViewCounts($raw_metric['daily_counts']),
+                        $now,
+                        7
+                    ),
+                ];
+            }
+
+            return $metrics_by_post_id;
+        }
+
+        private static function getEmptyViewMetrics(): array {
+            return [
+                'total' => 0,
+                'recent_days' => self::getRecentDailyCounts([], (int) current_time('timestamp'), 7),
             ];
         }
 
@@ -544,6 +780,10 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
                 return [];
             }
 
+            return self::normalizeDailyViewCounts($daily_counts);
+        }
+
+        private static function normalizeDailyViewCounts(array $daily_counts): array {
             $normalized = [];
             foreach ($daily_counts as $date => $count) {
                 if (!is_string($date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
