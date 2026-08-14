@@ -11,4 +11,6 @@ if (class_exists('CSF')) {
     ]);
 }
 
+require_once __DIR__ . '/secret-fields.php';
 require_once __DIR__ . '/telegram/index.php';
+require_once __DIR__ . '/order-email-html/index.php';

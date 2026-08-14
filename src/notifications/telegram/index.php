@@ -24,10 +24,16 @@ CSF::createSection($prefix, [
             'content' => 'Telegram Bot',
         ],
         [
-            'id' => 'bot_token',
-            'type' => 'text',
-            'title' => '机器人Token',
-            'desc' => '填写从BotFather获取的Telegram机器人Token <a href="https://core.telegram.org/bots#6-botfather" target="_blank">点击获取</a>',
+            'id'         => 'bot_token',
+            'type'       => 'text',
+            'title'      => '机器人Token',
+            'class'      => 'oyiso-secret-field',
+            'attributes' => [
+                'type'         => 'password',
+                'autocomplete' => 'new-password',
+                'spellcheck'   => 'false',
+            ],
+            'desc'       => '填写从BotFather获取的Telegram机器人Token <a href="https://core.telegram.org/bots#6-botfather" target="_blank">点击获取</a>',
         ],
         [
             'id' => 'tg_chatids',
