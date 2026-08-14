@@ -177,8 +177,7 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
             try {
                 wp_send_json_success([
                     'records' => self::scanDirectory(
-                        Oyiso_New_Order_Email_Html_Archive::getStorageDirectory(),
-                        Oyiso_New_Order_Email_Html_Archive::getSiteDomain()
+                        Oyiso_New_Order_Email_Html_Archive::getStorageDirectory()
                     ),
                 ]);
             } catch (Throwable $exception) {
@@ -216,10 +215,9 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
             self::verifyAjaxRequest();
 
             try {
-                $path = self::resolveRequestedFile(['webp', 'png', 'jpeg', 'jpg']);
+                $path = self::resolveRequestedFile(['png', 'jpeg', 'jpg']);
                 $extension = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
                 $contentTypes = [
-                    'webp' => 'image/webp',
                     'png'  => 'image/png',
                     'jpeg' => 'image/jpeg',
                     'jpg'  => 'image/jpeg',
@@ -258,7 +256,6 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
                 $recordId = is_string($value) ? wp_unslash($value) : '';
                 $deleted = self::deleteRecordFiles(
                     Oyiso_New_Order_Email_Html_Archive::getStorageDirectory(),
-                    Oyiso_New_Order_Email_Html_Archive::getSiteDomain(),
                     $recordId
                 );
 
@@ -274,14 +271,14 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
         /**
          * @return array<int, array<string, mixed>>
          */
-        public static function scanDirectory(string $directory, string $siteDomain): array {
+        public static function scanDirectory(string $directory): array {
             $realDirectory = realpath($directory);
 
             if (false === $realDirectory || !is_dir($realDirectory)) {
                 return [];
             }
 
-            $pattern = self::getFilenamePattern($siteDomain);
+            $pattern = self::getFilenamePattern();
             $records = [];
 
             foreach (new DirectoryIterator($realDirectory) as $file) {
@@ -353,10 +350,9 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
 
         public static function deleteRecordFiles(
             string $directory,
-            string $siteDomain,
             string $recordId
         ): int {
-            if (1 !== preg_match(self::getRecordIdPattern($siteDomain), $recordId)) {
+            if (1 !== preg_match(self::getRecordIdPattern(), $recordId)) {
                 throw new RuntimeException('订单归档记录名无效。');
             }
 
@@ -369,7 +365,7 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
             $normalizedDirectory = trailingslashit(wp_normalize_path($realDirectory));
             $deleted = 0;
 
-            foreach (['html', 'webp', 'png', 'jpeg', 'jpg'] as $extension) {
+            foreach (['html', 'png', 'jpeg', 'jpg'] as $extension) {
                 $candidate = $realDirectory
                     . DIRECTORY_SEPARATOR
                     . $recordId
@@ -434,7 +430,7 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
 
             if (
                 1 !== preg_match(
-                    self::getFilenamePattern(Oyiso_New_Order_Email_Html_Archive::getSiteDomain()),
+                    self::getFilenamePattern(),
                     $filename
                 )
             ) {
@@ -468,16 +464,14 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
             return $path;
         }
 
-        private static function getFilenamePattern(string $siteDomain): string {
-            return '/^'
-                . preg_quote($siteDomain, '/')
-                . '_#([a-z0-9._-]+)_(\d{8}-\d{6})-[a-z0-9]{6}\.(html|webp|png|jpe?g)$/i';
+        private static function getFilenamePattern(): string {
+            return '/^[a-z0-9][a-z0-9._-]*_#'
+                . '([a-z0-9._-]+)_(\d{8}-\d{6})-[a-z0-9]{6}\.(html|png|jpe?g)$/i';
         }
 
-        private static function getRecordIdPattern(string $siteDomain): string {
-            return '/^'
-                . preg_quote($siteDomain, '/')
-                . '_#[a-z0-9._-]+_\d{8}-\d{6}-[a-z0-9]{6}$/i';
+        private static function getRecordIdPattern(): string {
+            return '/^[a-z0-9][a-z0-9._-]*_#'
+                . '[a-z0-9._-]+_\d{8}-\d{6}-[a-z0-9]{6}$/i';
         }
 
         private static function formatArchiveTimestamp(string $timestamp): string {

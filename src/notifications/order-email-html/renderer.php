@@ -10,9 +10,9 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
 
         private const API_ORIGIN = 'https://render.neogopay.com';
 
-        private const ASYNC_HOOK = 'oyiso_render_new_order_email_image';
+        private const LEGACY_ASYNC_HOOK = 'oyiso_render_new_order_email_image';
 
-        private const ASYNC_GROUP = 'oyiso-order-email-render';
+        private const LEGACY_ACTIONS_REMOVED_OPTION = 'oyiso_order_email_render_actions_removed';
 
         private const API_KEY_OPTION = 'woo_new_order_email_render_api_key';
 
@@ -22,9 +22,14 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
 
         private const CHECK_NONCE_ACTION = 'oyiso_check_render_service';
 
-        private const MAX_ATTEMPTS = 3;
-
         private const MAX_IMAGE_BYTES = 52428800;
+
+        /**
+         * @var array<string, int>
+         */
+        private static array $shutdownJobs = [];
+
+        private static bool $shutdownHookRegistered = false;
 
         public static function register(): void {
             add_action('admin_enqueue_scripts', [self::class, 'enqueueAdminAssets']);
@@ -36,6 +41,7 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
                 'wp_ajax_oyiso_check_render_api_key',
                 [self::class, 'handleApiKeyCheck']
             );
+            add_action('init', [self::class, 'removeLegacyScheduledActions'], 20);
 
             if (!class_exists('WooCommerce')) {
                 return;
@@ -47,7 +53,6 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
                 10,
                 2
             );
-            add_action(self::ASYNC_HOOK, [self::class, 'handle'], 10, 3);
         }
 
         public static function enqueueAdminAssets(string $hook): void {
@@ -153,31 +158,55 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
             if ('' === self::getApiKey()) {
                 self::logError(
                     sprintf(
-                        '未配置渲染API Key，订单 %d 的图片任务未创建。',
+                        '未配置渲染API Key，订单 %d 的图片渲染未执行。',
                         $order->get_id()
                     )
                 );
                 return;
             }
 
-            $args = [$htmlPath, $order->get_id(), 1];
+            self::$shutdownJobs[$htmlPath] = $order->get_id();
 
-            if (function_exists('as_enqueue_async_action')) {
-                as_enqueue_async_action(
-                    self::ASYNC_HOOK,
-                    $args,
-                    self::ASYNC_GROUP,
-                    true
-                );
-                return;
-            }
-
-            if (!wp_next_scheduled(self::ASYNC_HOOK, $args)) {
-                wp_schedule_single_event(time() + 1, self::ASYNC_HOOK, $args);
+            if (!self::$shutdownHookRegistered) {
+                add_action('shutdown', [self::class, 'runShutdownJobs'], PHP_INT_MAX);
+                self::$shutdownHookRegistered = true;
             }
         }
 
-        public static function handle(string $htmlPath, int $orderId, int $attempt = 1): void {
+        /**
+         * Render queued order emails after WordPress has prepared its response.
+         */
+        public static function runShutdownJobs(): void {
+            if ([] === self::$shutdownJobs) {
+                return;
+            }
+
+            $jobs = self::$shutdownJobs;
+            self::$shutdownJobs = [];
+
+            ignore_user_abort(true);
+
+            if (function_exists('set_time_limit')) {
+                set_time_limit(300);
+            }
+
+            if (
+                function_exists('session_status')
+                && PHP_SESSION_ACTIVE === session_status()
+            ) {
+                session_write_close();
+            }
+
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
+
+            foreach ($jobs as $htmlPath => $orderId) {
+                self::handle($htmlPath, $orderId);
+            }
+        }
+
+        public static function handle(string $htmlPath, int $orderId): void {
             if (!self::isEnabled()) {
                 return;
             }
@@ -221,17 +250,25 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
             } catch (Throwable $exception) {
                 self::logError(
                     sprintf(
-                        '订单 %d 的邮件图片渲染失败（第 %d 次）：%s',
+                        '订单 %d 的邮件图片渲染失败：%s',
                         $orderId,
-                        $attempt,
                         $exception->getMessage()
                     )
                 );
-
-                if ($attempt < self::MAX_ATTEMPTS) {
-                    self::scheduleRetry($htmlPath, $orderId, $attempt + 1);
-                }
             }
+        }
+
+        public static function removeLegacyScheduledActions(): void {
+            if ('1' === get_option(self::LEGACY_ACTIONS_REMOVED_OPTION, '0')) {
+                return;
+            }
+
+            if (function_exists('as_unschedule_all_actions')) {
+                as_unschedule_all_actions(self::LEGACY_ASYNC_HOOK);
+            }
+
+            wp_clear_scheduled_hook(self::LEGACY_ASYNC_HOOK);
+            update_option(self::LEGACY_ACTIONS_REMOVED_OPTION, '1', false);
         }
 
         private static function isEnabled(): bool {
@@ -604,27 +641,6 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
 
             if ($hasBackup && is_file($backupPath)) {
                 wp_delete_file($backupPath);
-            }
-        }
-
-        private static function scheduleRetry(string $htmlPath, int $orderId, int $attempt): void {
-            $delays = [2 => 60, 3 => 300];
-            $delay  = $delays[$attempt] ?? 300;
-            $args   = [$htmlPath, $orderId, $attempt];
-
-            if (function_exists('as_schedule_single_action')) {
-                as_schedule_single_action(
-                    time() + $delay,
-                    self::ASYNC_HOOK,
-                    $args,
-                    self::ASYNC_GROUP,
-                    true
-                );
-                return;
-            }
-
-            if (!wp_next_scheduled(self::ASYNC_HOOK, $args)) {
-                wp_schedule_single_event(time() + $delay, self::ASYNC_HOOK, $args);
             }
         }
 

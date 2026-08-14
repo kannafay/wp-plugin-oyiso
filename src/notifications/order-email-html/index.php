@@ -116,7 +116,7 @@ if (class_exists('CSF')) {
                 'attributes' => [
                     'style' => 'min-width:120px;',
                 ],
-                'desc'       => '每小时检查一次，自动删除过期的订单归档文件。',
+                'desc'       => '新订单归档时检查，每小时最多执行一次过期文件清理。',
                 'default'    => '24',
                 'dependency' => ['woo_new_order_email_html_archive', '==', true],
             ],

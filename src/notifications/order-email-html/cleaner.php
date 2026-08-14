@@ -8,11 +8,13 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
     final class Oyiso_New_Order_Email_File_Cleaner {
         private const OPTION_KEY = 'woo_new_order_email_file_retention';
 
-        private const CLEANUP_HOOK = 'oyiso_cleanup_order_email_files';
-
-        private const CLEANUP_GROUP = 'oyiso-order-email-cleanup';
+        private const LEGACY_CLEANUP_HOOK = 'oyiso_cleanup_order_email_files';
 
         private const CLEANUP_INTERVAL = 3600;
+
+        private const LAST_CLEANUP_OPTION = 'oyiso_order_email_last_cleanup';
+
+        private const LEGACY_SCHEDULE_REMOVED_OPTION = 'oyiso_order_email_cleanup_schedule_removed';
 
         private const LOG_SOURCE = 'oyiso-order-email-cleanup';
 
@@ -32,8 +34,13 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
                 return;
             }
 
-            add_action('init', [self::class, 'ensureScheduled'], 20);
-            add_action(self::CLEANUP_HOOK, [self::class, 'cleanupExpiredFiles']);
+            add_action('init', [self::class, 'removeLegacySchedule'], 20);
+            add_action(
+                'oyiso_new_order_email_html_archived',
+                [self::class, 'maybeCleanupExpiredFiles'],
+                20,
+                0
+            );
             add_action(
                 'wp_ajax_oyiso_cleanup_order_email_files_now',
                 [self::class, 'handleAjaxCleanup']
@@ -44,37 +51,20 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
             );
         }
 
-        public static function ensureScheduled(): void {
+        public static function maybeCleanupExpiredFiles(): void {
             if (0 === self::getRetentionHours()) {
-                self::unschedule();
                 return;
             }
 
-            if (
-                function_exists('as_has_scheduled_action')
-                && function_exists('as_schedule_recurring_action')
-            ) {
-                if (!as_has_scheduled_action(self::CLEANUP_HOOK, [], self::CLEANUP_GROUP)) {
-                    as_schedule_recurring_action(
-                        time() + self::CLEANUP_INTERVAL,
-                        self::CLEANUP_INTERVAL,
-                        self::CLEANUP_HOOK,
-                        [],
-                        self::CLEANUP_GROUP,
-                        true
-                    );
-                }
+            $now         = time();
+            $lastCleanup = (int) get_option(self::LAST_CLEANUP_OPTION, 0);
 
+            if ($lastCleanup > $now - self::CLEANUP_INTERVAL) {
                 return;
             }
 
-            if (!wp_next_scheduled(self::CLEANUP_HOOK)) {
-                wp_schedule_event(
-                    time() + self::CLEANUP_INTERVAL,
-                    'hourly',
-                    self::CLEANUP_HOOK
-                );
-            }
+            update_option(self::LAST_CLEANUP_OPTION, $now, false);
+            self::cleanupExpiredFiles();
         }
 
         public static function cleanupExpiredFiles(): void {
@@ -107,7 +97,6 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
             return [
                 'deleted' => self::cleanupDirectory(
                     Oyiso_New_Order_Email_Html_Archive::getStorageDirectory(),
-                    Oyiso_New_Order_Email_Html_Archive::getSiteDomain(),
                     time() - ($retentionHours * HOUR_IN_SECONDS)
                 ),
                 'retention_hours' => $retentionHours,
@@ -155,7 +144,6 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
             try {
                 $deleted = self::cleanupDirectory(
                     Oyiso_New_Order_Email_Html_Archive::getStorageDirectory(),
-                    Oyiso_New_Order_Email_Html_Archive::getSiteDomain(),
                     PHP_INT_MAX
                 );
 
@@ -175,7 +163,6 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
 
         public static function cleanupDirectory(
             string $directory,
-            string $siteDomain,
             int $cutoffTimestamp
         ): int {
             $realDirectory = realpath($directory);
@@ -184,9 +171,8 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
                 return 0;
             }
 
-            $pattern = '/^'
-                . preg_quote($siteDomain, '/')
-                . '_#[a-z0-9._-]+_\d{8}-\d{6}-[a-z0-9]{6}\.(html|webp|png|jpe?g)$/i';
+            $pattern = '/^[a-z0-9][a-z0-9._-]*_#'
+                . '[a-z0-9._-]+_\d{8}-\d{6}-[a-z0-9]{6}\.(html|png|jpe?g)$/i';
             $groups = [];
 
             foreach (new DirectoryIterator($realDirectory) as $file) {
@@ -274,16 +260,17 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
             return isset(self::ALLOWED_RETENTION_HOURS[$hours]) ? $hours : 24;
         }
 
-        private static function unschedule(): void {
-            if (function_exists('as_unschedule_all_actions')) {
-                as_unschedule_all_actions(
-                    self::CLEANUP_HOOK,
-                    [],
-                    self::CLEANUP_GROUP
-                );
+        public static function removeLegacySchedule(): void {
+            if ('1' === get_option(self::LEGACY_SCHEDULE_REMOVED_OPTION, '0')) {
+                return;
             }
 
-            wp_clear_scheduled_hook(self::CLEANUP_HOOK);
+            if (function_exists('as_unschedule_all_actions')) {
+                as_unschedule_all_actions(self::LEGACY_CLEANUP_HOOK);
+            }
+
+            wp_clear_scheduled_hook(self::LEGACY_CLEANUP_HOOK);
+            update_option(self::LEGACY_SCHEDULE_REMOVED_OPTION, '1', false);
         }
 
         private static function logInfo(string $message): void {
