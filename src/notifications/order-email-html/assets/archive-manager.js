@@ -85,13 +85,25 @@
             requestSequence += 1;
             activeRecord = null;
             activePreview = '';
-            $image.attr('src', '');
+            $image.off('.oyisoArchive').removeAttr('src');
             $htmlFrame.attr('srcdoc', '');
             $recordMeta.text('请选择一条归档记录');
             $imageTab.prop('disabled', true).attr('aria-selected', 'false');
             $htmlTab.prop('disabled', true).attr('aria-selected', 'false');
             setScreenshotActionsEnabled(false);
             setPreviewMessage('请选择左侧订单查看文件');
+        }
+
+        function prepareRecordsLoading() {
+            requestSequence += 1;
+            activeRecord = null;
+            $image.off('.oyisoArchive').removeAttr('src');
+            $htmlFrame.attr('srcdoc', '');
+            $recordMeta.text(labels.listLoading || '正在读取归档文件…');
+            $imageTab.prop('disabled', true).attr('aria-selected', 'false');
+            $htmlTab.prop('disabled', true).attr('aria-selected', 'false');
+            setScreenshotActionsEnabled(false);
+            setPreviewMessage(labels.listLoading || '正在读取归档文件…', true);
         }
 
         function getImageUrl(filename) {
@@ -370,6 +382,7 @@
         }
 
         function loadRecords(preferredId) {
+            prepareRecordsLoading();
             $refresh.prop('disabled', true);
             $list.empty().append($('<p>', {
                 class: 'oyiso-archive-list-state',
@@ -429,7 +442,7 @@
 
         function closeModal() {
             requestSequence += 1;
-            $image.attr('src', '');
+            $image.off('.oyisoArchive').removeAttr('src');
             $htmlFrame.attr('srcdoc', '');
             setFullscreen(false);
             $modal.prop('hidden', true).attr('aria-hidden', 'true');

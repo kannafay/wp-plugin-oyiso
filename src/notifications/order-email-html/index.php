@@ -4,24 +4,102 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
+require_once dirname(__DIR__) . '/wecom/index.php';
+
+if (!function_exists('oyiso_is_wc_order_screenshot_forwarding_enabled')) {
+    function oyiso_is_wc_order_screenshot_forwarding_enabled(): bool {
+        $options = get_option('oyiso', []);
+
+        if (!is_array($options) || empty($options['woo_new_order_email_html_archive'])) {
+            return false;
+        }
+
+        $channels = $options['woo_new_order_email_forward_options'] ?? [];
+
+        return is_array($channels) && !empty($channels['wecom_order_image_forward']);
+    }
+}
+
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
         'parent'   => 'notifications',
         'id'       => 'order-email-html',
-        'title'    => '订单邮件归档',
-        'icon'     => 'fas fa-file-code',
+        'title'    => 'WC订单截图转发',
+        'icon'     => 'fas fa-camera',
         'priority' => 20,
         'fields'   => [
             [
                 'type'    => 'heading',
-                'content' => '订单邮件归档',
+                'content' => 'WC订单截图转发',
             ],
             [
                 'id'      => 'woo_new_order_email_html_archive',
                 'type'    => 'switcher',
-                'title'   => '保存新订单邮件HTML',
-                'label'   => '开启后，将WooCommerce新订单通知邮件的最终HTML保存到站点私有目录',
+                'title'   => '启用订单截图转发',
+                'label'   => '新订单生成后，自动生成截图并转发到已启用的渠道',
                 'default' => false,
+            ],
+            [
+                'id'         => 'woo_new_order_email_render_api_key',
+                'type'       => 'text',
+                'title'      => '渲染服务 Key',
+                'class'      => 'oyiso-secret-field',
+                'attributes' => [
+                    'type'         => 'password',
+                    'autocomplete' => 'new-password',
+                    'spellcheck'   => 'false',
+                ],
+                'after'      => '<div class="oyiso-render-service-checks"><button type="button" class="button button-secondary" id="oyiso-check-render-service">检测服务可用性</button><button type="button" class="button button-secondary" id="oyiso-check-render-api-key">检测密钥正确性</button><span id="oyiso-render-service-check-status" role="status" aria-live="polite"></span></div>',
+                'dependency' => ['woo_new_order_email_html_archive', '==', true],
+            ],
+            [
+                'id'         => 'woo_new_order_email_image_format',
+                'type'       => 'select',
+                'title'      => '图片格式',
+                'options'    => [
+                    'png'  => 'PNG',
+                    'jpeg' => 'JPEG',
+                ],
+                'attributes' => [
+                    'style' => 'min-width:120px;',
+                ],
+                'default'    => 'png',
+                'dependency' => ['woo_new_order_email_html_archive', '==', true],
+            ],
+            [
+                'id'         => 'woo_new_order_email_forward_options',
+                'type'       => 'tabbed',
+                'title'      => '转发渠道',
+                'dependency' => ['woo_new_order_email_html_archive', '==', true],
+                'tabs'       => [
+                    [
+                        'title'  => '企业微信',
+                        'icon'   => 'fab fa-weixin',
+                        'fields' => [
+                            [
+                                'id'      => 'wecom_order_image_forward',
+                                'type'    => 'switcher',
+                                'title'   => '启用',
+                                'label'   => '截图生成成功后，自动发送到消息推送关联的企业微信群',
+                                'default' => false,
+                            ],
+                            [
+                                'id'         => 'wecom_webhook_key',
+                                'type'       => 'text',
+                                'title'      => 'Webhook Key',
+                                'class'      => 'oyiso-secret-field',
+                                'attributes' => [
+                                    'type'         => 'password',
+                                    'autocomplete' => 'new-password',
+                                    'spellcheck'   => 'false',
+                                ],
+                                'sanitize'   => 'oyiso_sanitize_wecom_webhook_key',
+                                'desc'       => '只填写 Webhook 地址中 key= 后面的内容。',
+                                'dependency' => ['wecom_order_image_forward', '==', true],
+                            ],
+                        ],
+                    ],
+                ],
             ],
             [
                 'id'         => 'woo_new_order_email_file_retention',
@@ -38,51 +116,14 @@ if (class_exists('CSF')) {
                 'attributes' => [
                     'style' => 'min-width:120px;',
                 ],
-                'after'      => '<button type="button" class="button button-secondary" id="oyiso-order-email-file-manager">文件管理</button>',
-                'desc'       => '每小时检查一次，过期HTML及其同名图片将一起删除。',
+                'desc'       => '每小时检查一次，自动删除过期的订单归档文件。',
                 'default'    => '24',
                 'dependency' => ['woo_new_order_email_html_archive', '==', true],
             ],
             [
-                'id'         => 'woo_new_order_email_image_render',
-                'type'       => 'switcher',
-                'title'      => '自动渲染订单邮件图片',
-                'label'      => 'HTML保存成功后，自动调用渲染API生成长图并保存到同一目录',
-                'default'    => false,
-                'dependency' => ['woo_new_order_email_html_archive', '==', true],
-            ],
-            [
-                'id'         => 'woo_new_order_email_render_api_key',
-                'type'       => 'text',
-                'title'      => '渲染API Key',
-                'class'      => 'oyiso-secret-field',
-                'attributes' => [
-                    'type'         => 'password',
-                    'autocomplete' => 'new-password',
-                    'spellcheck'   => 'false',
-                ],
-                'dependency' => [
-                    ['woo_new_order_email_html_archive', '==', true],
-                    ['woo_new_order_email_image_render', '==', true],
-                ],
-            ],
-            [
-                'id'         => 'woo_new_order_email_image_format',
-                'type'       => 'select',
-                'title'      => '图片格式',
-                'options'    => [
-                    'webp' => 'WebP',
-                    'png'  => 'PNG',
-                    'jpeg' => 'JPEG',
-                ],
-                'attributes' => [
-                    'style' => 'min-width:120px;',
-                ],
-                'default'    => 'webp',
-                'dependency' => [
-                    ['woo_new_order_email_html_archive', '==', true],
-                    ['woo_new_order_email_image_render', '==', true],
-                ],
+                'type'    => 'content',
+                'title'   => '历史文件',
+                'content' => '<button type="button" class="button button-secondary" id="oyiso-order-email-file-manager">文件管理</button><p class="description">查看并清理当前站点此前生成的 HTML 和截图。</p>',
             ],
         ],
     ]);
@@ -94,8 +135,6 @@ require_once __DIR__ . '/archive-manager.php';
 
 if (!class_exists('Oyiso_New_Order_Email_Html_Archive', false)) {
     final class Oyiso_New_Order_Email_Html_Archive {
-        private const OPTION_KEY = 'woo_new_order_email_html_archive';
-
         private const LOG_SOURCE = 'oyiso-order-email-html';
 
         public static function register(): void {
@@ -162,35 +201,39 @@ if (!class_exists('Oyiso_New_Order_Email_Html_Archive', false)) {
         }
 
         public static function isEnabled(): bool {
-            $options = get_option('oyiso', []);
-
-            return is_array($options) && !empty($options[self::OPTION_KEY]);
+            return oyiso_is_wc_order_screenshot_forwarding_enabled();
         }
 
         public static function getStorageDirectory(): string {
             return trailingslashit(WP_CONTENT_DIR)
                 . 'oyiso-private/order-email-html/'
-                . self::getSiteDomain();
+                . 'site-'
+                . self::getSiteId();
+        }
+
+        public static function getSiteId(): int {
+            return function_exists('get_current_blog_id')
+                ? max(1, (int) get_current_blog_id())
+                : 1;
         }
 
         public static function getSiteDomain(): string {
             $host = (string) wp_parse_url(home_url('/'), PHP_URL_HOST);
-            $siteId = function_exists('get_current_blog_id')
-                ? max(1, (int) get_current_blog_id())
-                : 1;
 
-            return self::sanitizeFilenamePart($host, 'site-' . $siteId);
+            return self::sanitizeFilenamePart($host, 'site-' . self::getSiteId());
         }
 
         public static function buildFilename(WC_Order $order): string {
             $orderNumber = ltrim((string) $order->get_order_number(), '#');
             $orderNumber = self::sanitizeFilenamePart($orderNumber, (string) $order->get_id());
+            $salt        = strtolower(wp_generate_password(6, false, false));
 
             return sprintf(
-                '%s_#%s_%s.html',
+                '%s_#%s_%s-%s.html',
                 self::getSiteDomain(),
                 $orderNumber,
-                self::getOrderCreatedTimestamp($order)
+                self::getOrderCreatedTimestamp($order),
+                $salt
             );
         }
 

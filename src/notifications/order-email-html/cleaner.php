@@ -186,7 +186,7 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
 
             $pattern = '/^'
                 . preg_quote($siteDomain, '/')
-                . '_#[a-z0-9._-]+_\d{8}-\d{6}\.(html|webp|png|jpe?g)$/i';
+                . '_#[a-z0-9._-]+_\d{8}-\d{6}-[a-z0-9]{6}\.(html|webp|png|jpe?g)$/i';
             $groups = [];
 
             foreach (new DirectoryIterator($realDirectory) as $file) {

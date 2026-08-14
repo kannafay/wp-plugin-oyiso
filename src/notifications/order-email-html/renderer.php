@@ -14,19 +14,29 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
 
         private const ASYNC_GROUP = 'oyiso-order-email-render';
 
-        private const ENABLED_OPTION = 'woo_new_order_email_image_render';
-
         private const API_KEY_OPTION = 'woo_new_order_email_render_api_key';
 
         private const FORMAT_OPTION = 'woo_new_order_email_image_format';
 
         private const LOG_SOURCE = 'oyiso-order-email-render';
 
+        private const CHECK_NONCE_ACTION = 'oyiso_check_render_service';
+
         private const MAX_ATTEMPTS = 3;
 
         private const MAX_IMAGE_BYTES = 52428800;
 
         public static function register(): void {
+            add_action('admin_enqueue_scripts', [self::class, 'enqueueAdminAssets']);
+            add_action(
+                'wp_ajax_oyiso_check_render_service',
+                [self::class, 'handleServiceAvailabilityCheck']
+            );
+            add_action(
+                'wp_ajax_oyiso_check_render_api_key',
+                [self::class, 'handleApiKeyCheck']
+            );
+
             if (!class_exists('WooCommerce')) {
                 return;
             }
@@ -38,6 +48,101 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
                 2
             );
             add_action(self::ASYNC_HOOK, [self::class, 'handle'], 10, 3);
+        }
+
+        public static function enqueueAdminAssets(string $hook): void {
+            if (!oyiso_is_settings_page_hook($hook)) {
+                return;
+            }
+
+            $stylePath  = __DIR__ . '/assets/render-service-check.css';
+            $scriptPath = __DIR__ . '/assets/render-service-check.js';
+
+            wp_enqueue_style(
+                'oyiso-render-service-check',
+                plugins_url('assets/render-service-check.css', __FILE__),
+                [],
+                is_file($stylePath) ? (string) filemtime($stylePath) : null
+            );
+            wp_enqueue_script(
+                'oyiso-render-service-check',
+                plugins_url('assets/render-service-check.js', __FILE__),
+                ['jquery'],
+                is_file($scriptPath) ? (string) filemtime($scriptPath) : null,
+                true
+            );
+            wp_localize_script(
+                'oyiso-render-service-check',
+                'oyisoRenderServiceCheck',
+                [
+                    'ajaxUrl' => admin_url('admin-ajax.php'),
+                    'nonce'   => wp_create_nonce(self::CHECK_NONCE_ACTION),
+                    'labels'  => [
+                        'checking'   => '检测中…',
+                        'error'      => '检测失败，请稍后重试。',
+                        'keyMissing' => '请先填写渲染服务 Key。',
+                    ],
+                ]
+            );
+        }
+
+        public static function handleServiceAvailabilityCheck(): void {
+            self::verifyAdminCheckRequest();
+
+            try {
+                $result = self::requestAuthenticationProbe(null);
+
+                if (401 !== $result['status']) {
+                    throw new RuntimeException(
+                        sprintf('服务认证响应异常（HTTP %d）。', $result['status'])
+                    );
+                }
+
+                wp_send_json_success([
+                    'message' => sprintf('渲染服务可用，响应时间 %d ms。', $result['duration_ms']),
+                ]);
+            } catch (Throwable $exception) {
+                wp_send_json_error([
+                    'message' => '渲染服务不可用：' . $exception->getMessage(),
+                ], 502);
+            }
+        }
+
+        public static function handleApiKeyCheck(): void {
+            self::verifyAdminCheckRequest();
+
+            $value  = $_POST['apiKey'] ?? '';
+            $apiKey = is_string($value) ? trim(wp_unslash($value)) : '';
+
+            if ('' === $apiKey) {
+                wp_send_json_error(['message' => '请先填写渲染服务 Key。'], 400);
+            }
+
+            if (strlen($apiKey) > 512 || preg_match('/[\r\n]/', $apiKey)) {
+                wp_send_json_error(['message' => '渲染服务 Key 格式无效。'], 400);
+            }
+
+            try {
+                $result = self::requestAuthenticationProbe($apiKey);
+
+                if (401 === $result['status']) {
+                    wp_send_json_error(['message' => '渲染服务 Key 不正确。'], 400);
+                }
+
+                if (400 !== $result['status']) {
+                    throw new RuntimeException(
+                        sprintf('服务认证响应异常（HTTP %d）。', $result['status'])
+                    );
+                }
+
+                wp_send_json_success([
+                    'message' => sprintf('密钥正确，认证已通过，响应时间 %d ms。', $result['duration_ms']),
+                ]);
+            } catch (Throwable $exception) {
+                wp_send_json_error([
+                    'message' => '密钥检测失败：' . $exception->getMessage(),
+                ], 502);
+            }
         }
 
         public static function queue(string $htmlPath, WC_Order $order): void {
@@ -130,9 +235,7 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
         }
 
         private static function isEnabled(): bool {
-            $options = self::getOptions();
-
-            return !empty($options[self::ENABLED_OPTION]);
+            return oyiso_is_wc_order_screenshot_forwarding_enabled();
         }
 
         private static function getApiKey(): string {
@@ -144,11 +247,11 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
 
         private static function getFormat(): string {
             $options = self::getOptions();
-            $format  = $options[self::FORMAT_OPTION] ?? 'webp';
+            $format  = $options[self::FORMAT_OPTION] ?? 'png';
 
-            return is_string($format) && in_array($format, ['webp', 'png', 'jpeg'], true)
+            return is_string($format) && in_array($format, ['png', 'jpeg'], true)
                 ? $format
-                : 'webp';
+                : 'png';
         }
 
         /**
@@ -158,6 +261,54 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
             $options = get_option('oyiso', []);
 
             return is_array($options) ? $options : [];
+        }
+
+        private static function verifyAdminCheckRequest(): void {
+            check_ajax_referer(self::CHECK_NONCE_ACTION, 'nonce');
+
+            if (!current_user_can('manage_options')) {
+                wp_send_json_error(['message' => '无权限执行该操作。'], 403);
+            }
+        }
+
+        /**
+         * Probe the real API route without submitting an HTML file.
+         *
+         * A missing key must return 401. An accepted key reaches request validation
+         * and returns 400 because the probe intentionally contains no files.
+         *
+         * @return array{status: int, duration_ms: int}
+         */
+        private static function requestAuthenticationProbe(?string $apiKey): array {
+            $boundary = '----OyisoProbe' . wp_generate_password(16, false, false);
+            $headers  = [
+                'Accept'       => 'application/json',
+                'Content-Type' => 'multipart/form-data; boundary=' . $boundary,
+            ];
+
+            if (is_string($apiKey) && '' !== $apiKey) {
+                $headers['Authorization'] = 'Bearer ' . $apiKey;
+            }
+
+            $started  = microtime(true);
+            $response = wp_remote_post(self::API_URL, [
+                'timeout'             => 15,
+                'redirection'         => 0,
+                'headers'             => $headers,
+                'body'                => '--' . $boundary . "--\r\n",
+                'data_format'         => 'body',
+                'limit_response_size' => 4096,
+            ]);
+            $duration = max(0, (int) round((microtime(true) - $started) * 1000));
+
+            if (is_wp_error($response)) {
+                throw new RuntimeException($response->get_error_message());
+            }
+
+            return [
+                'status'      => (int) wp_remote_retrieve_response_code($response),
+                'duration_ms' => $duration,
+            ];
         }
 
         private static function validateHtmlPath(string $htmlPath): string {
@@ -419,9 +570,6 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
             $isValid = match ($format) {
                 'png'   => str_starts_with($header, "\x89PNG\r\n\x1a\n"),
                 'jpeg'  => str_starts_with($header, "\xff\xd8\xff"),
-                'webp'  => strlen($header) >= 12
-                    && 'RIFF' === substr($header, 0, 4)
-                    && 'WEBP' === substr($header, 8, 4),
                 default => false,
             };
 

@@ -1,0 +1,33 @@
+.oyiso-secret-field .csf-after-text {
+    display: block;
+    margin-top: 10px;
+}
+
+.oyiso-render-service-checks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.oyiso-render-service-checks .button {
+    margin: 0;
+}
+
+#oyiso-render-service-check-status {
+    color: #646970;
+}
+
+#oyiso-render-service-check-status.is-success {
+    color: #15803d;
+}
+
+#oyiso-render-service-check-status.is-error {
+    color: #b91c1c;
+}
+
+@media screen and (max-width: 782px) {
+    #oyiso-render-service-check-status {
+        flex-basis: 100%;
+    }
+}
