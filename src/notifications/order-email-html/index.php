@@ -24,6 +24,26 @@ if (class_exists('CSF')) {
                 'default' => false,
             ],
             [
+                'id'         => 'woo_new_order_email_file_retention',
+                'type'       => 'select',
+                'title'      => '文件保留时间',
+                'class'      => 'oyiso-order-email-retention-field',
+                'options'    => [
+                    '24'  => '24小时',
+                    '72'  => '3天',
+                    '168' => '7天',
+                    '720' => '30天',
+                    '0'   => '永久保留',
+                ],
+                'attributes' => [
+                    'style' => 'min-width:120px;',
+                ],
+                'after'      => '<button type="button" class="button button-secondary" id="oyiso-order-email-file-manager">文件管理</button>',
+                'desc'       => '每小时检查一次，过期HTML及其同名图片将一起删除。',
+                'default'    => '24',
+                'dependency' => ['woo_new_order_email_html_archive', '==', true],
+            ],
+            [
                 'id'         => 'woo_new_order_email_image_render',
                 'type'       => 'switcher',
                 'title'      => '自动渲染订单邮件图片',
@@ -69,6 +89,8 @@ if (class_exists('CSF')) {
 }
 
 require_once __DIR__ . '/renderer.php';
+require_once __DIR__ . '/cleaner.php';
+require_once __DIR__ . '/archive-manager.php';
 
 if (!class_exists('Oyiso_New_Order_Email_Html_Archive', false)) {
     final class Oyiso_New_Order_Email_Html_Archive {
