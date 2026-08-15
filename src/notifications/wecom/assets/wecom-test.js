@@ -4,6 +4,7 @@
     $(function () {
         var config = window.oyisoWeComTest || {};
         var webhookWrapperSelector = '.csf-cloneable-wrapper[data-field-id="[wecom_webhooks]"]';
+        var initializedItems = new WeakSet();
 
         function updateChannelStatus($item) {
             var $input = $item.find('input[name$="[enabled]"]').first();
@@ -37,8 +38,35 @@
             $(webhookWrapperSelector)
                 .children('.csf-cloneable-item')
                 .each(function () {
+                    initializedItems.add(this);
                     updateChannelStatus($(this));
                 });
+        }
+
+        function resetTransientTestState($item) {
+            $item.find('.oyiso-wecom-test-button')
+                .prop('disabled', false)
+                .text('发送测试消息');
+            $item.find('.oyiso-wecom-test-status')
+                .removeClass('is-success is-error')
+                .empty();
+        }
+
+        function initializeAddedItems(node) {
+            var $node = $(node);
+            var $items = $node.is('.csf-cloneable-item')
+                ? $node
+                : $node.find('.csf-cloneable-item');
+
+            $items.each(function () {
+                if (initializedItems.has(this)) {
+                    return;
+                }
+
+                initializedItems.add(this);
+                resetTransientTestState($(this));
+                updateChannelStatus($(this));
+            });
         }
 
         function setStatus($status, type, message) {
@@ -67,8 +95,14 @@
         var webhookWrapper = document.querySelector(webhookWrapperSelector);
 
         if (webhookWrapper && window.MutationObserver) {
-            var observer = new MutationObserver(function () {
-                updateAllChannelStatuses();
+            var observer = new MutationObserver(function (mutations) {
+                mutations.forEach(function (mutation) {
+                    mutation.addedNodes.forEach(function (node) {
+                        if (node.nodeType === 1) {
+                            initializeAddedItems(node);
+                        }
+                    });
+                });
             });
 
             observer.observe(webhookWrapper, {
