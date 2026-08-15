@@ -41,7 +41,32 @@
         });
     }
 
+    function initializeSecretFields(root) {
+        if (root.matches && root.matches('.oyiso-secret-field')) {
+            initializeSecretField(root);
+        }
+
+        if (root.querySelectorAll) {
+            root.querySelectorAll('.oyiso-secret-field').forEach(initializeSecretField);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.oyiso-secret-field').forEach(initializeSecretField);
+        initializeSecretFields(document);
+
+        var observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                mutation.addedNodes.forEach(function (node) {
+                    if (node.nodeType === 1) {
+                        initializeSecretFields(node);
+                    }
+                });
+            });
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
     });
 }());

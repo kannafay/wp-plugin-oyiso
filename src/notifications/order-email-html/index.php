@@ -14,9 +14,7 @@ if (!function_exists('oyiso_is_wc_order_screenshot_forwarding_enabled')) {
             return false;
         }
 
-        $channels = $options['woo_new_order_email_forward_options'] ?? [];
-
-        return is_array($channels) && !empty($channels['wecom_order_image_forward']);
+        return oyiso_has_enabled_wecom_webhook();
     }
 }
 
@@ -70,6 +68,7 @@ if (class_exists('CSF')) {
                 'id'         => 'woo_new_order_email_forward_options',
                 'type'       => 'tabbed',
                 'title'      => '转发渠道',
+                'sanitize'   => 'oyiso_sanitize_order_image_forward_options',
                 'dependency' => ['woo_new_order_email_html_archive', '==', true],
                 'tabs'       => [
                     [
@@ -77,26 +76,48 @@ if (class_exists('CSF')) {
                         'icon'   => 'fab fa-weixin',
                         'fields' => [
                             [
-                                'id'      => 'wecom_order_image_forward',
-                                'type'    => 'switcher',
-                                'title'   => '启用',
-                                'label'   => '截图生成成功后，自动发送到消息推送关联的企业微信群',
-                                'default' => false,
-                            ],
-                            [
-                                'id'         => 'wecom_webhook_key',
-                                'type'       => 'text',
-                                'title'      => 'Webhook Key',
-                                'class'      => 'oyiso-secret-field',
-                                'attributes' => [
-                                    'type'         => 'password',
-                                    'autocomplete' => 'new-password',
-                                    'spellcheck'   => 'false',
+                                'id'                     => 'wecom_webhooks',
+                                'type'                   => 'group',
+                                'title'                  => 'Webhook 配置',
+                                'button_title'           => '添加 Key',
+                                'accordion_title_number' => true,
+                                'accordion_title_auto'   => true,
+                                'accordion_title_by'     => ['name'],
+                                'min'                    => 0,
+                                'max'                    => 20,
+                                'default'                => oyiso_get_wecom_webhook_group_default(),
+                                'desc'                   => '每个 Key 对应一个企业微信群，只有启用的配置才会接收订单截图。',
+                                'fields'                 => [
+                                    [
+                                        'id'      => 'enabled',
+                                        'type'    => 'switcher',
+                                        'title'   => '启用',
+                                        'default' => false,
+                                    ],
+                                    [
+                                        'id'         => 'name',
+                                        'type'       => 'text',
+                                        'title'      => '名称',
+                                        'default'    => '企业微信群',
+                                        'attributes' => [
+                                            'maxlength' => 50,
+                                        ],
+                                        'desc'       => '用于区分不同的接收群。',
+                                    ],
+                                    [
+                                        'id'         => 'wecom_webhook_key',
+                                        'type'       => 'text',
+                                        'title'      => 'Webhook Key',
+                                        'class'      => 'oyiso-secret-field',
+                                        'attributes' => [
+                                            'type'         => 'password',
+                                            'autocomplete' => 'new-password',
+                                            'spellcheck'   => 'false',
+                                        ],
+                                        'after'      => '<div class="oyiso-render-service-checks"><button type="button" class="button button-secondary oyiso-wecom-test-button">发送测试消息</button><span class="oyiso-wecom-test-status" role="status" aria-live="polite"></span></div>',
+                                        'desc'       => '只填写 Webhook 地址中 key= 后面的内容。',
+                                    ],
                                 ],
-                                'sanitize'   => 'oyiso_sanitize_wecom_webhook_key',
-                                'after'      => '<div class="oyiso-render-service-checks"><button type="button" class="button button-secondary" id="oyiso-wecom-test-button">发送测试消息</button><span id="oyiso-wecom-test-status" role="status" aria-live="polite"></span></div>',
-                                'desc'       => '只填写 Webhook 地址中 key= 后面的内容。',
-                                'dependency' => ['wecom_order_image_forward', '==', true],
                             ],
                         ],
                     ],

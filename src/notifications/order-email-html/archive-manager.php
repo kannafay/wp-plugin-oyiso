@@ -10,7 +10,7 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
 
         private const MAX_RECORDS = 200;
 
-        private const MAX_HTML_BYTES = 10485760;
+        private const MAX_HTML_BYTES = 52428800;
 
         private static bool $shouldRenderModal = false;
 
@@ -196,18 +196,37 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
                     throw new RuntimeException('HTML文件过大或无法读取。');
                 }
 
-                $html = file_get_contents($path);
+                $handle = fopen($path, 'rb');
 
-                if (false === $html) {
-                    throw new RuntimeException('无法读取HTML文件。');
+                if (false === $handle) {
+                    throw new RuntimeException('无法打开HTML文件。');
                 }
 
-                wp_send_json_success([
-                    'filename' => basename($path),
-                    'html'     => $html,
-                ]);
+                nocache_headers();
+                header('Content-Type: text/html; charset=UTF-8');
+                header('Content-Length: ' . (string) $size);
+                header('Content-Disposition: inline; filename*=UTF-8\'\'' . rawurlencode(basename($path)));
+                header('Content-Security-Policy: sandbox');
+                header('Referrer-Policy: no-referrer');
+                header('X-Content-Type-Options: nosniff');
+
+                fpassthru($handle);
+                fclose($handle);
+                exit;
             } catch (Throwable $exception) {
-                wp_send_json_error(['message' => '无法加载HTML预览。'], 404);
+                status_header(404);
+                nocache_headers();
+                header('Content-Type: text/html; charset=UTF-8');
+                header('Content-Security-Policy: sandbox');
+                header('Referrer-Policy: no-referrer');
+                header('X-Content-Type-Options: nosniff');
+
+                echo '<!doctype html><html lang="zh-CN"><meta charset="UTF-8">'
+                    . '<title>无法加载HTML预览</title>'
+                    . '<body style="margin:0;padding:32px;font:14px/1.6 sans-serif;color:#b91c1c;">'
+                    . '无法加载HTML预览。'
+                    . '</body></html>';
+                exit;
             }
         }
 

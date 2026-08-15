@@ -523,7 +523,7 @@ JS);
                 return null;
             }
 
-            return $cached;
+            return $this->applyPluginRequirements($cached);
         }
 
         private function requestLatestRelease(bool $forceRefresh = false) {
@@ -532,7 +532,7 @@ JS);
 
                 if (is_array($cached)) {
                     if (($cached['_status'] ?? '') === 'success') {
-                        return $cached;
+                        return $this->applyPluginRequirements($cached);
                     }
 
                     if (($cached['_status'] ?? '') === 'error') {
@@ -587,8 +587,8 @@ JS);
                 '_status'      => 'success',
                 'version'      => ltrim((string) $payload['tag_name'], "vV \t\n\r\0\x0B"),
                 'download_url' => $downloadUrl,
-                'requires'     => '',
-                'requires_php' => '',
+                'requires'     => (string) ($pluginData['RequiresWP'] ?? ''),
+                'requires_php' => (string) ($pluginData['RequiresPHP'] ?? ''),
                 'tested'       => '',
                 'last_updated' => !empty($payload['published_at']) ? gmdate('Y-m-d', strtotime((string) $payload['published_at'])) : '',
                 'body'         => isset($payload['body']) ? (string) $payload['body'] : '',
@@ -597,6 +597,14 @@ JS);
             ];
 
             set_site_transient(self::CACHE_KEY, $release, self::CACHE_TTL);
+
+            return $release;
+        }
+
+        private function applyPluginRequirements(array $release): array {
+            $pluginData = oyiso_get_plugin_update_plugin_data();
+            $release['requires'] = (string) ($pluginData['RequiresWP'] ?? '');
+            $release['requires_php'] = (string) ($pluginData['RequiresPHP'] ?? '');
 
             return $release;
         }

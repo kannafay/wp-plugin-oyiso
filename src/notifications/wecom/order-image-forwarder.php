@@ -8,19 +8,15 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
     final class Oyiso_WeCom_Order_Image_Forwarder {
         private const WEBHOOK_URL = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=';
 
-        private const ENABLED_OPTION = 'wecom_order_image_forward';
-
-        private const KEY_OPTION = 'wecom_webhook_key';
-
-        private const OPTION_GROUP = 'woo_new_order_email_forward_options';
-
         private const LOG_SOURCE = 'oyiso-wecom';
 
         private const TEST_NONCE_ACTION = 'oyiso_test_wecom_webhook';
 
         private const MAX_IMAGE_BYTES = 2097152;
 
-        private const SENT_META_KEY = '_oyiso_wecom_order_image_sent';
+        private const SENT_META_KEY = '_oyiso_wecom_order_image_sent_channels';
+
+        private const LEGACY_SENT_META_KEY = '_oyiso_wecom_order_image_sent';
 
         public static function register(): void {
             add_action('admin_enqueue_scripts', [self::class, 'enqueueAdminAssets']);
@@ -79,7 +75,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                 wp_send_json_error(['message' => '请先填写 Webhook Key。'], 400);
             }
 
-            if (!self::isValidWebhookKey($key)) {
+            if (!oyiso_is_valid_wecom_webhook_key($key)) {
                 wp_send_json_error(['message' => 'Webhook Key 格式无效。'], 400);
             }
 
@@ -105,17 +101,13 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
         public static function forward(string $imagePath, string $htmlPath, int $orderId): void {
             unset($htmlPath);
 
-            if (!self::isEnabled()) {
+            $keys = oyiso_get_enabled_wecom_webhook_keys();
+
+            if ([] === $keys) {
                 return;
             }
 
             try {
-                $key = self::getWebhookKey();
-
-                if ('' === $key) {
-                    throw new RuntimeException('未配置有效的企业微信 Webhook Key。');
-                }
-
                 $imagePath = self::validateImagePath($imagePath);
                 $order     = wc_get_order($orderId);
                 $fileHash  = md5_file($imagePath);
@@ -124,73 +116,105 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                     throw new RuntimeException('无法计算订单截图校验值。');
                 }
 
-                if (
-                    $order instanceof WC_Order
-                    && hash_equals((string) $order->get_meta(self::SENT_META_KEY), $fileHash)
-                ) {
-                    return;
-                }
-
-                self::sendImage($imagePath, $key);
-
-                if ($order instanceof WC_Order) {
-                    $order->update_meta_data(self::SENT_META_KEY, $fileHash);
-                    $order->save();
-                }
-
-                self::logInfo(
-                    sprintf('订单 %d 的邮件截图已发送到企业微信。', $orderId)
-                );
             } catch (Throwable $exception) {
                 self::logError(
                     sprintf(
-                        '订单 %d 的邮件截图发送失败：%s',
+                        '订单 %d 的企业微信转发准备失败：%s',
                         $orderId,
                         $exception->getMessage()
                     )
                 );
-            }
-        }
 
-        private static function isEnabled(): bool {
-            $options = self::getOptions();
-
-            return !empty($options[self::ENABLED_OPTION]);
-        }
-
-        private static function getWebhookKey(): string {
-            $options = self::getOptions();
-            $key     = $options[self::KEY_OPTION] ?? '';
-
-            if (!is_string($key)) {
-                return '';
+                return;
             }
 
-            $key = trim($key);
+            $sentHashes = $order instanceof WC_Order
+                ? self::getSentHashes($order, $fileHash)
+                : [];
+            $metaChanged = false;
 
-            return self::isValidWebhookKey($key)
-                ? $key
-                : '';
-        }
+            foreach ($keys as $index => $key) {
+                $channelId = self::getChannelId($key);
 
-        private static function isValidWebhookKey(string $key): bool {
-            return strlen($key) <= 128
-                && 1 === preg_match('/^[A-Za-z0-9_-]+$/', $key);
+                if (
+                    isset($sentHashes[$channelId])
+                    && hash_equals($sentHashes[$channelId], $fileHash)
+                ) {
+                    continue;
+                }
+
+                try {
+                    self::sendImage($imagePath, $key);
+                    $sentHashes[$channelId] = $fileHash;
+                    $metaChanged = true;
+
+                    self::logInfo(
+                        sprintf(
+                            '订单 %d 的邮件截图已发送到企业微信渠道 %d。',
+                            $orderId,
+                            $index + 1
+                        )
+                    );
+                } catch (Throwable $exception) {
+                    self::logError(
+                        sprintf(
+                            '订单 %d 的邮件截图发送到企业微信渠道 %d 失败：%s',
+                            $orderId,
+                            $index + 1,
+                            $exception->getMessage()
+                        )
+                    );
+                }
+            }
+
+            if ($metaChanged && $order instanceof WC_Order) {
+                try {
+                    $order->update_meta_data(self::SENT_META_KEY, $sentHashes);
+                    $order->save();
+                } catch (Throwable $exception) {
+                    self::logError(
+                        sprintf(
+                            '订单 %d 的企业微信发送状态保存失败：%s',
+                            $orderId,
+                            $exception->getMessage()
+                        )
+                    );
+                }
+            }
         }
 
         /**
-         * @return array<string, mixed>
+         * @return array<string, string>
          */
-        private static function getOptions(): array {
-            $options = get_option('oyiso', []);
+        private static function getSentHashes(WC_Order $order, string $fileHash): array {
+            $stored = $order->get_meta(self::SENT_META_KEY, true);
+            $hashes = [];
 
-            if (!is_array($options)) {
-                return [];
+            if (is_array($stored)) {
+                foreach ($stored as $channelId => $sentHash) {
+                    if (is_string($channelId) && is_string($sentHash)) {
+                        $hashes[$channelId] = $sentHash;
+                    }
+                }
             }
 
-            $group = $options[self::OPTION_GROUP] ?? [];
+            $legacyHash = $order->get_meta(self::LEGACY_SENT_META_KEY, true);
+            $legacyKey  = oyiso_get_legacy_wecom_webhook_key();
 
-            return is_array($group) ? $group : [];
+            if (
+                is_string($legacyHash)
+                && '' !== $legacyHash
+                && '' !== $legacyKey
+                && hash_equals($legacyHash, $fileHash)
+            ) {
+                $hashes[self::getChannelId($legacyKey)] = $fileHash;
+            }
+
+            return $hashes;
+        }
+
+        private static function getChannelId(string $key): string {
+            return hash_hmac('sha256', $key, wp_salt('auth'));
         }
 
         private static function validateImagePath(string $imagePath): string {

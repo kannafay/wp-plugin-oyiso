@@ -2,7 +2,9 @@
 /*
 Plugin Name: 橘子猫头
 Description: 橘子猫头的多功能实用插件
-Version:     1.8.2
+Version:     1.8.3
+Requires at least: 6.8
+Requires PHP: 8.2
 Author:      橘子猫头
 Update URI:  https://github.com/kannafay/wp-plugin-oyiso
 Text Domain: oyiso

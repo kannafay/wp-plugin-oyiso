@@ -34,7 +34,6 @@
         var activeRecord = null;
         var activePreview = '';
         var requestSequence = 0;
-        var htmlCache = {};
         var lastFocused = null;
         var savedRetention = String(config.savedRetention || '24');
 
@@ -86,7 +85,7 @@
             activeRecord = null;
             activePreview = '';
             $image.off('.oyisoArchive').removeAttr('src');
-            $htmlFrame.attr('srcdoc', '');
+            $htmlFrame.off('.oyisoArchive').removeAttr('src');
             $recordMeta.text('请选择一条归档记录');
             $imageTab.prop('disabled', true).attr('aria-selected', 'false');
             $htmlTab.prop('disabled', true).attr('aria-selected', 'false');
@@ -98,7 +97,7 @@
             requestSequence += 1;
             activeRecord = null;
             $image.off('.oyisoArchive').removeAttr('src');
-            $htmlFrame.attr('srcdoc', '');
+            $htmlFrame.off('.oyisoArchive').removeAttr('src');
             $recordMeta.text(labels.listLoading || '正在读取归档文件…');
             $imageTab.prop('disabled', true).attr('aria-selected', 'false');
             $htmlTab.prop('disabled', true).attr('aria-selected', 'false');
@@ -111,6 +110,15 @@
                 action: 'oyiso_get_order_email_archive_image',
                 nonce: config.nonce,
                 file: filename
+            });
+        }
+
+        function getHtmlUrl(filename) {
+            return config.ajaxUrl + '?' + $.param({
+                action: 'oyiso_get_order_email_archive_html',
+                nonce: config.nonce,
+                file: filename,
+                preview: Date.now()
             });
         }
 
@@ -177,6 +185,7 @@
             setScreenshotActionsEnabled(false);
             var currentSequence = ++requestSequence;
             var filename = activeRecord.html.filename;
+            var loadingTimeout;
 
             $imageTab.attr('aria-selected', 'false');
             $htmlTab.attr('aria-selected', 'true');
@@ -184,40 +193,38 @@
             $htmlFrame.prop('hidden', true);
             setPreviewMessage(labels.loading || '正在加载预览…', true);
 
-            if (Object.prototype.hasOwnProperty.call(htmlCache, filename)) {
-                $htmlFrame.attr('srcdoc', htmlCache[filename]).prop('hidden', false);
-                hidePreviewMessage();
-                return;
-            }
-
-            $.post(config.ajaxUrl, {
-                action: 'oyiso_get_order_email_archive_html',
-                nonce: config.nonce,
-                file: filename
-            }).done(function (response) {
-                if (
-                    currentSequence !== requestSequence
-                    || !response
-                    || response.success !== true
-                    || !response.data
-                    || typeof response.data.html !== 'string'
-                ) {
-                    if (currentSequence === requestSequence) {
-                        setPreviewMessage(getResponseMessage(response, labels.previewError));
-                    }
+            loadingTimeout = window.setTimeout(function () {
+                if (currentSequence !== requestSequence) {
                     return;
                 }
 
-                htmlCache[filename] = response.data.html;
-                $htmlFrame.attr('srcdoc', response.data.html).prop('hidden', false);
-                hidePreviewMessage();
-            }).fail(function (xhr) {
-                if (currentSequence === requestSequence) {
-                    setPreviewMessage(
-                        getResponseMessage(xhr.responseJSON, labels.previewError || '无法加载文件预览。')
-                    );
-                }
-            });
+                $htmlFrame.off('.oyisoArchive').removeAttr('src');
+                setPreviewMessage(labels.previewError || '无法加载文件预览。');
+            }, 30000);
+
+            $htmlFrame
+                .off('.oyisoArchive')
+                .one('load.oyisoArchive', function () {
+                    window.clearTimeout(loadingTimeout);
+
+                    if (currentSequence !== requestSequence) {
+                        return;
+                    }
+
+                    hidePreviewMessage();
+                    $htmlFrame.prop('hidden', false);
+                })
+                .one('error.oyisoArchive', function () {
+                    window.clearTimeout(loadingTimeout);
+
+                    if (currentSequence !== requestSequence) {
+                        return;
+                    }
+
+                    $htmlFrame.removeAttr('src');
+                    setPreviewMessage(labels.previewError || '无法加载文件预览。');
+                })
+                .attr('src', getHtmlUrl(filename));
         }
 
         function selectRecord(record, preferredPreview) {
@@ -287,10 +294,6 @@
                         'error'
                     );
                     return;
-                }
-
-                if (record.html) {
-                    delete htmlCache[record.html.filename];
                 }
 
                 if (activeRecord && activeRecord.id === record.id) {
@@ -443,7 +446,7 @@
         function closeModal() {
             requestSequence += 1;
             $image.off('.oyisoArchive').removeAttr('src');
-            $htmlFrame.attr('srcdoc', '');
+            $htmlFrame.off('.oyisoArchive').removeAttr('src');
             setFullscreen(false);
             $modal.prop('hidden', true).attr('aria-hidden', 'true');
             $('body').removeClass('oyiso-archive-modal-open');
@@ -740,7 +743,6 @@
 
                 activeRecord = null;
                 activePreview = '';
-                htmlCache = {};
                 setCleanupStatus(response.data.message || '已清空。', 'success');
                 loadRecords('');
             }).fail(function (xhr) {
