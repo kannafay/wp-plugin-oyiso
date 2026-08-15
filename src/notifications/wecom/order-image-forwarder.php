@@ -16,11 +16,19 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
 
         private const LOG_SOURCE = 'oyiso-wecom';
 
+        private const TEST_NONCE_ACTION = 'oyiso_test_wecom_webhook';
+
         private const MAX_IMAGE_BYTES = 2097152;
 
         private const SENT_META_KEY = '_oyiso_wecom_order_image_sent';
 
         public static function register(): void {
+            add_action('admin_enqueue_scripts', [self::class, 'enqueueAdminAssets']);
+            add_action(
+                'wp_ajax_oyiso_test_wecom_webhook',
+                [self::class, 'handleWebhookTest']
+            );
+
             if (!class_exists('WooCommerce')) {
                 return;
             }
@@ -31,6 +39,67 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                 10,
                 3
             );
+        }
+
+        public static function enqueueAdminAssets(string $hook): void {
+            if (!oyiso_is_settings_page_hook($hook)) {
+                return;
+            }
+
+            $scriptPath = __DIR__ . '/assets/wecom-test.js';
+
+            wp_enqueue_script(
+                'oyiso-wecom-test',
+                plugins_url('assets/wecom-test.js', __FILE__),
+                ['jquery'],
+                is_file($scriptPath) ? (string) filemtime($scriptPath) : null,
+                true
+            );
+            wp_localize_script(
+                'oyiso-wecom-test',
+                'oyisoWeComTest',
+                [
+                    'ajaxUrl' => admin_url('admin-ajax.php'),
+                    'nonce'   => wp_create_nonce(self::TEST_NONCE_ACTION),
+                ]
+            );
+        }
+
+        public static function handleWebhookTest(): void {
+            check_ajax_referer(self::TEST_NONCE_ACTION, 'nonce');
+
+            if (!current_user_can('manage_options')) {
+                wp_send_json_error(['message' => '无权限执行该操作。'], 403);
+            }
+
+            $value = $_POST['key'] ?? '';
+            $key   = is_string($value) ? trim(wp_unslash($value)) : '';
+
+            if ('' === $key) {
+                wp_send_json_error(['message' => '请先填写 Webhook Key。'], 400);
+            }
+
+            if (!self::isValidWebhookKey($key)) {
+                wp_send_json_error(['message' => 'Webhook Key 格式无效。'], 400);
+            }
+
+            try {
+                self::sendText(
+                    sprintf(
+                        "Oyiso 企业微信测试消息\n站点：%s\n地址：%s\n时间：%s",
+                        wp_specialchars_decode((string) get_bloginfo('name'), ENT_QUOTES),
+                        home_url('/'),
+                        current_time('Y-m-d H:i:s')
+                    ),
+                    $key
+                );
+
+                wp_send_json_success(['message' => '测试消息已发送。']);
+            } catch (Throwable $exception) {
+                wp_send_json_error([
+                    'message' => '测试发送失败：' . $exception->getMessage(),
+                ], 502);
+            }
         }
 
         public static function forward(string $imagePath, string $htmlPath, int $orderId): void {
@@ -99,9 +168,14 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
 
             $key = trim($key);
 
-            return strlen($key) <= 128 && preg_match('/^[A-Za-z0-9_-]+$/', $key)
+            return self::isValidWebhookKey($key)
                 ? $key
                 : '';
+        }
+
+        private static function isValidWebhookKey(string $key): bool {
+            return strlen($key) <= 128
+                && 1 === preg_match('/^[A-Za-z0-9_-]+$/', $key);
         }
 
         /**
@@ -167,6 +241,29 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                     'md5'    => md5($contents),
                 ],
             ];
+
+            self::sendPayload($payload, $key);
+        }
+
+        private static function sendText(string $message, string $key): void {
+            self::sendPayload([
+                'msgtype' => 'text',
+                'text'    => [
+                    'content' => $message,
+                ],
+            ], $key);
+        }
+
+        /**
+         * @param array<string, mixed> $payload
+         */
+        private static function sendPayload(array $payload, string $key): void {
+            $body = wp_json_encode($payload, JSON_UNESCAPED_UNICODE);
+
+            if (!is_string($body)) {
+                throw new RuntimeException('无法生成企业微信请求内容。');
+            }
+
             $response = wp_remote_post(self::WEBHOOK_URL . rawurlencode($key), [
                 'timeout'     => 30,
                 'redirection' => 0,
@@ -174,7 +271,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                     'Accept'       => 'application/json',
                     'Content-Type' => 'application/json; charset=UTF-8',
                 ],
-                'body'        => wp_json_encode($payload, JSON_UNESCAPED_UNICODE),
+                'body'        => $body,
                 'data_format' => 'body',
             ]);
 

@@ -14,20 +14,24 @@
     margin: 0;
 }
 
-#oyiso-render-service-check-status {
+#oyiso-render-service-check-status,
+#oyiso-wecom-test-status {
     color: #646970;
 }
 
-#oyiso-render-service-check-status.is-success {
+#oyiso-render-service-check-status.is-success,
+#oyiso-wecom-test-status.is-success {
     color: #15803d;
 }
 
-#oyiso-render-service-check-status.is-error {
+#oyiso-render-service-check-status.is-error,
+#oyiso-wecom-test-status.is-error {
     color: #b91c1c;
 }
 
 @media screen and (max-width: 782px) {
-    #oyiso-render-service-check-status {
+    #oyiso-render-service-check-status,
+    #oyiso-wecom-test-status {
         flex-basis: 100%;
     }
 }

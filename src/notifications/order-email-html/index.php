@@ -94,6 +94,7 @@ if (class_exists('CSF')) {
                                     'spellcheck'   => 'false',
                                 ],
                                 'sanitize'   => 'oyiso_sanitize_wecom_webhook_key',
+                                'after'      => '<div class="oyiso-render-service-checks"><button type="button" class="button button-secondary" id="oyiso-wecom-test-button">发送测试消息</button><span id="oyiso-wecom-test-status" role="status" aria-live="polite"></span></div>',
                                 'desc'       => '只填写 Webhook 地址中 key= 后面的内容。',
                                 'dependency' => ['wecom_order_image_forward', '==', true],
                             ],
