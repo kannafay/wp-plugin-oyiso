@@ -2,7 +2,7 @@
 /*
 Plugin Name: 橘子猫头
 Description: 橘子猫头的多功能实用插件
-Version:     1.8.3
+Version:     1.8.4
 Requires at least: 6.8
 Requires PHP: 8.2
 Author:      橘子猫头
