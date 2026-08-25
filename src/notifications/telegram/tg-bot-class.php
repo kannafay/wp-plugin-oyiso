@@ -150,31 +150,38 @@ class OyisoTGBot {
             return [
                 'success'     => false,
                 'chat_id'     => $chatId,
-                'message'     => $response->get_error_message(),
+                'message'     => self::formatErrorMessage($response->get_error_message()),
                 'status_code' => 0,
             ];
         }
 
         $statusCode = (int) wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
+        $decoded = json_decode($body, true);
+        $description = is_array($decoded) && isset($decoded['description'])
+            ? (string) $decoded['description']
+            : '';
 
         if ($statusCode < 200 || $statusCode >= 300) {
             return [
                 'success'     => false,
                 'chat_id'     => $chatId,
-                'message'     => sprintf('HTTP %d %s', $statusCode, $body),
+                'message'     => self::formatErrorMessage(
+                    $description !== '' ? $description : sprintf('HTTP %d', $statusCode),
+                    $statusCode
+                ),
                 'status_code' => $statusCode,
             ];
         }
 
-        $decoded = json_decode($body, true);
-
         if (is_array($decoded) && array_key_exists('ok', $decoded) && !$decoded['ok']) {
-            $description = isset($decoded['description']) ? (string) $decoded['description'] : 'Unknown Telegram API error';
             return [
                 'success'     => false,
                 'chat_id'     => $chatId,
-                'message'     => $description,
+                'message'     => self::formatErrorMessage(
+                    $description !== '' ? $description : 'Unknown Telegram API error',
+                    $statusCode
+                ),
                 'status_code' => $statusCode,
             ];
         }
@@ -185,6 +192,73 @@ class OyisoTGBot {
             'message'     => 'OK',
             'status_code' => $statusCode,
         ];
+    }
+
+    protected static function formatErrorMessage(string $message, int $statusCode = 0): string {
+        $normalized = strtolower($message);
+
+        if (str_contains($normalized, 'curl error 28')) {
+            if (preg_match('/after\s+(\d+)\s+milliseconds/i', $message, $matches)) {
+                $seconds = max(1, (int) round(((int) $matches[1]) / 1000));
+                return sprintf(
+                    '连接 Telegram API 超时（cURL 28，约 %d 秒；请检查服务器网络、代理或防火墙）',
+                    $seconds
+                );
+            }
+
+            return '连接 Telegram API 超时（cURL 28，请检查服务器网络、代理或防火墙）';
+        }
+
+        $curlMessages = [
+            'curl error 6' => '无法解析 Telegram API 域名（cURL 6，请检查服务器 DNS）',
+            'curl error 7' => '无法连接 Telegram API（cURL 7，请检查服务器网络、代理或防火墙）',
+            'curl error 35' => 'Telegram API 的 SSL/TLS 连接失败（cURL 35）',
+            'curl error 60' => 'Telegram API 的 SSL 证书校验失败（cURL 60，请检查服务器证书环境）',
+        ];
+
+        foreach ($curlMessages as $needle => $translatedMessage) {
+            if (str_contains($normalized, $needle)) {
+                return $translatedMessage;
+            }
+        }
+
+        $telegramMessages = [
+            'chat not found' => '找不到该 Chat ID，请确认 ID 正确且机器人已加入对应会话',
+            'bot was blocked by the user' => '机器人已被该用户阻止，请先解除阻止或更换接收者',
+            'bot was kicked' => '机器人已被移出该群组，请重新加入后再测试',
+            'bot is not a member' => '机器人不在该群组中，请先将机器人加入群组',
+            'not enough rights' => '机器人权限不足，请检查其群组或频道权限',
+            'too many requests' => 'Telegram 请求过于频繁，请稍后再试',
+            'unauthorized' => '机器人 Token 无效或已失效，请重新检查并保存 Token',
+        ];
+
+        foreach ($telegramMessages as $needle => $translatedMessage) {
+            if (str_contains($normalized, $needle)) {
+                return $translatedMessage;
+            }
+        }
+
+        if ($statusCode === 401) {
+            return '机器人 Token 无效或已失效，请重新检查并保存 Token';
+        }
+
+        if ($statusCode === 403) {
+            return 'Telegram 拒绝发送，请检查机器人是否被阻止以及群组或频道权限';
+        }
+
+        if ($statusCode === 429) {
+            return 'Telegram 请求过于频繁，请稍后再试';
+        }
+
+        if ($statusCode >= 500) {
+            return sprintf('Telegram 服务暂时不可用（HTTP %d），请稍后再试', $statusCode);
+        }
+
+        if ($statusCode > 0) {
+            return sprintf('Telegram API 请求失败（HTTP %d）：%s', $statusCode, $message);
+        }
+
+        return $message;
     }
 
     protected static function handleSuccess(array $payload): void {

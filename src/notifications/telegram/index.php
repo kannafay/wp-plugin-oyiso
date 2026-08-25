@@ -4,8 +4,47 @@ defined('ABSPATH') || exit;
 
 if (!function_exists('oyiso_render_tg_test_field')) {
 function oyiso_render_tg_test_field(): void {
-    echo '<div class="oyiso-tg-test-field"><button type="button" class="button button-secondary" id="oyiso-tg-test-button">发送测试消息</button><div id="oyiso-tg-test-status" style="margin-top:8px;"></div></div>';
+    echo '<div class="oyiso-tg-test-field"><button type="button" class="button button-secondary" id="oyiso-tg-test-button">发送测试消息</button><div id="oyiso-tg-test-status" style="margin-top:8px;" role="status" aria-live="polite"></div></div>';
 }
+}
+
+if (!function_exists('oyiso_summarize_tg_test_results')) {
+    /**
+     * @param array<int, array<string, mixed>> $results
+     * @return array{status:string,message:string,total_count:int,success_count:int,failure_count:int,results:array<int, array<string, mixed>>}
+     */
+    function oyiso_summarize_tg_test_results(array $results): array {
+        $totalCount = count($results);
+        $successCount = count(array_filter($results, static function (array $item): bool {
+            return !empty($item['success']);
+        }));
+        $failureCount = $totalCount - $successCount;
+
+        if ($totalCount > 0 && $successCount === $totalCount) {
+            $status = 'success';
+            $message = sprintf('测试成功：%1$d/%2$d 个接收者发送成功', $successCount, $totalCount);
+        } elseif ($successCount > 0) {
+            $status = 'partial';
+            $message = sprintf(
+                '测试部分成功：%1$d/%2$d 个接收者发送成功，%3$d 个失败',
+                $successCount,
+                $totalCount,
+                $failureCount
+            );
+        } else {
+            $status = 'failed';
+            $message = sprintf('测试失败：0/%d 个接收者发送成功', $totalCount);
+        }
+
+        return [
+            'status' => $status,
+            'message' => $message,
+            'total_count' => $totalCount,
+            'success_count' => $successCount,
+            'failure_count' => $failureCount,
+            'results' => $results,
+        ];
+    }
 }
 
 /**
@@ -175,6 +214,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
             'success' => '测试消息已发送',
             'error'   => '发送失败',
             'unsaved' => '当前 Token 或 Chat ID 尚未保存，请先保存设置后再测试。',
+            'recipientSuccess' => '发送成功',
         ],
     ]);
 
@@ -205,6 +245,44 @@ jQuery(function ($) {
 
         var match = data.match(/(?:^|&)action=([^&]*)/);
         return match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : '';
+    }
+
+    function renderTestResults(data) {
+        var status = data && data.status ? data.status : 'failed';
+        var colors = {
+            success: '#15803d',
+            partial: '#b45309',
+            failed: '#b91c1c'
+        };
+        var results = data && Array.isArray(data.results) ? data.results : [];
+
+        $status.empty().css('color', colors[status] || colors.failed);
+        $('<div></div>')
+            .text(data && data.message ? data.message : oyisoTgTest.labels.error)
+            .appendTo($status);
+
+        if (!results.length) {
+            return;
+        }
+
+        var $list = $('<ul></ul>').css({
+            margin: '6px 0 0 18px'
+        });
+
+        results.forEach(function (result) {
+            var succeeded = Boolean(result && result.success);
+            var chatId = result && result.chat_id ? result.chat_id : '-';
+            var detail = succeeded
+                ? oyisoTgTest.labels.recipientSuccess
+                : (result && result.message ? result.message : oyisoTgTest.labels.error);
+
+            $('<li></li>')
+                .css('color', succeeded ? colors.success : colors.failed)
+                .text((succeeded ? '✓ ' : '✕ ') + chatId + '：' + detail)
+                .appendTo($list);
+        });
+
+        $list.appendTo($status);
     }
 
     $(document).on('ajaxSuccess.oyisoTgTest', function (event, xhr, settings, response) {
@@ -245,7 +323,7 @@ jQuery(function ($) {
             nonce: oyisoTgTest.nonce
         }).done(function (response) {
             if (response && response.success) {
-                $status.css('color', '#15803d').text(response.data.message);
+                renderTestResults(response.data || {});
                 return;
             }
 
@@ -319,22 +397,7 @@ add_action('wp_ajax_oyiso_tg_test_message', function () {
     );
 
     $result = $bot->sendMessageNow($message);
-
-    if (!empty($result['success'])) {
-        wp_send_json_success([
-            'message' => sprintf('测试消息已发送到 %d 个接收者', count($result['results'])),
-            'results' => $result['results'],
-        ]);
-    }
-
-    $errors = array_map(static function (array $item): string {
-        return sprintf('%s: %s', $item['chat_id'] ?? '-', $item['message'] ?? '发送失败');
-    }, $result['results']);
-
-    wp_send_json_error([
-        'message' => '测试发送失败，' . implode('；', $errors),
-        'results' => $result['results'],
-    ], 500);
+    wp_send_json_success(oyiso_summarize_tg_test_results($result['results']));
 });
 
 // 仅在 WooCommerce 激活时加载通知模块

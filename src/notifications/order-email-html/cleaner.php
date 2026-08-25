@@ -8,13 +8,21 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
     final class Oyiso_New_Order_Email_File_Cleaner {
         private const OPTION_KEY = 'woo_new_order_email_file_retention';
 
-        private const LEGACY_CLEANUP_HOOK = 'oyiso_cleanup_order_email_files';
+        private const CLEANUP_HOOK = 'oyiso_cleanup_order_email_files';
 
         private const CLEANUP_INTERVAL = 3600;
 
+        private const FALLBACK_INTERVAL = 7200;
+
         private const LAST_CLEANUP_OPTION = 'oyiso_order_email_last_cleanup';
 
-        private const LEGACY_SCHEDULE_REMOVED_OPTION = 'oyiso_order_email_cleanup_schedule_removed';
+        private const LAST_CRON_RUN_OPTION = 'oyiso_order_email_last_cron_run';
+
+        private const LAST_CLEANUP_ERROR_OPTION = 'oyiso_order_email_last_cleanup_error';
+
+        private const CLEANUP_LOCK_OPTION = 'oyiso_order_email_cleanup_lock';
+
+        private const CLEANUP_LOCK_TTL = 300;
 
         private const LOG_SOURCE = 'oyiso-order-email-cleanup';
 
@@ -34,7 +42,9 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
                 return;
             }
 
-            add_action('init', [self::class, 'removeLegacySchedule'], 20);
+            add_action('init', [self::class, 'ensureScheduled'], 20);
+            add_action(self::CLEANUP_HOOK, [self::class, 'runScheduledCleanup']);
+            add_action('shutdown', [self::class, 'maybeCleanupExpiredFiles'], 20);
             add_action(
                 'oyiso_new_order_email_html_archived',
                 [self::class, 'maybeCleanupExpiredFiles'],
@@ -51,6 +61,38 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
             );
         }
 
+        public static function ensureScheduled(): void {
+            if (0 === self::getRetentionHours()) {
+                self::unschedule();
+                return;
+            }
+
+            if (!wp_next_scheduled(self::CLEANUP_HOOK)) {
+                $scheduled = wp_schedule_event(
+                    time() + self::CLEANUP_INTERVAL,
+                    'hourly',
+                    self::CLEANUP_HOOK,
+                    [],
+                    true
+                );
+
+                if (is_wp_error($scheduled)) {
+                    self::logError('无法注册订单邮件文件清理定时任务：' . $scheduled->get_error_message());
+                }
+            }
+        }
+
+        public static function runScheduledCleanup(): void {
+            $now = time();
+            update_option(self::LAST_CRON_RUN_OPTION, $now, false);
+
+            if (0 === self::getRetentionHours()) {
+                return;
+            }
+
+            self::runCleanup($now, 'cron');
+        }
+
         public static function maybeCleanupExpiredFiles(): void {
             if (0 === self::getRetentionHours()) {
                 return;
@@ -59,17 +101,29 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
             $now         = time();
             $lastCleanup = (int) get_option(self::LAST_CLEANUP_OPTION, 0);
 
-            if ($lastCleanup > $now - self::CLEANUP_INTERVAL) {
+            if ($lastCleanup > $now - self::FALLBACK_INTERVAL) {
                 return;
             }
 
-            update_option(self::LAST_CLEANUP_OPTION, $now, false);
-            self::cleanupExpiredFiles();
+            $lastError = get_option(self::LAST_CLEANUP_ERROR_OPTION, []);
+            $errorTime = is_array($lastError) ? (int) ($lastError['time'] ?? 0) : 0;
+
+            if ($errorTime > $now - self::CLEANUP_INTERVAL) {
+                return;
+            }
+
+            self::runCleanup($now, 'fallback');
         }
 
-        public static function cleanupExpiredFiles(): void {
+        private static function runCleanup(int $now, string $source): void {
+            if (!self::acquireCleanupLock($now)) {
+                return;
+            }
+
             try {
                 $result = self::cleanupNow();
+                update_option(self::LAST_CLEANUP_OPTION, $now, false);
+                delete_option(self::LAST_CLEANUP_ERROR_OPTION);
 
                 if ($result['deleted'] > 0) {
                     self::logInfo(
@@ -77,7 +131,18 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
                     );
                 }
             } catch (Throwable $exception) {
+                update_option(
+                    self::LAST_CLEANUP_ERROR_OPTION,
+                    [
+                        'time'    => $now,
+                        'message' => $exception->getMessage(),
+                        'source'  => $source,
+                    ],
+                    false
+                );
                 self::logError('清理过期订单邮件归档失败：' . $exception->getMessage());
+            } finally {
+                self::releaseCleanupLock();
             }
         }
 
@@ -123,6 +188,8 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
                 self::logInfo(
                     sprintf('手动清理完成，共删除 %d 个过期订单邮件归档文件。', $result['deleted'])
                 );
+                update_option(self::LAST_CLEANUP_OPTION, time(), false);
+                delete_option(self::LAST_CLEANUP_ERROR_OPTION);
 
                 wp_send_json_success([
                     'message' => sprintf('清理完成，共删除 %d 个过期文件。', $result['deleted']),
@@ -260,17 +327,103 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
             return isset(self::ALLOWED_RETENTION_HOURS[$hours]) ? $hours : 24;
         }
 
-        public static function removeLegacySchedule(): void {
-            if ('1' === get_option(self::LEGACY_SCHEDULE_REMOVED_OPTION, '0')) {
-                return;
+        /**
+         * @return array{status: 'healthy'|'warning'|'error', message: string}
+         */
+        public static function getHealthStatus(): array {
+            if (0 === self::getRetentionHours()) {
+                return [
+                    'status'  => 'healthy',
+                    'message' => '',
+                ];
             }
 
-            if (function_exists('as_unschedule_all_actions')) {
-                as_unschedule_all_actions(self::LEGACY_CLEANUP_HOOK);
+            $lastCleanup = (int) get_option(self::LAST_CLEANUP_OPTION, 0);
+            $lastError   = get_option(self::LAST_CLEANUP_ERROR_OPTION, []);
+
+            if (is_array($lastError)) {
+                $errorTime    = (int) ($lastError['time'] ?? 0);
+                $errorMessage = $lastError['message'] ?? '';
+
+                if (
+                    $errorTime > 0
+                    && $errorTime >= $lastCleanup
+                    && is_scalar($errorMessage)
+                    && '' !== trim((string) $errorMessage)
+                ) {
+                    return [
+                        'status'  => 'error',
+                        'message' => sprintf(
+                            '自动清理失败：%s（%s）',
+                            trim((string) $errorMessage),
+                            wp_date('Y-m-d H:i:s', $errorTime)
+                        ),
+                    ];
+                }
             }
 
-            wp_clear_scheduled_hook(self::LEGACY_CLEANUP_HOOK);
-            update_option(self::LEGACY_SCHEDULE_REMOVED_OPTION, '1', false);
+            $now           = time();
+            $lastCronRun   = (int) get_option(self::LAST_CRON_RUN_OPTION, 0);
+            $nextScheduled = wp_next_scheduled(self::CLEANUP_HOOK);
+
+            if (false === $nextScheduled) {
+                return [
+                    'status'  => 'warning',
+                    'message' => '自动清理任务未注册，站点访问兜底仍会运行。',
+                ];
+            }
+
+            $scheduledRunMissed = $nextScheduled <= $now - self::CLEANUP_INTERVAL;
+            $cronOverdue = $scheduledRunMissed && (
+                0 === $lastCronRun
+                || $lastCronRun <= $now - self::FALLBACK_INTERVAL
+            );
+
+            if ($cronOverdue) {
+                if (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) {
+                    return [
+                        'status'  => 'warning',
+                        'message' => '内置 WP-Cron 已禁用，且超过2小时未检测到服务器 Cron 运行；站点访问兜底仍会清理。',
+                    ];
+                }
+
+                return [
+                    'status'  => 'warning',
+                    'message' => '自动清理定时任务超过2小时未运行，当前由站点访问兜底清理。',
+                ];
+            }
+
+            return [
+                'status'  => 'healthy',
+                'message' => '',
+            ];
+        }
+
+        public static function unschedule(): void {
+            wp_clear_scheduled_hook(self::CLEANUP_HOOK);
+        }
+
+        private static function acquireCleanupLock(int $now): bool {
+            $lockedAt = (int) get_option(self::CLEANUP_LOCK_OPTION, 0);
+
+            if ($lockedAt > 0 && $lockedAt > $now - self::CLEANUP_LOCK_TTL) {
+                return false;
+            }
+
+            if ($lockedAt > 0) {
+                delete_option(self::CLEANUP_LOCK_OPTION);
+            }
+
+            return add_option(
+                self::CLEANUP_LOCK_OPTION,
+                (string) $now,
+                '',
+                false
+            );
+        }
+
+        private static function releaseCleanupLock(): void {
+            delete_option(self::CLEANUP_LOCK_OPTION);
         }
 
         private static function logInfo(string $message): void {
@@ -291,3 +444,7 @@ if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
 }
 
 add_action('plugins_loaded', [Oyiso_New_Order_Email_File_Cleaner::class, 'register'], 20);
+register_deactivation_hook(
+    dirname(__DIR__, 3) . '/oyiso.php',
+    [Oyiso_New_Order_Email_File_Cleaner::class, 'unschedule']
+);

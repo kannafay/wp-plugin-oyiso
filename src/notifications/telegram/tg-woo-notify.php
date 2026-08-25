@@ -595,32 +595,6 @@ if (!function_exists('oyiso_release_new_order_notification_lock')) {
     }
 }
 
-if (!function_exists('oyiso_get_new_order_notification_target_statuses')) {
-    function oyiso_get_new_order_notification_target_statuses(): array {
-        return ['processing', 'on-hold', 'completed'];
-    }
-}
-
-if (!function_exists('oyiso_should_send_new_order_notification_for_status_change')) {
-    function oyiso_should_send_new_order_notification_for_status_change(string $old_status, string $new_status, WC_Order $order): bool {
-        if ($order->get_meta(OYISO_TG_ORDER_NOTIFIED_META_KEY, true)) {
-            return false;
-        }
-
-        $targetStatuses = oyiso_get_new_order_notification_target_statuses();
-
-        if (!in_array($new_status, $targetStatuses, true)) {
-            return false;
-        }
-
-        if (in_array($old_status, $targetStatuses, true)) {
-            return false;
-        }
-
-        return true;
-    }
-}
-
 if (!function_exists('oyiso_should_skip_order_status_change_notification')) {
     function oyiso_should_skip_order_status_change_notification(
         string $old_status,
@@ -796,8 +770,34 @@ if (!class_exists('Oyiso_TG_Notification_Lock')) {
 }
 
 /**
- * 钩子 1：专门处理 WooCommerce 状态流转（整合：新订单 -> 发货 -> 状态变更）
- * 采用责任链模式，高优先级触发后直接 return
+ * 钩子 1：跟随 WooCommerce 新订单邮件发送流程触发 Telegram 新订单通知。
+ * 与订单邮件 HTML 截图使用相同入口，由 WooCommerce 判断何时属于新订单。
+ */
+add_filter('woocommerce_mail_callback_params', function (array $params, object $email) use ($notify_options): array {
+    if (empty($notify_options['woo_new_order'])) {
+        return $params;
+    }
+
+    if (!($email instanceof WC_Email) || 'new_order' !== (string) $email->id) {
+        return $params;
+    }
+
+    if (!($email->object instanceof WC_Order)) {
+        return $params;
+    }
+
+    $orderId = (int) $email->object->get_id();
+    if (!Oyiso_TG_Notification_Lock::is_new_order_handled($orderId)) {
+        oyiso_send_new_order_notification($orderId);
+        Oyiso_TG_Notification_Lock::mark_new_order_handled($orderId);
+    }
+
+    return $params;
+}, 10, 2);
+
+/**
+ * 钩子 2：处理 WooCommerce 状态流转（发货 -> 状态变更）。
+ * 采用责任链模式，高优先级触发后直接 return。
  */
 add_action('woocommerce_order_status_changed', function ($order_id, $old_status, $new_status, $order) use ($notify_options) {
     if (!$order instanceof WC_Order) {
@@ -809,17 +809,7 @@ add_action('woocommerce_order_status_changed', function ($order_id, $old_status,
 
     $order_id = (int) $order->get_id();
 
-    // 1. 优先级最高：新订单通知
-    $isNewOrderEnabled = !empty($notify_options['woo_new_order']);
-    if ($isNewOrderEnabled && oyiso_should_send_new_order_notification_for_status_change($old_status, $new_status, $order)) {
-        if (!Oyiso_TG_Notification_Lock::is_new_order_handled($order_id)) {
-            oyiso_send_new_order_notification($order_id);
-            Oyiso_TG_Notification_Lock::mark_new_order_handled($order_id);
-            return; // 已经发了新订单，此请求链路结束
-        }
-    }
-
-    // 2. 发货与状态变更拦截：过滤掉由 AST 自动推移的发货状态，交给下方的物流适配器去发货
+    // 1. 发货与状态变更拦截：过滤掉由 AST 自动推移的发货状态，交给下方的物流适配器去发货
     $isShippedEnabled = !empty($notify_options['woo_order_shipped']);
     $shippedChannel = $notify_options['woo_order_shipped_channel'] ?? 'status';
     
@@ -830,7 +820,7 @@ add_action('woocommerce_order_status_changed', function ($order_id, $old_status,
         }
     }
 
-    // 3. 优先级最低：订单状态变更兜底通知
+    // 2. 优先级最低：订单状态变更兜底通知
     $isStatusChangeEnabled = !empty($notify_options['woo_order_status_change']);
     if ($isStatusChangeEnabled) {
         // 如果能走到这里，说明上面 1 和 2 都没有拦截

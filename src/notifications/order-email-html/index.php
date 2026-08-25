@@ -18,6 +18,34 @@ if (!function_exists('oyiso_is_wc_order_screenshot_forwarding_enabled')) {
     }
 }
 
+if (!function_exists('oyiso_render_order_email_history_field')) {
+    function oyiso_render_order_email_history_field(): void {
+        echo '<button type="button" class="button button-secondary" id="oyiso-order-email-file-manager">文件管理</button>';
+        echo '<p class="description">查看并清理当前站点此前生成的 HTML 和截图。</p>';
+
+        if (!class_exists('Oyiso_New_Order_Email_File_Cleaner', false)) {
+            return;
+        }
+
+        $health = Oyiso_New_Order_Email_File_Cleaner::getHealthStatus();
+
+        if ('' === $health['message']) {
+            return;
+        }
+
+        $isError = 'error' === $health['status'];
+        $color   = $isError ? '#b91c1c' : '#b45309';
+        $icon    = $isError ? '✕' : '⚠';
+
+        printf(
+            '<p role="status" style="color:%1$s;margin-top:6px;">%2$s %3$s</p>',
+            esc_attr($color),
+            esc_html($icon),
+            esc_html($health['message'])
+        );
+    }
+}
+
 if (class_exists('CSF')) {
     CSF::createSection($prefix, [
         'parent'   => 'notifications',
@@ -138,14 +166,14 @@ if (class_exists('CSF')) {
                 'attributes' => [
                     'style' => 'min-width:120px;',
                 ],
-                'desc'       => '新订单归档时检查，每小时最多执行一次过期文件清理。',
+                'desc'       => 'WP-Cron每小时清理；若超过2小时未执行，将在站点请求或新订单归档后补清理。',
                 'default'    => '24',
                 'dependency' => ['woo_new_order_email_html_archive', '==', true],
             ],
             [
-                'type'    => 'content',
-                'title'   => '历史文件',
-                'content' => '<button type="button" class="button button-secondary" id="oyiso-order-email-file-manager">文件管理</button><p class="description">查看并清理当前站点此前生成的 HTML 和截图。</p>',
+                'type'     => 'callback',
+                'title'    => '历史文件',
+                'function' => 'oyiso_render_order_email_history_field',
             ],
         ],
     ]);
