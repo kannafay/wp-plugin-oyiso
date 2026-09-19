@@ -11,6 +11,5 @@ if (class_exists('CSF')) {
     ]);
 }
 
-require_once __DIR__ . '/51la-analytics/index.php';
 require_once __DIR__ . '/custom-code/index.php';
 require_once __DIR__ . '/content-view-metrics/index.php';
