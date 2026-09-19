@@ -37,6 +37,10 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
                 'wp_ajax_oyiso_delete_order_email_archive',
                 [self::class, 'handleDeleteRecord']
             );
+            add_action(
+                'wp_ajax_oyiso_retry_order_email_archive',
+                [self::class, 'handleRetryRecord']
+            );
         }
 
         public static function enqueueAdminAssets(string $hook): void {
@@ -91,6 +95,12 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
                         'copying'        => '正在复制截图…',
                         'copySuccess'    => '截图已复制到剪贴板。',
                         'copyError'      => '无法复制截图，请使用下载按钮。',
+                        'retry'          => '重新发送',
+                        'retrying'       => '正在重新发送…',
+                        'rerender'       => '重新截图并发送',
+                        'rerendering'    => '正在重新截图并发送…',
+                        'retryError'     => '重新发送失败，请查看WooCommerce日志。',
+                        'retryUnknown'   => '请求中断，截图或发送可能仍在进行，请稍后刷新查看文件和渠道消息。',
                     ],
                 ]
             );
@@ -138,6 +148,14 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
                                         <span class="dashicons dashicons-download" aria-hidden="true"></span>
                                         <span>下载</span>
                                     </button>
+                                    <button type="button" class="button button-small" id="oyiso-archive-retry" disabled>
+                                        <span class="dashicons dashicons-update" aria-hidden="true"></span>
+                                        <span>重新发送</span>
+                                    </button>
+                                    <button type="button" class="button button-small" id="oyiso-archive-rerender" title="根据归档HTML重新生成截图并发送" disabled>
+                                        <span class="dashicons dashicons-camera" aria-hidden="true"></span>
+                                        <span>重新截图并发送</span>
+                                    </button>
                                 </div>
                                 <div class="oyiso-archive-tabs" role="tablist" aria-label="预览类型">
                                     <button type="button" id="oyiso-archive-image-tab" role="tab" aria-selected="false">截图</button>
@@ -159,10 +177,10 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
                     <footer class="oyiso-archive-footer">
                         <div class="oyiso-archive-footer-left">
                             <button type="button" class="button oyiso-archive-danger" id="oyiso-archive-clear">清空所有文件</button>
+                            <button type="button" class="button" id="oyiso-archive-cleanup">清理过期文件</button>
                             <span id="oyiso-archive-cleanup-status" role="status" aria-live="polite"></span>
                         </div>
                         <div class="oyiso-archive-footer-actions">
-                            <button type="button" class="button" id="oyiso-archive-cleanup">清理过期文件</button>
                             <button type="button" class="button button-primary" data-oyiso-archive-close>关闭</button>
                         </div>
                     </footer>
@@ -265,6 +283,134 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
             } catch (Throwable $exception) {
                 wp_send_json_error(['message' => '无法加载图片预览。'], 404);
             }
+        }
+
+        public static function handleRetryRecord(): void {
+            self::verifyAjaxRequest();
+
+            if ('POST' !== ($_SERVER['REQUEST_METHOD'] ?? '')) {
+                wp_send_json_error(['message' => '请使用POST请求重试。'], 405);
+            }
+
+            $mode = $_POST['mode'] ?? 'resend';
+            if (!is_string($mode) || !in_array($mode, ['resend', 'rerender'], true)) {
+                wp_send_json_error(['message' => '发送操作无效。'], 400);
+            }
+
+            try {
+                if (!oyiso_is_wc_order_screenshot_forwarding_enabled()) {
+                    wp_send_json_error(['message' => '请先启用订单截图转发，并保存至少一个有效的发送渠道。'], 400);
+                }
+
+                $value = $_POST['file'] ?? '';
+                $filename = is_string($value) ? $value : '';
+                if ('rerender' === $mode && 'html' !== strtolower((string) pathinfo($filename, PATHINFO_EXTENSION))) {
+                    wp_send_json_error(['message' => '重新截图需要归档HTML文件，请选择包含HTML的记录。'], 400);
+                }
+                $path = self::resolveRequestedFile(
+                    'rerender' === $mode ? ['html'] : ['html', 'png', 'jpeg', 'jpg'],
+                    $filename
+                );
+                $order = self::findArchiveOrder(basename($path));
+                $isHtml = 'html' === strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+
+                // Rendering and downloading each allow 120 seconds; channels are sent serially.
+                ignore_user_abort(true);
+                if (function_exists('set_time_limit')) {
+                    set_time_limit(900);
+                }
+                if (PHP_SESSION_ACTIVE === session_status()) {
+                    session_write_close();
+                }
+
+                // One manual resend at a time per site, including records with only an image.
+                $lock = fopen(dirname($path) . '/.resend.lock', 'c');
+                if (false === $lock) {
+                    throw new RuntimeException('无法锁定发送任务，请检查归档目录写入权限。');
+                }
+                if (!flock($lock, LOCK_EX | LOCK_NB)) {
+                    fclose($lock);
+                    wp_send_json_error(['message' => '当前站点正在重新发送截图，请稍后再试。'], 409);
+                }
+
+                try {
+                    if ($isHtml) {
+                        $imagePath = Oyiso_New_Order_Email_Image_Renderer::handle($path, $order->get_id(), true);
+                    } else {
+                        $imagePath = $path;
+                        Oyiso_WeCom_Order_Image_Forwarder::forward($imagePath, '', $order->get_id(), true);
+                    }
+                } finally {
+                    fclose($lock);
+                }
+
+                if (is_wp_error($imagePath)) {
+                    wp_send_json_error([
+                        'message' => $imagePath->get_error_message(),
+                    ], 'render_busy' === $imagePath->get_error_code() ? 409 : 502);
+                }
+
+                $result = class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)
+                    ? Oyiso_WeCom_Order_Image_Forwarder::getLastResult()
+                    : null;
+                $status = 'success';
+                $message = $isHtml ? '截图已重新生成。' : '已使用归档截图。';
+
+                if (null === $result || 0 === $result['sent'] + $result['skipped'] + $result['failed']) {
+                    $status = 'warning';
+                    $message .= '没有已启用的发送渠道，请检查并保存转发配置。';
+                } else {
+                    $message .= sprintf(
+                        '发送成功 %d 个渠道，失败 %d 个。',
+                        $result['sent'],
+                        $result['failed']
+                    );
+                    if ([] !== $result['errors']) {
+                        $status = 'warning';
+                        $message .= ' ' . implode(' ', $result['errors']);
+                    }
+                }
+
+                wp_send_json_success(['message' => $message, 'status' => $status]);
+            } catch (Throwable $exception) {
+                wp_send_json_error(['message' => '重新发送失败：' . $exception->getMessage()], 500);
+            }
+        }
+
+        private static function findArchiveOrder(string $filename): WC_Order {
+            if (1 !== preg_match(self::getFilenamePattern(), $filename, $matches)) {
+                throw new RuntimeException('订单归档文件名无效。');
+            }
+
+            $matchesOrder = static function (WC_Order $order) use ($matches): bool {
+                $number = strtolower(trim(ltrim((string) $order->get_order_number(), '#')));
+                $number = trim((string) preg_replace('/[^a-z0-9._-]+/i', '-', $number), '.-_');
+                $number = '' !== $number ? $number : (string) $order->get_id();
+
+                return $number === strtolower($matches[1])
+                    && Oyiso_New_Order_Email_Html_Archive::getOrderCreatedTimestamp($order) === $matches[2];
+            };
+
+            // An order number may be customized and must not be treated as an order ID.
+            $order = ctype_digit($matches[1]) ? wc_get_order((int) $matches[1]) : false;
+            if ($order instanceof WC_Order && $matchesOrder($order)) {
+                return $order;
+            }
+
+            $created = DateTimeImmutable::createFromFormat('!Ymd-His', $matches[2], wp_timezone());
+            if (false !== $created && $created->format('Ymd-His') === $matches[2]) {
+                $orders = wc_get_orders([
+                    'type'         => 'shop_order',
+                    'date_created' => (string) $created->getTimestamp(),
+                    'limit'        => -1,
+                ]);
+                $matching = array_values(array_filter($orders, $matchesOrder));
+                if (1 === count($matching)) {
+                    return $matching[0];
+                }
+            }
+
+            throw new RuntimeException('无法唯一匹配归档对应的订单，订单可能已删除或编号已更改。');
         }
 
         public static function handleDeleteRecord(): void {
@@ -433,8 +579,8 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
         /**
          * @param array<int, string> $allowedExtensions
          */
-        private static function resolveRequestedFile(array $allowedExtensions): string {
-            $value = $_REQUEST['file'] ?? '';
+        private static function resolveRequestedFile(array $allowedExtensions, ?string $requestedFile = null): string {
+            $value = $requestedFile ?? ($_REQUEST['file'] ?? '');
             $filename = is_string($value) ? wp_unslash($value) : '';
 
             if ('' === $filename || basename($filename) !== $filename) {

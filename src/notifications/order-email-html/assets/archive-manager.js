@@ -26,6 +26,8 @@
         var $htmlTab = $('#oyiso-archive-html-tab');
         var $copyImage = $('#oyiso-archive-copy-image');
         var $downloadImage = $('#oyiso-archive-download-image');
+        var $retry = $('#oyiso-archive-retry');
+        var $rerender = $('#oyiso-archive-rerender');
         var $cleanup = $('#oyiso-archive-cleanup');
         var $clear = $('#oyiso-archive-clear');
         var $cleanupStatus = $('#oyiso-archive-cleanup-status');
@@ -36,6 +38,8 @@
         var requestSequence = 0;
         var lastFocused = null;
         var savedRetention = String(config.savedRetention || '24');
+        var filesBusy = false;
+        var retryMessage = '';
 
         function getAjaxAction(settings) {
             var data = settings && settings.data ? settings.data : '';
@@ -62,7 +66,7 @@
 
         function setCleanupStatus(text, type) {
             $cleanupStatus
-                .removeClass('is-error is-success')
+                .removeClass('is-error is-success is-warning')
                 .addClass(type ? 'is-' + type : '')
                 .text(text || '');
         }
@@ -83,6 +87,7 @@
         function resetPreview() {
             requestSequence += 1;
             activeRecord = null;
+            refreshRetryButton();
             activePreview = '';
             $image.off('.oyisoArchive').removeAttr('src');
             $htmlFrame.off('.oyisoArchive').removeAttr('src');
@@ -96,6 +101,7 @@
         function prepareRecordsLoading() {
             requestSequence += 1;
             activeRecord = null;
+            refreshRetryButton();
             $image.off('.oyisoArchive').removeAttr('src');
             $htmlFrame.off('.oyisoArchive').removeAttr('src');
             $recordMeta.text(labels.listLoading || '正在读取归档文件…');
@@ -109,7 +115,8 @@
             return config.ajaxUrl + '?' + $.param({
                 action: 'oyiso_get_order_email_archive_image',
                 nonce: config.nonce,
-                file: filename
+                file: filename,
+                _: Date.now()
             });
         }
 
@@ -133,6 +140,19 @@
         function setScreenshotActionsEnabled(enabled) {
             $copyImage.prop('disabled', !enabled);
             $downloadImage.prop('disabled', !enabled);
+        }
+
+        function refreshRetryButton() {
+            $retry.prop('disabled', filesBusy || !activeRecord || (!activeRecord.html && !getActiveImage()));
+            $rerender.prop('disabled', filesBusy || !activeRecord || !activeRecord.html);
+        }
+
+        function setFilesBusy(busy) {
+            filesBusy = busy;
+            $clear.prop('disabled', busy);
+            $list.find('.oyiso-archive-record-delete').prop('disabled', busy);
+            refreshCleanupButton();
+            refreshRetryButton();
         }
 
         function setFullscreen(enabled) {
@@ -229,6 +249,7 @@
 
         function selectRecord(record, preferredPreview) {
             activeRecord = record;
+            refreshRetryButton();
             $list.find('.oyiso-archive-record')
                 .removeClass('is-active')
                 .find('.oyiso-archive-record-select')
@@ -268,7 +289,11 @@
             });
         }
 
-        function deleteRecord(record, $button) {
+        function deleteRecord(record) {
+            if (filesBusy) {
+                return;
+            }
+
             var confirmText = labels.confirmDelete
                 || '确定删除订单 #%s 的邮件HTML和全部截图吗？此操作无法恢复。';
 
@@ -280,7 +305,7 @@
                 ? activeRecord.id
                 : '';
 
-            $button.prop('disabled', true);
+            setFilesBusy(true);
             setCleanupStatus(labels.deleting || '正在删除订单文件…');
 
             $.post(config.ajaxUrl, {
@@ -308,7 +333,7 @@
                     'error'
                 );
             }).always(function () {
-                $button.prop('disabled', false);
+                setFilesBusy(false);
             });
         }
 
@@ -349,6 +374,7 @@
                 var $delete = $('<button>', {
                     type: 'button',
                     class: 'oyiso-archive-record-delete',
+                    disabled: filesBusy,
                     title: '删除该订单文件',
                     'aria-label': '删除订单 #' + record.orderNumber + ' 的归档文件'
                 }).append($('<span>', {
@@ -371,7 +397,7 @@
                 });
                 $delete.on('click', function (event) {
                     event.stopPropagation();
-                    deleteRecord(record, $delete);
+                    deleteRecord(record);
                 });
                 $record.append($select, $delete);
                 $list.append($record);
@@ -423,10 +449,10 @@
         function refreshCleanupButton() {
             var isPermanent = savedRetention === '0';
 
-            $cleanup.prop('disabled', isPermanent);
-            if (isPermanent) {
+            $cleanup.prop('disabled', filesBusy || isPermanent);
+            if (isPermanent && !$cleanupStatus.text()) {
                 setCleanupStatus(labels.disabled || '永久保留模式下无需清理。');
-            } else if ($cleanupStatus.text() === (labels.disabled || '永久保留模式下无需清理。')) {
+            } else if (!isPermanent && $cleanupStatus.text() === (labels.disabled || '永久保留模式下无需清理。')) {
                 setCleanupStatus('');
             }
         }
@@ -435,7 +461,7 @@
             lastFocused = document.activeElement;
             $modal.prop('hidden', false).attr('aria-hidden', 'false');
             $('body').addClass('oyiso-archive-modal-open');
-            setCleanupStatus('');
+            setCleanupStatus(retryMessage);
             refreshCleanupButton();
             loadRecords(activeRecord ? activeRecord.id : '');
             window.setTimeout(function () {
@@ -492,6 +518,74 @@
         $htmlTab.on('click', showHtmlPreview);
         $fullscreen.on('click', function () {
             setFullscreen(!$modal.hasClass('is-fullscreen'));
+        });
+
+        function sendRecord(mode) {
+            if (filesBusy || !activeRecord) {
+                return;
+            }
+
+            var record = activeRecord;
+            var isRerender = mode === 'rerender';
+            var source = isRerender ? record.html : (record.html || getActiveImage());
+            if (!source) {
+                return;
+            }
+
+            var $button = isRerender ? $rerender : $retry;
+            var busyLabel = isRerender
+                ? (labels.rerendering || '正在重新截图并发送…')
+                : (labels.retrying || '正在重新发送…');
+            var idleLabel = isRerender
+                ? (labels.rerender || '重新截图并发送')
+                : (labels.retry || '重新发送');
+            retryMessage = '#' + record.orderNumber + '：' + busyLabel;
+            setFilesBusy(true);
+            $button.attr('aria-busy', 'true').find('span:last').text(busyLabel);
+            setCleanupStatus(retryMessage);
+
+            $.ajax({
+                url: config.ajaxUrl,
+                method: 'POST',
+                timeout: 900000,
+                data: {
+                    action: 'oyiso_retry_order_email_archive',
+                    nonce: config.nonce,
+                    mode: mode,
+                    file: source.filename
+                }
+            }).done(function (response) {
+                if (!response || response.success !== true || !response.data) {
+                    setCleanupStatus(
+                        '#' + record.orderNumber + '：' + getResponseMessage(response, labels.retryError),
+                        'error'
+                    );
+                    return;
+                }
+
+                setCleanupStatus('#' + record.orderNumber + '：' + response.data.message, response.data.status || 'success');
+                var preferredId = activeRecord ? activeRecord.id : record.id;
+                if (preferredId === record.id) {
+                    activePreview = 'image';
+                }
+                loadRecords(preferredId);
+            }).fail(function (xhr) {
+                setCleanupStatus(
+                    '#' + record.orderNumber + '：' + getResponseMessage(xhr.responseJSON, labels.retryUnknown),
+                    'error'
+                );
+            }).always(function () {
+                retryMessage = '';
+                $button.removeAttr('aria-busy').find('span:last').text(idleLabel);
+                setFilesBusy(false);
+            });
+        }
+
+        $retry.on('click', function () {
+            sendRecord('resend');
+        });
+        $rerender.on('click', function () {
+            sendRecord('rerender');
         });
 
         $downloadImage.on('click', function () {
@@ -669,6 +763,10 @@
         });
 
         $cleanup.on('click', function () {
+            if (filesBusy) {
+                return;
+            }
+
             var currentRetention = String($retention.val() || '');
 
             if (currentRetention !== savedRetention) {
@@ -685,8 +783,7 @@
                 return;
             }
 
-            $cleanup.prop('disabled', true);
-            $clear.prop('disabled', true);
+            setFilesBusy(true);
             setCleanupStatus(labels.cleaning || '正在清理…');
 
             $.post(config.ajaxUrl, {
@@ -709,15 +806,15 @@
                     'error'
                 );
             }).always(function () {
-                $clear.prop('disabled', false);
-                refreshCleanupButton();
-                if (savedRetention !== '0') {
-                    $cleanup.prop('disabled', false);
-                }
+                setFilesBusy(false);
             });
         });
 
         $clear.on('click', function () {
+            if (filesBusy) {
+                return;
+            }
+
             if (!window.confirm(
                 labels.confirmClear
                 || '将永久删除当前站点的全部订单邮件HTML和截图，且无法恢复。是否继续？'
@@ -725,8 +822,7 @@
                 return;
             }
 
-            $clear.prop('disabled', true);
-            $cleanup.prop('disabled', true);
+            setFilesBusy(true);
             setCleanupStatus(labels.clearing || '正在清空…');
 
             $.post(config.ajaxUrl, {
@@ -751,8 +847,7 @@
                     'error'
                 );
             }).always(function () {
-                $clear.prop('disabled', false);
-                refreshCleanupButton();
+                setFilesBusy(false);
             });
         });
 

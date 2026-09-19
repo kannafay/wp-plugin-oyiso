@@ -206,10 +206,12 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
             }
         }
 
-        public static function handle(string $htmlPath, int $orderId): void {
+        public static function handle(string $htmlPath, int $orderId, bool $forceForward = false): string|WP_Error {
             if (!self::isEnabled()) {
-                return;
+                return new WP_Error('render_disabled', '请先启用订单截图转发，并保存至少一个有效的发送渠道。');
             }
+
+            $lock = false;
 
             try {
                 $apiKey = self::getApiKey();
@@ -219,8 +221,24 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
                 }
 
                 $htmlPath = self::validateHtmlPath($htmlPath);
+                $lock = fopen($htmlPath, 'rb');
+
+                if (false === $lock) {
+                    throw new RuntimeException('无法打开HTML归档文件。');
+                }
+
+                if (!flock($lock, LOCK_EX | LOCK_NB)) {
+                    return new WP_Error('render_busy', '该归档正在截图或发送，请稍后刷新查看。');
+                }
+
+                // Read through the locked handle; Windows locks prevent a second handle from reading.
+                $html = stream_get_contents($lock);
+                if (false === $html || '' === trim($html)) {
+                    throw new RuntimeException('HTML归档文件为空或无法读取。');
+                }
+
                 $format   = self::getFormat();
-                $result   = self::requestRender($htmlPath, $format, $apiKey);
+                $result   = self::requestRender($htmlPath, $html, $format, $apiKey);
                 $imageUrl = self::buildImageUrl($result['url'], $result['filename']);
                 $imagePath = trailingslashit(dirname($htmlPath)) . $result['filename'];
 
@@ -240,13 +258,17 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
                  * @param string $imagePath Absolute image file path.
                  * @param string $htmlPath  Absolute source HTML file path.
                  * @param int    $orderId   WooCommerce order ID.
+                 * @param bool   $forceForward Whether to resend to previously successful channels.
                  */
                 do_action(
                     'oyiso_new_order_email_image_rendered',
                     $imagePath,
                     $htmlPath,
-                    $orderId
+                    $orderId,
+                    $forceForward
                 );
+
+                return $imagePath;
             } catch (Throwable $exception) {
                 self::logError(
                     sprintf(
@@ -255,6 +277,12 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
                         $exception->getMessage()
                     )
                 );
+
+                return new WP_Error('render_failed', $exception->getMessage());
+            } finally {
+                if (is_resource($lock)) {
+                    fclose($lock);
+                }
             }
         }
 
@@ -376,6 +404,7 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
          */
         private static function requestRender(
             string $htmlPath,
+            string $html,
             string $format,
             string $apiKey
         ): array {
@@ -388,7 +417,7 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
                     'Authorization' => 'Bearer ' . $apiKey,
                     'Content-Type'  => 'multipart/form-data; boundary=' . $boundary,
                 ],
-                'body'        => self::buildMultipartBody($htmlPath, $format, $boundary),
+                'body'        => self::buildMultipartBody($htmlPath, $html, $format, $boundary),
                 'data_format' => 'body',
             ]);
 
@@ -416,15 +445,10 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
 
         private static function buildMultipartBody(
             string $htmlPath,
+            string $html,
             string $format,
             string $boundary
         ): string {
-            $html = file_get_contents($htmlPath);
-
-            if (false === $html) {
-                throw new RuntimeException('无法读取HTML归档文件。');
-            }
-
             $eol      = "\r\n";
             $filename = str_replace(['\\', '"'], '', basename($htmlPath));
             $parts    = [];

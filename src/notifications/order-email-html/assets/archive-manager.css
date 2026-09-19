@@ -307,6 +307,8 @@ body.oyiso-archive-modal-open {
     display: flex;
     flex: 0 0 auto;
     align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 6px;
 }
 
@@ -446,6 +448,15 @@ body.oyiso-archive-modal-open {
     color: #008a20;
 }
 
+#oyiso-archive-cleanup-status.is-warning {
+    color: #996800;
+}
+
+#oyiso-archive-retry[aria-busy="true"] .dashicons,
+#oyiso-archive-rerender[aria-busy="true"] .dashicons {
+    animation: oyiso-archive-preview-spin 1s linear infinite;
+}
+
 .oyiso-archive-footer-left {
     display: flex;
     min-width: 0;
@@ -535,7 +546,8 @@ body.oyiso-archive-modal-open {
         display: contents;
     }
 
-    .oyiso-archive-danger.button {
+    .oyiso-archive-danger.button,
+    #oyiso-archive-cleanup {
         order: 1;
     }
 
@@ -570,6 +582,7 @@ body.oyiso-archive-modal-open {
 
     .oyiso-archive-preview-actions {
         grid-column: 1;
+        padding-bottom: 6px;
     }
 
     .oyiso-archive-tabs {

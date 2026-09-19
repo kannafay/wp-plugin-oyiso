@@ -18,6 +18,14 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
 
         private const LEGACY_SENT_META_KEY = '_oyiso_wecom_order_image_sent';
 
+        /** @var array{sent: int, skipped: int, failed: int, errors: list<string>}|null */
+        private static ?array $lastResult = null;
+
+        /** @return array{sent: int, skipped: int, failed: int, errors: list<string>}|null */
+        public static function getLastResult(): ?array {
+            return self::$lastResult;
+        }
+
         public static function register(): void {
             add_action('admin_enqueue_scripts', [self::class, 'enqueueAdminAssets']);
             add_action(
@@ -33,7 +41,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                 'oyiso_new_order_email_image_rendered',
                 [self::class, 'forward'],
                 10,
-                3
+                4
             );
         }
 
@@ -98,10 +106,11 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
             }
         }
 
-        public static function forward(string $imagePath, string $htmlPath, int $orderId): void {
+        public static function forward(string $imagePath, string $htmlPath, int $orderId, bool $force = false): void {
             unset($htmlPath);
 
             $keys = oyiso_get_enabled_wecom_webhook_keys();
+            self::$lastResult = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'errors' => []];
 
             if ([] === $keys) {
                 return;
@@ -117,6 +126,8 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                 }
 
             } catch (Throwable $exception) {
+                self::$lastResult['failed'] = count($keys);
+                self::$lastResult['errors'][] = $exception->getMessage();
                 self::logError(
                     sprintf(
                         '订单 %d 的企业微信转发准备失败：%s',
@@ -137,14 +148,17 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                 $channelId = self::getChannelId($key);
 
                 if (
-                    isset($sentHashes[$channelId])
+                    !$force
+                    && isset($sentHashes[$channelId])
                     && hash_equals($sentHashes[$channelId], $fileHash)
                 ) {
+                    ++self::$lastResult['skipped'];
                     continue;
                 }
 
                 try {
                     self::sendImage($imagePath, $key);
+                    ++self::$lastResult['sent'];
                     $sentHashes[$channelId] = $fileHash;
                     $metaChanged = true;
 
@@ -156,6 +170,8 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                         )
                     );
                 } catch (Throwable $exception) {
+                    ++self::$lastResult['failed'];
+                    self::$lastResult['errors'][] = sprintf('渠道 %d：%s', $index + 1, $exception->getMessage());
                     self::logError(
                         sprintf(
                             '订单 %d 的邮件截图发送到企业微信渠道 %d 失败：%s',
@@ -172,6 +188,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                     $order->update_meta_data(self::SENT_META_KEY, $sentHashes);
                     $order->save();
                 } catch (Throwable $exception) {
+                    self::$lastResult['errors'][] = '发送状态保存失败，下次重试可能重复发送。';
                     self::logError(
                         sprintf(
                             '订单 %d 的企业微信发送状态保存失败：%s',
