@@ -897,3 +897,5 @@ msgstr "Dzisiejszy limit wygranych został osiągnięty."
 msgid "%d more"
 msgstr "jeszcze %d"
 
+msgid "Login temporarily restricted. Please try again later."
+msgstr "Logowanie jest tymczasowo ograniczone. Spróbuj ponownie później."

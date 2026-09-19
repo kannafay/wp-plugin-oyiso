@@ -897,3 +897,5 @@ msgstr "你今天的中奖次数已达上限。"
 msgid "%d more"
 msgstr "另有 %d 个"
 
+msgid "Login temporarily restricted. Please try again later."
+msgstr "登录暂时受限，请稍后重试。"

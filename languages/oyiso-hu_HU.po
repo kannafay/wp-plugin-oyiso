@@ -1186,3 +1186,5 @@ msgstr "Felhasználtad az összes mai sorsolási lehetőségedet."
 msgid "e.g. Featured Offers"
 msgstr "pl. Kiemelt ajánlatok"
 
+msgid "Login temporarily restricted. Please try again later."
+msgstr "A bejelentkezés átmenetileg korlátozott. Kérjük, próbálja újra később."

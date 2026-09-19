@@ -1186,3 +1186,5 @@ msgstr "Vyčerpali jste všechny dnešní možnosti losování."
 msgid "e.g. Featured Offers"
 msgstr "např. Doporučené nabídky"
 
+msgid "Login temporarily restricted. Please try again later."
+msgstr "Přihlašování je dočasně omezeno. Zkuste to prosím znovu později."

@@ -1184,3 +1184,6 @@ msgstr ""
 msgid "e.g. Featured Offers"
 msgstr ""
 
+#: src/wp-optimize/security/login-protection.php:113
+msgid "Login temporarily restricted. Please try again later."
+msgstr ""
