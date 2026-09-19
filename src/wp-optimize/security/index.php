@@ -3,24 +3,24 @@
 defined('ABSPATH') || exit;
 
 /**
- * Pingback 防护
+ * 安全防护
  */
 if (class_exists('CSF')) {
 CSF::createSection($prefix, [
     'parent'   => 'wp-optimize',
-    'id'       => 'pingback',
-    'title'    => 'Pingback 防护',
-    'icon'     => 'fas fa-ban',
+    'id'       => 'security',
+    'title'    => '安全防护',
+    'icon'     => 'fas fa-shield-alt',
     'priority' => 20,
     'fields' => [
         [
             'type' => 'heading',
-            'content' => 'Pingback 防护',
+            'content' => '安全防护',
         ],
         [
             'id' => 'opt-disable-pingback',
             'type' => 'switcher',
-            'title' => '关闭 Pingback',
+            'title' => 'Pingback 防护',
             'label' => '开启后关闭网站的 Pingback 和 Trackback，防止垃圾引用通知',
             'default' => false,
         ],
