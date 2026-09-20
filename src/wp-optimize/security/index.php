@@ -5,6 +5,7 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 require_once __DIR__ . '/login-protection.php';
+require_once __DIR__ . '/xmlrpc-protection.php';
 
 /**
  * 安全防护
@@ -26,6 +27,14 @@ CSF::createSection($prefix, [
             'type' => 'switcher',
             'title' => 'Pingback 防护',
             'label' => '开启后关闭网站的 Pingback 和 Trackback，防止垃圾引用通知',
+            'default' => false,
+        ],
+        [
+            'id' => 'opt-disable-xmlrpc',
+            'type' => 'switcher',
+            'title' => 'XML-RPC 防护',
+            'label' => '关闭 XML-RPC 访问入口，阻止通过该接口进行登录和远程调用',
+            'desc' => '启用后会阻止 XML-RPC 请求，可能影响 Jetpack、WordPress 移动端及远程发布。REST API 不受影响。',
             'default' => false,
         ],
         [
@@ -100,6 +109,7 @@ if (!empty($options['opt-disable-file-edit'])) {
 }
 
 Oyiso_Login_Protection::register(is_array($options) ? $options : []);
+Oyiso_Xmlrpc_Protection::register(!empty($options['opt-disable-xmlrpc']));
 
 if (!empty($options['opt-disable-pingback'])) {
     add_filter('pings_open', '__return_false');
