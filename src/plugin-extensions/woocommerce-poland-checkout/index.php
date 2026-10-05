@@ -153,7 +153,9 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
                 $house = self::text($data[$group . '_oyiso_house_number'] ?? '');
                 $data[$group . '_oyiso_street'] = $street;
                 $data[$group . '_address_1'] = self::joinAddress($street, $house);
-                $data[$group . '_postcode'] = self::postcode(self::text($data[$group . '_postcode'] ?? ''));
+                // WooCommerce formats an empty PL postcode as "-" during validation.
+                $data[$group . '_oyiso_postcode'] = self::postcode(self::text($data[$group . '_postcode'] ?? ''));
+                $data[$group . '_postcode'] = $data[$group . '_oyiso_postcode'];
                 $data[$group . '_phone'] = self::phone(self::text($data[$group . '_phone'] ?? ''));
             }
             return $data;
@@ -173,7 +175,8 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
                     'address_1' => $data[$group . '_address_1'] ?? '',
                     self::STREET => $data[$group . '_oyiso_street'] ?? '',
                     self::HOUSE => $data[$group . '_oyiso_house_number'] ?? '',
-                    'postcode' => $data[$group . '_postcode'] ?? '', 'phone' => $data[$group . '_phone'] ?? '',
+                    'postcode' => $data[$group . '_oyiso_postcode'] ?? $data[$group . '_postcode'] ?? '',
+                    'phone' => $data[$group . '_phone'] ?? '',
                 ];
                 self::validateAddress($address, $group, $errors, $group === 'billing');
             }
@@ -304,19 +307,39 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
             $street = self::text($address[self::STREET] ?? '');
             $house = self::text($address[self::HOUSE] ?? '');
             if ($street === '') {
-                $errors->add($group . '_address_1_required', 'Podaj nazwę ulicy.', ['id' => $group . '_address_1']);
+                self::addFieldError($errors, $group . '_address_1', 'Podaj nazwę ulicy.', true);
             }
-            if ($house === '' || self::validateHouse($house) instanceof WP_Error) {
-                $errors->add($group . '_oyiso_house_number_validation', 'Podaj prawidłowy numer domu, np. 11 lub 11A.', ['id' => $group . '_oyiso_house_number']);
+            if ($house === '') {
+                self::addFieldError($errors, $group . '_oyiso_house_number', 'Numer domu jest wymaganym polem.', true);
+            } elseif (self::validateHouse($house) instanceof WP_Error) {
+                self::addFieldError($errors, $group . '_oyiso_house_number', 'Podaj prawidłowy numer domu, np. 11 lub 11A.');
             }
             $postcode = self::postcode(self::text($address['postcode'] ?? ''));
-            if (!preg_match('/^\d{2}-\d{3}$/D', $postcode)) {
-                $errors->add($group . '_postcode_validation', 'Podaj kod pocztowy w formacie XX-XXX.', ['id' => $group . '_postcode']);
+            if ($postcode === '') {
+                self::addFieldError($errors, $group . '_postcode', 'Kod pocztowy jest wymaganym polem.', true);
+            } elseif (!preg_match('/^\d{2}-\d{3}$/D', $postcode)) {
+                self::addFieldError($errors, $group . '_postcode', 'Podaj kod pocztowy w formacie XX-XXX.');
             }
             $phone = self::phone(self::text($address['phone'] ?? ''));
-            if (($requirePhone || $phone !== '') && !self::validPhone($phone)) {
-                $errors->add($group . '_phone_validation', self::PHONE_ERROR, ['id' => $group . '_phone']);
+            if ($requirePhone && $phone === '') {
+                self::addFieldError($errors, $group . '_phone', 'Telefon komórkowy jest wymaganym polem.', true);
+            } elseif ($phone !== '' && !self::validPhone($phone)) {
+                self::addFieldError($errors, $group . '_phone', self::PHONE_ERROR);
             }
+        }
+
+        private static function addFieldError(WP_Error $errors, string $field, string $message, bool $required = false): void
+        {
+            $code = $field . ($required ? '_required' : '_validation');
+            // Preserve WooCommerce's required notice; replace its format notice with one specific hint.
+            if ($required) {
+                $errors->remove($field . '_validation');
+                if ($errors->get_error_messages($code) !== []) {
+                    return;
+                }
+            }
+            $errors->remove($code);
+            $errors->add($code, $message, ['id' => $field]);
         }
 
         public static function validateHouse(string $value): WP_Error|bool
