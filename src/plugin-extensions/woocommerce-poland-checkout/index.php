@@ -36,6 +36,11 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
                 return false;
             }
 
+            if (array_key_exists('oyiso_wc_checkout_form_countries', $options)) {
+                $selected = $options['oyiso_wc_checkout_form_countries'];
+                return is_array($selected) && in_array('PL', $selected, true);
+            }
+
             $countries = $options['oyiso_wc_checkout_form_options'] ?? [];
             if (is_array($countries) && array_key_exists(self::OPTION, $countries)) {
                 return !empty($countries[self::OPTION]);
