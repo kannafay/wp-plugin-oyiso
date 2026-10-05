@@ -33,7 +33,7 @@ function oyiso_wc_checkout_form_migrate_settings(): void
 /** @return array<string, string> */
 function oyiso_wc_checkout_form_get_country_options(): array
 {
-    return ['PL' => '波兰'];
+    return ['PL' => '波兰（PL）'];
 }
 
 /** @return list<string> */
@@ -58,11 +58,17 @@ function oyiso_wc_checkout_form_get_fields(): array
 {
     return [[
         'id' => 'oyiso_wc_checkout_form_countries',
-        'type' => 'checkbox',
+        'type' => 'select',
         'title' => '结账表单定制',
         'options' => oyiso_wc_checkout_form_get_country_options(),
-        'inline' => true,
-        'desc' => '勾选国家以启用定制，客户结账时选择对应国家即生效。未勾选的国家沿用 WooCommerce 默认表单，支持经典及 Blocks 结账。',
+        'chosen' => true,
+        'multiple' => true,
+        'placeholder' => '搜索并选择国家（名称或代码）',
+        'settings' => [
+            'search_contains' => true,
+            'no_results_text' => '没有匹配的国家',
+        ],
+        'desc' => '选择国家以启用定制，客户结账时选择对应国家即生效。未选择的国家沿用 WooCommerce 默认表单，支持经典及 Blocks 结账。',
         'default' => [],
         'sanitize' => 'oyiso_wc_checkout_form_sanitize_countries',
     ]];
