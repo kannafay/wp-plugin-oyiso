@@ -1,0 +1,43 @@
+.csf-options[data-unique="oyiso"] .oyiso-config-details.oyiso-config-collapsed {
+    display: none;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-toggle {
+    display: inline-flex;
+    float: right;
+    align-items: center;
+    gap: 4px;
+    margin-inline-start: 12px;
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    color: #3858e9;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 18px;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-toggle[hidden] {
+    display: none;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-toggle:hover {
+    color: #2145e6;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-toggle .dashicons {
+    width: 14px;
+    height: 18px;
+    font-size: 14px;
+    line-height: 18px;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-toggle[aria-expanded="true"] .dashicons {
+    transform: rotate(90deg);
+}
+
+.rtl .csf-options[data-unique="oyiso"] .oyiso-config-toggle {
+    float: left;
+}

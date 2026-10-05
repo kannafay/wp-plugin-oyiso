@@ -487,6 +487,8 @@ if (!function_exists('oyiso_render_admin_bar_update_check_modal')) {
 // CSF 后台 UI 定义（前端 class_exists('CSF') 为 false，整块跳过）
 if (class_exists('CSF')) {
 
+    require_once __DIR__ . '/admin/config-collapse.php';
+
     $prefix = 'oyiso';
     $oyiso_plugin_version = '';
     $oyiso_plugin_file = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'oyiso.php';
