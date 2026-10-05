@@ -28,7 +28,10 @@
                         && values[index] === '1';
                 });
 
-                if (!$details.length) {
+                var hasLargeField = $details.is('.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater');
+
+                // One or two simple rows stay visible; only larger configuration blocks fold.
+                if ($details.length < 3 && !hasLargeField) {
                     return;
                 }
 
