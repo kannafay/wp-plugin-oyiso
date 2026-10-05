@@ -1,0 +1,23 @@
+.oyiso-shipping-maintenance-options {
+    margin-block: 0.75em;
+}
+
+.oyiso-shipping-maintenance-options .wc-block-components-radio-control__label,
+.oyiso-shipping-maintenance-label {
+    color: #757575;
+}
+
+.oyiso-shipping-maintenance-options input:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.oyiso-shipping-maintenance-message {
+    display: block;
+    margin-inline-start: 1.5em;
+    white-space: normal;
+}
+
+.oyiso-shipping-maintenance-options .wc-block-components-radio-control__description {
+    white-space: pre-line;
+}
