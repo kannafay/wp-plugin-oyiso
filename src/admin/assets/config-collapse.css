@@ -2,6 +2,15 @@
     display: none;
 }
 
+.csf-options[data-unique="oyiso"] .csf-field-group .csf-cloneable-title {
+    display: flex;
+    align-items: center;
+}
+
+.csf-options[data-unique="oyiso"] .csf-field-group .csf-cloneable-header-icon {
+    flex-shrink: 0;
+}
+
 .csf-options[data-unique="oyiso"] .oyiso-config-toggle {
     display: inline-flex;
     float: right;
