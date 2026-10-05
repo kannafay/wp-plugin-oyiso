@@ -30,6 +30,19 @@
         float: right;
         clear: none;
     }
+
+    /* WoodMart's checkout builder already sizes each field through grid spans. */
+    .wd-checkout-form .oyiso-poland-classic :is(
+        #billing_oyiso_house_number_field, #shipping_oyiso_house_number_field,
+        #billing_address_2_field, #shipping_address_2_field,
+        #billing_postcode_field, #shipping_postcode_field,
+        #billing_city_field, #shipping_city_field
+    ) {
+        width: 100%;
+        float: none;
+        clear: none;
+    }
+
     .oyiso-poland-billing #billing .wc-block-components-text-input:has([data-oyiso-poland-field="oyiso-checkout/house-number"]),
     .oyiso-poland-shipping #shipping .wc-block-components-text-input:has([data-oyiso-poland-field="oyiso-checkout/house-number"]) {
         width: calc(50% - 6px);
