@@ -32,7 +32,16 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
         public static function enabled(): bool
         {
             $options = get_option('oyiso', []);
-            return is_array($options) && !empty($options[self::OPTION]);
+            if (!is_array($options)) {
+                return false;
+            }
+
+            $countries = $options['oyiso_wc_checkout_form_options'] ?? [];
+            if (is_array($countries) && array_key_exists(self::OPTION, $countries)) {
+                return !empty($countries[self::OPTION]);
+            }
+
+            return !empty($options[self::OPTION]);
         }
 
         /**

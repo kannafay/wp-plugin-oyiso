@@ -92,8 +92,8 @@ if (function_exists('oyiso_wc_shipping_maintenance_get_fields')) {
     $wc_section_fields = array_merge($wc_section_fields, oyiso_wc_shipping_maintenance_get_fields());
 }
 
-if (function_exists('oyiso_wc_poland_checkout_get_fields')) {
-    $wc_section_fields = array_merge($wc_section_fields, oyiso_wc_poland_checkout_get_fields());
+if (function_exists('oyiso_wc_checkout_form_get_fields')) {
+    $wc_section_fields = array_merge($wc_section_fields, oyiso_wc_checkout_form_get_fields());
 }
 
 CSF::createSection('oyiso', [
