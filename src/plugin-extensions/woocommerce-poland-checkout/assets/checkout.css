@@ -1,0 +1,72 @@
+/* The Blocks form keeps its canonical address field for WC and shipping integrations. */
+.oyiso-poland-billing #billing .wc-block-components-address-form__address_1,
+.oyiso-poland-shipping #shipping .wc-block-components-address-form__address_1 {
+    display: none;
+}
+
+.oyiso-poland-billing #billing .wc-block-components-address-form__phone,
+.oyiso-poland-shipping #shipping .wc-block-components-address-form__phone,
+.oyiso-poland-billing #billing .wc-block-components-address-form__oyiso-checkout-street,
+.oyiso-poland-shipping #shipping .wc-block-components-address-form__oyiso-checkout-street {
+    width: 100%;
+    flex: 0 0 100%;
+}
+
+@media (min-width: 600px) {
+    .oyiso-poland-classic #billing_oyiso_house_number_field,
+    .oyiso-poland-classic #shipping_oyiso_house_number_field,
+    .oyiso-poland-classic #billing_postcode_field,
+    .oyiso-poland-classic #shipping_postcode_field {
+        width: 48%;
+        float: left;
+        clear: left;
+    }
+
+    .oyiso-poland-classic #billing_address_2_field,
+    .oyiso-poland-classic #shipping_address_2_field,
+    .oyiso-poland-classic #billing_city_field,
+    .oyiso-poland-classic #shipping_city_field {
+        width: 48%;
+        float: right;
+        clear: none;
+    }
+    .oyiso-poland-billing #billing .wc-block-components-text-input:has([data-oyiso-poland-field="oyiso-checkout/house-number"]),
+    .oyiso-poland-shipping #shipping .wc-block-components-text-input:has([data-oyiso-poland-field="oyiso-checkout/house-number"]) {
+        width: calc(50% - 6px);
+        flex: 0 0 calc(50% - 6px);
+        margin-right: 0;
+    }
+
+    .oyiso-poland-billing #billing .wc-block-components-address-form__address_2,
+    .oyiso-poland-shipping #shipping .wc-block-components-address-form__address_2 {
+        width: calc(50% - 6px);
+        flex: 0 0 calc(50% - 6px);
+    }
+
+    .oyiso-poland-billing #billing .wc-block-components-address-form__postcode,
+    .oyiso-poland-shipping #shipping .wc-block-components-address-form__postcode {
+        width: calc(50% - 6px);
+        flex: 0 0 calc(50% - 6px);
+        margin-right: 0;
+    }
+
+    .oyiso-poland-billing #billing .wc-block-components-address-form__city,
+    .oyiso-poland-shipping #shipping .wc-block-components-address-form__city {
+        width: calc(50% - 6px);
+        flex: 0 0 calc(50% - 6px);
+    }
+}
+
+@media (max-width: 599px) {
+    .oyiso-poland-classic .form-row {
+        width: 100%;
+        float: none;
+        clear: both;
+    }
+    .oyiso-poland-billing #billing .wc-block-components-text-input,
+    .oyiso-poland-shipping #shipping .wc-block-components-text-input {
+        width: 100%;
+        flex: 0 0 100%;
+        margin-right: 0;
+    }
+}
