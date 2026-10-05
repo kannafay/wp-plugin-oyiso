@@ -10,6 +10,7 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
         public const STREET = 'oyiso-checkout/street';
         public const HOUSE = 'oyiso-checkout/house-number';
         private const OPTION = 'oyiso_wc_poland_checkout_enabled';
+        private const PHONE_ERROR = 'Podaj prawidłowy numer telefonu z numerem kierunkowym, np. +48 512 345 678.';
 
         public static function init(): void
         {
@@ -270,7 +271,7 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
                     }
                 }
                 if ($errors->has_errors()) {
-                    throw new Automattic\WooCommerce\StoreApi\Exceptions\RouteException('oyiso_invalid_polish_address', implode(' ', $errors->get_error_messages()), 400);
+                    throw new Automattic\WooCommerce\StoreApi\Exceptions\RouteException('oyiso_invalid_polish_address', implode(' ', array_unique($errors->get_error_messages())), 400);
                 }
             }
             foreach (['billing', 'shipping'] as $group) {
@@ -314,7 +315,7 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
             }
             $phone = self::phone(self::text($address['phone'] ?? ''));
             if (($requirePhone || $phone !== '') && !self::validPhone($phone)) {
-                $errors->add($group . '_phone_validation', 'Podaj prawidłowy numer telefonu z numerem kierunkowym, np. +48 512 345 678.', ['id' => $group . '_phone']);
+                $errors->add($group . '_phone_validation', self::PHONE_ERROR, ['id' => $group . '_phone']);
             }
         }
 
@@ -369,8 +370,11 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
                 return;
             }
             wp_enqueue_style('oyiso-poland-checkout', plugins_url('assets/checkout.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/checkout.css'));
-            wp_enqueue_script('oyiso-poland-checkout', plugins_url('assets/checkout.js', __FILE__), ['jquery', 'wp-data', 'wc-blocks-data-store'], (string) filemtime(__DIR__ . '/assets/checkout.js'), true);
-            wp_localize_script('oyiso-poland-checkout', 'oyisoPolandCheckout', ['otherPhoneRequired' => get_option('woocommerce_checkout_phone_field') === 'required']);
+            wp_enqueue_script('oyiso-poland-checkout', plugins_url('assets/checkout.js', __FILE__), ['jquery', 'wp-data', 'wc-blocks-data-store', 'wc-blocks-checkout-events'], (string) filemtime(__DIR__ . '/assets/checkout.js'), true);
+            wp_localize_script('oyiso-poland-checkout', 'oyisoPolandCheckout', [
+                'otherPhoneRequired' => get_option('woocommerce_checkout_phone_field') === 'required',
+                'phoneError' => self::PHONE_ERROR,
+            ]);
         }
     }
 

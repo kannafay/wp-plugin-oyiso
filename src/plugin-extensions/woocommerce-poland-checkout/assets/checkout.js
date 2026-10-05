@@ -4,6 +4,9 @@
     var streetKey = 'oyiso-checkout/street';
     var houseKey = 'oyiso-checkout/house-number';
     var cartStore = wc && wc.wcBlocksData && wc.wcBlocksData.cartStore;
+    var validationStore = wc && wc.wcBlocksData && wc.wcBlocksData.validationStore;
+    var checkoutEvents = wc && wc.blocksCheckoutEvents && wc.blocksCheckoutEvents.checkoutEvents;
+    var phoneError = window.oyisoPolandCheckout && window.oyisoPolandCheckout.phoneError;
     var syncing = false;
 
     function formatPostcode(value) {
@@ -16,6 +19,37 @@
         if (/^\d{9}$/.test(compact)) return '+48' + compact;
         if (/^48\d{9}$/.test(compact)) return '+' + compact;
         return compact;
+    }
+
+    function validPhone(value) {
+        var compact = formatPhone(value);
+        return compact.startsWith('+48') ? /^\+48\d{9}$/.test(compact) : /^\+[1-9]\d{6,14}$/.test(compact);
+    }
+
+    function validateBlockPhones(show, onlyGroup) {
+        var errors = {};
+        if (!validationStore || !phoneError) return errors;
+        var customer = wp.data.select(cartStore).getCustomerData();
+        var validation = wp.data.select(validationStore);
+        var actions = wp.data.dispatch(validationStore);
+        ['billing', 'shipping'].forEach(function (group) {
+            if (onlyGroup && group !== onlyGroup) return;
+            var input = document.getElementById(group + '-phone');
+            var address = customer && customer[group + 'Address'];
+            var errorId = group + '_phone';
+            var current = validation.getValidationError(errorId);
+            var value = show && input ? input.value : address && address.phone;
+            if (!input || input.disabled || !address || address.country !== 'PL' || !value || validPhone(value)) {
+                // Leave WooCommerce's own required-field and third-party errors intact.
+                if (current && current.message === phoneError) actions.clearValidationError(errorId);
+                return;
+            }
+            errors[errorId] = { message: phoneError, hidden: show ? false : !current || current.hidden };
+            if (!current || current.message !== phoneError || current.hidden !== errors[errorId].hidden) {
+                actions.setValidationErrors({ [errorId]: errors[errorId] });
+            }
+        });
+        return errors;
     }
 
     function setRequired($field, required) {
@@ -83,6 +117,7 @@
             syncing = false;
         }
         openOptionalAddresses();
+        validateBlockPhones(false);
     }
 
     function openOptionalAddresses() {
@@ -106,6 +141,10 @@
         if (cartStore && wp && wp.data) {
             syncBlocks();
             wp.data.subscribe(syncBlocks, cartStore);
+            if (checkoutEvents) checkoutEvents.onCheckoutValidation(function () {
+                var errors = validateBlockPhones(true);
+                if (Object.keys(errors).length) return { type: 'error', validationErrors: errors };
+            });
             var checkout = document.querySelector('.wp-block-woocommerce-checkout');
             if (checkout) new MutationObserver(openOptionalAddresses).observe(checkout, { childList: true, subtree: true });
             $(document).on('focusout', '.wc-block-components-address-form input', function () {
@@ -120,6 +159,7 @@
                     change[field] = value;
                     wp.data.dispatch(cartStore)[group === 'billing' ? 'setBillingAddress' : 'setShippingAddress'](change);
                 }
+                if (field === 'phone') validateBlockPhones(true, group);
             });
         }
     });
