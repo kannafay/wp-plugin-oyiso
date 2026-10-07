@@ -277,6 +277,11 @@
             e.stopPropagation();
         });
 
+        // 快速价格由即时保存管理，避免 WC 在失焦时再次标记为未保存。
+        $variation.find('.oyiso-vi-inline').on('input change', '.oyiso-vi-price', function (e) {
+            e.stopPropagation();
+        });
+
         var $panel = $variation.find('.woocommerce_variable_attributes');
 
         // 价格输入：实时同步到隐藏字段，输入时防抖保存
