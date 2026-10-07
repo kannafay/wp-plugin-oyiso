@@ -270,10 +270,12 @@
     font-size: 13px;
     height: 36px;
     min-height: 36px;
+    line-height: 34px;
     margin: 0;
-    padding: 4px 28px 4px 10px;
+    padding: 0 28px 0 10px;
     border-color: #dcdcde;
     border-radius: 6px;
+    background-position: right 8px center;
 }
 
 .oyiso-vim-dialog select {
