@@ -1,4 +1,4 @@
-﻿(function ($) {
+(function ($) {
     'use strict';
 
     if (typeof window.oyisoVIConfig === 'undefined') {
@@ -51,7 +51,6 @@
             t.$thumb.addClass('oyiso-vi-thumb-has-image').removeAttr('title');
             t.$thumb.data('image-id', attachment.id);
             t.$panel.find('.upload_image_id')[0] && (t.$panel.find('.upload_image_id')[0].value = attachment.id);
-            markFormClean();
             var $uploadBtn = t.$panel.find('.upload_image_button');
             $uploadBtn.addClass('remove').attr('data-tip', '移除图片');
             $uploadBtn.find('img').attr('src', thumbSize);
@@ -294,6 +293,7 @@
                 var vid = $variation.find('.variable_post_id').val();
                 if (vid) {
                     clearTimeout(saveTimers[vid + '_' + field]);
+                    delete saveTimers[vid + '_' + field];
                 }
                 return;
             }
@@ -327,22 +327,25 @@
                 var fld = $input.data('field');
                 if (vid && fld) {
                     clearTimeout(saveTimers[vid + '_' + fld]);
+                    delete saveTimers[vid + '_' + fld];
                 }
                 return;
             }
 
-            // 失焦时浏览器会先触发 change 事件，WooCommerce 的 input_changed 可能已加了脏标记
-            $input.closest('.woocommerce_variation').removeClass('variation-needs-update');
-            $('button.cancel-variation-changes, button.save-variation-changes').prop('disabled', true);
-
-            // 走同一保存逻辑（防抖 + 写回隐藏字段 + 清理脏标记）
+            // Only clear the blur marker if this exact variation state was saved.
             var variationId = $variation.find('.variable_post_id').val();
             var field = $input.data('field');
             var value = $input.val();
             if (!variationId || !field) return;
 
             var key = variationId + '_' + field;
-            if (lastSavedValues[key] === value) return;
+            if (lastSavedValues[key] === value) {
+                if (savedVariationStates[variationId] === variationState($variation)) {
+                    $variation.removeClass('variation-needs-update');
+                }
+                refreshVariationSaveButtons();
+                return;
+            }
             saveVariation($variation, field, value, $input);
         });
 
@@ -378,7 +381,6 @@
             $thumb.removeClass('oyiso-vi-thumb-has-image');
             $thumb.data('image-id', '');
             $uploadId.val('');
-            markFormClean();
             var $uploadBtn = $panel.find('.upload_image_button');
             $uploadBtn.removeClass('remove');
             $uploadBtn.find('img').attr('src', placehold);
@@ -397,12 +399,10 @@
             // 立即转圈锁定，保存成功后再切换按钮状态
             $btn.addClass('oyiso-vi-saving');
             saveVariation($variation, 'stock_status', next, $btn, function () {
+                if ($panel.find('select[name^="variable_stock_status"]').val() !== next) return;
                 $btn.data('status', next);
                 $btn.text(STOCK_LABELS[next] || next);
                 $btn.removeClass('oyiso-vi-green oyiso-vi-red oyiso-vi-orange').addClass(STOCK_CLASSES[next] || '');
-                var sel = $panel.find('select[name^="variable_stock_status"]')[0];
-                if (sel) sel.value = next;
-                markFormClean();
             });
         });
 
@@ -416,12 +416,10 @@
             // 立即转圈锁定，保存成功后再切换按钮状态
             $btn.addClass('oyiso-vi-saving');
             saveVariation($variation, 'enabled', nextEnabled ? '1' : '0', $btn, function () {
+                if ($panel.find('input[name^="variable_enabled"]').prop('checked') !== nextEnabled) return;
                 $btn.data('status', nextEnabled ? '1' : '0');
                 $btn.text(nextEnabled ? '启用' : '禁用');
                 $btn.removeClass('oyiso-vi-green oyiso-vi-gray').addClass(nextEnabled ? 'oyiso-vi-green' : 'oyiso-vi-gray');
-                var chk = $panel.find('input[name^="variable_enabled"]')[0];
-                if (chk) chk.checked = nextEnabled;
-                markFormClean();
             });
         });
 
@@ -489,6 +487,38 @@
 
     var saveTimers = {};
     var lastSavedValues = {};
+    var saveQueues = {};
+    var savedVariationStates = {};
+
+    function variationState($variation) {
+        return JSON.stringify($variation.find(':input').add($('.variations-defaults select[name]')).map(function () {
+            return [this.name || '', $(this).val(), !!this.checked, this.dataset.inlineValue || ''];
+        }).get());
+    }
+
+    function refreshVariationSaveButtons() {
+        var busy = Object.keys(saveTimers).length > 0 || Object.keys(saveQueues).length > 0;
+        var dirty = $('#variable_product_options .variation-needs-update').length > 0;
+        $('button.cancel-variation-changes, button.save-variation-changes').prop('disabled', busy || !dirty);
+    }
+
+    // Whole-variation payloads must finish in order, even when different fields change.
+    function enqueueVariationSave(variationId, save) {
+        var queue = saveQueues[variationId] || (saveQueues[variationId] = []);
+        function runNext() {
+            queue[0](function () {
+                queue.shift();
+                if (queue.length) {
+                    runNext();
+                } else {
+                    delete saveQueues[variationId];
+                }
+                refreshVariationSaveButtons();
+            });
+        }
+        queue.push(save);
+        if (queue.length === 1) runNext();
+    }
 
     function prepareNativeVariationValue($variation, field, value) {
         var $panel = $variation.find('.woocommerce_variable_attributes');
@@ -527,11 +557,12 @@
 
         return {
             commit: function () {
-                if (field === 'regular_price' || field === 'sale_price') {
+                if ((field === 'regular_price' || field === 'sale_price') && $native.attr('data-inline-value') === value) {
                     $native.removeAttr('data-inline-value');
                 }
             },
             rollback: function () {
+                if ((isCheckbox ? $native.prop('checked') : $native.val()) !== (isCheckbox ? value === '1' : value)) return;
                 if (isCheckbox) {
                     $native.prop('checked', previous);
                 } else {
@@ -570,19 +601,6 @@
         return output === '-1' || /class=(['"])[^'"]*\berror\b[^'"]*\1/i.test(output);
     }
 
-    function markFormClean() {
-        // 强制 WordPress 认为表单已保存
-        try {
-            if (window.wp && window.wp.autosave && window.wp.autosave.server) {
-                window.wp.autosave.server.postChanged();
-                window.wp.autosave.server.reset();
-            }
-        } catch (e) {}
-        $('#post > .inside').removeClass('changed');
-        $(window).off('beforeunload.edit-post');
-        $('#post').data('changed', false);
-    }
-
     function saveVariation($variation, field, value, $el, onSuccess) {
         var variationId = $variation.find('.variable_post_id').val();
         if (!variationId) {
@@ -591,58 +609,71 @@
 
         var key = variationId + '_' + field;
         lastSavedValues[key] = value;
+        var nativeValue = prepareNativeVariationValue($variation, field, value);
+        $variation.addClass('variation-needs-update');
         clearTimeout(saveTimers[key]);
         saveTimers[key] = setTimeout(function () {
-            if ($el) { $el.addClass('oyiso-vi-saving'); }
-            var useOfficialSave = canUseOfficialVariationSave();
-            var nativeValue = prepareNativeVariationValue($variation, field, value);
-            var saved = false;
-            $.ajax({
-                url: config.ajaxurl,
-                type: 'POST',
-                dataType: useOfficialSave ? 'html' : 'json',
-                data: useOfficialSave ? buildOfficialVariationSaveData($variation) : {
-                    action: config.action,
-                    nonce: config.nonce,
-                    variation_id: variationId,
-                    field: field,
-                    value: value
-                },
-                success: function (resp) {
-                    var success = useOfficialSave
-                        ? !officialVariationSaveFailed(resp)
-                        : !!(resp && resp.success);
+            delete saveTimers[key];
+            enqueueVariationSave(variationId, function (done) {
+                if ($el) { $el.addClass('oyiso-vi-saving'); }
+                var useOfficialSave = canUseOfficialVariationSave();
+                var saved = false;
+                var submittedState = variationState($variation);
+                var savedState = null;
+                $.ajax({
+                    url: config.ajaxurl,
+                    type: 'POST',
+                    dataType: useOfficialSave ? 'html' : 'json',
+                    data: useOfficialSave ? buildOfficialVariationSaveData($variation) : {
+                        action: config.action,
+                        nonce: config.nonce,
+                        variation_id: variationId,
+                        field: field,
+                        value: value
+                    },
+                    success: function (resp) {
+                        var success = useOfficialSave
+                            ? !officialVariationSaveFailed(resp)
+                            : !!(resp && resp.success);
 
-                    if (!success) {
-                        nativeValue.rollback();
-                        return;
-                    }
+                        if (!success) {
+                            if (!useOfficialSave) nativeValue.rollback();
+                            return;
+                        }
 
-                    saved = true;
-                    nativeValue.commit();
-                    if (onSuccess) {
-                        onSuccess(resp);
-                    }
-                    if (useOfficialSave) {
-                        $('#woocommerce-product-data').trigger('woocommerce_variations_saved');
-                    }
-                },
-                error: function () {
-                    nativeValue.rollback();
-                },
-                complete: function () {
-                    if ($el) { $el.removeClass('oyiso-vi-saving'); }
-                    if (!saved) {
-                        delete lastSavedValues[key];
-                        return;
-                    }
+                        saved = true;
+                        var unchanged = submittedState === variationState($variation);
+                        nativeValue.commit();
+                        if (onSuccess) {
+                            onSuccess(resp);
+                        }
+                        if (useOfficialSave) {
+                            $('#woocommerce-product-data').trigger('woocommerce_variations_saved');
+                            if (unchanged) savedState = variationState($variation);
+                        }
+                    },
+                    error: function () {
+                        if (!useOfficialSave) nativeValue.rollback();
+                    },
+                    complete: function () {
+                        if ($el) { $el.removeClass('oyiso-vi-saving'); }
+                        if (!saved) {
+                            if (lastSavedValues[key] === value) delete lastSavedValues[key];
+                            $variation.addClass('variation-needs-update');
+                            done();
+                            return;
+                        }
 
-                    markFormClean();
-                    $el && $el.closest('.woocommerce_variation').removeClass('variation-needs-update');
-                    $('button.cancel-variation-changes, button.save-variation-changes').prop('disabled', true);
-                }
+                        if (useOfficialSave && savedState !== null && savedState === variationState($variation)) {
+                            savedVariationStates[variationId] = savedState;
+                            $variation.removeClass('variation-needs-update');
+                        }
+                        done();
+                    }
+                });
             });
         }, field === 'stock_status' || field === 'enabled' || field === 'image_id' ? 0 : 500);
+        refreshVariationSaveButtons();
     }
 
     // 初始化所有已有变体
@@ -668,6 +699,7 @@
             if ($container.length) {
                 observer.observe($container[0], { childList: true, subtree: true });
             }
+            $(document.body).on('change input', '#variable_product_options .woocommerce_variation :input, .variations-defaults select', refreshVariationSaveButtons);
         }
     });
 

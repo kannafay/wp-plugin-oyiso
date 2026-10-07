@@ -168,7 +168,10 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
                 return;
             }
             foreach (['billing', 'shipping'] as $group) {
-                if (($data[$group . '_country'] ?? '') !== 'PL' || ($group === 'shipping' && empty($data['ship_to_different_address']))) {
+                if (($data[$group . '_country'] ?? '') !== 'PL') {
+                    continue;
+                }
+                if ($group === 'shipping' && (empty($data['ship_to_different_address']) || (WC()->cart && !WC()->cart->needs_shipping_address()))) {
                     continue;
                 }
                 $address = [
@@ -266,8 +269,13 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
                 return;
             }
             $errors = new WP_Error();
+            $groups = ['billing', 'shipping'];
+            // Store API checkout omits shipping validation when the cart needs no delivery.
+            if (str_ends_with($request->get_route(), '/checkout') && WC()->cart && !WC()->cart->needs_shipping()) {
+                $groups = ['billing'];
+            }
             if ($request->get_method() === 'POST' && str_ends_with($request->get_route(), '/checkout')) {
-                foreach (['billing', 'shipping'] as $group) {
+                foreach ($groups as $group) {
                     $address = $request->get_param($group . '_address');
                     if (is_array($address) && ($address['country'] ?? '') === 'PL') {
                         self::validateAddress($address, $group, $errors, $group === 'billing');
@@ -277,7 +285,7 @@ if (!class_exists('Oyiso_WC_Poland_Checkout')) {
                     throw new Automattic\WooCommerce\StoreApi\Exceptions\RouteException('oyiso_invalid_polish_address', implode(' ', array_unique($errors->get_error_messages())), 400);
                 }
             }
-            foreach (['billing', 'shipping'] as $group) {
+            foreach ($groups as $group) {
                 $address = $request->get_param($group . '_address');
                 if (!is_array($address) || ($address['country'] ?? '') !== 'PL') {
                     continue;
