@@ -7,9 +7,10 @@ defined('ABSPATH') || exit;
 require_once __DIR__ . '/image-matcher.php';
 
 /**
+ * @phpstan-type GalleryImage array{id: int, filename: string, url: string}
  * @phpstan-type ImageData array{id: int, filename: string, url: string, ambiguous: bool}
  * @phpstan-type PreviewRow array{id: int, label: string, value: string, current_image_id: int, current_image_url: string, current_gallery_ids: list<int>, candidates: list<ImageData>, suggested_image_id: int}
- * @phpstan-type PreviewData array{attribute: string, attributes: list<array{id: string, label: string}>, rows: list<PreviewRow>}
+ * @phpstan-type PreviewData array{attribute: string, attributes: list<array{id: string, label: string}>, gallery: list<GalleryImage>, rows: list<PreviewRow>}
  * @phpstan-type Selection array{variation_id: int, image_id: int, expected_image_id: int}
  * @phpstan-type SaveResult array{variation_id: int, success: bool, message: string, image_id?: int, url?: string, gallery_html?: string}
  */
@@ -128,7 +129,12 @@ final class Oyiso_WC_Variation_Image_Match
             ];
         }
 
-        return ['attribute' => $attribute, 'attributes' => $attributes, 'rows' => $rows];
+        $gallery = [];
+        foreach ($images as $image) {
+            $gallery[] = ['id' => $image->id, 'filename' => $image->filename, 'url' => $image->url];
+        }
+
+        return ['attribute' => $attribute, 'attributes' => $attributes, 'gallery' => $gallery, 'rows' => $rows];
     }
 
     /**
@@ -149,6 +155,7 @@ final class Oyiso_WC_Variation_Image_Match
             return $preview;
         }
         $rows = array_column($preview['rows'], null, 'id');
+        $allowedImages = array_column($preview['gallery'], 'id');
         $results = [];
         $seen = [];
         foreach ($selections as $selection) {
@@ -165,8 +172,8 @@ final class Oyiso_WC_Variation_Image_Match
                 $error = '封面已更改，请重新识别。';
             } elseif (!$overwrite && $row['current_image_id'] > 0) {
                 $error = '已有封面，已跳过。';
-            } elseif (!in_array($selection['image_id'], array_column($row['candidates'], 'id'), true)) {
-                $error = '图片不在当前匹配结果中，请重新识别。';
+            } elseif (!in_array($selection['image_id'], $allowedImages, true)) {
+                $error = '图片不在当前产品图库中或无权使用，请重新识别。';
             }
             if ($error !== '') {
                 $results[] = ['variation_id' => $id, 'success' => false, 'message' => $error];
@@ -342,15 +349,15 @@ final class Oyiso_WC_Variation_Image_Match
             <div class="oyiso-vim-dialog" role="dialog" aria-modal="true" aria-labelledby="oyiso-vim-title" tabindex="-1">
                 <div class="oyiso-vim-header">
                     <h2 id="oyiso-vim-title">从产品图库匹配封面</h2>
-                    <button type="button" class="button-link oyiso-vim-close" aria-label="关闭">&times;</button>
+                    <button type="button" class="oyiso-vim-close" aria-label="关闭">&times;</button>
                 </div>
                 <div class="oyiso-vim-body">
-                    <p class="oyiso-vim-description">按图片文件名匹配变体属性值，每个变体设置一张封面。</p>
+                    <p class="oyiso-vim-description">按图库文件名推荐封面，也可为每个变体手动选择一张图库图片。</p>
                     <div class="oyiso-vim-controls">
                         <label for="oyiso-vim-attribute">匹配属性
                             <select id="oyiso-vim-attribute"></select>
                         </label>
-                        <label><input type="checkbox" id="oyiso-vim-overwrite"> 覆盖已有封面</label>
+                        <label class="oyiso-vim-overwrite-label"><input type="checkbox" id="oyiso-vim-overwrite"> 覆盖已有封面</label>
                         <button type="button" class="button oyiso-vim-rescan">重新识别</button>
                     </div>
                     <p id="oyiso-vim-message" role="status" aria-live="polite"></p>
@@ -358,7 +365,7 @@ final class Oyiso_WC_Variation_Image_Match
                         <table class="widefat striped oyiso-vim-table">
                             <thead><tr>
                                 <td class="check-column"><input type="checkbox" id="oyiso-vim-select-all" aria-label="选择全部可应用的变体"></td>
-                                <th scope="col">变体</th><th scope="col">当前封面</th><th scope="col">匹配封面</th><th scope="col">状态</th>
+                                <th scope="col">变体</th><th scope="col">当前封面</th><th scope="col">选择封面</th><th scope="col">状态</th>
                             </tr></thead>
                             <tbody></tbody>
                         </table>

@@ -11,6 +11,13 @@
     justify-content: center;
     padding: 24px;
     background: rgba(0, 0, 0, .5);
+    box-sizing: border-box;
+    opacity: 0;
+    transition: opacity .15s ease-out;
+}
+
+.oyiso-vim-backdrop.is-open {
+    opacity: 1;
 }
 
 .oyiso-vim-dialog {
@@ -20,45 +27,78 @@
     display: flex;
     flex-direction: column;
     background: #fff;
-    box-shadow: 0 5px 30px rgba(0, 0, 0, .25);
-    color: #1d2327;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, .15), 0 1px 3px rgba(0, 0, 0, .08);
+    color: #1e1e1e;
+    overflow: hidden;
+    transform: scale(.9);
+    transition: transform .2s cubic-bezier(.4, 0, .2, 1);
+}
+
+.oyiso-vim-backdrop.is-open .oyiso-vim-dialog {
+    transform: scale(1);
 }
 
 .oyiso-vim-header,
 .oyiso-vim-footer {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 16px 20px;
+    gap: 8px;
+    padding: 12px 24px;
     flex-shrink: 0;
 }
 
 .oyiso-vim-header {
     justify-content: space-between;
-    border-bottom: 1px solid #dcdcde;
+    padding-top: 20px;
+    padding-bottom: 16px;
 }
 
 .oyiso-vim-header h2 {
     margin: 0;
-    font-size: 18px;
-    line-height: 1.4;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #1e1e1e;
 }
 
 .oyiso-vim-close {
-    font-size: 26px;
+    background: none;
+    border: none;
+    font-size: 24px;
     line-height: 1;
-    text-decoration: none;
-    padding: 3px 6px;
+    color: #757575;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color .15s;
+}
+
+.oyiso-vim-close:hover {
+    color: #1e1e1e;
+}
+
+.oyiso-vim-close:focus-visible {
+    outline: 2px solid var(--wp-admin-theme-color, #3858e9);
+    outline-offset: 3px;
+    border-radius: 2px;
+}
+
+.oyiso-vim-close:disabled {
+    cursor: default;
+    opacity: .5;
 }
 
 .oyiso-vim-body {
-    padding: 0 20px 20px;
+    padding: 0 24px 20px;
     overflow: auto;
     min-height: 0;
 }
 
 .oyiso-vim-description {
-    color: #646970;
+    margin: 0 0 16px;
+    color: #333;
+    font-size: 14px;
+    line-height: 1.6;
 }
 
 .oyiso-vim-controls {
@@ -66,12 +106,21 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 12px 20px;
+    padding: 12px 0;
+    border-top: 1px solid #e5e5e5;
+    border-bottom: 1px solid #e5e5e5;
 }
 
 .oyiso-vim-controls label {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    font-size: 13px;
+    color: #50575e;
+}
+
+.oyiso-vim-controls .oyiso-vim-rescan {
+    margin-left: auto;
 }
 
 .oyiso-vim-controls input[type="checkbox"] {
@@ -80,28 +129,46 @@
 
 #oyiso-vim-message {
     min-height: 20px;
+    margin: 12px 0;
+    color: #646970;
+    font-size: 13px;
+    line-height: 1.5;
 }
 
-.oyiso-vim-error {
+#oyiso-vim-message.oyiso-vim-error,
+.oyiso-vim-table .oyiso-vim-error {
     color: #b32d2e;
 }
 
 .oyiso-vim-table-wrap {
     overflow-x: auto;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
 }
 
 .oyiso-vim-table {
     table-layout: fixed;
     min-width: 680px;
+    border: none;
+    box-shadow: none;
+}
+
+.oyiso-vim-table thead {
+    background: #f6f7f7;
+}
+
+.oyiso-vim-table th {
+    font-size: 12px;
+    color: #646970;
 }
 
 .oyiso-vim-table .check-column {
-    width: 36px;
-    padding-left: 10px;
+    width: 28px;
+    padding: 14px 0 14px 12px;
 }
 
 .oyiso-vim-table th:nth-child(3) {
-    width: 80px;
+    width: 64px;
 }
 
 .oyiso-vim-table th:nth-child(4) {
@@ -109,12 +176,23 @@
 }
 
 .oyiso-vim-table th:nth-child(5) {
-    width: 140px;
+    width: 124px;
 }
 
 .oyiso-vim-table td {
     vertical-align: middle;
     overflow-wrap: anywhere;
+    padding: 10px 8px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.oyiso-vim-table td strong {
+    display: block;
+    margin-bottom: 2px;
+    color: #646970;
+    font-size: 12px;
+    font-weight: 400;
 }
 
 .oyiso-vim-image {
@@ -123,6 +201,7 @@
     object-fit: contain;
     flex-shrink: 0;
     background: #f6f7f7;
+    border-radius: 4px;
 }
 
 .oyiso-vim-target {
@@ -131,23 +210,41 @@
     gap: 10px;
 }
 
-.oyiso-vim-target select,
-.oyiso-vim-filename {
+.oyiso-vim-target select {
     min-width: 0;
     max-width: 100%;
+    width: 100%;
+    font-size: 13px;
 }
 
-.oyiso-vim-target select {
-    width: 100%;
+.oyiso-vim-dialog select {
+    border-radius: 4px;
+    border-color: #949494;
+    color: #1e1e1e;
+}
+
+.oyiso-vim-dialog select:focus {
+    border-color: var(--wp-admin-theme-color, #3858e9);
+    box-shadow: 0 0 0 1px var(--wp-admin-theme-color, #3858e9);
 }
 
 .oyiso-vim-footer {
-    border-top: 1px solid #dcdcde;
+    border-top: 1px solid #e5e5e5;
+    justify-content: flex-end;
 }
 
 #oyiso-vim-selection-count {
     margin-right: auto;
     color: #646970;
+    font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .oyiso-vim-backdrop,
+    .oyiso-vim-dialog,
+    .oyiso-vim-close {
+        transition: none;
+    }
 }
 
 .oyiso-vim-launch {

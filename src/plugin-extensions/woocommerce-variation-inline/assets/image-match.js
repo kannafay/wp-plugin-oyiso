@@ -13,6 +13,7 @@
         const $message = $('#oyiso-vim-message');
         const $apply = $modal.find('.oyiso-vim-apply');
         let rows = [];
+        let gallery = [];
         let previewIds = [];
         let sequence = 0;
         let request = null;
@@ -60,11 +61,12 @@
         function updateRow($tr, selectByDefault) {
             const row = $tr.data('preview');
             const targetId = Number($tr.find('.oyiso-vim-pick').val() || 0);
+            const target = gallery.find(item => item.id === targetId);
+            const candidate = row.candidates.find(item => item.id === targetId);
             const $check = $tr.find('.oyiso-vim-check');
             let status = '';
             if (nativeCoverChanged(row)) status = '封面有未保存的更改';
-            else if (!row.candidates.length) status = row.value ? '未匹配到图片' : '任意属性，无法匹配';
-            else if (!targetId) status = '文件名有歧义，请选择';
+            else if (!target) status = row.candidates.length ? '请选择图库图片' : (row.value ? '未匹配，请手动选图' : '任意属性，请手动选图');
             else if (row.current_image_id === targetId) status = '封面已是该图片';
             else if (row.current_image_id && !$overwrite.is(':checked')) status = '已有封面，跳过';
 
@@ -73,7 +75,8 @@
             if (!eligible) $check.prop('checked', false);
             else if (selectByDefault) $check.prop('checked', true);
             $tr.find('.oyiso-vim-pick').prop('disabled', loading || busy || finished);
-            $tr.find('.oyiso-vim-status').text($tr.data('resultMessage') || status || (row.candidates.length > 1 ? '可应用，可切换图片' : '可应用'));
+            const choiceStatus = candidate ? (candidate.ambiguous ? '手动选择（可能匹配）' : '已匹配') : '手动选择';
+            $tr.find('.oyiso-vim-status').text($tr.data('resultMessage') || status || choiceStatus);
         }
 
         function updateSelection() {
@@ -111,15 +114,25 @@
                 else $current.text('未设置');
                 const $target = $('<div class="oyiso-vim-target">');
                 const $pick = $('<select class="oyiso-vim-pick">').attr('aria-label', '变体 #' + row.id + ' 的封面');
-                if (!row.suggested_image_id) $('<option value="0">请选择图片</option>').appendTo($pick);
-                row.candidates.forEach(function (candidate) {
-                    $('<option>').val(candidate.id).text(candidate.filename + (candidate.ambiguous ? '（可能匹配）' : '')).appendTo($pick);
+                $('<option value="0">请选择图库图片</option>').appendTo($pick);
+                const candidateIds = new Set(row.candidates.map(item => item.id));
+                const groups = [
+                    {label: '推荐匹配', images: row.candidates.filter(item => !item.ambiguous)},
+                    {label: '可能匹配', images: row.candidates.filter(item => item.ambiguous)},
+                    {label: row.candidates.length ? '其他图库图片' : '产品图库', images: gallery.filter(item => !candidateIds.has(item.id))}
+                ];
+                groups.forEach(function (group) {
+                    if (!group.images.length) return;
+                    const $group = $('<optgroup>').attr('label', group.label).appendTo($pick);
+                    group.images.forEach(function (item) {
+                        $('<option>').val(item.id).text(item.filename).appendTo($group);
+                    });
                 });
                 $pick.val(String(row.suggested_image_id));
-                const candidate = row.candidates.find(item => item.id === row.suggested_image_id);
-                if (candidate && candidate.url) image(candidate.url, '匹配封面').appendTo($target);
+                const target = gallery.find(item => item.id === row.suggested_image_id);
+                if (target && target.url) image(target.url, '所选封面').appendTo($target);
                 $pick.appendTo($target);
-                $('<td>').append(row.candidates.length ? $target : '—').appendTo($tr);
+                $('<td>').append($target).appendTo($tr);
                 $('<td class="oyiso-vim-status">').appendTo($tr);
                 $tr.appendTo($body);
             });
@@ -132,6 +145,7 @@
             loading = true;
             finished = false;
             rows = [];
+            gallery = [];
             previewIds = galleryIds();
             $body.empty();
             updateControls();
@@ -151,8 +165,9 @@
                 });
                 $attribute.val(response.data.attribute);
                 rows = response.data.rows;
+                gallery = response.data.gallery;
                 renderRows();
-                message('已识别 ' + rows.length + ' 个变体。同一属性匹配多张图片时，默认选择图库中排在最前的一张。');
+                message('共 ' + rows.length + ' 个变体、' + gallery.length + ' 张图库图片。未匹配的可手动选图。');
             } catch (error) {
                 if (current === sequence && error.statusText !== 'abort') message(error.message || '识别失败，请检查网络后重试。', true);
             } finally {
@@ -170,6 +185,8 @@
             bodyOverflow = document.body.style.overflow;
             document.body.style.overflow = 'hidden';
             $modal.prop('hidden', false);
+            $modal[0].offsetHeight;
+            $modal.addClass('is-open');
             $modal.find('.oyiso-vim-dialog').trigger('focus');
             $overwrite.prop('checked', false);
             scan();
@@ -180,7 +197,7 @@
             ++sequence;
             if (request) request.abort();
             request = null;
-            $modal.prop('hidden', true);
+            $modal.removeClass('is-open').prop('hidden', true);
             document.body.style.overflow = bodyOverflow;
             if (returnFocus && returnFocus.isConnected) $(returnFocus).trigger('focus');
         }
@@ -297,10 +314,9 @@
         });
         $modal.on('change', '.oyiso-vim-pick', function () {
             const $tr = $(this).closest('tr');
-            const row = $tr.data('preview');
-            const candidate = row.candidates.find(item => item.id === Number($(this).val()));
+            const candidate = gallery.find(item => item.id === Number($(this).val()));
             $tr.find('.oyiso-vim-target img').remove();
-            if (candidate && candidate.url) image(candidate.url, '匹配封面').prependTo($tr.find('.oyiso-vim-target'));
+            if (candidate && candidate.url) image(candidate.url, '所选封面').prependTo($tr.find('.oyiso-vim-target'));
             updateRow($tr, true);
             updateSelection();
         });
