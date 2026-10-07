@@ -90,6 +90,7 @@
 
 .oyiso-vim-body {
     padding: 0 24px 20px;
+    flex-grow: 1;
     overflow: auto;
     min-height: 0;
 }

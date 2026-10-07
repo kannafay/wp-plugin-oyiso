@@ -7,6 +7,7 @@
     $(function () {
         const $modal = $('#oyiso-vim-modal');
         if (!$modal.length) return;
+        const $dialog = $modal.find('.oyiso-vim-dialog');
         const $attribute = $('#oyiso-vim-attribute');
         const $overwrite = $('#oyiso-vim-overwrite');
         const $multiFlavor = $('#oyiso-vim-multi-flavor');
@@ -26,6 +27,7 @@
         let finished = false;
         let returnFocus = null;
         let bodyOverflow = '';
+        let backdropPress = false;
 
         function mountButton() {
             const $anchor = $('#variable_product_options .toolbar-top .add_variation_manually');
@@ -190,6 +192,9 @@
             if (busy) return;
             const current = ++sequence;
             if (request) request.abort();
+            // Keep the dialog in place when blur replaces the rows with a loading state.
+            const dialogHeight = $dialog[0].offsetHeight;
+            if (dialogHeight) $dialog.css('min-height', 'min(' + dialogHeight + 'px, 90vh)');
             loading = true;
             finished = false;
             rows = [];
@@ -235,6 +240,7 @@
                     loading = false;
                     $table.attr('aria-busy', 'false');
                     updateControls(true);
+                    $dialog.css('min-height', '');
                 }
             }
         }
@@ -254,10 +260,12 @@
 
         function closeModal() {
             if (busy) return;
+            backdropPress = false;
             ++sequence;
             if (request) request.abort();
             request = null;
             $modal.removeClass('is-open').prop('hidden', true);
+            $dialog.css('min-height', '');
             document.body.style.overflow = bodyOverflow;
             if (returnFocus && returnFocus.isConnected) $(returnFocus).trigger('focus');
         }
@@ -365,7 +373,14 @@
 
         $(document).on('click', '.oyiso-vim-launch', openModal);
         $modal.on('click', '.oyiso-vim-close, .oyiso-vim-cancel', closeModal);
-        $modal.on('click', function (event) { if (event.target === this) closeModal(); });
+        $modal.on('pointerdown', function (event) { backdropPress = event.target === this; });
+        $modal.on('pointerup', function (event) { backdropPress = backdropPress && event.target === this; });
+        $modal.on('pointercancel', function () { backdropPress = false; });
+        $modal.on('click', function (event) {
+            const dismiss = backdropPress && event.target === this;
+            backdropPress = false;
+            if (dismiss) closeModal();
+        });
         $modal.on('click', '.oyiso-vim-rescan', scan);
         $attribute.on('change', scan);
         $multiFlavor.add($separator).on('change', scan);
