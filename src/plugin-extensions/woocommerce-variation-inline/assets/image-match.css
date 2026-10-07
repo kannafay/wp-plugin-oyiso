@@ -127,6 +127,47 @@
     margin: 0;
 }
 
+.oyiso-vim-multi-flavor-settings[hidden] {
+    display: none;
+}
+
+.oyiso-vim-multi-flavor-settings {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.oyiso-vim-multi-flavor-settings label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #50575e;
+    font-size: 13px;
+}
+
+#oyiso-vim-separator {
+    width: 160px;
+    height: 36px;
+    min-height: 36px;
+    line-height: 34px;
+    margin: 0;
+    padding: 0 10px;
+    border-color: #949494;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+#oyiso-vim-separator-hint {
+    flex: 1;
+    min-width: 240px;
+    color: #646970;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
 #oyiso-vim-message {
     min-height: 20px;
     margin: 12px 0;

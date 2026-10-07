@@ -9,6 +9,8 @@
         if (!$modal.length) return;
         const $attribute = $('#oyiso-vim-attribute');
         const $overwrite = $('#oyiso-vim-overwrite');
+        const $multiFlavor = $('#oyiso-vim-multi-flavor');
+        const $separator = $('#oyiso-vim-separator');
         const $table = $modal.find('.oyiso-vim-table');
         const $body = $modal.find('tbody');
         const $message = $('#oyiso-vim-message');
@@ -16,6 +18,7 @@
         let rows = [];
         let gallery = [];
         let previewIds = [];
+        let previewOptions = {multi_flavor: '0', separator: ''};
         let sequence = 0;
         let request = null;
         let loading = false;
@@ -59,6 +62,11 @@
             $message.text(text).toggleClass('oyiso-vim-error', !!error);
         }
 
+        function matchOptions() {
+            const enabled = $multiFlavor.is(':checked');
+            return {multi_flavor: enabled ? '1' : '0', separator: enabled ? String($separator.val() || '').trim() : ''};
+        }
+
         function updateRow($tr, selectByDefault) {
             const row = $tr.data('preview');
             const targetId = Number($tr.find('.oyiso-vim-pick').val() || 0);
@@ -94,7 +102,9 @@
 
         function updateControls(selectByDefault) {
             $attribute.prop('disabled', loading || busy || !$attribute.val());
-            $overwrite.add($modal.find('.oyiso-vim-rescan')).prop('disabled', loading || busy);
+            $overwrite.add($multiFlavor).add($modal.find('.oyiso-vim-rescan')).prop('disabled', loading || busy);
+            $modal.find('.oyiso-vim-multi-flavor-settings').prop('hidden', !$multiFlavor.is(':checked'));
+            $separator.prop('disabled', loading || busy || !$multiFlavor.is(':checked'));
             $modal.find('.oyiso-vim-close, .oyiso-vim-cancel').prop('disabled', busy);
             $modal.find('.oyiso-vim-cancel').text(finished ? '关闭' : '取消');
             $body.find('tr[data-variation-id]').each(function () { updateRow($(this), selectByDefault); });
@@ -185,6 +195,7 @@
             rows = [];
             gallery = [];
             previewIds = galleryIds();
+            previewOptions = matchOptions();
             $table.attr('aria-busy', 'true');
             tableState('正在加载匹配结果…', '正在读取产品图库与全部变体，请稍候。', true);
             if (!$attribute.val()) $attribute.empty().append('<option value="">正在加载属性…</option>');
@@ -195,7 +206,8 @@
                 request = $.ajax({url: config.ajaxurl, type: 'POST', dataType: 'json', data: {
                     action: config.preview_action, nonce: config.nonce,
                     product_id: Number($('#post_ID').val() || 0),
-                    attribute: $attribute.val() || '', gallery_ids: previewIds
+                    attribute: $attribute.val() || '', gallery_ids: previewIds,
+                    ...previewOptions
                 }});
                 const response = await request;
                 if (current !== sequence) return;
@@ -286,9 +298,10 @@
 
         async function apply() {
             if (busy || loading || finished) return;
-            if (galleryIds().join(',') !== previewIds.join(',')) {
+            const optionsChanged = JSON.stringify(matchOptions()) !== JSON.stringify(previewOptions);
+            if (galleryIds().join(',') !== previewIds.join(',') || optionsChanged) {
                 await scan();
-                if (rows.length) message('产品图库已更新，请确认新的匹配结果后再应用。');
+                if (rows.length) message(optionsChanged ? '匹配设置已更新，请确认新的匹配结果后再应用。' : '产品图库已更新，请确认新的匹配结果后再应用。');
                 return;
             }
             if ($('#variable_product_options .oyiso-vi-saving, #variable_product_options [data-inline-value]').length) {
@@ -317,6 +330,7 @@
                         action: config.apply_action, nonce: config.nonce,
                         product_id: Number($('#post_ID').val() || 0), attribute: $attribute.val(),
                         gallery_ids: previewIds, overwrite: $overwrite.is(':checked') ? '1' : '0',
+                        ...previewOptions,
                         selections: JSON.stringify(selections.slice(start, start + 20))
                     }});
                     if (!response || !response.success) throw new Error(response && response.data ? response.data.message : '保存失败，请重试。');
@@ -354,6 +368,10 @@
         $modal.on('click', function (event) { if (event.target === this) closeModal(); });
         $modal.on('click', '.oyiso-vim-rescan', scan);
         $attribute.on('change', scan);
+        $multiFlavor.add($separator).on('change', scan);
+        $separator.on('keydown', function (event) {
+            if (event.key === 'Enter') { event.preventDefault(); scan(); }
+        });
         $overwrite.on('change', function () { updateControls(true); });
         $modal.on('change', '.oyiso-vim-check', updateSelection);
         $('#oyiso-vim-select-all').on('change', function () {

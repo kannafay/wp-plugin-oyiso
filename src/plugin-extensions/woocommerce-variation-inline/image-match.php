@@ -77,7 +77,7 @@ final class Oyiso_WC_Variation_Image_Match
      * @param list<int> $galleryIds
      * @return PreviewData|WP_Error
      */
-    public static function preview(WC_Product_Variable $product, string $attribute, array $galleryIds): array|WP_Error
+    public static function preview(WC_Product_Variable $product, string $attribute, array $galleryIds, bool $multiFlavor = false, string $separator = ''): array|WP_Error
     {
         $attributes = self::attributes($product);
         $attribute = $attribute !== '' ? $attribute : ($attributes[0]['id'] ?? '');
@@ -113,7 +113,7 @@ final class Oyiso_WC_Variation_Image_Match
         if ($variations === []) {
             return new WP_Error('variations', '请先生成或添加变体，再进行匹配。');
         }
-        $matches = Oyiso_Variation_Image_Matcher::match($values, $images);
+        $matches = Oyiso_Variation_Image_Matcher::match($values, $images, $multiFlavor, $separator);
         $rows = [];
         foreach ($variations as $variation) {
             $value = $variation->get_attributes()[$attribute] ?? '';
@@ -153,12 +153,12 @@ final class Oyiso_WC_Variation_Image_Match
      * @param list<Selection> $selections
      * @return list<SaveResult>|WP_Error
      */
-    public static function apply(WC_Product_Variable $product, string $attribute, array $galleryIds, array $selections, bool $overwrite): array|WP_Error
+    public static function apply(WC_Product_Variable $product, string $attribute, array $galleryIds, array $selections, bool $overwrite, bool $multiFlavor = false, string $separator = ''): array|WP_Error
     {
         if (count($selections) > 20) {
             return new WP_Error('batch', '每次最多处理 20 个变体，请分批应用。');
         }
-        $preview = self::preview($product, $attribute, $galleryIds);
+        $preview = self::preview($product, $attribute, $galleryIds, $multiFlavor, $separator);
         if (is_wp_error($preview)) {
             return $preview;
         }
@@ -284,6 +284,14 @@ final class Oyiso_WC_Variation_Image_Match
         return is_string($value) ? sanitize_text_field((string) wp_unslash($value)) : '';
     }
 
+    private static function requestSeparator(): string
+    {
+        $value = $_POST['separator'] ?? '';
+
+        // Used as a literal delimiter, including symbols that HTML sanitization removes.
+        return is_string($value) ? trim(wp_check_invalid_utf8((string) wp_unslash($value))) : '';
+    }
+
     /** @return list<int> */
     private static function requestGalleryIds(): array
     {
@@ -313,7 +321,7 @@ final class Oyiso_WC_Variation_Image_Match
             wp_send_json_error(['message' => $product->get_error_message()], 403);
         }
         $attribute = self::requestText('attribute');
-        $preview = self::preview($product, $attribute, self::requestGalleryIds());
+        $preview = self::preview($product, $attribute, self::requestGalleryIds(), self::requestText('multi_flavor') === '1', self::requestSeparator());
         if (is_wp_error($preview)) {
             $attributes = self::attributes($product);
             wp_send_json_error([
@@ -345,7 +353,7 @@ final class Oyiso_WC_Variation_Image_Match
             }
             $selections[] = ['variation_id' => $selection['variation_id'], 'image_id' => $selection['image_id'], 'expected_image_id' => $selection['expected_image_id']];
         }
-        $results = self::apply($product, self::requestText('attribute'), self::requestGalleryIds(), $selections, self::requestText('overwrite') === '1');
+        $results = self::apply($product, self::requestText('attribute'), self::requestGalleryIds(), $selections, self::requestText('overwrite') === '1', self::requestText('multi_flavor') === '1', self::requestSeparator());
         if (is_wp_error($results)) {
             wp_send_json_error(['message' => $results->get_error_message()]);
         }
@@ -371,8 +379,15 @@ final class Oyiso_WC_Variation_Image_Match
                         <label for="oyiso-vim-attribute">匹配属性
                             <select id="oyiso-vim-attribute"></select>
                         </label>
+                        <label><input type="checkbox" id="oyiso-vim-multi-flavor"> 多口味</label>
                         <label class="oyiso-vim-overwrite-label"><input type="checkbox" id="oyiso-vim-overwrite"> 覆盖已有封面</label>
                         <button type="button" class="button oyiso-vim-rescan">重新识别</button>
+                    </div>
+                    <div class="oyiso-vim-multi-flavor-settings" hidden>
+                        <label for="oyiso-vim-separator">自定义分隔符
+                            <input type="text" id="oyiso-vim-separator" placeholder="留空使用预设" autocomplete="off" aria-describedby="oyiso-vim-separator-hint" disabled>
+                        </label>
+                        <span id="oyiso-vim-separator-hint">预设 /、|、+、逗号、分号、顿号（含全角）；填写后仅使用填写的分隔符。口味组合顺序不限。</span>
                     </div>
                     <p id="oyiso-vim-message" role="status" aria-live="polite"></p>
                     <div class="oyiso-vim-table-wrap">
