@@ -17,6 +17,7 @@
     var mediaTarget = null;
     var thumbPreviewTimer = null;
     var $thumbPreview = null;
+    var galleryQuickSaveCleanup = null;
 
     function removeThumbPreview() {
         clearTimeout(thumbPreviewTimer);
@@ -78,6 +79,63 @@
         return sharedMediaFrame;
     }
 
+    // Newer WC galleries own both the primary image and the ordered image list.
+    // Reuse their controls so the save payload and gallery preview stay in sync.
+    function editNativeGallery($variation, clearImage) {
+        var $gallery = $variation.find('.wc-variation-gallery-field');
+        var $input = $gallery.find('.wc-variation-gallery-image-ids');
+        if (!$input.length) return false;
+
+        if (galleryQuickSaveCleanup) galleryQuickSaveCleanup();
+        var $first = $gallery.find('.wc-variation-gallery-thumb').first();
+        if (!clearImage && $first.length) {
+            $first.find('.wc-variation-gallery-thumb__button').trigger('click');
+        }
+        var $trigger = clearImage
+            ? $first.find('.wc-variation-gallery-thumb__remove')
+            : $gallery.find($first.length ? '.wc-variation-gallery-replace' : '.wc-variation-gallery-manage').first();
+        if (!$trigger.length) return true;
+
+        var finished = false;
+        var modalObserver = null;
+        function cleanup() {
+            finished = true;
+            $input.off('change.oyisoViQuickImage', onChange);
+            if (modalObserver) modalObserver.disconnect();
+            if (galleryQuickSaveCleanup === cleanup) galleryQuickSaveCleanup = null;
+        }
+        function onChange() {
+            var imageId = parseInt(($input.val() || '').split(',')[0], 10) || '';
+            cleanup();
+            saveVariation($variation, 'image_id', imageId, $variation.find('.oyiso-vi-thumb'));
+        }
+        galleryQuickSaveCleanup = cleanup;
+        $input.on('change.oyisoViQuickImage', onChange);
+        $trigger.trigger('click');
+
+        if (!finished) {
+            // Cancelling a media dialog must not autosave a later normal gallery edit.
+            modalObserver = new MutationObserver(function () {
+                if (!$('.media-modal:visible').length) cleanup();
+            });
+            modalObserver.observe(document.body, { attributes: true, childList: true, subtree: true });
+            if (!$('.media-modal:visible').length) cleanup();
+        }
+        return true;
+    }
+
+    function bindGallerySync($variation) {
+        var $gallery = $variation.find('.wc-variation-gallery-field');
+        $gallery.find('.wc-variation-gallery-image-ids').on('change', function () {
+            var imageId = parseInt(($(this).val() || '').split(',')[0], 10) || '';
+            var src = imageId ? $gallery.find('.wc-variation-gallery-thumb').first().find('img').attr('src') : config.placeholder_img_src;
+            var $thumb = $variation.find('.oyiso-vi-thumb');
+            removeThumbPreview();
+            $thumb.toggleClass('oyiso-vi-thumb-has-image', !!imageId).data('image-id', imageId);
+            $thumb.find('img').attr('src', src || config.placeholder_img_src || '');
+        });
+    }
+
     function initVariation($variation) {
         if ($variation.find('.oyiso-vi-inline').length) {
             return;
@@ -110,6 +168,7 @@
 
         // 绑定事件
         bindInlineEvents($variation);
+        bindGallerySync($variation);
     }
 
     function buildStockBtn(status) {
@@ -293,6 +352,8 @@
             removeThumbPreview();
             var $thumb = $(this);
 
+            if (editNativeGallery($variation, false)) return;
+
             mediaTarget = {
                 $variation: $variation,
                 $panel: $panel,
@@ -307,6 +368,7 @@
         $variation.find('.oyiso-vi-thumb-x').on('click', function (e) {
             e.stopPropagation();
             removeThumbPreview();
+            if (editNativeGallery($variation, true)) return;
             var $thumb = $(this).closest('.oyiso-vi-thumb');
             var $img = $thumb.find('img');
             var $uploadId = $panel.find('.upload_image_id');
