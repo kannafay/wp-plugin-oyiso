@@ -24,6 +24,7 @@
         let request = null;
         let loading = false;
         let busy = false;
+        let closing = false;
         let finished = false;
         let returnFocus = null;
         let bodyOverflow = '';
@@ -189,7 +190,7 @@
         }
 
         async function scan() {
-            if (busy) return;
+            if (busy || closing) return;
             const current = ++sequence;
             if (request) request.abort();
             // Keep the dialog in place when blur replaces the rows with a loading state.
@@ -259,15 +260,22 @@
         }
 
         function closeModal() {
-            if (busy) return;
+            if (busy || closing || $modal.prop('hidden')) return;
+            closing = true;
             backdropPress = false;
             ++sequence;
             if (request) request.abort();
             request = null;
-            $modal.removeClass('is-open').prop('hidden', true);
-            $dialog.css('min-height', '');
-            document.body.style.overflow = bodyOverflow;
-            if (returnFocus && returnFocus.isConnected) $(returnFocus).trigger('focus');
+            $modal.removeClass('is-open');
+            const finishClose = function () {
+                $modal.prop('hidden', true);
+                $dialog.css('min-height', '');
+                document.body.style.overflow = bodyOverflow;
+                if (returnFocus && returnFocus.isConnected) $(returnFocus).trigger('focus');
+                closing = false;
+            };
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) finishClose();
+            else setTimeout(finishClose, 200);
         }
 
         // Patch the existing gallery field in place so WC's delegated controls,
@@ -305,7 +313,7 @@
         }
 
         async function apply() {
-            if (busy || loading || finished) return;
+            if (busy || loading || closing || finished) return;
             const optionsChanged = JSON.stringify(matchOptions()) !== JSON.stringify(previewOptions);
             if (galleryIds().join(',') !== previewIds.join(',') || optionsChanged) {
                 await scan();
