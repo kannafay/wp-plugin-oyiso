@@ -450,3 +450,5 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
 }
 
 Oyiso_WC_Variation_Inline::init();
+
+require_once __DIR__ . '/image-match.php';

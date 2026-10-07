@@ -40,6 +40,13 @@ if (!function_exists('oyiso_wc_variation_inline_get_fields')) {
                                 'default' => false,
                             ],
                             [
+                                'id' => 'oyiso_wc_variation_image_match_enabled',
+                                'type' => 'switcher',
+                                'title' => '启用变体封面匹配',
+                                'label' => '从产品图库按文件名匹配属性值，预览并批量设置变体封面，直接保存。',
+                                'default' => false,
+                            ],
+                            [
                                 'id' => 'oyiso_wc_variation_sku_batch_enabled',
                                 'type' => 'switcher',
                                 'title' => '启用批量SKU操作',
