@@ -9,6 +9,7 @@
         if (!$modal.length) return;
         const $attribute = $('#oyiso-vim-attribute');
         const $overwrite = $('#oyiso-vim-overwrite');
+        const $table = $modal.find('.oyiso-vim-table');
         const $body = $modal.find('tbody');
         const $message = $('#oyiso-vim-message');
         const $apply = $modal.find('.oyiso-vim-apply');
@@ -82,7 +83,7 @@
         function updateSelection() {
             const $eligible = $body.find('.oyiso-vim-check:not(:disabled)');
             const selected = $eligible.filter(':checked').length;
-            $('#oyiso-vim-selection-count').text(finished ? '' : '已选择 ' + selected + ' / ' + rows.length + ' 个变体');
+            $('#oyiso-vim-selection-count').text(finished || loading || !rows.length ? '' : '已选择 ' + selected + ' / ' + rows.length + ' 个变体');
             $('#oyiso-vim-select-all').prop({
                 disabled: !$eligible.length || loading || busy || finished,
                 checked: $eligible.length > 0 && selected === $eligible.length,
@@ -92,11 +93,33 @@
         }
 
         function updateControls(selectByDefault) {
-            $attribute.add($overwrite).add($modal.find('.oyiso-vim-rescan')).prop('disabled', loading || busy);
+            $attribute.prop('disabled', loading || busy || !$attribute.val());
+            $overwrite.add($modal.find('.oyiso-vim-rescan')).prop('disabled', loading || busy);
             $modal.find('.oyiso-vim-close, .oyiso-vim-cancel').prop('disabled', busy);
             $modal.find('.oyiso-vim-cancel').text(finished ? '关闭' : '取消');
-            $body.find('tr').each(function () { updateRow($(this), selectByDefault); });
+            $body.find('tr[data-variation-id]').each(function () { updateRow($(this), selectByDefault); });
             updateSelection();
+        }
+
+        function tableState(title, description, pending) {
+            const $content = $('<div class="oyiso-vim-table-state-content" role="status" aria-live="polite">');
+            if (pending) $content.append('<span class="spinner is-active" aria-hidden="true"></span>');
+            $('<strong>').text(title).appendTo($content);
+            if (description) $('<p>').text(description).appendTo($content);
+            $body.empty().append($('<tr class="oyiso-vim-table-state">')
+                .append($('<td colspan="4">').append($content)));
+        }
+
+        function renderAttributes(data) {
+            $attribute.empty();
+            if (!data.attributes.length) {
+                $attribute.append('<option value="">暂无可用属性</option>');
+                return;
+            }
+            data.attributes.forEach(function (attribute) {
+                $('<option>').val(attribute.id).text(attribute.label).appendTo($attribute);
+            });
+            $attribute.val(data.attribute || data.attributes[0].id);
         }
 
         function image(url, alt) {
@@ -111,6 +134,10 @@
 
         function renderRows() {
             $body.empty();
+            if (!rows.length) {
+                tableState('暂无变体', '请先生成或添加变体，再进行匹配。');
+                return;
+            }
             rows.forEach(function (row) {
                 const $tr = $('<tr>').attr('data-variation-id', row.id).data('preview', row);
                 $('<td class="check-column">').append($('<input type="checkbox" class="oyiso-vim-check">').attr('aria-label', '选择变体 #' + row.id)).appendTo($tr);
@@ -158,9 +185,12 @@
             rows = [];
             gallery = [];
             previewIds = galleryIds();
-            $body.empty();
+            $table.attr('aria-busy', 'true');
+            tableState('正在加载匹配结果…', '正在读取产品图库与全部变体，请稍候。', true);
+            if (!$attribute.val()) $attribute.empty().append('<option value="">正在加载属性…</option>');
             updateControls();
-            message('正在识别产品图库与全部变体…');
+            message('');
+            let attributesLoaded = false;
             try {
                 request = $.ajax({url: config.ajaxurl, type: 'POST', dataType: 'json', data: {
                     action: config.preview_action, nonce: config.nonce,
@@ -169,22 +199,29 @@
                 }});
                 const response = await request;
                 if (current !== sequence) return;
+                if (response && response.data && Array.isArray(response.data.attributes)) {
+                    renderAttributes(response.data);
+                    attributesLoaded = true;
+                }
                 if (!response || !response.success) throw new Error(response && response.data ? response.data.message : '识别失败，请重试。');
-                $attribute.empty();
-                response.data.attributes.forEach(function (attribute) {
-                    $('<option>').val(attribute.id).text(attribute.label).appendTo($attribute);
-                });
-                $attribute.val(response.data.attribute);
                 rows = response.data.rows;
                 gallery = response.data.gallery;
                 renderRows();
-                message('共 ' + rows.length + ' 个变体、' + gallery.length + ' 张图库图片。未匹配的可手动选图。');
+                message(rows.length ? '共 ' + rows.length + ' 个变体、' + gallery.length + ' 张图库图片。未匹配的可手动选图。' : '');
             } catch (error) {
-                if (current === sequence && error.statusText !== 'abort') message(error.message || '识别失败，请检查网络后重试。', true);
+                if (current === sequence && error.statusText !== 'abort') {
+                    rows = [];
+                    gallery = [];
+                    const detail = error.message || (error.responseJSON && error.responseJSON.data && error.responseJSON.data.message) || '识别失败，请检查网络后点击「重新识别」重试。';
+                    if (!attributesLoaded && !$attribute.val()) $attribute.empty().append('<option value="">属性加载失败</option>');
+                    tableState('暂无匹配数据', detail);
+                    message('');
+                }
             } finally {
                 if (current === sequence) {
                     request = null;
                     loading = false;
+                    $table.attr('aria-busy', 'false');
                     updateControls(true);
                 }
             }

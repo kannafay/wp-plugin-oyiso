@@ -60,11 +60,8 @@ final class Oyiso_WC_Variation_Image_Match
         ]);
     }
 
-    /**
-     * @param list<int> $galleryIds
-     * @return PreviewData|WP_Error
-     */
-    public static function preview(WC_Product_Variable $product, string $attribute, array $galleryIds): array|WP_Error
+    /** @return list<array{id: string, label: string}> */
+    private static function attributes(WC_Product_Variable $product): array
     {
         $attributes = [];
         foreach ($product->get_attributes() as $key => $definition) {
@@ -72,6 +69,17 @@ final class Oyiso_WC_Variation_Image_Match
                 $attributes[] = ['id' => $key, 'label' => wc_attribute_label($definition->get_name(), $product)];
             }
         }
+
+        return $attributes;
+    }
+
+    /**
+     * @param list<int> $galleryIds
+     * @return PreviewData|WP_Error
+     */
+    public static function preview(WC_Product_Variable $product, string $attribute, array $galleryIds): array|WP_Error
+    {
+        $attributes = self::attributes($product);
         $attribute = $attribute !== '' ? $attribute : ($attributes[0]['id'] ?? '');
         if (!in_array($attribute, array_column($attributes, 'id'), true)) {
             return new WP_Error('attribute', '请先添加用于变体的属性。');
@@ -304,9 +312,15 @@ final class Oyiso_WC_Variation_Image_Match
         if (is_wp_error($product)) {
             wp_send_json_error(['message' => $product->get_error_message()], 403);
         }
-        $preview = self::preview($product, self::requestText('attribute'), self::requestGalleryIds());
+        $attribute = self::requestText('attribute');
+        $preview = self::preview($product, $attribute, self::requestGalleryIds());
         if (is_wp_error($preview)) {
-            wp_send_json_error(['message' => $preview->get_error_message()]);
+            $attributes = self::attributes($product);
+            wp_send_json_error([
+                'message' => $preview->get_error_message(),
+                'attributes' => $attributes,
+                'attribute' => in_array($attribute, array_column($attributes, 'id'), true) ? $attribute : ($attributes[0]['id'] ?? ''),
+            ]);
         }
         wp_send_json_success($preview);
     }
