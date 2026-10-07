@@ -20,6 +20,8 @@ final class Oyiso_Variation_Image_Matcher
     {
         $value = remove_accents(html_entity_decode(rawurldecode($value), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         $value = function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+        // Treat Love66 and Love 66 alike while retaining complete word and number boundaries.
+        $value = preg_replace('/(?<=\p{L})(?=\p{N})|(?<=\p{N})(?=\p{L})/u', ' ', $value) ?? '';
 
         return trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', $value) ?? '');
     }
