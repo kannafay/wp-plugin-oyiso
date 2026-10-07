@@ -142,66 +142,119 @@
 
 .oyiso-vim-table-wrap {
     overflow-x: auto;
-    border: 1px solid #dcdcde;
-    border-radius: 4px;
 }
 
-.oyiso-vim-table {
+.widefat.oyiso-vim-table {
     table-layout: fixed;
-    min-width: 680px;
+    min-width: 600px;
     border: none;
     box-shadow: none;
 }
 
 .oyiso-vim-table thead {
-    background: #f6f7f7;
+    background: #fff;
 }
 
 .oyiso-vim-table th {
     font-size: 12px;
     color: #646970;
+    padding: 10px 8px;
+    font-weight: 400;
+    border-bottom: 1px solid #e5e5e5;
 }
 
-.oyiso-vim-table .check-column {
-    width: 28px;
-    padding: 14px 0 14px 12px;
+.widefat.oyiso-vim-table .check-column {
+    width: 24px;
+    padding: 10px 8px 10px 0;
+    vertical-align: middle;
+}
+
+.widefat.oyiso-vim-table .check-column input[type="checkbox"] {
+    display: block;
+    margin: 0;
+    vertical-align: middle;
+}
+
+.oyiso-vim-table th:nth-child(2) {
+    width: 30%;
 }
 
 .oyiso-vim-table th:nth-child(3) {
-    width: 64px;
-}
-
-.oyiso-vim-table th:nth-child(4) {
-    width: 38%;
-}
-
-.oyiso-vim-table th:nth-child(5) {
-    width: 124px;
+    width: 72px;
 }
 
 .oyiso-vim-table td {
     vertical-align: middle;
     overflow-wrap: anywhere;
-    padding: 10px 8px;
+    padding: 12px 8px;
     font-size: 13px;
     line-height: 1.5;
 }
 
-.oyiso-vim-table td strong {
+.oyiso-vim-table tbody tr + tr td {
+    border-top: 1px solid #f0f0f1;
+}
+
+.oyiso-vim-table tbody tr:hover {
+    background: #fafafa;
+}
+
+.oyiso-vim-table .oyiso-vim-name {
     display: block;
-    margin-bottom: 2px;
-    color: #646970;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: #1e1e1e;
+}
+
+.oyiso-vim-meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 6px;
+    margin-top: 3px;
+    color: #757575;
     font-size: 12px;
-    font-weight: 400;
+    line-height: 1.4;
+}
+
+.oyiso-vim-status {
+    color: #646970;
+}
+
+.oyiso-vim-status::before {
+    content: "·";
+    margin-right: 6px;
+    color: #a7aaad;
+}
+
+.oyiso-vim-image,
+.oyiso-vim-image-placeholder {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    background: #f6f7f7;
+    border-radius: 6px;
+    box-sizing: border-box;
 }
 
 .oyiso-vim-image {
-    width: 46px;
-    height: 46px;
+    display: block;
     object-fit: contain;
-    flex-shrink: 0;
-    background: #f6f7f7;
-    border-radius: 4px;
+}
+
+.oyiso-vim-image-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed #dcdcde;
+    color: #c3c4c7;
+}
+
+.oyiso-vim-image-placeholder .dashicons {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
 }
 
 .oyiso-vim-target {
@@ -210,11 +263,17 @@
     gap: 10px;
 }
 
-.oyiso-vim-target select {
+.oyiso-vim-table .oyiso-vim-target select {
     min-width: 0;
     max-width: 100%;
     width: 100%;
     font-size: 13px;
+    height: 36px;
+    min-height: 36px;
+    margin: 0;
+    padding: 4px 28px 4px 10px;
+    border-color: #dcdcde;
+    border-radius: 6px;
 }
 
 .oyiso-vim-dialog select {

@@ -66,7 +66,7 @@
             const $check = $tr.find('.oyiso-vim-check');
             let status = '';
             if (nativeCoverChanged(row)) status = '封面有未保存的更改';
-            else if (!target) status = row.candidates.length ? '请选择图库图片' : (row.value ? '未匹配，请手动选图' : '任意属性，请手动选图');
+            else if (!target) status = row.candidates.length ? '待确认图片' : (row.value ? '未匹配' : '任意属性，待选图');
             else if (row.current_image_id === targetId) status = '封面已是该图片';
             else if (row.current_image_id && !$overwrite.is(':checked')) status = '已有封面，跳过';
 
@@ -103,15 +103,26 @@
             return $('<img class="oyiso-vim-image" loading="lazy">').attr({src: url, alt: alt || ''});
         }
 
+        function imagePlaceholder(label) {
+            return $('<span class="oyiso-vim-image-placeholder" role="img">')
+                .attr({'aria-label': label, title: label})
+                .append('<span class="dashicons dashicons-format-image" aria-hidden="true"></span>');
+        }
+
         function renderRows() {
             $body.empty();
             rows.forEach(function (row) {
                 const $tr = $('<tr>').attr('data-variation-id', row.id).data('preview', row);
                 $('<td class="check-column">').append($('<input type="checkbox" class="oyiso-vim-check">').attr('aria-label', '选择变体 #' + row.id)).appendTo($tr);
-                $('<td>').append($('<strong>').text('#' + row.id)).append($('<div>').text(row.label)).appendTo($tr);
+                $('<td class="oyiso-vim-variation">')
+                    .append($('<strong class="oyiso-vim-name">').text(row.label || '变体 #' + row.id))
+                    .append($('<div class="oyiso-vim-meta">')
+                        .append($('<span>').text('#' + row.id))
+                        .append('<span class="oyiso-vim-status"></span>'))
+                    .appendTo($tr);
                 const $current = $('<td>').appendTo($tr);
                 if (row.current_image_url) image(row.current_image_url, '当前封面').appendTo($current);
-                else $current.text('未设置');
+                else imagePlaceholder(row.current_image_id ? '暂无预览' : '未设置封面').appendTo($current);
                 const $target = $('<div class="oyiso-vim-target">');
                 const $pick = $('<select class="oyiso-vim-pick">').attr('aria-label', '变体 #' + row.id + ' 的封面');
                 $('<option value="0">请选择图库图片</option>').appendTo($pick);
@@ -131,9 +142,9 @@
                 $pick.val(String(row.suggested_image_id));
                 const target = gallery.find(item => item.id === row.suggested_image_id);
                 if (target && target.url) image(target.url, '所选封面').appendTo($target);
+                else imagePlaceholder(target ? '暂无预览' : '请选择图库图片').appendTo($target);
                 $pick.appendTo($target);
                 $('<td>').append($target).appendTo($tr);
-                $('<td class="oyiso-vim-status">').appendTo($tr);
                 $tr.appendTo($body);
             });
         }
@@ -315,8 +326,9 @@
         $modal.on('change', '.oyiso-vim-pick', function () {
             const $tr = $(this).closest('tr');
             const candidate = gallery.find(item => item.id === Number($(this).val()));
-            $tr.find('.oyiso-vim-target img').remove();
+            $tr.find('.oyiso-vim-target .oyiso-vim-image, .oyiso-vim-target .oyiso-vim-image-placeholder').remove();
             if (candidate && candidate.url) image(candidate.url, '所选封面').prependTo($tr.find('.oyiso-vim-target'));
+            else imagePlaceholder(candidate ? '暂无预览' : '请选择图库图片').prependTo($tr.find('.oyiso-vim-target'));
             updateRow($tr, true);
             updateSelection();
         });

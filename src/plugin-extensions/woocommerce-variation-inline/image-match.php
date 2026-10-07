@@ -362,10 +362,10 @@ final class Oyiso_WC_Variation_Image_Match
                     </div>
                     <p id="oyiso-vim-message" role="status" aria-live="polite"></p>
                     <div class="oyiso-vim-table-wrap">
-                        <table class="widefat striped oyiso-vim-table">
+                        <table class="widefat oyiso-vim-table">
                             <thead><tr>
                                 <td class="check-column"><input type="checkbox" id="oyiso-vim-select-all" aria-label="选择全部可应用的变体"></td>
-                                <th scope="col">变体</th><th scope="col">当前封面</th><th scope="col">选择封面</th><th scope="col">状态</th>
+                                <th scope="col">变体</th><th scope="col">当前封面</th><th scope="col">选择封面</th>
                             </tr></thead>
                             <tbody></tbody>
                         </table>
