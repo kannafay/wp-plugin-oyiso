@@ -109,6 +109,13 @@ final class Oyiso_Variation_Image_Matcher
         return trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', $value) ?? '');
     }
 
+    public static function canSplitFlavors(string $value, string $separator): bool
+    {
+        $flavors = self::splitFlavors($value, true, $separator);
+
+        return count($flavors) > 1 && !in_array('', $flavors, true);
+    }
+
     /** @return list<string> */
     private static function splitFlavors(string $value, bool $multiFlavor, string $separator): array
     {
@@ -119,6 +126,9 @@ final class Oyiso_Variation_Image_Matcher
         $separator = trim($separator);
         // Spaces and hyphens remain inside a flavor name, such as Mango Peach.
         $parts = $separator !== '' ? explode($separator, $value) : (preg_split('~[/／|｜+＋,，;；、]~u', $value) ?: []);
+        if ($separator !== '' && count($parts) < 2) {
+            return [];
+        }
 
         return array_map(self::normalizePhrase(...), $parts);
     }

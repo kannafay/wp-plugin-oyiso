@@ -9,7 +9,7 @@ require_once __DIR__ . '/image-matcher.php';
 /**
  * @phpstan-type GalleryImage array{id: int, filename: string, url: string}
  * @phpstan-type ImageData array{id: int, filename: string, url: string, ambiguous: bool}
- * @phpstan-type PreviewRow array{id: int, label: string, value: string, current_image_id: int, current_image_url: string, current_gallery_ids: list<int>, candidates: list<ImageData>, suggested_image_id: int}
+ * @phpstan-type PreviewRow array{id: int, label: string, value: string, separator_invalid: bool, current_image_id: int, current_image_url: string, current_gallery_ids: list<int>, candidates: list<ImageData>, suggested_image_id: int}
  * @phpstan-type PreviewData array{attribute: string, attributes: list<array{id: string, label: string}>, gallery: list<GalleryImage>, rows: list<PreviewRow>}
  * @phpstan-type Selection array{variation_id: int, image_id: int, expected_image_id: int}
  * @phpstan-type SaveResult array{variation_id: int, success: bool, message: string, image_id?: int, url?: string, gallery_html?: string}
@@ -79,6 +79,8 @@ final class Oyiso_WC_Variation_Image_Match
      */
     public static function preview(WC_Product_Variable $product, string $attribute, array $galleryIds, bool $multiFlavor = false, string $separator = ''): array|WP_Error
     {
+        $separator = trim($separator);
+        $customSeparator = $multiFlavor && $separator !== '';
         $attributes = self::attributes($product);
         $attribute = $attribute !== '' ? $attribute : ($attributes[0]['id'] ?? '');
         if (!in_array($attribute, array_column($attributes, 'id'), true)) {
@@ -107,7 +109,9 @@ final class Oyiso_WC_Variation_Image_Match
             $variations[] = $variation;
             $value = $variation->get_attributes()[$attribute] ?? '';
             if ($value !== '') {
-                $values['value:' . $value] = [self::attributeValueLabel($attribute, $value), $value];
+                $label = self::attributeValueLabel($attribute, $value);
+                // A custom separator applies to the visible attribute name, not its sanitized slug.
+                $values['value:' . $value] = $customSeparator ? [$label] : [$label, $value];
             }
         }
         if ($variations === []) {
@@ -125,10 +129,12 @@ final class Oyiso_WC_Variation_Image_Match
                 }
             }
             $imageId = (int) $variation->get_image_id('edit');
+            $label = self::attributeValueLabel($attribute, $value);
             $rows[] = [
                 'id' => $variation->get_id(),
                 'label' => self::variationLabel($variation, $product),
-                'value' => self::attributeValueLabel($attribute, $value),
+                'value' => $label,
+                'separator_invalid' => $customSeparator && $value !== '' && !Oyiso_Variation_Image_Matcher::canSplitFlavors($label, $separator),
                 'current_image_id' => $imageId,
                 'current_image_url' => $imageId > 0 ? (wp_get_attachment_image_url($imageId, 'thumbnail') ?: '') : '',
                 'current_gallery_ids' => array_values(array_unique(array_filter([$imageId, ...$variation->get_gallery_image_ids('edit')]))),
@@ -385,9 +391,9 @@ final class Oyiso_WC_Variation_Image_Match
                     </div>
                     <div class="oyiso-vim-multi-flavor-settings" hidden>
                         <label for="oyiso-vim-separator">自定义分隔符
-                            <input type="text" id="oyiso-vim-separator" placeholder="留空使用预设" autocomplete="off" aria-describedby="oyiso-vim-separator-hint" disabled>
+                            <input type="text" id="oyiso-vim-separator" placeholder="留空使用预设" autocomplete="off" aria-describedby="oyiso-vim-separator-hint oyiso-vim-message" disabled>
                         </label>
-                        <span id="oyiso-vim-separator-hint">预设 /、|、+、逗号、分号、顿号（含全角）；填写后仅使用填写的分隔符。口味组合顺序不限。</span>
+                        <span id="oyiso-vim-separator-hint">预设 /、|、+、逗号、分号、顿号（含全角）；填写后仅按该分隔符拆分，无法拆分时不自动匹配。口味组合顺序不限。</span>
                     </div>
                     <p id="oyiso-vim-message" role="status" aria-live="polite"></p>
                     <div class="oyiso-vim-table-wrap">

@@ -78,7 +78,7 @@
             const $check = $tr.find('.oyiso-vim-check');
             let status = '';
             if (nativeCoverChanged(row)) status = '封面有未保存的更改';
-            else if (!target) status = row.candidates.length ? '待确认图片' : (row.value ? '未匹配' : '任意属性，待选图');
+            else if (!target) status = row.separator_invalid ? '分隔符不适用，待选图' : (row.candidates.length ? '待确认图片' : (row.value ? '未匹配' : '任意属性，待选图'));
             else if (row.current_image_id === targetId) status = '封面已是该图片';
             else if (row.current_image_id && !$overwrite.is(':checked')) status = '已有封面，跳过';
 
@@ -193,9 +193,6 @@
             if (busy || closing) return;
             const current = ++sequence;
             if (request) request.abort();
-            // Keep the dialog in place when blur replaces the rows with a loading state.
-            const dialogHeight = $dialog[0].offsetHeight;
-            if (dialogHeight) $dialog.css('min-height', 'min(' + dialogHeight + 'px, 90vh)');
             loading = true;
             finished = false;
             rows = [];
@@ -206,6 +203,7 @@
             tableState('正在加载匹配结果…', '正在读取产品图库与全部变体，请稍候。', true);
             if (!$attribute.val()) $attribute.empty().append('<option value="">正在加载属性…</option>');
             updateControls();
+            $separator.removeAttr('aria-invalid');
             message('');
             let attributesLoaded = false;
             try {
@@ -225,7 +223,11 @@
                 rows = response.data.rows;
                 gallery = response.data.gallery;
                 renderRows();
-                message(rows.length ? '共 ' + rows.length + ' 个变体、' + gallery.length + ' 张图库图片。未匹配的可手动选图。' : '');
+                const invalid = rows.filter(row => row.separator_invalid).length;
+                $separator.attr('aria-invalid', invalid > 0 && invalid === rows.filter(row => row.value).length ? 'true' : 'false');
+                const detail = invalid ? invalid + ' 个变体无法按分隔符「' + previewOptions.separator + '」拆分，未自动匹配。请修改分隔符、留空使用预设或手动选图。'
+                    : (previewOptions.separator ? '使用分隔符「' + previewOptions.separator + '」拆分口味，组合顺序不限。未匹配的可手动选图。' : '未匹配的可手动选图。');
+                message(rows.length ? '共 ' + rows.length + ' 个变体、' + gallery.length + ' 张图库图片。' + detail : '', invalid > 0);
             } catch (error) {
                 if (current === sequence && error.statusText !== 'abort') {
                     rows = [];
@@ -241,7 +243,6 @@
                     loading = false;
                     $table.attr('aria-busy', 'false');
                     updateControls(true);
-                    $dialog.css('min-height', '');
                 }
             }
         }
@@ -254,7 +255,7 @@
             $modal.prop('hidden', false);
             $modal[0].offsetHeight;
             $modal.addClass('is-open');
-            $modal.find('.oyiso-vim-dialog').trigger('focus');
+            $dialog.trigger('focus');
             $overwrite.prop('checked', false);
             scan();
         }
@@ -269,7 +270,6 @@
             $modal.removeClass('is-open');
             const finishClose = function () {
                 $modal.prop('hidden', true);
-                $dialog.css('min-height', '');
                 document.body.style.overflow = bodyOverflow;
                 if (returnFocus && returnFocus.isConnected) $(returnFocus).trigger('focus');
                 closing = false;
