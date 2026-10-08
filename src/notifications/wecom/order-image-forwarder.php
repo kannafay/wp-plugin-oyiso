@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
+require_once __DIR__ . '/order-image-delivery.php';
+
+if (!class_exists('Oyiso_WeCom_Retryable_Exception', false)) {
+    final class Oyiso_WeCom_Retryable_Exception extends RuntimeException {}
+}
+
 if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
     final class Oyiso_WeCom_Order_Image_Forwarder {
         private const WEBHOOK_URL = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=';
@@ -18,10 +24,10 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
 
         private const LEGACY_SENT_META_KEY = '_oyiso_wecom_order_image_sent';
 
-        /** @var array{sent: int, skipped: int, failed: int, errors: list<string>}|null */
+        /** @var array{sent: int, skipped: int, failed: int, errors: list<string>, retryable: bool}|null */
         private static ?array $lastResult = null;
 
-        /** @return array{sent: int, skipped: int, failed: int, errors: list<string>}|null */
+        /** @return array{sent: int, skipped: int, failed: int, errors: list<string>, retryable: bool}|null */
         public static function getLastResult(): ?array {
             return self::$lastResult;
         }
@@ -37,12 +43,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                 return;
             }
 
-            add_action(
-                'oyiso_new_order_email_image_rendered',
-                [self::class, 'forward'],
-                10,
-                4
-            );
+            Oyiso_WeCom_Order_Image_Delivery::register();
         }
 
         public static function enqueueAdminAssets(string $hook): void {
@@ -106,96 +107,109 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
             }
         }
 
-        public static function forward(string $imagePath, string $htmlPath, int $orderId, bool $force = false): void {
+        public static function forward(
+            string $imagePath,
+            string $htmlPath,
+            int $orderId,
+            bool $force = false,
+            string $onlyChannel = '',
+            string $expectedHash = ''
+        ): void {
             unset($htmlPath);
 
-            $keys = oyiso_get_enabled_wecom_webhook_keys();
-            self::$lastResult = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'errors' => []];
+            $keys = array_filter(
+                oyiso_get_enabled_wecom_webhook_keys(),
+                static fn(string $key): bool => '' === $onlyChannel || hash_equals($onlyChannel, self::getChannelId($key))
+            );
+            $result = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'errors' => [], 'retryable' => false];
+            self::$lastResult = $result;
 
             if ([] === $keys) {
                 return;
             }
 
+            $lock = false;
             try {
                 $imagePath = self::validateImagePath($imagePath);
-                $order     = wc_get_order($orderId);
-                $fileHash  = md5_file($imagePath);
-
-                if (false === $fileHash) {
-                    throw new RuntimeException('无法计算订单截图校验值。');
+                $lock = fopen(dirname($imagePath) . '/.wecom-forward.lock', 'c');
+                if (false === $lock) {
+                    throw new RuntimeException('无法创建企业微信发送锁，请检查归档目录写入权限。');
+                }
+                if (!flock($lock, LOCK_EX | LOCK_NB)) {
+                    throw new Oyiso_WeCom_Retryable_Exception('当前站点有截图正在发送，请稍后补发。');
                 }
 
+                $order = wc_get_order($orderId);
+                if (!$order instanceof WC_Order) {
+                    throw new RuntimeException('订单已不存在，取消截图发送。');
+                }
+                $contents = file_get_contents($imagePath);
+                if (false === $contents || '' === $contents) {
+                    throw new RuntimeException('无法读取待发送的订单截图。');
+                }
+                $fileHash = md5($contents);
+                if ('' !== $expectedHash && !hash_equals($expectedHash, $fileHash)) {
+                    ++$result['skipped'];
+                    self::logInfo(sprintf('订单 %d 的截图已更新，跳过旧图片发送任务。', $orderId));
+                    return;
+                }
+                $sentHashes = self::getSentHashes($order, $fileHash);
+
+                foreach ($keys as $index => $key) {
+                    $channelId = self::getChannelId($key);
+
+                    if (
+                        !$force
+                        && isset($sentHashes[$channelId])
+                        && hash_equals($sentHashes[$channelId], $fileHash)
+                    ) {
+                        ++$result['skipped'];
+                        continue;
+                    }
+
+                    try {
+                        self::sendImage($contents, $key);
+                        ++$result['sent'];
+                        $sentHashes[$channelId] = $fileHash;
+                        // Persist each successful channel before another request can be interrupted.
+                        try {
+                            $order->update_meta_data(self::SENT_META_KEY, $sentHashes);
+                            $order->save();
+                        } catch (Throwable $exception) {
+                            $result['errors'][] = '发送状态保存失败，下次重试可能重复发送。';
+                            self::logError(sprintf('订单 %d 的企业微信发送状态保存失败：%s', $orderId, $exception->getMessage()));
+                        }
+
+                        self::logInfo(
+                            sprintf(
+                                '订单 %d 的邮件截图已发送到企业微信渠道 %d。',
+                                $orderId,
+                                $index + 1
+                            )
+                        );
+                    } catch (Throwable $exception) {
+                        ++$result['failed'];
+                        $result['retryable'] = $result['retryable'] || $exception instanceof Oyiso_WeCom_Retryable_Exception;
+                        $result['errors'][] = sprintf('渠道 %d：%s', $index + 1, $exception->getMessage());
+                        self::logError(
+                            sprintf(
+                                '订单 %d 的邮件截图发送到企业微信渠道 %d 失败：%s',
+                                $orderId,
+                                $index + 1,
+                                $exception->getMessage()
+                            )
+                        );
+                    }
+                }
             } catch (Throwable $exception) {
-                self::$lastResult['failed'] = count($keys);
-                self::$lastResult['errors'][] = $exception->getMessage();
-                self::logError(
-                    sprintf(
-                        '订单 %d 的企业微信转发准备失败：%s',
-                        $orderId,
-                        $exception->getMessage()
-                    )
-                );
-
-                return;
-            }
-
-            $sentHashes = $order instanceof WC_Order
-                ? self::getSentHashes($order, $fileHash)
-                : [];
-            $metaChanged = false;
-
-            foreach ($keys as $index => $key) {
-                $channelId = self::getChannelId($key);
-
-                if (
-                    !$force
-                    && isset($sentHashes[$channelId])
-                    && hash_equals($sentHashes[$channelId], $fileHash)
-                ) {
-                    ++self::$lastResult['skipped'];
-                    continue;
-                }
-
-                try {
-                    self::sendImage($imagePath, $key);
-                    ++self::$lastResult['sent'];
-                    $sentHashes[$channelId] = $fileHash;
-                    $metaChanged = true;
-
-                    self::logInfo(
-                        sprintf(
-                            '订单 %d 的邮件截图已发送到企业微信渠道 %d。',
-                            $orderId,
-                            $index + 1
-                        )
-                    );
-                } catch (Throwable $exception) {
-                    ++self::$lastResult['failed'];
-                    self::$lastResult['errors'][] = sprintf('渠道 %d：%s', $index + 1, $exception->getMessage());
-                    self::logError(
-                        sprintf(
-                            '订单 %d 的邮件截图发送到企业微信渠道 %d 失败：%s',
-                            $orderId,
-                            $index + 1,
-                            $exception->getMessage()
-                        )
-                    );
-                }
-            }
-
-            if ($metaChanged && $order instanceof WC_Order) {
-                try {
-                    $order->update_meta_data(self::SENT_META_KEY, $sentHashes);
-                    $order->save();
-                } catch (Throwable $exception) {
-                    self::$lastResult['errors'][] = '发送状态保存失败，下次重试可能重复发送。';
-                    self::logError(
-                        sprintf(
-                            '订单 %d 的企业微信发送状态保存失败：%s',
-                            $orderId,
-                            $exception->getMessage()
-                        )
-                    );
+                $result['failed'] = count($keys);
+                $result['retryable'] = $exception instanceof Oyiso_WeCom_Retryable_Exception;
+                $result['errors'][] = $exception->getMessage();
+                self::logError(sprintf('订单 %d 的企业微信转发准备失败：%s', $orderId, $exception->getMessage()));
+            } finally {
+                self::$lastResult = $result;
+                if (is_resource($lock)) {
+                    fclose($lock);
                 }
             }
         }
@@ -230,7 +244,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
             return $hashes;
         }
 
-        private static function getChannelId(string $key): string {
+        public static function getChannelId(string $key): string {
             return hash_hmac('sha256', $key, wp_salt('auth'));
         }
 
@@ -268,13 +282,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
             return $normalizedPath;
         }
 
-        private static function sendImage(string $imagePath, string $key): void {
-            $contents = file_get_contents($imagePath);
-
-            if (false === $contents || '' === $contents) {
-                throw new RuntimeException('无法读取待发送的订单截图。');
-            }
-
+        private static function sendImage(string $contents, string $key): void {
             $payload = [
                 'msgtype' => 'image',
                 'image'   => [
@@ -317,13 +325,16 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
             ]);
 
             if (is_wp_error($response)) {
-                throw new RuntimeException('调用企业微信接口失败：' . $response->get_error_message());
+                throw new Oyiso_WeCom_Retryable_Exception('调用企业微信接口失败：' . $response->get_error_message());
             }
 
             $statusCode = wp_remote_retrieve_response_code($response);
             $body       = wp_remote_retrieve_body($response);
 
             if ($statusCode < 200 || $statusCode >= 300) {
+                if (429 === $statusCode || $statusCode >= 500) {
+                    throw new Oyiso_WeCom_Retryable_Exception(sprintf('企业微信接口返回HTTP %d。', $statusCode));
+                }
                 throw new RuntimeException(
                     sprintf('企业微信接口返回HTTP %d。', $statusCode)
                 );
@@ -332,16 +343,22 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
             $result = json_decode($body, true);
 
             if (!is_array($result)) {
-                throw new RuntimeException('企业微信接口返回了无效JSON。');
+                throw new Oyiso_WeCom_Retryable_Exception('企业微信接口返回了无效JSON。');
             }
 
-            $errorCode = isset($result['errcode']) ? (int) $result['errcode'] : -1;
+            if (!isset($result['errcode']) || !is_int($result['errcode'])) {
+                throw new Oyiso_WeCom_Retryable_Exception('企业微信接口未返回有效的发送状态。');
+            }
+            $errorCode = $result['errcode'];
 
             if (0 !== $errorCode) {
-                $errorMessage = isset($result['errmsg'])
-                    ? sanitize_text_field((string) $result['errmsg'])
+                $errorMessage = isset($result['errmsg']) && is_string($result['errmsg'])
+                    ? sanitize_text_field($result['errmsg'])
                     : '未知错误';
 
+                if (in_array($errorCode, [-1, 45009], true)) {
+                    throw new Oyiso_WeCom_Retryable_Exception(sprintf('企业微信接口错误 %d：%s', $errorCode, $errorMessage));
+                }
                 throw new RuntimeException(
                     sprintf('企业微信接口错误 %d：%s', $errorCode, $errorMessage)
                 );
