@@ -27,7 +27,6 @@
         let closing = false;
         let finished = false;
         let returnFocus = null;
-        let bodyOverflow = '';
         let backdropPress = false;
 
         function mountButton() {
@@ -251,8 +250,6 @@
         function openModal() {
             if (!$modal.prop('hidden')) return;
             returnFocus = document.activeElement;
-            bodyOverflow = document.body.style.overflow;
-            document.body.style.overflow = 'hidden';
             $modal.prop('hidden', false);
             $modal[0].offsetHeight;
             $modal.addClass('is-open');
@@ -271,7 +268,6 @@
             $modal.removeClass('is-open');
             const finishClose = function () {
                 $modal.prop('hidden', true);
-                document.body.style.overflow = bodyOverflow;
                 if (returnFocus && returnFocus.isConnected) $(returnFocus).trigger('focus');
                 closing = false;
             };
