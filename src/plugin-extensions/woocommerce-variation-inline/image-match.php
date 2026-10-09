@@ -286,10 +286,20 @@ final class Oyiso_WC_Variation_Image_Match
         if (!$post instanceof WP_Post) {
             return '';
         }
+        $bufferLevel = ob_get_level();
         ob_start();
-        do_action('woocommerce_variation_after_upload_image', 0, get_post_meta($variationId), $post);
+        try {
+            do_action('woocommerce_variation_after_upload_image', 0, get_post_meta($variationId), $post);
 
-        return ob_get_clean() ?: '';
+            return ob_get_contents() ?: '';
+        } catch (Throwable $exception) {
+            // A preview hook failure must not invalidate an already saved cover.
+            return '';
+        } finally {
+            while (ob_get_level() > $bufferLevel) {
+                ob_end_clean();
+            }
+        }
     }
 
     private static function requestedProduct(): WC_Product_Variable|WP_Error
