@@ -40,14 +40,23 @@ final class Oyiso_WeCom_Order_Image_Delivery {
             return;
         }
 
+        $jobs = [];
         foreach (oyiso_get_enabled_wecom_webhook_keys() as $key) {
             // Never put webhook credentials or absolute paths into queue arguments.
             $args = [get_current_blog_id(), $orderId, basename($path), $hash, Oyiso_WeCom_Order_Image_Forwarder::getChannelId($key), 1];
             Oyiso_WeCom_Order_Image_Forwarder::recordDeliveryState($orderId, $args[2], $hash, $args[4], 'queued');
-            if (!self::schedule($args, 0)) {
-                self::log('error', sprintf('订单 %d 的企业微信发送任务保存失败，改为立即发送。', $orderId));
-                Oyiso_WeCom_Order_Image_Forwarder::forward($path, $htmlPath, $orderId, false, $args[4], $hash);
+            $recovery = $args;
+            $recovery[5] = 2;
+            // Protect every channel before the first HTTP call can stop this worker.
+            if (!self::schedule($recovery, self::RETRY_DELAYS[0])) {
+                self::log('error', sprintf('订单 %d 的企业微信补发任务保存失败，仍尝试立即发送。', $orderId));
             }
+            $jobs[] = $args;
+        }
+
+        // The screenshot is ready during shutdown; do not wait for the next cron run.
+        foreach ($jobs as $args) {
+            self::run(...$args);
         }
     }
 
