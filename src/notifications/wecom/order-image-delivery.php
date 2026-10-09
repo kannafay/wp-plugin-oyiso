@@ -43,6 +43,7 @@ final class Oyiso_WeCom_Order_Image_Delivery {
         foreach (oyiso_get_enabled_wecom_webhook_keys() as $key) {
             // Never put webhook credentials or absolute paths into queue arguments.
             $args = [get_current_blog_id(), $orderId, basename($path), $hash, Oyiso_WeCom_Order_Image_Forwarder::getChannelId($key), 1];
+            Oyiso_WeCom_Order_Image_Forwarder::recordDeliveryState($orderId, $args[2], $hash, $args[4], 'queued');
             if (!self::schedule($args, 0)) {
                 self::log('error', sprintf('订单 %d 的企业微信发送任务保存失败，改为立即发送。', $orderId));
                 Oyiso_WeCom_Order_Image_Forwarder::forward($path, $htmlPath, $orderId, false, $args[4], $hash);
@@ -87,6 +88,9 @@ final class Oyiso_WeCom_Order_Image_Delivery {
             );
             $result = Oyiso_WeCom_Order_Image_Forwarder::getLastResult();
             if (null !== $result && $result['failed'] > 0 && $result['retryable']) {
+                if ($saved) {
+                    Oyiso_WeCom_Order_Image_Forwarder::recordDeliveryState($orderId, $filename, $hash, $channelId, 'retrying', implode(' ', $result['errors']));
+                }
                 self::log('error', sprintf('订单 %d 的企业微信截图第 %d 次发送失败；%s', $orderId, $attempt,
                     $saved ? '已保留自动补发任务。' : '自动补发次数已耗尽或任务保存失败，请手动重发。'));
             } elseif ($saved) {

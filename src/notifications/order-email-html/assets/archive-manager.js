@@ -337,6 +337,19 @@
             });
         }
 
+        function updateNotificationBadge(record) {
+            var notification = record.notification || {status: 'unknown', label: '状态未知', detail: '没有可核对的通知回执。'};
+            var status = ['sent', 'partial', 'failed', 'queued', 'sending', 'retrying', 'not_sent', 'disabled'].indexOf(notification.status) >= 0
+                ? notification.status : 'unknown';
+            $list.find('.oyiso-archive-record').filter(function () {
+                return $(this).attr('data-record-id') === record.id;
+            }).find('.oyiso-archive-notification')
+                .attr('class', 'oyiso-archive-notification is-' + status)
+                .attr('title', notification.detail || '')
+                .attr('aria-label', '通知状态：' + notification.label + '。' + (notification.detail || ''))
+                .text(notification.label);
+        }
+
         function renderRecords(preferredId) {
             $list.empty();
 
@@ -384,8 +397,10 @@
 
                 $top.append($('<span>', {
                     class: 'oyiso-archive-record-order',
+                    title: '#' + record.orderNumber,
                     text: '#' + record.orderNumber
                 }));
+                $top.append($('<span>', {class: 'oyiso-archive-notification'}));
                 $bottom.append($('<span>', {
                     class: 'oyiso-archive-record-date',
                     text: record.createdAt
@@ -401,6 +416,7 @@
                 });
                 $record.append($select, $delete);
                 $list.append($record);
+                updateNotificationBadge(record);
             });
 
             var selected = records.find(function (record) {
@@ -540,6 +556,8 @@
                 ? (labels.rerender || '重新截图并发送')
                 : (labels.retry || '重新发送');
             retryMessage = '#' + record.orderNumber + '：' + busyLabel;
+            record.notification = {status: 'sending', label: '通知中', detail: busyLabel};
+            updateNotificationBadge(record);
             setFilesBusy(true);
             $button.attr('aria-busy', 'true').find('span:last').text(busyLabel);
             setCleanupStatus(retryMessage);
@@ -568,7 +586,6 @@
                 if (preferredId === record.id) {
                     activePreview = 'image';
                 }
-                loadRecords(preferredId);
             }).fail(function (xhr) {
                 setCleanupStatus(
                     '#' + record.orderNumber + '：' + getResponseMessage(xhr.responseJSON, labels.retryUnknown),
@@ -578,6 +595,7 @@
                 retryMessage = '';
                 $button.removeAttr('aria-busy').find('span:last').text(idleLabel);
                 setFilesBusy(false);
+                loadRecords(activeRecord ? activeRecord.id : record.id);
             });
         }
 

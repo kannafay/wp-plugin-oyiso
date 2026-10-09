@@ -247,7 +247,45 @@ body.oyiso-archive-modal-open {
 }
 
 .oyiso-archive-record-order {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-weight: 600;
+}
+
+.oyiso-archive-notification {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 1px 6px;
+    color: #646970;
+    background: #f0f0f1;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.8;
+}
+
+.oyiso-archive-notification.is-sent {
+    color: #166534;
+    background: #edf7ee;
+}
+
+.oyiso-archive-notification.is-failed {
+    color: #b32d2e;
+    background: #fbeaea;
+}
+
+.oyiso-archive-notification.is-partial,
+.oyiso-archive-notification.is-retrying {
+    color: #8a5700;
+    background: #fff4d6;
+}
+
+.oyiso-archive-notification.is-queued,
+.oyiso-archive-notification.is-sending {
+    color: #135e96;
+    background: #edf4fb;
 }
 
 .oyiso-archive-record-date {

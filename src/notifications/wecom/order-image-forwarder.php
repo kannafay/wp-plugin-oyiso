@@ -24,6 +24,8 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
 
         private const LEGACY_SENT_META_KEY = '_oyiso_wecom_order_image_sent';
 
+        private const DELIVERY_META_KEY = '_oyiso_wecom_order_image_delivery';
+
         /** @var array{sent: int, skipped: int, failed: int, errors: list<string>, retryable: bool}|null */
         private static ?array $lastResult = null;
 
@@ -129,8 +131,10 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
             }
 
             $lock = false;
+            $fileHash = $expectedHash;
             try {
                 $imagePath = self::validateImagePath($imagePath);
+                $fileHash = md5_file($imagePath) ?: '';
                 $lock = fopen(dirname($imagePath) . '/.wecom-forward.lock', 'c');
                 if (false === $lock) {
                     throw new RuntimeException('无法创建企业微信发送锁，请检查归档目录写入权限。');
@@ -168,6 +172,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                     }
 
                     try {
+                        self::recordDeliveryState($orderId, basename($imagePath), $fileHash, $channelId, 'sending');
                         self::sendImage($contents, $key);
                         ++$result['sent'];
                         $sentHashes[$channelId] = $fileHash;
@@ -179,6 +184,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                             $result['errors'][] = '发送状态保存失败，下次重试可能重复发送。';
                             self::logError(sprintf('订单 %d 的企业微信发送状态保存失败：%s', $orderId, $exception->getMessage()));
                         }
+                        self::recordDeliveryState($orderId, basename($imagePath), $fileHash, $channelId, 'sent');
 
                         self::logInfo(
                             sprintf(
@@ -188,6 +194,7 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                             )
                         );
                     } catch (Throwable $exception) {
+                        self::recordDeliveryState($orderId, basename($imagePath), $fileHash, $channelId, 'failed', $exception->getMessage());
                         ++$result['failed'];
                         $result['retryable'] = $result['retryable'] || $exception instanceof Oyiso_WeCom_Retryable_Exception;
                         $result['errors'][] = sprintf('渠道 %d：%s', $index + 1, $exception->getMessage());
@@ -202,6 +209,9 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                     }
                 }
             } catch (Throwable $exception) {
+                foreach ($keys as $key) {
+                    self::recordDeliveryState($orderId, basename($imagePath), $fileHash, self::getChannelId($key), 'failed', $exception->getMessage());
+                }
                 $result['failed'] = count($keys);
                 $result['retryable'] = $exception instanceof Oyiso_WeCom_Retryable_Exception;
                 $result['errors'][] = $exception->getMessage();
@@ -246,6 +256,113 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
 
         public static function getChannelId(string $key): string {
             return hash_hmac('sha256', $key, wp_salt('auth'));
+        }
+
+        public static function recordDeliveryState(
+            int $orderId, string $filename, string $hash, string $channelId, string $state, string $message = ''
+        ): void {
+            if (1 !== preg_match('/^[a-f0-9]{32}$/', $hash) || 1 !== preg_match('/^[a-f0-9]{64}$/', $channelId)) {
+                return;
+            }
+            try {
+                $order = wc_get_order($orderId);
+                if (!$order instanceof WC_Order) {
+                    return;
+                }
+                $order->read_meta_data(true);
+                $stored = $order->get_meta(self::DELIVERY_META_KEY, true);
+                $stored = is_array($stored) ? $stored : [];
+                $filename = basename($filename);
+                $channels = $stored[$filename] ?? [];
+                $channels = is_array($channels) ? $channels : [];
+                $channels[$channelId] = [
+                    'hash' => $hash, 'state' => $state, 'updated' => time(),
+                    'message' => sanitize_text_field(str_replace(oyiso_get_enabled_wecom_webhook_keys(), '[已隐藏]', $message)),
+                ];
+                $stored[$filename] = $channels;
+                $order->update_meta_data(self::DELIVERY_META_KEY, $stored);
+                $order->save_meta_data();
+            } catch (Throwable $exception) {
+                // Status display must never prevent delivery or its recovery task.
+                self::logError(sprintf('订单 %d 的通知状态保存失败：%s', $orderId, $exception->getMessage()));
+            }
+        }
+
+        /** @return array{status: string, label: string, detail: string} */
+        public static function getArchiveNotificationStatus(WC_Order $order, string $imagePath): array {
+            if ('' === $imagePath) {
+                return ['status' => 'not_sent', 'label' => '未通知', 'detail' => '尚无归档截图，未发送截图通知。'];
+            }
+            $hash = is_readable($imagePath) ? md5_file($imagePath) : false;
+            if (false === $hash) {
+                return ['status' => 'unknown', 'label' => '状态未知', 'detail' => '无法读取截图以核对通知回执。'];
+            }
+            $sentHashes = self::getSentHashes($order, $hash);
+            $stored = $order->get_meta(self::DELIVERY_META_KEY, true);
+            $stored = is_array($stored) ? $stored : [];
+            $stored = $stored[basename($imagePath)] ?? [];
+            $stored = is_array($stored) ? $stored : [];
+            $channels = array_map([self::class, 'getChannelId'], oyiso_get_enabled_wecom_webhook_keys());
+            if ([] === $channels) {
+                // Retain confirmed historical delivery after a channel is removed.
+                $channels = array_keys(array_filter($sentHashes, static fn(string $value): bool => hash_equals($hash, $value)));
+                foreach ($stored as $channelId => $delivery) {
+                    if (is_string($channelId) && is_array($delivery) && ($delivery['hash'] ?? '') === $hash && ($delivery['state'] ?? '') === 'sent') {
+                        $channels[] = $channelId;
+                    }
+                }
+                $channels = array_values(array_unique($channels));
+            }
+            $counts = ['sent' => 0, 'failed' => 0, 'queued' => 0, 'sending' => 0, 'retrying' => 0, 'unknown' => 0];
+            $details = [];
+            $labels = ['sent' => '已通知', 'failed' => '通知失败', 'queued' => '待通知', 'sending' => '通知中', 'retrying' => '重试中', 'unknown' => '状态未知'];
+            foreach ($channels as $index => $channelId) {
+                $delivery = $stored[$channelId] ?? null;
+                $delivery = is_array($delivery) ? $delivery : [];
+                $matches = ($delivery['hash'] ?? '') === $hash;
+                $state = $matches && is_string($delivery['state'] ?? null) ? $delivery['state'] : 'unknown';
+                // An in-flight request is not a receipt, including a worker that stopped.
+                if ('sending' === $state && (!is_int($delivery['updated'] ?? null) || $delivery['updated'] < time() - 300)) {
+                    $state = 'unknown';
+                }
+                if (isset($sentHashes[$channelId]) && hash_equals($hash, $sentHashes[$channelId])) {
+                    $state = 'sent';
+                } elseif (!isset($counts[$state])) {
+                    $state = 'unknown';
+                }
+                ++$counts[$state];
+                $error = $matches && is_string($delivery['message'] ?? null) ? $delivery['message'] : '';
+                $details[] = sprintf('企业微信渠道 %d：%s%s', $index + 1, $labels[$state], '' !== $error ? '（' . $error . '）' : '');
+            }
+            $total = count($channels);
+            $enabled = oyiso_is_wc_order_screenshot_forwarding_enabled();
+            if ($total > 0 && $counts['sent'] === $total) {
+                $status = 'sent';
+            } elseif ($counts['sent'] > 0) {
+                $status = 'partial';
+            } elseif (!$enabled) {
+                $status = 'disabled';
+            } elseif ($counts['sending'] > 0) {
+                $status = 'sending';
+            } elseif ($counts['retrying'] > 0) {
+                $status = 'retrying';
+            } elseif ($counts['queued'] > 0) {
+                $status = 'queued';
+            } elseif ($counts['failed'] > 0) {
+                $status = 'failed';
+            } else {
+                $status = 'unknown';
+            }
+            $label = 'partial' === $status ? sprintf('部分通知 %d/%d', $counts['sent'], $total)
+                : ($labels[$status] ?? '未启用');
+            $summary = $total > 0 ? sprintf('该截图已获 %d/%d 个企业微信渠道的成功回执。', $counts['sent'], $total) : '没有已启用的企业微信渠道。';
+            if ('unknown' === $status) {
+                $summary .= '没有该截图的成功回执，无法确认是否曾通知。';
+            }
+            if (!$enabled) {
+                $summary .= '截图转发当前未启用。';
+            }
+            return ['status' => $status, 'label' => $label, 'detail' => $summary . implode('；', $details)];
         }
 
         private static function validateImagePath(string $imagePath): string {

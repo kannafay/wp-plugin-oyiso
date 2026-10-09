@@ -507,6 +507,19 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
 
             foreach ($records as &$record) {
                 unset($record['sortTime']);
+                $record['notification'] = ['status' => 'unknown', 'label' => '状态未知', 'detail' => '无法找到对应订单或读取通知记录。'];
+                if (class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
+                    $image = $record['images'][0]['filename'] ?? '';
+                    $filename = '' !== $image ? $image : ($record['html']['filename'] ?? '');
+                    try {
+                        $order = self::findArchiveOrder($filename);
+                        $record['notification'] = Oyiso_WeCom_Order_Image_Forwarder::getArchiveNotificationStatus(
+                            $order, '' !== $image ? $realDirectory . DIRECTORY_SEPARATOR . $image : ''
+                        );
+                    } catch (Throwable $exception) {
+                        // A deleted or renamed order must not hide the remaining archives.
+                    }
+                }
             }
             unset($record);
 
