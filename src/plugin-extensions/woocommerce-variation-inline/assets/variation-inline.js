@@ -927,6 +927,7 @@
         $skuModalMsg.text(msg);
         $skuModal.data('mode', mode);
         $skuModal.data('variation', variationId || 0);
+        $skuModal.toggleClass('is-batch', !variationId);
         $skuModal.data('previewRemote', false);
 
         // 前缀框：除清除外永久显示，留空则使用父产品 SKU
