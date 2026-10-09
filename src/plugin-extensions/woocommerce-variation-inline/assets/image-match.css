@@ -127,6 +127,19 @@
     margin: 0;
 }
 
+.oyiso-vim-multi-flavor-control {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+}
+
+#oyiso-vim-multi-flavor-hint {
+    color: #646970;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
 .oyiso-vim-multi-flavor-settings[hidden] {
     display: none;
 }
@@ -149,7 +162,7 @@
 }
 
 #oyiso-vim-separator {
-    width: 160px;
+    width: 120px;
     height: 36px;
     min-height: 36px;
     line-height: 34px;
