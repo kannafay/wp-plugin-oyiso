@@ -408,7 +408,7 @@ final class Oyiso_WC_Variation_Image_Match
                         <label class="oyiso-vim-overwrite-label"><input type="checkbox" id="oyiso-vim-overwrite"> 覆盖已有封面</label>
                         <div class="oyiso-vim-multi-flavor-control">
                             <label><input type="checkbox" id="oyiso-vim-multi-flavor" aria-describedby="oyiso-vim-multi-flavor-hint"> 多口味</label>
-                            <span id="oyiso-vim-multi-flavor-hint">多口味无法匹配时开启</span>
+                            <span id="oyiso-vim-multi-flavor-hint">（多口味无法匹配时开启）</span>
                         </div>
                         <button type="button" class="button oyiso-vim-rescan">重新识别</button>
                     </div>
