@@ -137,7 +137,7 @@ final class Oyiso_WC_Variation_Image_Match
                 'separator_invalid' => $customSeparator && $value !== '' && !Oyiso_Variation_Image_Matcher::canSplitFlavors($label, $separator),
                 'current_image_id' => $imageId,
                 'current_image_url' => $imageId > 0 ? (wp_get_attachment_image_url($imageId, 'thumbnail') ?: '') : '',
-                'current_gallery_ids' => array_values(array_unique(array_filter([$imageId, ...$variation->get_gallery_image_ids('edit')]))),
+                'current_gallery_ids' => self::displayGalleryIds($variation),
                 'candidates' => $candidates,
                 'suggested_image_id' => $match['matches'][0]->id ?? 0,
             ];
@@ -258,6 +258,25 @@ final class Oyiso_WC_Variation_Image_Match
         }
 
         return implode(' / ', $labels);
+    }
+
+    /**
+     * Match WC's rendered gallery, including inherited images and its display order.
+     * The saved cover still uses edit context to distinguish an inherited image.
+     *
+     * @return list<int>
+     */
+    private static function displayGalleryIds(WC_Product_Variation $variation): array
+    {
+        $ids = [];
+        foreach ($variation->get_gallery_image_ids() as $id) {
+            $ids[] = (int) $id;
+        }
+        $imageId = (int) $variation->get_image_id();
+        if ($imageId > 0 && !in_array($imageId, $ids, true)) {
+            array_unshift($ids, $imageId);
+        }
+        return $ids;
     }
 
     private static function galleryMarkup(int $variationId): string
