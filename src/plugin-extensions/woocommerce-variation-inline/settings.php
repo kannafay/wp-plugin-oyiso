@@ -49,8 +49,8 @@ if (!function_exists('oyiso_wc_variation_inline_get_fields')) {
                             [
                                 'id' => 'oyiso_wc_variation_sku_batch_enabled',
                                 'type' => 'switcher',
-                                'title' => '启用批量SKU操作',
-                                'label' => '在变量批量操作下拉框中增加生成全部SKU、补全缺失SKU、清除全部SKU三项功能，支持自定义前缀。',
+                                'title' => '多功能批量操作',
+                                'label' => '在变体批量操作下拉框的「橘子猫头」分组中提供 SKU 生成、补全、清除及清除全部变体封面，支持自定义 SKU 前缀。',
                                 'default' => false,
                             ],
                             [

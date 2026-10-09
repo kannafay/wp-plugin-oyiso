@@ -7,7 +7,7 @@
 
     var config = window.oyisoVIConfig;
     var enableInline = !!config.enable_inline;
-    var enableSkuBatch = !!config.enable_sku_batch;
+    var enableBulkActions = !!config.enable_sku_batch;
     var STOCK_LABELS = { instock: '有货', outofstock: '无货', onbackorder: '预售' };
     var STOCK_CLASSES = { instock: 'oyiso-vi-green', outofstock: 'oyiso-vi-red', onbackorder: 'oyiso-vi-orange' };
 
@@ -930,8 +930,9 @@
         $skuModal.toggleClass('is-batch', !variationId);
         $skuModal.data('previewRemote', false);
 
-        // 前缀框：除清除外永久显示，留空则使用父产品 SKU
-        if (mode === 'clear') {
+        var clearing = mode === 'clear' || mode === 'clear_covers';
+        // SKU 生成选项仅用于生成操作。
+        if (clearing) {
             $('.oyiso-vi-sku-prefix-field').hide();
             $('.oyiso-vi-sku-abbr-field').hide();
         } else {
@@ -940,11 +941,11 @@
         }
 
         // 生成预览：单个变体本地实时算；批量操作走后端，返回全部目标变体。
-        if (mode !== 'clear' && $.isArray(attrValues) && attrValues.length) {
+        if (!clearing && $.isArray(attrValues) && attrValues.length) {
             skuPreviewAttrs = attrValues;
             $('.oyiso-vi-sku-preview').show();
             renderSkuPreview();
-        } else if (mode !== 'clear') {
+        } else if (!clearing) {
             skuPreviewAttrs = [];
             $skuModal.data('previewRemote', true);
             setSkuPreviewLoading();
@@ -1041,7 +1042,102 @@
         $skuModalMsg.text(message);
     }
 
-    if ((enableInline || enableSkuBatch) && $skuModal.length) {
+    function coverVariationRow(id) {
+        return $('#variable_product_options .woocommerce_variation').filter(function() {
+            return Number($(this).find('.variable_post_id').val()) === Number(id);
+        });
+    }
+
+    function pendingCoverChange(row) {
+        var $variation = coverVariationRow(row.variation_id);
+        if (!$variation.length) return false;
+        if (Number($variation.find('.upload_image_id').val() || 0) !== row.image_id) return true;
+        var $gallery = $variation.find('.wc-variation-gallery-image-ids');
+        return $gallery.length && String($gallery.val() || '').split(',').filter(Boolean).map(Number).join(',') !== row.gallery_ids.join(',');
+    }
+
+    function syncClearedCover(result) {
+        var $row = coverVariationRow(result.variation_id);
+        if (!$row.length) return;
+        var dirty = $row.hasClass('variation-needs-update');
+        var $gallery = $row.find('.wc-variation-gallery-field');
+        var $rendered = $('<div>').append($.parseHTML(result.gallery_html || '', document, false)).find('.wc-variation-gallery-field').first();
+        if ($gallery.length && $rendered.length) {
+            $gallery.find('.wc-variation-gallery-field__hero').empty().append($rendered.find('.wc-variation-gallery-field__hero').contents()).attr('data-active-index', '0');
+            var $thumbs = $gallery.find('.wc-variation-gallery-field__thumbs');
+            $thumbs.empty().append($rendered.find('.wc-variation-gallery-field__thumbs').children());
+            if ($.fn.sortable && $thumbs.data('ui-sortable')) $thumbs.sortable('refresh');
+            $gallery.toggleClass('is-empty', $rendered.hasClass('is-empty'));
+            $gallery.find('.wc-variation-gallery-field__count').text($rendered.find('.wc-variation-gallery-field__count').text());
+            $gallery.find('.wc-variation-gallery-field__hint').prop('hidden', $rendered.find('.wc-variation-gallery-field__hint').prop('hidden'));
+        }
+        $gallery.find('.wc-variation-gallery-image-ids').val((result.gallery_ids || []).join(','));
+        $row.find('.upload_image_id').val('0');
+        $row.find('.upload_image_button').removeClass('remove').find('img').attr('src', config.placeholder_img_src);
+        syncGalleryThumb($row);
+        delete lastSavedValues[result.variation_id + '_image_id'];
+        if (!dirty) savedVariationStates[result.variation_id] = variationState($row);
+    }
+
+    async function requestCoverClear(data) {
+        var response = await $.ajax({
+            url: config.ajaxurl,
+            type: 'POST',
+            dataType: 'json',
+            data: $.extend({action: config.clear_covers_action, nonce: config.nonce, product_id: config.product_id}, data)
+        });
+        if (!response || !response.success) {
+            throw new Error(response && response.data ? response.data.message : '清除失败，请重试。');
+        }
+        return response.data;
+    }
+
+    async function submitCoverClear() {
+        if (skuRequestRunning) return;
+        setSkuModalLoading();
+        var cleared = 0;
+        var failed = 0;
+        var skipped = 0;
+        var pending = 0;
+        var processed = 0;
+        var selections = [];
+        var requestError = '';
+        try {
+            if (Object.keys(saveTimers).length || Object.keys(saveQueues).length) {
+                throw new Error('请等待当前快速编辑保存完成，再重试。');
+            }
+            var preview = await requestCoverClear({preview: '1'});
+            preview.rows.forEach(function(row) {
+                if (pendingCoverChange(row)) pending++;
+                else if (!row.image_id) skipped++;
+                else selections.push({variation_id: row.variation_id, expected_image_id: row.image_id});
+            });
+            for (var start = 0; start < selections.length; start += 20) {
+                $skuModalMsg.text('正在清除封面：' + processed + ' / ' + selections.length);
+                var response = await requestCoverClear({selections: JSON.stringify(selections.slice(start, start + 20))});
+                response.results.forEach(function(result) {
+                    if (result.success) {
+                        cleared++;
+                        syncClearedCover(result);
+                    } else failed++;
+                    processed++;
+                });
+            }
+        } catch (error) {
+            requestError = (error.responseJSON && error.responseJSON.data && error.responseJSON.data.message) || error.message || '网络错误，请重试。';
+        }
+        var remaining = failed + selections.length - processed;
+        var message = '已清除 ' + cleared + ' 个变体封面';
+        if (skipped) message += '，' + skipped + ' 个未设置封面';
+        if (pending) message += '，' + pending + ' 个有未保存的图片修改，已跳过';
+        if (remaining) message += '，' + remaining + ' 个未清除';
+        if (requestError) message += '。' + requestError;
+        var success = !requestError && !remaining && !pending;
+        setSkuModalResult(success, message, success ? '封面清除完成' : '封面清除未全部完成');
+        refreshVariationSaveButtons();
+    }
+
+    if ((enableInline || enableBulkActions) && $skuModal.length) {
         $skuModal.on('click', '.oyiso-vi-sku-modal-close, .oyiso-vi-sku-modal-cancel', closeSkuModal);
         $skuModal.on('click', function(e) {
             if (e.target === this) closeSkuModal();
@@ -1079,7 +1175,8 @@
         $skuModal.on('click', '.oyiso-vi-sku-modal-do', function() {
             var m = $skuModal.data('mode');
             if (!m) return;
-            submitSkuOp(m);
+            if (m === 'clear_covers') submitCoverClear();
+            else submitSkuOp(m);
         });
 
         function submitSkuOp(m) {
@@ -1132,27 +1229,30 @@
             });
         }
 
-        // 批量生成 SKU（capture phase 拦截 WC 之前）
-        var oyisoSkuBox = enableSkuBatch ? document.querySelector('#variable_product_options') : null;
-        if (oyisoSkuBox) {
-            oyisoSkuBox.addEventListener('change', function(e) {
+        // 多功能批量操作（capture phase 拦截 WC 之前）。
+        var oyisoBulkBox = enableBulkActions ? document.querySelector('#variable_product_options') : null;
+        if (oyisoBulkBox) {
+            oyisoBulkBox.addEventListener('change', function(e) {
                 var target = e.target;
                 if (!target || !target.matches('#field_to_edit, select.variation_actions')) return;
                 var action = target.value;
-                if (action !== 'oyiso_regenerate_sku' && action !== 'oyiso_generate_missing_sku' && action !== 'oyiso_clear_sku') return;
+                if (action !== 'oyiso_regenerate_sku' && action !== 'oyiso_generate_missing_sku' && action !== 'oyiso_clear_sku' && action !== 'oyiso_clear_variation_covers') return;
 
                 e.stopPropagation();
 
-                var mode = action === 'oyiso_clear_sku' ? 'clear' : (action === 'oyiso_regenerate_sku' ? 'all' : 'missing');
+                var mode = action === 'oyiso_clear_variation_covers' ? 'clear_covers'
+                    : (action === 'oyiso_clear_sku' ? 'clear' : (action === 'oyiso_regenerate_sku' ? 'all' : 'missing'));
                 var titles = {
                     clear: '清除全部SKU',
                     all: '生成全部SKU',
-                    missing: '补全缺失SKU'
+                    missing: '补全缺失SKU',
+                    clear_covers: '清除全部变体封面'
                 };
                 var messages = {
                     clear: '确认清除全部变体 SKU？此操作不可撤销。',
                     all: '确认重新生成全部变体 SKU？已有 SKU 将被覆盖。\n规则：SKU = 前缀 + 属性值，可选择按单词首字母缩写。',
-                    missing: '确认补全缺失的变体 SKU？已有 SKU 的变体会跳过。\n规则：SKU = 前缀 + 属性值，可选择按单词首字母缩写。'
+                    missing: '确认补全缺失的变体 SKU？已有 SKU 的变体会跳过。\n规则：SKU = 前缀 + 属性值，可选择按单词首字母缩写。',
+                    clear_covers: '确认清除当前产品全部变体的独立封面？清除后立即保存。'
                 };
 
                 showSkuModal('确认操作 - ' + titles[mode], messages[mode], mode);

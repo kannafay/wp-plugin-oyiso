@@ -28,7 +28,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             }
 
             if (self::isSkuBatchEnabled()) {
-                add_action('woocommerce_variable_product_bulk_edit_actions', [__CLASS__, 'addSkuBulkActions']);
+                add_action('woocommerce_variable_product_bulk_edit_actions', [__CLASS__, 'addBulkActions']);
                 if (!self::isEnabled()) {
                     add_action('admin_enqueue_scripts', [__CLASS__, 'enqueueSkuAssets']);
                 }
@@ -94,6 +94,7 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'wc_thousand_sep' => wc_get_price_thousand_separator(),
                 'placeholder_img_src' => wc_placeholder_img_src(),
                 'generate_sku_action' => self::AJAX_GENERATE_SKU,
+                'clear_covers_action' => Oyiso_WC_Variation_Bulk_Images::AJAX_ACTION,
                 'product_id' => isset($_GET['post']) ? absint($_GET['post']) : 0,
                 'enable_inline' => self::isEnabled(),
                 'enable_sku_batch' => self::isSkuBatchEnabled(),
@@ -133,6 +134,8 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 'variation_save_action' => 'woocommerce_save_variations',
                 'variation_save_nonce' => wp_create_nonce('save-variations'),
                 'generate_sku_action' => self::AJAX_GENERATE_SKU,
+                'clear_covers_action' => Oyiso_WC_Variation_Bulk_Images::AJAX_ACTION,
+                'placeholder_img_src' => wc_placeholder_img_src(),
                 'product_id' => isset($_GET['post']) ? absint($_GET['post']) : 0,
                 'enable_inline' => self::isEnabled(),
                 'enable_sku_batch' => self::isSkuBatchEnabled(),
@@ -146,13 +149,14 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             );
         }
 
-        public static function addSkuBulkActions(): void
+        public static function addBulkActions(): void
         {
             ?>
-            <optgroup label="SKU">
+            <optgroup label="橘子猫头">
                 <option value="oyiso_regenerate_sku">生成全部SKU</option>
                 <option value="oyiso_generate_missing_sku">补全缺失SKU</option>
                 <option value="oyiso_clear_sku">清除全部SKU</option>
+                <option value="oyiso_clear_variation_covers">清除全部变体封面</option>
             </optgroup>
             <?php
         }
@@ -452,3 +456,5 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
 Oyiso_WC_Variation_Inline::init();
 
 require_once __DIR__ . '/image-match.php';
+require_once __DIR__ . '/bulk-images.php';
+Oyiso_WC_Variation_Bulk_Images::init();
