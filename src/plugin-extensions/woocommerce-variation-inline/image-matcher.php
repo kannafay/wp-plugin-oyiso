@@ -125,7 +125,7 @@ final class Oyiso_Variation_Image_Matcher
         $value = html_entity_decode(rawurldecode($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $separator = trim($separator);
         // Spaces and hyphens remain inside a flavor name, such as Mango Peach.
-        $parts = $separator !== '' ? explode($separator, $value) : (preg_split('~[/／|｜+＋,，;；、]~u', $value) ?: []);
+        $parts = $separator !== '' ? explode($separator, $value) : (preg_split('~[/／|｜+＋&＆,，;；、]~u', $value) ?: []);
         if ($separator !== '' && count($parts) < 2) {
             return [];
         }

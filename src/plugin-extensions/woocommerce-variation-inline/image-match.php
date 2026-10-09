@@ -413,7 +413,7 @@ final class Oyiso_WC_Variation_Image_Match
                         <label for="oyiso-vim-separator">自定义分隔符
                             <input type="text" id="oyiso-vim-separator" placeholder="留空使用预设" autocomplete="off" aria-describedby="oyiso-vim-separator-hint oyiso-vim-message" disabled>
                         </label>
-                        <span id="oyiso-vim-separator-hint">预设 /、|、+、逗号、分号、顿号（含全角）；填写后仅按该分隔符拆分，无法拆分时不自动匹配。口味组合顺序不限。</span>
+                        <span id="oyiso-vim-separator-hint">预设 /、|、+、&amp;、逗号、分号、顿号（含全角）；填写后仅按该分隔符拆分，无法拆分时不自动匹配。口味组合顺序不限。</span>
                     </div>
                     <p id="oyiso-vim-message" role="status" aria-live="polite"></p>
                     <div class="oyiso-vim-table-wrap">
