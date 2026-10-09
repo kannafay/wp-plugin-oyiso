@@ -123,20 +123,30 @@
         return true;
     }
 
-    function bindGallerySync($variation) {
+    // Read WC's displayed primary image, which can be inherited from the parent.
+    // Updating this preview must not write the saved image field or fire change.
+    function syncGalleryThumb($variation) {
         var $gallery = $variation.find('.wc-variation-gallery-field');
-        $gallery.find('.wc-variation-gallery-image-ids').on('change', function () {
-            var imageId = parseInt(($(this).val() || '').split(',')[0], 10) || '';
-            var src = imageId ? $gallery.find('.wc-variation-gallery-thumb').first().find('img').attr('src') : config.placeholder_img_src;
-            var $thumb = $variation.find('.oyiso-vi-thumb');
+        var $input = $gallery.find('.wc-variation-gallery-image-ids');
+        if (!$input.length) return;
+        var imageId = parseInt(($input.val() || '').split(',')[0], 10) || '';
+        var src = imageId ? $gallery.find('.wc-variation-gallery-thumb').first().find('img').attr('src') : config.placeholder_img_src;
+        var $thumb = $variation.find('.oyiso-vi-thumb');
+        $thumb.toggleClass('oyiso-vi-thumb-has-image', !!imageId).data('image-id', imageId);
+        $thumb.find('img').attr('src', src || config.placeholder_img_src || '');
+    }
+
+    function bindGallerySync($variation) {
+        $variation.on('change.oyisoViGallerySync', '.wc-variation-gallery-image-ids', function () {
             removeThumbPreview();
-            $thumb.toggleClass('oyiso-vi-thumb-has-image', !!imageId).data('image-id', imageId);
-            $thumb.find('img').attr('src', src || config.placeholder_img_src || '');
+            syncGalleryThumb($variation);
         });
+        syncGalleryThumb($variation);
     }
 
     function initVariation($variation) {
         if ($variation.find('.oyiso-vi-inline').length) {
+            syncGalleryThumb($variation);
             return;
         }
 
@@ -704,6 +714,8 @@
             if ($container.length) {
                 observer.observe($container[0], { childList: true, subtree: true });
             }
+            $('#woocommerce-product-data').on('woocommerce_variations_loaded', initAll);
+            $container.on('woocommerce_variations_added', initAll);
             $(document.body).on('change input', '#variable_product_options .woocommerce_variation :input, .variations-defaults select', refreshVariationSaveButtons);
         }
     });

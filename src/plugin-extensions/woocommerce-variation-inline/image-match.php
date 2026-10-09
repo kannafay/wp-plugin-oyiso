@@ -129,6 +129,8 @@ final class Oyiso_WC_Variation_Image_Match
                 }
             }
             $imageId = (int) $variation->get_image_id('edit');
+            $currentGalleryIds = self::displayGalleryIds($variation);
+            $displayImageId = $currentGalleryIds[0] ?? 0;
             $label = self::attributeValueLabel($attribute, $value);
             $rows[] = [
                 'id' => $variation->get_id(),
@@ -136,8 +138,8 @@ final class Oyiso_WC_Variation_Image_Match
                 'value' => $label,
                 'separator_invalid' => $customSeparator && $value !== '' && !Oyiso_Variation_Image_Matcher::canSplitFlavors($label, $separator),
                 'current_image_id' => $imageId,
-                'current_image_url' => $imageId > 0 ? (wp_get_attachment_image_url($imageId, 'thumbnail') ?: '') : '',
-                'current_gallery_ids' => self::displayGalleryIds($variation),
+                'current_image_url' => $displayImageId > 0 ? (wp_get_attachment_image_url($displayImageId, 'thumbnail') ?: '') : '',
+                'current_gallery_ids' => $currentGalleryIds,
                 'candidates' => $candidates,
                 'suggested_image_id' => $match['matches'][0]->id ?? 0,
             ];

@@ -162,7 +162,7 @@
                     .appendTo($tr);
                 const $current = $('<td>').appendTo($tr);
                 if (row.current_image_url) image(row.current_image_url, '当前封面').appendTo($current);
-                else imagePlaceholder(row.current_image_id ? '暂无预览' : '未设置封面').appendTo($current);
+                else imagePlaceholder(row.current_gallery_ids.length ? '暂无预览' : '未设置封面').appendTo($current);
                 const $target = $('<div class="oyiso-vim-target">');
                 const $pick = $('<select class="oyiso-vim-pick">').attr('aria-label', '变体 #' + row.id + ' 的封面');
                 $('<option value="0">请选择图库图片</option>').appendTo($pick);
