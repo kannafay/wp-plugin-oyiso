@@ -123,21 +123,25 @@
         return true;
     }
 
-    // Read WC's displayed primary image, which can be inherited from the parent.
+    // Only show the variation's own cover; WC's gallery may display a parent image.
     // Updating this preview must not write the saved image field or fire change.
     function syncGalleryThumb($variation) {
-        var $gallery = $variation.find('.wc-variation-gallery-field');
-        var $input = $gallery.find('.wc-variation-gallery-image-ids');
+        var $input = $variation.find('.upload_image_id');
         if (!$input.length) return;
-        var imageId = parseInt(($input.val() || '').split(',')[0], 10) || '';
-        var src = imageId ? $gallery.find('.wc-variation-gallery-thumb').first().find('img').attr('src') : config.placeholder_img_src;
+        var imageId = parseInt($input.val(), 10) || '';
+        var $image = $variation.find('.wc-variation-gallery-thumb').filter(function () {
+            return Number($(this).attr('data-attachment_id')) === imageId;
+        }).find('img').first();
+        var src = imageId
+            ? ($image.attr('src') || $variation.find('.upload_image_button img').attr('src'))
+            : config.placeholder_img_src;
         var $thumb = $variation.find('.oyiso-vi-thumb');
         $thumb.toggleClass('oyiso-vi-thumb-has-image', !!imageId).data('image-id', imageId);
         $thumb.find('img').attr('src', src || config.placeholder_img_src || '');
     }
 
     function bindGallerySync($variation) {
-        $variation.on('change.oyisoViGallerySync', '.wc-variation-gallery-image-ids', function () {
+        $variation.on('change.oyisoViGallerySync', '.wc-variation-gallery-image-ids, .upload_image_id', function () {
             removeThumbPreview();
             syncGalleryThumb($variation);
         });
@@ -595,8 +599,15 @@
         );
     }
 
-    function buildOfficialVariationSaveData($variation) {
+    function buildOfficialVariationSaveData($variation, field) {
         var data = $variation.find(':input[name]').serializeArray();
+        var $gallery = $variation.find('.wc-variation-gallery-image-ids');
+        var imageId = parseInt($variation.find('.upload_image_id').val(), 10) || 0;
+        if (field !== 'image_id' && !imageId && parseInt($gallery.val(), 10) > 0) {
+            // Posting WC's inherited display image would turn it into an owned cover.
+            var galleryName = $gallery.attr('name');
+            data = data.filter(function (item) { return item.name !== galleryName; });
+        }
         data = data.concat($('.variations-defaults select[name]').serializeArray());
         data.push(
             { name: 'action', value: config.variation_save_action },
@@ -639,7 +650,7 @@
                     url: config.ajaxurl,
                     type: 'POST',
                     dataType: useOfficialSave ? 'html' : 'json',
-                    data: useOfficialSave ? buildOfficialVariationSaveData($variation) : {
+                    data: useOfficialSave ? buildOfficialVariationSaveData($variation, field) : {
                         action: config.action,
                         nonce: config.nonce,
                         variation_id: variationId,
