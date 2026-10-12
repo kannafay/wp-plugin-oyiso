@@ -18,6 +18,22 @@
     var thumbPreviewTimer = null;
     var $thumbPreview = null;
     var galleryQuickSaveCleanup = null;
+    var galleryStateKey = 'oyisoViSavedGalleryIds';
+
+    function galleryState(value) {
+        return String(value || '').split(',').filter(Boolean).map(Number).join(',');
+    }
+
+    function rememberNativeGalleries($root, saved) {
+        $root.find('.woocommerce_variation').each(function () {
+            var $row = $(this);
+            var $input = $row.find('.wc-variation-gallery-image-ids');
+            if (!$input.length) return;
+            if ($input.data(galleryStateKey) === undefined || (saved && !$row.hasClass('variation-needs-update'))) {
+                $input.data(galleryStateKey, galleryState($input.val()));
+            }
+        });
+    }
 
     function removeThumbPreview() {
         clearTimeout(thumbPreviewTimer);
@@ -646,17 +662,22 @@
                 var saved = false;
                 var submittedState = variationState($variation);
                 var savedState = null;
+                var saveData = useOfficialSave ? buildOfficialVariationSaveData($variation, field) : {
+                    action: config.action,
+                    nonce: config.nonce,
+                    variation_id: variationId,
+                    field: field,
+                    value: value
+                };
+                var $gallery = $variation.find('.wc-variation-gallery-image-ids');
+                var submittedGallery = useOfficialSave ? saveData.filter(function (item) {
+                    return item.name === $gallery.attr('name');
+                })[0] : null;
                 $.ajax({
                     url: config.ajaxurl,
                     type: 'POST',
                     dataType: useOfficialSave ? 'html' : 'json',
-                    data: useOfficialSave ? buildOfficialVariationSaveData($variation, field) : {
-                        action: config.action,
-                        nonce: config.nonce,
-                        variation_id: variationId,
-                        field: field,
-                        value: value
-                    },
+                    data: saveData,
                     success: function (resp) {
                         var success = useOfficialSave
                             ? !officialVariationSaveFailed(resp)
@@ -670,6 +691,7 @@
                         saved = true;
                         var unchanged = submittedState === variationState($variation);
                         nativeValue.commit();
+                        if (submittedGallery) $gallery.data(galleryStateKey, galleryState(submittedGallery.value));
                         if (onSuccess) {
                             onSuccess(resp);
                         }
@@ -704,6 +726,8 @@
 
     // 初始化所有已有变体
     function initAll() {
+        rememberNativeGalleries($('#variable_product_options'));
+        if (!enableInline) return;
         $('#variable_product_options .woocommerce_variation').each(function () {
             initVariation($(this));
         });
@@ -712,13 +736,14 @@
     // MutationObserver 捕获动态添加的变体
     var observerTimer = null;
     var observer = new MutationObserver(function () {
+        rememberNativeGalleries($('#variable_product_options'));
         clearTimeout(observerTimer);
         observerTimer = setTimeout(initAll, 100);
     });
 
     // 初始化和观察
     $(function () {
-        if (enableInline) {
+        if (enableInline || enableBulkActions) {
             initAll();
 
             var $container = $('#variable_product_options');
@@ -726,7 +751,12 @@
                 observer.observe($container[0], { childList: true, subtree: true });
             }
             $('#woocommerce-product-data').on('woocommerce_variations_loaded', initAll);
+            $('#woocommerce-product-data').on('woocommerce_variations_saved', function () {
+                rememberNativeGalleries($container, true);
+            });
             $container.on('woocommerce_variations_added', initAll);
+        }
+        if (enableInline) {
             $(document.body).on('change input', '#variable_product_options .woocommerce_variation :input, .variations-defaults select', refreshVariationSaveButtons);
         }
     });
@@ -1053,7 +1083,8 @@
         if (!$variation.length) return false;
         if (Number($variation.find('.upload_image_id').val() || 0) !== row.image_id) return true;
         var $gallery = $variation.find('.wc-variation-gallery-image-ids');
-        return $gallery.length && String($gallery.val() || '').split(',').filter(Boolean).map(Number).join(',') !== row.gallery_ids.join(',');
+        var saved = $gallery.data(galleryStateKey);
+        return $gallery.length && galleryState($gallery.val()) !== (saved === undefined ? row.gallery_ids.join(',') : saved);
     }
 
     function syncClearedCover(result) {
@@ -1072,6 +1103,7 @@
             $gallery.find('.wc-variation-gallery-field__hint').prop('hidden', $rendered.find('.wc-variation-gallery-field__hint').prop('hidden'));
         }
         $gallery.find('.wc-variation-gallery-image-ids').val((result.gallery_ids || []).join(','));
+        $gallery.find('.wc-variation-gallery-image-ids').data(galleryStateKey, galleryState((result.gallery_ids || []).join(',')));
         $row.find('.upload_image_id').val('0');
         $row.find('.upload_image_button').removeClass('remove').find('img').attr('src', config.placeholder_img_src);
         syncGalleryThumb($row);

@@ -28,6 +28,22 @@
         let finished = false;
         let returnFocus = null;
         let backdropPress = false;
+        const galleryStateKey = 'oyisoViSavedGalleryIds';
+
+        function galleryState(value) {
+            return String(value || '').split(',').filter(Boolean).map(Number).join(',');
+        }
+
+        function rememberNativeGalleries(saved) {
+            $('#variable_product_options .woocommerce_variation').each(function () {
+                const $row = $(this);
+                const $input = $row.find('.wc-variation-gallery-image-ids');
+                if (!$input.length) return;
+                if ($input.data(galleryStateKey) === undefined || (saved === true && !$row.hasClass('variation-needs-update'))) {
+                    $input.data(galleryStateKey, galleryState($input.val()));
+                }
+            });
+        }
 
         function mountButton() {
             const $anchor = $('#variable_product_options .toolbar-top .add_variation_manually');
@@ -55,8 +71,9 @@
             if (Number($variation.find('.upload_image_id').val() || 0) !== row.current_image_id) return true;
             const $gallery = $variation.find('.wc-variation-gallery-image-ids');
             if ($gallery.length) {
-                const ids = String($gallery.val() || '').split(',').filter(Boolean).map(Number);
-                return ids.join(',') !== row.current_gallery_ids.join(',');
+                // Parent-image inheritance can change without an edit to this field.
+                const saved = $gallery.data(galleryStateKey);
+                return galleryState($gallery.val()) !== (saved === undefined ? row.current_gallery_ids.join(',') : saved);
             }
             return false;
         }
@@ -299,6 +316,7 @@
             $row.find('.upload_image_id').val(result.image_id);
             $row.find('.upload_image_button').addClass('remove').find('img').attr('src', result.url);
             $row.find('.oyiso-vi-thumb').addClass('oyiso-vi-thumb-has-image').data('image-id', result.image_id).find('img').attr('src', result.url);
+            if ($input.length) $input.data(galleryStateKey, galleryState($input.val()));
         }
 
         function lockEditor(locked) {
@@ -422,7 +440,14 @@
             }
         });
         mountButton();
+        rememberNativeGalleries();
+        $('#woocommerce-product-data').on('woocommerce_variations_loaded', rememberNativeGalleries);
+        $('#woocommerce-product-data').on('woocommerce_variations_saved', function () { rememberNativeGalleries(true); });
+        $('#variable_product_options').on('woocommerce_variations_added', rememberNativeGalleries);
         const container = document.getElementById('variable_product_options');
-        if (container) new MutationObserver(mountButton).observe(container, {childList: true, subtree: true});
+        if (container) new MutationObserver(function () {
+            mountButton();
+            rememberNativeGalleries();
+        }).observe(container, {childList: true, subtree: true});
     });
 })(jQuery);
