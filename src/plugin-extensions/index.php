@@ -13,6 +13,8 @@ if (class_exists('CSF')) {
 
 require_once __DIR__ . '/elementor-widgets/settings.php';
 require_once __DIR__ . '/elementor-widgets/index.php';
+require_once __DIR__ . '/seopress/index.php';
+require_once __DIR__ . '/seopress/settings.php';
 
 // WooCommerce 插件扩展
 add_action('plugins_loaded', function () {
