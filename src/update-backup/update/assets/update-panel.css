@@ -17,8 +17,8 @@
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
-    padding: 16px 24px;
+    gap: 8px;
+    padding: 8px 18px;
     border-bottom: 1px solid #e5e7eb;
 }
 
@@ -26,6 +26,10 @@
     margin: 0;
     font-size: 16px;
     line-height: 1.5;
+}
+
+.oyiso-update-overview-heading h3 {
+    font-size: 14px;
 }
 
 .oyiso-update-state,
@@ -61,8 +65,8 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
-    padding: 24px;
+    gap: 4px;
+    padding: 12px 18px;
     min-width: 0;
 }
 
@@ -72,11 +76,11 @@
 }
 
 .oyiso-update-version strong {
-    font-size: 32px;
+    font-size: 22px;
     font-weight: 600;
     line-height: 1.25;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -.5px;
+    letter-spacing: 0;
     overflow-wrap: anywhere;
 }
 
@@ -100,7 +104,7 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
-    margin-top: 18px;
+    margin-top: 14px;
 }
 
 .oyiso-update-repository {
@@ -222,15 +226,15 @@
 
 @media (max-width: 600px) {
     .oyiso-update-overview-heading {
-        padding: 14px 16px;
+        padding: 8px 12px;
     }
 
     .oyiso-update-version {
-        padding: 18px 14px;
+        padding: 12px;
     }
 
     .oyiso-update-version strong {
-        font-size: 24px;
+        font-size: 20px;
     }
 
     .oyiso-update-repository {
