@@ -809,4 +809,5 @@ require_once $dir . 'wp-optimize/index.php';
 require_once $dir . 'code-analytics/index.php';
 require_once $dir . 'notifications/index.php';
 require_once $dir . 'plugin-extensions/index.php';
+require_once $dir . 'ai-agent/index.php';
 require_once $dir . 'update-backup/index.php';
