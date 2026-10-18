@@ -8,6 +8,7 @@
     --oyiso-config-child-label-width: 132px;
     --oyiso-config-child-control-offset: 148px;
     --oyiso-config-form-width: 840px;
+    --oyiso-config-control-width: 560px;
 }
 
 /* One left-aligned reading column, regardless of the window width. */
@@ -66,19 +67,26 @@
     margin-inline-start: var(--oyiso-config-child-control-offset);
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-composite > .csf-title,
+/* Only a feature's sole composite uses the whole detail column. */
+.csf-options[data-unique="oyiso"] .oyiso-config-composite.oyiso-config-details-first.oyiso-config-details-last > .csf-title,
 .csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content, .csf-cloneable-content, .csf-accordion-content, .csf-repeater-content) > :is(.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater) > .csf-title {
     float: none;
     width: auto;
     margin-bottom: 10px;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-composite > .csf-fieldset,
+.csf-options[data-unique="oyiso"] .oyiso-config-composite.oyiso-config-details-first.oyiso-config-details-last > .csf-fieldset,
 .csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content, .csf-cloneable-content, .csf-accordion-content, .csf-repeater-content) > :is(.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater) > .csf-fieldset {
     float: none;
     width: auto;
     min-width: 0;
     margin-inline-start: 0;
+}
+
+/* Labeled composites line up with adjacent inputs instead of starting another row. */
+.csf-options[data-unique="oyiso"] .oyiso-config-composite:not(.oyiso-config-details-first.oyiso-config-details-last) > .csf-fieldset {
+    min-width: 0;
+    max-width: var(--oyiso-config-control-width);
 }
 
 /* A single composite already has its feature heading; preserve its accessible title. */
@@ -154,7 +162,7 @@
 }
 
 .csf-options[data-unique="oyiso"] .csf-section .csf-field-text input {
-    max-width: 560px;
+    max-width: var(--oyiso-config-control-width);
 }
 
 .csf-options[data-unique="oyiso"] .csf-section .csf-field-textarea textarea {
@@ -235,7 +243,7 @@
     float: left;
 }
 
-@media only screen and (max-width: 1024px) {
+@media only screen and (max-width: 1200px) {
     .csf-options[data-unique="oyiso"] {
         --oyiso-config-label-width: 100%;
         --oyiso-config-control-offset: 0px;
