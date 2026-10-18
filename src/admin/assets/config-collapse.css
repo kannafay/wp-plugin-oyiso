@@ -1,44 +1,158 @@
 .csf-options[data-unique="oyiso"] {
-    --oyiso-config-surface: #f6f7f7;
-    --oyiso-config-border: #dcdcde;
-    --oyiso-config-guide: #c3c4c7;
-    --oyiso-config-text: #50575e;
+    --oyiso-config-surface: #fff;
+    --oyiso-config-heading: #f8fafc;
+    --oyiso-config-border: #e4e7ec;
+    --oyiso-config-accent: #e5702a;
+    --oyiso-config-text: #646970;
     --oyiso-config-action: #3858e9;
+    --oyiso-config-label-width: 160px;
+    --oyiso-config-control-width: calc(100% - 184px);
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-parent {
+    padding-block: 24px;
+}
+
+.csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-title {
+    width: 200px;
+}
+
+.csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-title h4 {
+    font-size: 14px;
+}
+
+.csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-fieldset {
+    width: calc(100% - 224px);
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-parent.oyiso-config-open {
-    padding-bottom: 20px;
+    background: var(--oyiso-config-heading);
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-parent.oyiso-config-open::before {
+    content: "";
+    display: block;
+    position: absolute;
+    inset-inline-start: 14px;
+    top: 24px;
+    bottom: 24px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--oyiso-config-accent);
 }
 
 /* Keep the original sibling structure for CSF dependencies and form submission. */
 .csf-options[data-unique="oyiso"] .oyiso-config-details {
     margin-inline: 30px;
     padding: 20px 24px;
-    border-inline: 1px solid var(--oyiso-config-border);
-    border-inline-start: 3px solid var(--oyiso-config-guide);
+    border: 0;
+    border-inline-start: 2px solid var(--oyiso-config-border);
     background: var(--oyiso-config-surface);
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details + .oyiso-config-details {
-    border-top-color: var(--oyiso-config-border);
+    border-top: 1px solid var(--oyiso-config-border);
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details.oyiso-config-details-first {
-    border-top: 1px solid var(--oyiso-config-border);
-    border-start-start-radius: 4px;
-    border-start-end-radius: 4px;
+    border-top: 0;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details.oyiso-config-details-last {
     margin-bottom: 30px;
-    border-bottom: 1px solid var(--oyiso-config-border);
-    border-end-start-radius: 4px;
-    border-end-end-radius: 4px;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details > .csf-title h4 {
+    font-weight: 600;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details > .csf-title,
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-field > .csf-title {
+    width: var(--oyiso-config-label-width);
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details > .csf-fieldset,
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-field > .csf-fieldset {
+    width: var(--oyiso-config-control-width);
+}
+
+/* Composite controls use the full reading width instead of nesting label columns. */
+.csf-options[data-unique="oyiso"] .oyiso-config-composite > .csf-title,
+.csf-options[data-unique="oyiso"] .oyiso-config-details :is(.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater) > .csf-title {
+    float: none;
+    width: auto;
+    margin-bottom: 12px;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-composite > .csf-fieldset,
+.csf-options[data-unique="oyiso"] .oyiso-config-details :is(.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater) > .csf-fieldset {
+    float: none;
+    width: auto;
+    min-width: 0;
+}
+
+/* A single composite is already named by its feature heading; retain its accessible title. */
+.csf-options[data-unique="oyiso"] .oyiso-config-composite.oyiso-config-details-first.oyiso-config-details-last > .csf-title:not(:has(.csf-subtitle-text)) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 24px;
+    border-bottom: 1px solid var(--oyiso-config-border);
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a {
+    margin: 0 0 -1px;
+    padding: 10px 2px 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
     color: var(--oyiso-config-text);
     font-weight: 500;
+    transition: none;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a:hover,
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a.csf-tabbed-active {
+    border-bottom-color: var(--oyiso-config-accent);
+    background: transparent;
+    color: #1d2327;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a.csf-tabbed-active {
+    font-weight: 600;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-content,
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-fieldset-content {
+    border: 0;
+    box-shadow: none;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-content > .csf-field,
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-fieldset-content > .csf-field {
+    padding: 20px 0;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-desc-text,
+.csf-options[data-unique="oyiso"] .oyiso-config-parent .csf-desc-text {
+    max-width: 80ch;
+    color: var(--oyiso-config-text);
+    line-height: 1.65;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-fieldset :is(input[type="text"], input[type="password"], input[type="url"], select, textarea) {
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* Nested tabs already provide a container; keep their dependent rows compact. */
@@ -89,9 +203,15 @@
     color: #2145e6;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-toggle:focus-visible {
+.csf-options[data-unique="oyiso"] .oyiso-config-toggle:focus-visible,
+.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a:focus-visible {
     outline: 2px solid var(--oyiso-config-action);
     outline-offset: 4px;
+    box-shadow: none;
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-toggle:focus:not(:focus-visible) {
+    outline: none;
     box-shadow: none;
 }
 
@@ -111,6 +231,17 @@
 }
 
 @media only screen and (max-width: 782px) {
+    .csf-options[data-unique="oyiso"] {
+        --oyiso-config-label-width: 100%;
+        --oyiso-config-control-width: 100%;
+    }
+
+    .csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-title,
+    .csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-fieldset {
+        float: none;
+        width: 100%;
+    }
+
     .csf-options[data-unique="oyiso"] .oyiso-config-details {
         margin-inline: 15px;
         padding: 18px 16px;

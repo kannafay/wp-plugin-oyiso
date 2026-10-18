@@ -32,8 +32,11 @@
                     return;
                 }
 
-                var hasLargeField = $details.is('.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater');
+                var $composites = $details.filter('.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater');
+                var hasLargeField = $composites.length > 0;
                 var collapsible = $details.length >= 3 || hasLargeField;
+
+                $composites.addClass('oyiso-config-composite');
 
                 var title = $field.children('.csf-title').children('h4').text().trim();
                 // Small groups share the same hierarchy without adding another fold button.
