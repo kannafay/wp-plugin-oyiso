@@ -7,12 +7,9 @@
     --oyiso-config-detail-offset: 230px;
     --oyiso-config-child-label-width: 132px;
     --oyiso-config-child-control-offset: 148px;
-    --oyiso-config-form-width: 840px;
-    --oyiso-config-control-width: 560px;
-    max-width: 1328px;
 }
 
-/* One left-aligned reading column, regardless of the window width. */
+/* Keep label columns aligned while the form fills the available page width. */
 .csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.csf-field-heading, .oyiso-config-details) {
     padding: 20px 30px;
 }
@@ -28,13 +25,11 @@
 .csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-fieldset {
     float: none;
     width: auto;
-    max-width: var(--oyiso-config-form-width);
     margin-inline-start: var(--oyiso-config-control-offset);
 }
 
 /* Keep dependent fields as siblings so native CSF dependencies continue to work. */
 .csf-options[data-unique="oyiso"] .oyiso-config-details {
-    max-width: var(--oyiso-config-form-width);
     margin-inline: calc(var(--oyiso-config-detail-offset) - 18px) 30px;
     padding: 12px 0 12px 16px;
     border: 0;
@@ -89,7 +84,6 @@
 /* Labeled composites line up with adjacent inputs instead of starting another row. */
 .csf-options[data-unique="oyiso"] .oyiso-config-composite:not(.oyiso-config-details-first.oyiso-config-details-last) > .csf-fieldset {
     min-width: 0;
-    max-width: var(--oyiso-config-control-width);
 }
 
 /* A single composite already has its feature heading; preserve its accessible title. */
@@ -162,14 +156,6 @@
 .csf-options[data-unique="oyiso"] .csf-section :where(input[type="text"], input[type="password"], input[type="url"], select, textarea, .chosen-container) {
     max-width: 100%;
     box-sizing: border-box;
-}
-
-.csf-options[data-unique="oyiso"] .csf-section .csf-field-text input {
-    max-width: var(--oyiso-config-control-width);
-}
-
-.csf-options[data-unique="oyiso"] .csf-section .csf-field-textarea textarea {
-    max-width: 640px;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details .oyiso-config-details {
