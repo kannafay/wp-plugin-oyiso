@@ -158,7 +158,7 @@ final class Oyiso_Agent_Admin
 
     private static function available(): bool
     {
-        return current_user_can('manage_options') && !is_network_admin() && !is_user_admin();
+        return Oyiso_Agent_Config::enabled() && current_user_can('manage_options') && !is_network_admin() && !is_user_admin();
     }
 
     public static function panel(): void
@@ -168,7 +168,7 @@ final class Oyiso_Agent_Admin
         }
         ?>
         <span id="oyiso-agent-launcher-help" class="screen-reader-text">拖动可移动，靠边自动收起；也可使用方向键移动，按住 Shift 加快。</span>
-        <div id="oyiso-agent-launcher-wrap"><button type="button" id="oyiso-agent-launcher" aria-label="AI 助手" aria-describedby="oyiso-agent-launcher-help" aria-controls="oyiso-agent-panel" aria-expanded="false" title="AI 助手（可拖动，靠边自动收起）"><span class="dashicons dashicons-format-chat" aria-hidden="true"></span><span>AI 助手</span></button></div>
+        <div id="oyiso-agent-launcher-wrap" style="visibility: hidden" data-agent-initializing><button type="button" id="oyiso-agent-launcher" aria-label="AI 助手" aria-describedby="oyiso-agent-launcher-help" aria-controls="oyiso-agent-panel" aria-expanded="false" title="AI 助手（可拖动，靠边自动收起）"><span class="dashicons dashicons-format-chat" aria-hidden="true"></span><span>AI 助手</span></button></div>
         <aside id="oyiso-agent-panel" class="oyiso-agent oyiso-agent-panel" aria-labelledby="oyiso-agent-title" hidden>
             <div class="oyiso-agent-resize" data-agent-resize role="separator" tabindex="0" aria-label="调整助手宽度" aria-controls="oyiso-agent-panel" aria-orientation="vertical" aria-valuemin="360" aria-valuemax="1000" aria-valuenow="480" title="拖动调整宽度，也可使用左右方向键"></div>
             <header class="oyiso-agent-panel-heading">
@@ -212,11 +212,19 @@ final class Oyiso_Agent_Admin
 
     public static function connectionTest(string $preset): void
     {
+        if (!Oyiso_Agent_Config::enabled()) {
+            echo '<p class="description">请先启用 AI Agent 并保存配置，刷新页面后测试连接。</p>';
+            return;
+        }
         printf('<button type="button" class="button" data-agent-test-connection="%s">测试连接</button><p class="description">先保存配置。测试会发送两次简短模型请求，检查工具调用和结果回传，并消耗少量 API 额度。</p><p data-agent-connection-notice="%s" role="status" aria-live="polite"></p>', esc_attr($preset), esc_attr($preset));
     }
 
     public static function history(): void
     {
+        if (!Oyiso_Agent_Config::enabled()) {
+            echo '<p class="description">请先启用 AI Agent 并保存配置，刷新页面后查看执行记录。</p>';
+            return;
+        }
         echo '<div id="oyiso-agent-history" class="oyiso-agent" data-agent-runs="history"><div class="oyiso-agent-heading"><div><h2>执行记录</h2><p class="description">查看你发起的对话、执行过程和商品修改；可取消正在执行或等待确认的任务。</p></div><button type="button" class="button" data-agent-history-refresh>刷新记录</button></div><p role="status" aria-live="polite" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th>任务</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="4">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>';
     }
 

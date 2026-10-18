@@ -474,6 +474,7 @@ final class AgentTest extends TestCase
         self::assertStringContainsString('aria-labelledby="oyiso-agent-title" hidden', $html);
         self::assertStringContainsString('id="oyiso-agent-chat"', $html);
         self::assertStringContainsString('id="oyiso-agent-launcher-wrap"', $html);
+        self::assertStringContainsString('style="visibility: hidden" data-agent-initializing', $html);
         self::assertStringContainsString('aria-label="调整助手宽度"', $html);
         self::assertStringNotContainsString('<form', $html);
         wp_dequeue_script('oyiso-agent'); wp_dequeue_script('oyiso-agent-panel'); wp_dequeue_style('oyiso-agent');
@@ -483,6 +484,32 @@ final class AgentTest extends TestCase
         self::assertFalse(wp_script_is('oyiso-agent-panel', 'enqueued'));
         ob_start(); Oyiso_Agent_Admin::panel(); $html = ob_get_clean();
         self::assertSame('', $html);
+    }
+
+    public function testDisabledAgentEmitsNoGlobalMarkupOrAssetsEvenOnItsSettingsPage(): void
+    {
+        update_option('oyiso', array_merge(Oyiso_Agent_Config::options(), ['agent_enabled' => false]), false);
+        foreach (['oyiso-agent', 'oyiso-agent-panel'] as $handle) {
+            wp_dequeue_script($handle);
+            wp_deregister_script($handle);
+        }
+        wp_dequeue_style('oyiso-agent');
+        wp_deregister_style('oyiso-agent');
+        foreach (['index.php', 'plugins_page_oyiso'] as $hook) {
+            Oyiso_Agent_Admin::assets($hook);
+            foreach (['oyiso-agent', 'oyiso-agent-panel'] as $handle) {
+                self::assertFalse(wp_script_is($handle, 'enqueued'));
+                self::assertFalse(wp_script_is($handle, 'registered'));
+            }
+            self::assertFalse(wp_style_is('oyiso-agent', 'enqueued'));
+            self::assertFalse(wp_style_is('oyiso-agent', 'registered'));
+            ob_start(); Oyiso_Agent_Admin::panel(); $html = ob_get_clean();
+            self::assertSame('', $html);
+        }
+        ob_start(); Oyiso_Agent_Admin::history(); Oyiso_Agent_Admin::connectionTest('deepseek'); $html = ob_get_clean();
+        self::assertStringNotContainsString('正在读取记录', $html);
+        self::assertStringNotContainsString('<button', $html);
+        self::assertStringContainsString('刷新页面', $html);
     }
 
     public function testFailedSeoWriteRollsBackProductFields(): void

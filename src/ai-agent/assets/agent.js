@@ -47,6 +47,7 @@
     }
 
     function setPanel(open, focus = true, animate = true) {
+        if (open && !config.enabled) return;
         const moving = animate && open !== panelOpen && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
         cancelPanelMotion?.();
         cancelPanelMotion = undefined;
@@ -505,6 +506,7 @@
             api('status').then(state => {
                 config.enabled = state.enabled;
                 config.supported = state.supported;
+                if (!config.enabled) setPanel(false, false, false);
                 for (const [name, configured] of Object.entries(state.secrets || {})) {
                     if (errors[`agent_${name}`]) continue;
                     const input = document.querySelector(`input[name="oyiso[agent_${name}]"]`);
@@ -530,4 +532,8 @@
         setLayout(localStorage.getItem(storageKey + ':layout') === 'floating');
         if (localStorage.getItem(storageKey + ':open') === '1') setPanel(true, false, false);
     } catch { /* Storage is optional. */ }
+    // Keep the launcher unpainted until its saved geometry and open state are restored.
+    launcher.getBoundingClientRect();
+    launcherWrapper.removeAttribute('data-agent-initializing');
+    launcherWrapper.style.removeProperty('visibility');
 })();

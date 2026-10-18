@@ -43,7 +43,7 @@ CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-model', 'title' => '模型配置', 'icon' => 'fas fa-sliders-h', 'priority' => 20,
     'fields' => array_merge([
         ['type' => 'heading', 'content' => '模型配置'],
-        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'label' => '允许管理员通过对话查询数据并准备商品修改。', 'default' => false],
+        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'label' => '允许管理员通过对话查询数据并准备商品修改。', 'default' => false, 'desc' => '启用后请保存配置并刷新页面，加载助手。停用时不加载助手脚本和样式。'],
         ['type' => 'callback', 'title' => '模型连接', 'function' => [Oyiso_Agent_Admin::class, 'connection']],
         ['id' => 'agent_provider', 'type' => 'select', 'title' => '模型服务', 'options' => 'Oyiso_Agent_Config::providers', 'default' => '', 'desc' => '选择 Oyiso 预设可在本页配置；自动选择会从已配置的服务中选择支持工具调用的模型。'],
     ], $oyisoAgentPresetFields, [

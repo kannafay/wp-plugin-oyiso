@@ -7,7 +7,7 @@ const { JSDOM } = require('jsdom');
 
 const repo = path.resolve(__dirname, '../..');
 const phpQuote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
-const markup = JSON.parse(execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } function esc_html($value) { return esc_attr($value); } function esc_url($value) { return esc_attr($value); } function admin_url($value) { return 'https://vape.local/wp-admin/' . $value; } function current_user_can($value) { return true; } function is_network_admin() { return false; } function is_user_admin() { return false; } require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; $parts = []; foreach (['panel', 'history'] as $method) { ob_start(); Oyiso_Agent_Admin::$method(); $parts[$method] = ob_get_clean(); } ob_start(); Oyiso_Agent_Admin::connectionTest('deepseek'); $parts['connection'] = ob_get_clean(); echo json_encode($parts);`], { encoding: 'utf8' }));
+const markup = JSON.parse(execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } function esc_html($value) { return esc_attr($value); } function esc_url($value) { return esc_attr($value); } function admin_url($value) { return 'https://vape.local/wp-admin/' . $value; } function current_user_can($value) { return true; } function is_network_admin() { return false; } function is_user_admin() { return false; } function get_option($name, $default = []) { return $name === 'oyiso' ? ['agent_enabled' => true] : $default; } require ${phpQuote(path.join(repo, 'src/ai-agent/config.php'))}; require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; $parts = []; foreach (['panel', 'history'] as $method) { ob_start(); Oyiso_Agent_Admin::$method(); $parts[$method] = ob_get_clean(); } ob_start(); Oyiso_Agent_Admin::connectionTest('deepseek'); $parts['connection'] = ob_get_clean(); echo json_encode($parts);`], { encoding: 'utf8' }));
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.js'), 'utf8');
 const panelScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/panel.js'), 'utf8');
 const csfScript = fs.readFileSync(path.join(repo, 'assets/js/main.min.js'), 'utf8');
@@ -43,6 +43,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     before(window);
     if (!view.closed && window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open') === null) window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open', '1');
     window.eval(panelScript);
+    view.afterGeometry?.(window);
     window.eval(script);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
     const $ = selector => window.document.querySelector(selector);
@@ -159,6 +160,47 @@ test('global launcher works on other admin pages without loading task data until
     assert.equal(f.window.document.body.classList.contains('oyiso-agent-open'), false);
     assert.equal(f.window.document.activeElement, f.$('#oyiso-agent-launcher'));
     assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open'), '0');
+    assert.equal(f.calls.some(call => call.route.endsWith('/cancel')), false);
+});
+
+test('launcher stays unpainted until saved position, edge and open state have all restored', t => {
+    const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+    for (const { edge, open, left } of [{ edge: '', open: false, left: '370px' }, { edge: 'right', open: false, left: '1480px' }, { edge: 'left', open: true, left: '0px' }]) {
+        const f = fixture(t, undefined, {}, window => {
+            const wrapper = window.document.getElementById('oyiso-agent-launcher-wrap');
+            assert.equal(wrapper.style.visibility, 'hidden', 'server markup must start invisible before scripts load');
+            geometry(window);
+            window.localStorage.setItem(key + ':position', JSON.stringify({ x: 0.25, y: 0.6, edge }));
+            window.localStorage.setItem(key + ':open', open ? '1' : '0');
+        }, { globalOnly: true, closed: true, afterGeometry: window => {
+            const wrapper = window.document.getElementById('oyiso-agent-launcher-wrap');
+            assert.equal(wrapper.style.left, left);
+            assert.equal(wrapper.style.top, '586px');
+            assert.equal(wrapper.style.visibility, 'hidden', 'geometry alone must not reveal the launcher before panel state restores');
+            assert.equal(wrapper.hasAttribute('data-agent-initializing'), true);
+        } });
+        const wrapper = f.$('#oyiso-agent-launcher-wrap');
+        assert.equal(wrapper.style.left, left);
+        assert.equal(wrapper.style.visibility, '');
+        assert.equal(wrapper.hasAttribute('data-agent-initializing'), false);
+        assert.equal(wrapper.hidden, open);
+        assert.equal(f.$('#oyiso-agent-panel').hidden, !open);
+    }
+});
+
+test('saving disabled state hides launcher and panel immediately and resize cannot bring them back', async t => {
+    const f = fixture(t, route => route === 'status' ? { enabled: false, supported: true, secrets: {} } : undefined);
+    f.$('#oyiso-agent-prompt').value = '保留未发送内容';
+    f.window.jQuery(f.window.document).trigger('ajaxSuccess', [{ responseJSON: { success: true, data: { errors: {} } } }, { data: 'action=csf_oyiso_ajax_save' }]);
+    await settle();
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(f.$('#oyiso-agent-launcher-wrap').hidden, true);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-open'), false);
+    assert.equal(f.$('[data-agent-send]').disabled, true);
+    assert.equal(f.$('#oyiso-agent-prompt').value, '保留未发送内容');
+    f.$('#oyiso-agent-launcher').click();
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
     assert.equal(f.calls.some(call => call.route.endsWith('/cancel')), false);
 });
 

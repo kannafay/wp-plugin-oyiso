@@ -187,7 +187,7 @@
     window.addEventListener('blur', () => finish(null, true));
     function sync() {
         if (gesture) finish(null, true);
-        wrapper.hidden = launcher.getAttribute('aria-expanded') === 'true';
+        wrapper.hidden = !config.enabled || launcher.getAttribute('aria-expanded') === 'true';
         if (wrapper.hidden) wrapper.classList.remove('is-hovered');
         applyWidth();
         placeLauncher();

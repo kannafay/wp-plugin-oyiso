@@ -94,7 +94,7 @@ final class ConnectorTest extends TestCase
 
     public function testPresetKeysAreIndependentEncryptedAndNeverRendered(): void
     {
-        foreach (array_keys(Oyiso_Agent_Connectors::presets()) as $id) $this->configure($id);
+        foreach (array_keys(Oyiso_Agent_Connectors::presets()) as $id) $this->configure($id, ['agent_enabled' => true]);
         $stored = wp_json_encode(get_option('oyiso_agent_secrets'));
         foreach (array_keys(Oyiso_Agent_Connectors::presets()) as $id) {
             self::assertSame('fixture-' . $id . '-key', Oyiso_Agent_Config::secret($id . '_key'));
