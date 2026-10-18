@@ -232,8 +232,8 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
                 }
 
                 // Read through the locked handle; Windows locks prevent a second handle from reading.
-                $html = stream_get_contents($lock);
-                if (false === $html || '' === trim($html)) {
+                $html = Oyiso_Private_Files::readStream($lock);
+                if ('' === trim($html)) {
                     throw new RuntimeException('HTML归档文件为空或无法读取。');
                 }
 
@@ -573,9 +573,14 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
             string $format,
             string $apiKey
         ): void {
-            $temporaryPath = $imagePath . '.tmp-' . wp_generate_password(12, false, false);
+            $temporaryPath = tempnam(sys_get_temp_dir(), 'oyiso-render-');
+            if (false === $temporaryPath) {
+                throw new RuntimeException('无法创建截图下载临时文件。');
+            }
+            $encryptedPath = $imagePath . '.tmp-' . wp_generate_password(12, false, false);
 
             try {
+                Oyiso_Private_Files::validateTemporaryPath($temporaryPath);
                 $response = wp_remote_get($imageUrl, [
                     'timeout'             => 120,
                     'redirection'         => 0,
@@ -601,10 +606,14 @@ if (!class_exists('Oyiso_New_Order_Email_Image_Renderer', false)) {
                 }
 
                 self::validateDownloadedImage($temporaryPath, $format);
-                self::replaceFile($temporaryPath, $imagePath);
+                Oyiso_Private_Files::protect($temporaryPath, $encryptedPath);
+                self::replaceFile($encryptedPath, $imagePath);
             } finally {
                 if (is_file($temporaryPath)) {
                     wp_delete_file($temporaryPath);
+                }
+                if (is_file($encryptedPath)) {
+                    wp_delete_file($encryptedPath);
                 }
             }
         }

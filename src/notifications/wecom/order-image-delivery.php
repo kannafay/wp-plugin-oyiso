@@ -34,8 +34,9 @@ final class Oyiso_WeCom_Order_Image_Delivery {
             self::log('error', sprintf('订单 %d 的截图发送任务未创建：图片路径无效。', $orderId));
             return;
         }
-        $hash = md5_file($path);
-        if (false === $hash) {
+        try {
+            $hash = Oyiso_Private_Files::hash($path);
+        } catch (Throwable $error) {
             self::log('error', sprintf('订单 %d 的截图发送任务未创建：无法读取图片。', $orderId));
             return;
         }

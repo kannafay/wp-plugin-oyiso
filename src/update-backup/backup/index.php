@@ -2,6 +2,8 @@
 
 defined('ABSPATH') || exit;
 
+require_once dirname(__DIR__, 2) . '/private-files.php';
+
 if (!function_exists('oyiso_get_plugin_backup_option_name')) {
     function oyiso_get_plugin_backup_option_name(): string {
         return 'oyiso';
@@ -118,8 +120,8 @@ if (!function_exists('oyiso_get_local_plugin_backups')) {
                 continue;
             }
 
-            $contents = file_get_contents($path);
-            $payload = is_string($contents) ? json_decode($contents, true) : null;
+            $contents = Oyiso_Private_Files::read($path);
+            $payload = json_decode($contents, true);
             $modifiedAt = filemtime($path) ?: time();
 
             $items[] = [
@@ -508,9 +510,9 @@ if (!function_exists('oyiso_handle_plugin_backup_create')) {
         );
         $path = trailingslashit($storage['dir']) . $filename;
 
-        $saved = file_put_contents($path, $encodedPayload);
+        $saved = Oyiso_Private_Files::write($path, $encodedPayload);
 
-        if ($saved === false) {
+        if ($saved !== strlen($encodedPayload)) {
             wp_send_json_error([
                 'message' => '本地备份创建失败，请检查目录写入权限。',
             ], 500);
@@ -542,7 +544,9 @@ if (!function_exists('oyiso_handle_plugin_backup_download')) {
         nocache_headers();
         header('Content-Type: application/json; charset=' . get_option('blog_charset'));
         header('Content-Disposition: attachment; filename=' . basename($path));
-        readfile($path);
+        $handle = Oyiso_Private_Files::open($path);
+        fpassthru($handle);
+        fclose($handle);
         exit;
     }
 }
@@ -566,8 +570,8 @@ if (!function_exists('oyiso_handle_plugin_backup_restore_local')) {
             ], 404);
         }
 
-        $contents = file_get_contents($path);
-        $payload = is_string($contents) ? json_decode($contents, true) : null;
+        $contents = Oyiso_Private_Files::read($path);
+        $payload = json_decode($contents, true);
 
         if (!is_array($payload)) {
             wp_send_json_error([

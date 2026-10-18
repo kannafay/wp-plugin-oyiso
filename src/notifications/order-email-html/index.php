@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
+require_once dirname(__DIR__, 2) . '/private-files.php';
+
 require_once dirname(__DIR__) . '/wecom/index.php';
 
 if (!function_exists('oyiso_is_wc_order_screenshot_forwarding_enabled')) {
@@ -300,9 +302,9 @@ if (!class_exists('Oyiso_New_Order_Email_Html_Archive', false)) {
         public static function archive(WC_Order $order, string $html): string {
             $directory = self::ensureStorageDirectory();
             $path      = trailingslashit($directory) . self::buildFilename($order);
-            $bytes     = file_put_contents($path, $html, LOCK_EX);
+            $bytes     = Oyiso_Private_Files::write($path, $html);
 
-            if (false === $bytes || strlen($html) !== $bytes) {
+            if (strlen($html) !== $bytes) {
                 throw new RuntimeException('无法完整写入HTML文件，请检查站点存储权限。');
             }
 

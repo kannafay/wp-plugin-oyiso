@@ -51,6 +51,25 @@ if ( ! function_exists( 'csf_get_icons' ) ) {
 }
 
 /**
+ * Only registered options may use the framework backup endpoints.
+ */
+if ( ! function_exists( 'csf_can_access_backup' ) ) {
+  function csf_can_access_backup( string $unique ): bool {
+    if ( $unique === '' || ! class_exists( 'CSF', false ) ) {
+      return false;
+    }
+
+    $args = CSF::$args['admin_options'][$unique] ?? null;
+    if ( ! is_array( $args ) || ( $args['database'] ?? 'options' ) !== 'options' ) {
+      return false;
+    }
+
+    $capability = $args['menu_capability'] ?? 'manage_options';
+    return is_string( $capability ) && $capability !== '' && current_user_can( $capability );
+  }
+}
+
+/**
  *
  * Export
  *
@@ -61,15 +80,15 @@ if ( ! function_exists( 'csf_get_icons' ) ) {
 if ( ! function_exists( 'csf_export' ) ) {
   function csf_export() {
 
-    $nonce  = ( ! empty( $_GET[ 'nonce' ] ) ) ? sanitize_text_field( wp_unslash( $_GET[ 'nonce' ] ) ) : '';
-    $unique = ( ! empty( $_GET[ 'unique' ] ) ) ? sanitize_text_field( wp_unslash( $_GET[ 'unique' ] ) ) : '';
+    $nonce  = isset( $_GET['nonce'] ) && is_string( $_GET['nonce'] ) ? sanitize_text_field( wp_unslash( $_GET['nonce'] ) ) : '';
+    $unique = isset( $_GET['unique'] ) && is_string( $_GET['unique'] ) ? sanitize_text_field( wp_unslash( $_GET['unique'] ) ) : '';
 
-    if ( ! wp_verify_nonce( $nonce, 'csf_backup_nonce' ) ) {
-      die( esc_html__( 'Error: Invalid nonce verification.', 'csf' ) );
+    if ( ! csf_can_access_backup( $unique ) ) {
+      wp_die( esc_html__( 'Error: You do not have permission to do that.', 'csf' ), '', array( 'response' => 403 ) );
     }
 
-    if ( empty( $unique ) ) {
-      die( esc_html__( 'Error: Invalid key.', 'csf' ) );
+    if ( ! wp_verify_nonce( $nonce, 'csf_backup_nonce_' . $unique ) ) {
+      wp_die( esc_html__( 'Error: Invalid nonce verification.', 'csf' ), '', array( 'response' => 403 ) );
     }
 
     // Export
@@ -98,23 +117,27 @@ if ( ! function_exists( 'csf_export' ) ) {
 if ( ! function_exists( 'csf_import_ajax' ) ) {
   function csf_import_ajax() {
 
-    $nonce  = ( ! empty( $_POST[ 'nonce' ] ) ) ? sanitize_text_field( wp_unslash( $_POST[ 'nonce' ] ) ) : '';
-    $unique = ( ! empty( $_POST[ 'unique' ] ) ) ? sanitize_text_field( wp_unslash( $_POST[ 'unique' ] ) ) : '';
-    $data   = ( ! empty( $_POST[ 'data' ] ) ) ? wp_kses_post_deep( json_decode( wp_unslash( trim( $_POST[ 'data' ] ) ), true ) ) : array();
+    $nonce  = isset( $_POST['nonce'] ) && is_string( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+    $unique = isset( $_POST['unique'] ) && is_string( $_POST['unique'] ) ? sanitize_text_field( wp_unslash( $_POST['unique'] ) ) : '';
 
-    if ( ! wp_verify_nonce( $nonce, 'csf_backup_nonce' ) ) {
-      wp_send_json_error( array( 'error' => esc_html__( 'Error: Invalid nonce verification.', 'csf' ) ) );
+    if ( ! csf_can_access_backup( $unique ) ) {
+      wp_send_json_error( array( 'error' => esc_html__( 'Error: You do not have permission to do that.', 'csf' ) ), 403 );
     }
 
-    if ( empty( $unique ) ) {
-      wp_send_json_error( array( 'error' => esc_html__( 'Error: Invalid key.', 'csf' ) ) );
+    if ( ! wp_verify_nonce( $nonce, 'csf_backup_nonce_' . $unique ) ) {
+      wp_send_json_error( array( 'error' => esc_html__( 'Error: Invalid nonce verification.', 'csf' ) ), 403 );
     }
+
+    $data = isset( $_POST['data'] ) && is_string( $_POST['data'] )
+      ? json_decode( wp_unslash( trim( $_POST['data'] ) ), true )
+      : array();
 
     if ( empty( $data ) || ! is_array( $data ) ) {
       wp_send_json_error( array( 'error' => esc_html__( 'Error: The response is not a valid JSON response.', 'csf' ) ) );
     }
 
     // Success
+    $data = wp_kses_post_deep( $data );
     update_option( $unique, $data );
 
     wp_send_json_success();
@@ -134,11 +157,15 @@ if ( ! function_exists( 'csf_import_ajax' ) ) {
 if ( ! function_exists( 'csf_reset_ajax' ) ) {
   function csf_reset_ajax() {
 
-    $nonce  = ( ! empty( $_POST[ 'nonce' ] ) ) ? sanitize_text_field( wp_unslash( $_POST[ 'nonce' ] ) ) : '';
-    $unique = ( ! empty( $_POST[ 'unique' ] ) ) ? sanitize_text_field( wp_unslash( $_POST[ 'unique' ] ) ) : '';
+    $nonce  = isset( $_POST['nonce'] ) && is_string( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+    $unique = isset( $_POST['unique'] ) && is_string( $_POST['unique'] ) ? sanitize_text_field( wp_unslash( $_POST['unique'] ) ) : '';
 
-    if ( ! wp_verify_nonce( $nonce, 'csf_backup_nonce' ) ) {
-      wp_send_json_error( array( 'error' => esc_html__( 'Error: Invalid nonce verification.', 'csf' ) ) );
+    if ( ! csf_can_access_backup( $unique ) ) {
+      wp_send_json_error( array( 'error' => esc_html__( 'Error: You do not have permission to do that.', 'csf' ) ), 403 );
+    }
+
+    if ( ! wp_verify_nonce( $nonce, 'csf_backup_nonce_' . $unique ) ) {
+      wp_send_json_error( array( 'error' => esc_html__( 'Error: Invalid nonce verification.', 'csf' ) ), 403 );
     }
 
     // Success

@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/private-files.php';
+
 // 统一获取选项，子模块共享此变量
 $options = get_option('oyiso', []);
 

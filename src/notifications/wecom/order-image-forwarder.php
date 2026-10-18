@@ -134,7 +134,6 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
             $fileHash = $expectedHash;
             try {
                 $imagePath = self::validateImagePath($imagePath);
-                $fileHash = md5_file($imagePath) ?: '';
                 $lock = fopen(dirname($imagePath) . '/.wecom-forward.lock', 'c');
                 if (false === $lock) {
                     throw new RuntimeException('无法创建企业微信发送锁，请检查归档目录写入权限。');
@@ -147,9 +146,12 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                 if (!$order instanceof WC_Order) {
                     throw new RuntimeException('订单已不存在，取消截图发送。');
                 }
-                $contents = file_get_contents($imagePath);
-                if (false === $contents || '' === $contents) {
+                $contents = Oyiso_Private_Files::read($imagePath);
+                if ('' === $contents || strlen($contents) > self::MAX_IMAGE_BYTES) {
                     throw new RuntimeException('无法读取待发送的订单截图。');
+                }
+                if (!str_starts_with($contents, "\x89PNG\r\n\x1a\n") && !str_starts_with($contents, "\xff\xd8\xff")) {
+                    throw new RuntimeException('企业微信图片消息仅支持PNG或JPEG。');
                 }
                 $fileHash = md5($contents);
                 if ('' !== $expectedHash && !hash_equals($expectedHash, $fileHash)) {
@@ -293,7 +295,11 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
             if ('' === $imagePath) {
                 return ['status' => 'not_sent', 'label' => '未通知', 'detail' => '尚无归档截图，未发送截图通知。'];
             }
-            $hash = is_readable($imagePath) ? md5_file($imagePath) : false;
+            try {
+                $hash = is_readable($imagePath) ? Oyiso_Private_Files::hash($imagePath) : false;
+            } catch (Throwable $error) {
+                $hash = false;
+            }
             if (false === $hash) {
                 return ['status' => 'unknown', 'label' => '状态未知', 'detail' => '无法读取截图以核对通知回执。'];
             }
@@ -384,15 +390,9 @@ if (!class_exists('Oyiso_WeCom_Order_Image_Forwarder', false)) {
                 throw new RuntimeException('订单截图不存在、不可读或不属于当前站点目录。');
             }
 
-            $mime = wp_get_image_mime($normalizedPath);
-
-            if (!in_array($mime, ['image/jpeg', 'image/png'], true)) {
-                throw new RuntimeException('企业微信图片消息仅支持PNG或JPEG，请修改渲染图片格式。');
-            }
-
             $size = filesize($normalizedPath);
 
-            if (false === $size || $size <= 0 || $size > self::MAX_IMAGE_BYTES) {
+            if (false === $size || $size <= 0 || $size > self::MAX_IMAGE_BYTES + 65536) {
                 throw new RuntimeException('订单截图为空或超过企业微信2MB限制。');
             }
 

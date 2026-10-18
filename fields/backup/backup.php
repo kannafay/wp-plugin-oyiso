@@ -17,7 +17,7 @@ if ( ! class_exists( 'CSF_Field_backup' ) ) {
     public function render() {
 
       $unique = $this->unique;
-      $nonce  = wp_create_nonce( 'csf_backup_nonce' );
+      $nonce  = wp_create_nonce( 'csf_backup_nonce_' . $unique );
       $export = add_query_arg( array( 'action' => 'csf-export', 'unique' => $unique, 'nonce' => $nonce ), admin_url( 'admin-ajax.php' ) );
 
       echo $this->field_before();

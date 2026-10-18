@@ -208,16 +208,12 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
 
             try {
                 $path = self::resolveRequestedFile(['html']);
-                $size = filesize($path);
+                $handle = Oyiso_Private_Files::open($path);
+                $stat = fstat($handle);
+                $size = false !== $stat ? $stat['size'] : false;
 
                 if (false === $size || $size > self::MAX_HTML_BYTES) {
                     throw new RuntimeException('HTML文件过大或无法读取。');
-                }
-
-                $handle = fopen($path, 'rb');
-
-                if (false === $handle) {
-                    throw new RuntimeException('无法打开HTML文件。');
                 }
 
                 nocache_headers();
@@ -259,16 +255,12 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
                     'jpeg' => 'image/jpeg',
                     'jpg'  => 'image/jpeg',
                 ];
-                $size = filesize($path);
+                $handle = Oyiso_Private_Files::open($path);
+                $stat = fstat($handle);
+                $size = false !== $stat ? $stat['size'] : false;
 
                 if (false === $size) {
                     throw new RuntimeException('无法读取图片文件。');
-                }
-
-                $handle = fopen($path, 'rb');
-
-                if (false === $handle) {
-                    throw new RuntimeException('无法打开图片文件。');
                 }
 
                 nocache_headers();

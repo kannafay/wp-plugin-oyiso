@@ -15,6 +15,12 @@ if (empty($_oyiso_tg_token) || empty($_oyiso_tg_chatids_raw) || !$enableWooNotif
     return;
 }
 
+if (!function_exists('oyiso_escape_telegram_text')) {
+    function oyiso_escape_telegram_text(string $value): string {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', true);
+    }
+}
+
 /**
  * 延迟实例化 TGBot，仅在首次调用时创建
  */
@@ -132,10 +138,10 @@ function oyiso_format_telegram_email_text(string $email): string {
 
     $parts = preg_split('//u', $email, -1, PREG_SPLIT_NO_EMPTY);
     if (empty($parts)) {
-        return $email;
+        return oyiso_escape_telegram_text($email);
     }
 
-    return implode('&#8203;', $parts);
+    return implode('&#8203;', array_map('oyiso_escape_telegram_text', $parts));
 }
 }
 
@@ -205,7 +211,7 @@ if (!function_exists('oyiso_wc_cart')) {
 
         $sourceLine = '';
         if (!empty($extra['source_page'])) {
-            $sourceLine = sprintf("<b>来源：</b>%s\n", $extra['source_page']);
+            $sourceLine = sprintf("<b>来源：</b>%s\n", oyiso_escape_telegram_text((string) $extra['source_page']));
         }
 
         $message = sprintf(
@@ -219,12 +225,12 @@ if (!function_exists('oyiso_wc_cart')) {
             "<b>IP：</b>%s\n" .
             "<b>时间：</b>%s",
             $title,
-            $siteName,
-            $siteUrl,
-            $productName,
+            oyiso_escape_telegram_text($siteName),
+            oyiso_escape_telegram_text($siteUrl),
+            oyiso_escape_telegram_text($productName),
             $quantityLine,
-            oyiso_wc_price($product->get_price()),
-            oyiso_wc_price($subtotal),
+            oyiso_escape_telegram_text(oyiso_wc_price($product->get_price())),
+            oyiso_escape_telegram_text(oyiso_wc_price($subtotal)),
             $sourceLine,
             oyiso_get_client_ip(),
             date_i18n('Y-m-d H:i:s')
@@ -259,9 +265,9 @@ function oyiso_build_order_message(WC_Order $order) {
         "%s\n\n" .
         "%s\n\n" .
         "%s",
-        $siteName,
-        $siteUrl,
-        $order->get_order_number(),
+        oyiso_escape_telegram_text($siteName),
+        oyiso_escape_telegram_text($siteUrl),
+        oyiso_escape_telegram_text((string) $order->get_order_number()),
         $customerOverviewSection,
         $productsSection,
         $paymentShippingSection,
@@ -281,10 +287,10 @@ if (!function_exists('oyiso_build_customer_overview_section')) {
             "<b>历史有效下单：</b>%d 次\n" .
             "<b>历史有效消费：</b>%s\n" .
             "<b>客户评级：</b>%s",
-            $customerProfile['customer_stage'],
+            oyiso_escape_telegram_text($customerProfile['customer_stage']),
             $customerProfile['historical_effective_order_count'],
-            $customerProfile['historical_spend_text'],
-            $customerProfile['customer_rating']
+            oyiso_escape_telegram_text($customerProfile['historical_spend_text']),
+            oyiso_escape_telegram_text($customerProfile['customer_rating'])
         );
     }
 }
@@ -296,7 +302,7 @@ if (!function_exists('oyiso_build_order_products_section')) {
         foreach ($order->get_items() as $item) {
             $items[] = sprintf(
                 '- %s × %d',
-                $item->get_name(),
+                oyiso_escape_telegram_text($item->get_name()),
                 $item->get_quantity()
             );
         }
@@ -312,18 +318,18 @@ if (!function_exists('oyiso_build_order_payment_shipping_section')) {
     function oyiso_build_order_payment_shipping_section(WC_Order $order): string {
         $lines = [
             '<b>🚚【支付与配送】：</b>',
-            sprintf('<b>支付方式：</b>%s', $order->get_payment_method_title()),
-            sprintf('<b>配送方式：</b>%s', $order->get_shipping_method()),
-            sprintf('<b>金额：</b>%s', oyiso_wc_price($order->get_subtotal())),
+            sprintf('<b>支付方式：</b>%s', oyiso_escape_telegram_text($order->get_payment_method_title())),
+            sprintf('<b>配送方式：</b>%s', oyiso_escape_telegram_text($order->get_shipping_method())),
+            sprintf('<b>金额：</b>%s', oyiso_escape_telegram_text(oyiso_wc_price($order->get_subtotal()))),
         ];
 
         $discountTotal = (float) $order->get_discount_total();
         if ($discountTotal > 0) {
-            $lines[] = sprintf('<b>折扣：</b>-%s', oyiso_wc_price($discountTotal));
+            $lines[] = sprintf('<b>折扣：</b>-%s', oyiso_escape_telegram_text(oyiso_wc_price($discountTotal)));
         }
 
-        $lines[] = sprintf('<b>运费：</b>%s', oyiso_wc_price($order->get_shipping_total()));
-        $lines[] = sprintf('<b>总金额：</b>%s', oyiso_wc_price($order->get_total()));
+        $lines[] = sprintf('<b>运费：</b>%s', oyiso_escape_telegram_text(oyiso_wc_price($order->get_shipping_total())));
+        $lines[] = sprintf('<b>总金额：</b>%s', oyiso_escape_telegram_text(oyiso_wc_price($order->get_total())));
 
         return implode("\n", $lines);
     }
@@ -344,11 +350,11 @@ if (!function_exists('oyiso_build_order_billing_section')) {
             "<b>电话：</b>%s\n" .
             "<b>地址：</b>%s\n" .
             "<b>备注：</b>%s",
-            $order->get_formatted_billing_full_name(),
+            oyiso_escape_telegram_text($order->get_formatted_billing_full_name()),
             oyiso_format_telegram_email_text((string) $order->get_billing_email()),
-            $order->get_billing_phone(),
-            oyiso_get_order_shipping_address_text($order),
-            $customerNote
+            oyiso_escape_telegram_text($order->get_billing_phone()),
+            oyiso_escape_telegram_text(oyiso_get_order_shipping_address_text($order)),
+            oyiso_escape_telegram_text($customerNote)
         );
     }
 }
@@ -847,14 +853,14 @@ add_action('woocommerce_order_status_changed', function ($order_id, $old_status,
             "<b>操作者：</b>%s\n" .
             "<b>IP：</b>%s\n" .
             "<b>时间：</b>%s",
-            $siteName,
-            $siteUrl,
-            $order->get_order_number(),
-            wc_get_order_status_name($old_status),
-            $old_status,
-            wc_get_order_status_name($new_status),
-            $new_status,
-            $operatorName,
+            oyiso_escape_telegram_text($siteName),
+            oyiso_escape_telegram_text($siteUrl),
+            oyiso_escape_telegram_text((string) $order->get_order_number()),
+            oyiso_escape_telegram_text(wc_get_order_status_name($old_status)),
+            oyiso_escape_telegram_text($old_status),
+            oyiso_escape_telegram_text(wc_get_order_status_name($new_status)),
+            oyiso_escape_telegram_text($new_status),
+            oyiso_escape_telegram_text($operatorName),
             $operatorIp,
             date_i18n('Y-m-d H:i:s')
         );
@@ -902,18 +908,6 @@ class Oyiso_AST_Tracking_Adapter implements Oyiso_Shipping_Tracking_Adapter {
         add_action('added_post_meta', function ($meta_id, $object_id, $meta_key) use ($callback) {
             if ($meta_key === '_wc_shipment_tracking_items') $callback($object_id);
         }, 10, 3);
-        
-        // 兼容不同的 AJAX 保存
-        add_action('wp_ajax_wc_shipment_tracking_save_form', function () use ($callback) {
-            if (!empty($_POST['order_id'])) $callback((int) $_POST['order_id']);
-        }, 999);
-        add_action('shutdown', function () use ($callback) {
-            if (!wp_doing_ajax() || empty($_POST['order_id'])) return;
-            $action = $_REQUEST['action'] ?? '';
-            if (strpos($action, 'tracking') !== false || strpos($action, 'shipment') !== false) {
-                $callback((int) $_POST['order_id']);
-            }
-        });
         
         // HPOS 兜底
         add_action('woocommerce_after_order_object_save', function ($order) use ($callback) {
@@ -1112,7 +1106,7 @@ if (!function_exists('oyiso_check_and_send_tracking_notification')) {
         $orderItems = [];
         foreach ($order->get_items() as $itemId => $item) {
             $orderItems[$itemId] = [
-                'name' => $item->get_name(),
+                'name' => oyiso_escape_telegram_text($item->get_name()),
                 'qty' => $item->get_quantity(),
                 'product_id' => $item->get_variation_id() ?: $item->get_product_id(),
             ];
@@ -1223,13 +1217,13 @@ if (!function_exists('oyiso_check_and_send_tracking_notification')) {
             $provider = $trackingItem['provider'] ?? '';
             $dateShipped = $trackingItem['date_shipped'] ?? '';
             $trackingLink = $trackingItem['tracking_link'] ?? '';
-            $trackingLinkLine = !empty($trackingLink) ? sprintf("<b>查询物流：</b>%s\n", $trackingLink) : '';
+            $trackingLinkLine = !empty($trackingLink) ? sprintf("<b>查询物流：</b>%s\n", oyiso_escape_telegram_text($trackingLink)) : '';
 
             // 有未发货或有之前已发货的记录 = 分批发货，显示包裹编号
             $isPartialShipment = !empty($unshippedLines) || !empty($prevLines);
             $packageLine = $isPartialShipment ? sprintf("\n<b>包裹：</b>第 %d 件", $packageNumber) : '';
 
-            $shippingNote = !empty($trackingItem['shipping_note']) ? sprintf("\n<b>备注：</b>%s", $trackingItem['shipping_note']) : '';
+            $shippingNote = !empty($trackingItem['shipping_note']) ? sprintf("\n<b>备注：</b>%s", oyiso_escape_telegram_text($trackingItem['shipping_note'])) : '';
 
             // 如果是官方状态模式，或者根本没有物流商信息，则隐藏物流区块
             $isStatusAdapter = ($adapter->get_id() === 'status');
@@ -1244,10 +1238,10 @@ if (!function_exists('oyiso_check_and_send_tracking_notification')) {
                     "<b>发货日期：</b>%s" .
                     "%s" .
                     "%s",
-                    $provider,
-                    $trackingNumber,
+                    oyiso_escape_telegram_text($provider),
+                    oyiso_escape_telegram_text($trackingNumber),
                     $trackingLinkLine,
-                    $dateShipped,
+                    oyiso_escape_telegram_text($dateShipped),
                     $packageLine,
                     $shippingNote
                 );
@@ -1287,19 +1281,19 @@ if (!function_exists('oyiso_check_and_send_tracking_notification')) {
                 "<b>操作者：</b>%s\n" .
                 "<b>时间：</b>%s",
                 $shippedTitle,
-                $siteName,
-                $siteUrl,
-                $order->get_order_number(),
-                $order->get_formatted_billing_full_name(),
+                oyiso_escape_telegram_text($siteName),
+                oyiso_escape_telegram_text($siteUrl),
+                oyiso_escape_telegram_text((string) $order->get_order_number()),
+                oyiso_escape_telegram_text($order->get_formatted_billing_full_name()),
                 oyiso_format_telegram_email_text((string) $order->get_billing_email()),
-                !empty($order->get_billing_phone()) ? sprintf("<b>电话：</b>%s\n", $order->get_billing_phone()) : '',
-                oyiso_get_order_shipping_address_text($order),
+                !empty($order->get_billing_phone()) ? sprintf("<b>电话：</b>%s\n", oyiso_escape_telegram_text($order->get_billing_phone())) : '',
+                oyiso_escape_telegram_text(oyiso_get_order_shipping_address_text($order)),
                 $productsText,
-                oyiso_wc_price($order->get_subtotal()),
-                oyiso_wc_price($order->get_shipping_total()),
-                oyiso_wc_price($order->get_total()),
+                oyiso_escape_telegram_text(oyiso_wc_price($order->get_subtotal())),
+                oyiso_escape_telegram_text(oyiso_wc_price($order->get_shipping_total())),
+                oyiso_escape_telegram_text(oyiso_wc_price($order->get_total())),
                 $trackingSection,
-                ($currentUser = wp_get_current_user()) && $currentUser->ID ? $currentUser->display_name : '系统',
+                oyiso_escape_telegram_text(($currentUser = wp_get_current_user()) && $currentUser->ID ? $currentUser->display_name : '系统'),
                 date_i18n('Y-m-d H:i:s')
             );
 
