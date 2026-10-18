@@ -141,6 +141,12 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
                 wp_send_json_error(['message' => '属性分类法不存在']);
             }
 
+            $taxonomy_object = get_taxonomy($taxonomy);
+            $manage_capability = $taxonomy_object->cap->manage_terms ?? '';
+            if (!is_string($manage_capability) || $manage_capability === '' || !current_user_can($manage_capability)) {
+                wp_send_json_error(['message' => '没有管理此属性值的权限。'], 403);
+            }
+
             $names = self::parseValues($raw);
             if (empty($names)) {
                 wp_send_json_error(['message' => '未解析到有效的属性值']);

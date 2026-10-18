@@ -388,6 +388,10 @@ if (!class_exists('Oyiso_WC_Product_Table')) {
                     continue;
                 }
 
+                if (!self::isAdminViewer() && post_password_required($product_id)) {
+                    continue;
+                }
+
                 $rows[] = self::buildRow($product);
             }
 

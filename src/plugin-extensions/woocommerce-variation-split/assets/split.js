@@ -58,7 +58,7 @@
     function appendLog(msg, type) {
         var color = type === 'error' ? '#d63638' : type === 'success' ? '#00a32a' : '#666';
         var $log = $('#oyiso-split-log');
-        $log.append('<div style="color:' + color + ';">' + msg + '</div>');
+        $log.append($('<div>').css('color', color).text(msg));
         $log.scrollTop($log[0].scrollHeight);
     }
 

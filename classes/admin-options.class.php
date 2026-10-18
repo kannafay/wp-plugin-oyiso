@@ -207,6 +207,12 @@ if ( ! class_exists( 'CSF_Options' ) ) {
     // set options
     public function set_options( $ajax = false ) {
 
+      // The constructor also calls this for normal POST requests, outside ajax_save().
+      $capability = $this->args['menu_capability'] ?? '';
+      if ( ! is_string( $capability ) || $capability === '' || ! current_user_can( $capability ) ) {
+        return false;
+      }
+
       // XSS ok.
       // No worries, This "POST" requests is sanitizing in the below foreach. see #L337 - #L341
       $response  = ( $ajax && ! empty( $_POST['data'] ) ) ? json_decode( wp_unslash( trim( $_POST['data'] ) ), true ) : $_POST;

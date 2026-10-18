@@ -1,6 +1,36 @@
 <?php
 
+declare(strict_types=1);
+
 defined('ABSPATH') || exit;
+
+/** Apply the same script-editing permission to settings saves and backup imports. */
+function oyiso_protect_custom_code_option(mixed $value, mixed $previous): mixed
+{
+    if (!is_array($value) || (function_exists('wp_get_current_user') && current_user_can('unfiltered_html'))) {
+        return $value;
+    }
+
+    // Backup imports must not bypass the HTML restrictions used by normal form saves.
+    $sanitize = static fn (mixed $item): mixed => is_string($item) ? wp_kses_post($item) : $item;
+    foreach ($value as $key => $item) {
+        $value[$key] = map_deep($item, $sanitize);
+    }
+    $previous = is_array($previous) ? $previous : [];
+    foreach (['oyiso_custom_code_head', 'oyiso_custom_code_footer'] as $key) {
+        if (array_key_exists($key, $previous)) {
+            $value[$key] = $previous[$key];
+        } else {
+            unset($value[$key]);
+        }
+    }
+
+    return $value;
+}
+
+add_filter('sanitize_option_oyiso', static function (mixed $value): mixed {
+    return oyiso_protect_custom_code_option($value, get_option('oyiso', []));
+});
 
 /**
  * 自定义代码 - 头部与底部
@@ -21,7 +51,7 @@ if (class_exists('CSF')) {
                 'id' => 'oyiso_custom_code_head',
                 'type' => 'code_editor',
                 'title' => '头部代码（Head）',
-                'desc' => '输出到 &lt;head&gt; 标签内，适合放置 meta 标签、CSS、统计代码等。',
+                'desc' => '输出到 &lt;head&gt; 标签内，适合放置 meta 标签、CSS、统计代码等。修改需具备脚本编辑权限。',
                 'sanitize' => false,
                 'settings' => [
                     'mode' => 'htmlmixed',
@@ -32,7 +62,7 @@ if (class_exists('CSF')) {
                 'id' => 'oyiso_custom_code_footer',
                 'type' => 'code_editor',
                 'title' => '底部代码（Footer）',
-                'desc' => '输出到 &lt;/body&gt; 标签前，适合放置 JavaScript 脚本等。',
+                'desc' => '输出到 &lt;/body&gt; 标签前，适合放置 JavaScript 脚本等。修改需具备脚本编辑权限。',
                 'sanitize' => false,
                 'settings' => [
                     'mode' => 'htmlmixed',

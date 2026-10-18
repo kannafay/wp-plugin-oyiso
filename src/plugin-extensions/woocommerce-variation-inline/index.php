@@ -183,6 +183,11 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                 wp_send_json_error(['message' => '变体不存在']);
             }
 
+            $parent_id = $variation->get_parent_id();
+            if (!$parent_id || !current_user_can('edit_post', $parent_id)) {
+                wp_send_json_error(['message' => '没有修改此产品的权限。'], 403);
+            }
+
             switch ($field) {
                 case 'regular_price':
                     $variation->set_regular_price($raw_value);
@@ -201,7 +206,11 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
                     $variation->set_status($raw_value ? 'publish' : 'private');
                     break;
                 case 'image_id':
-                    $variation->set_image_id(absint($raw_value));
+                    $image_id = absint($raw_value);
+                    if ($image_id && (!wp_attachment_is_image($image_id) || !current_user_can('read_post', $image_id))) {
+                        wp_send_json_error(['message' => '图片无效或没有读取此图片的权限。'], 403);
+                    }
+                    $variation->set_image_id($image_id);
                     break;
             }
 
@@ -231,6 +240,10 @@ if (!class_exists('Oyiso_WC_Variation_Inline')) {
             $product = wc_get_product($product_id);
             if (!$product || !$product->is_type('variable')) {
                 wp_send_json_error(['message' => '不是可变产品']);
+            }
+
+            if (!current_user_can('edit_post', $product_id)) {
+                wp_send_json_error(['message' => '没有修改此产品的权限。'], 403);
             }
 
             $parent_sku = get_post_meta($product_id, '_sku', true);

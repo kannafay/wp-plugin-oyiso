@@ -16,6 +16,7 @@ if ( ! class_exists( 'CSF_Field_wp_editor' ) ) {
 
     public function render() {
 
+      $value = is_scalar( $this->value ) ? (string) $this->value : '';
       $args = wp_parse_args( $this->field, array(
         'tinymce'       => true,
         'quicktags'     => true,
@@ -43,7 +44,7 @@ if ( ! class_exists( 'CSF_Field_wp_editor' ) ) {
 
       echo ( csf_wp_editor_api() ) ? '<div class="csf-wp-editor" data-editor-settings="'. esc_attr( json_encode( $editor_settings ) ) .'">' : '';
 
-      echo '<textarea name="'. esc_attr( $this->field_name() ) .'"'. $this->field_attributes( $attributes ) . $editor_height .'>'. $this->value .'</textarea>';
+      echo '<textarea name="'. esc_attr( $this->field_name() ) .'"'. $this->field_attributes( $attributes ) . $editor_height .'>'. esc_textarea( $value ) .'</textarea>';
 
       echo ( csf_wp_editor_api() ) ? '</div>' : '';
 

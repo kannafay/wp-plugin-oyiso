@@ -71,7 +71,7 @@ if (!class_exists('Oyiso_WC_Variation_Split')) {
                 'oyiso-woocommerce-variation-split',
                 plugins_url('assets/split.js', __FILE__),
                 ['jquery'],
-                '1.0.1',
+                (string) filemtime(__DIR__ . '/assets/split.js'),
                 true
             );
 
@@ -103,7 +103,27 @@ if (!class_exists('Oyiso_WC_Variation_Split')) {
                 wp_send_json_error(['message' => '产品 #' . $product_id . ' 不是可变产品']);
             }
 
+            if (!current_user_can('edit_post', $product_id)) {
+                wp_send_json_error(['message' => '没有修改此产品的权限。'], 403);
+            }
+
             $config = self::getConfig();
+            $post_type = get_post_type_object('product');
+            $create_capability = $post_type->cap->create_posts ?? '';
+            $publish_capability = $post_type->cap->publish_posts ?? '';
+
+            // Validate every required operation before creating products or changing the source.
+            if (!is_string($create_capability) || $create_capability === '' || !current_user_can($create_capability)) {
+                wp_send_json_error(['message' => '没有创建产品的权限。'], 403);
+            }
+            if (in_array($config['new_product_status'], ['publish', 'private', 'future'], true)
+                && (!is_string($publish_capability) || $publish_capability === '' || !current_user_can($publish_capability))) {
+                wp_send_json_error(['message' => '没有发布产品的权限，请让管理员将新产品状态设为草稿。'], 403);
+            }
+            if ($config['original_product_action'] === 'trash' && !current_user_can('delete_post', $product_id)) {
+                wp_send_json_error(['message' => '没有删除原产品的权限。'], 403);
+            }
+
             $variations = array_reverse($product->get_children());
 
             if (empty($variations)) {

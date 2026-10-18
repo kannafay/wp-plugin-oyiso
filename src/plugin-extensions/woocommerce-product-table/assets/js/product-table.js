@@ -251,7 +251,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function escapeCsv(text) {
         var value = String(text || '');
 
-        if (/[",\n]/.test(value)) {
+        // Keep product names/SKUs from becoming formulas when opened in a spreadsheet.
+        if (/^[\s\u0000-\u001f]*[=+\-@＝＋－＠]/.test(value)) {
+            return '"\t' + value.replace(/"/g, '""') + '"';
+        }
+
+        if (/[",\r\n\t]/.test(value)) {
             return '"' + value.replace(/"/g, '""') + '"';
         }
 
