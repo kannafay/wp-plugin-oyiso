@@ -21,6 +21,7 @@ add_action('plugins_loaded', function () {
     if (!class_exists('WooCommerce')) {
         return;
     }
+    require_once __DIR__ . '/woocommerce-checkout-form/checkout-protection.php';
     require_once __DIR__ . '/woocommerce-product-table/index.php';
     require_once __DIR__ . '/woocommerce-quick-attributes/settings.php';
     require_once __DIR__ . '/woocommerce-variation-split/settings.php';
