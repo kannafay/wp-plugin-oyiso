@@ -25,24 +25,27 @@
 
                     return index !== -1
                         && (conditions[index] || conditions[0]) === '=='
-                        && values[index] === '1';
+                        && /^(1|true)$/.test(values[index]);
                 });
 
-                var hasLargeField = $details.is('.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater');
-
-                // One or two simple rows stay visible; only larger configuration blocks fold.
-                if ($details.length < 3 && !hasLargeField) {
+                if (!$details.length) {
                     return;
                 }
 
+                var hasLargeField = $details.is('.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater');
+                var collapsible = $details.length >= 3 || hasLargeField;
+
                 var title = $field.children('.csf-title').children('h4').text().trim();
-                var expanded = $details.find('.csf-error-text').length > 0;
+                // Small groups share the same hierarchy without adding another fold button.
+                var expanded = !collapsible || $details.find('.csf-error-text').length > 0;
                 var enabled = $input.val() === '1';
                 var controls = [];
                 var searchTitles = [];
-                var $button = $('<button type="button" class="button-link oyiso-config-toggle">'
+                var $button = collapsible ? $('<button type="button" class="button-link oyiso-config-toggle">'
                     + '<span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
-                    + '<span class="oyiso-config-toggle-text"></span></button>');
+                    + '<span class="oyiso-config-toggle-text"></span></button>') : $();
+
+                $field.addClass('oyiso-config-parent');
 
                 $details.each(function () {
                     if (!this.id) {
@@ -64,15 +67,29 @@
                 $('<span class="csf-search-tags hidden"></span>')
                     .text(searchTitles.join(' ')).appendTo($field);
 
+                function updateBoundaries() {
+                    // Ignore section/tab visibility, but follow CSF's conditional rows and search.
+                    var $visible = $details.not('.oyiso-config-collapsed, .csf-depend-hidden.csf-depend-on, .csf-metabox-hide');
+                    var first = $visible[0];
+                    var last = $visible[$visible.length - 1];
+
+                    $details.each(function () {
+                        $(this).toggleClass('oyiso-config-details-first', this === first)
+                            .toggleClass('oyiso-config-details-last', this === last);
+                    });
+                }
+
                 function render() {
                     var open = enabled && expanded;
                     var label = open ? '收起配置' : '展开配置';
 
+                    $field.toggleClass('oyiso-config-open', open);
                     $details.toggleClass('oyiso-config-collapsed', !open);
                     $button.prop('hidden', !enabled).attr({
                         'aria-expanded': open ? 'true' : 'false',
                         'aria-label': title + '：' + label
                     }).find('.oyiso-config-toggle-text').text(label);
+                    updateBoundaries();
                 }
 
                 function open() {
@@ -101,7 +118,7 @@
                     render();
                 });
 
-                groups.push({details: $details, open: open});
+                groups.push({details: $details, open: open, updateBoundaries: updateBoundaries});
                 render();
             });
 
@@ -115,6 +132,16 @@
 
             // Reveal validation messages inserted by CSF's AJAX save handler.
             new MutationObserver(function (mutations) {
+                var visibilityChanged = mutations.some(function (mutation) {
+                    if (mutation.type !== 'attributes' || !mutation.target.matches('.oyiso-config-details')) {
+                        return false;
+                    }
+
+                    var previous = (mutation.oldValue || '').split(/\s+/);
+                    return ['csf-depend-on', 'csf-metabox-hide'].some(function (className) {
+                        return mutation.target.classList.contains(className) !== previous.includes(className);
+                    });
+                });
                 var hasNewError = mutations.some(function (mutation) {
                     return Array.from(mutation.addedNodes).some(function (node) {
                         return node.nodeType === 1
@@ -122,16 +149,15 @@
                     });
                 });
 
-                if (!hasNewError) {
-                    return;
-                }
-
                 groups.forEach(function (group) {
-                    if (group.details.find('.csf-error-text').length) {
+                    if (hasNewError && group.details.find('.csf-error-text').length) {
                         group.open();
                     }
+                    if (visibilityChanged) {
+                        group.updateBoundaries();
+                    }
                 });
-            }).observe(this, {childList: true, subtree: true});
+            }).observe(this, {childList: true, subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true});
         });
     });
 })(jQuery);
