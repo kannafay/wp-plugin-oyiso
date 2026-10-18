@@ -37,9 +37,6 @@ final class Oyiso_Agent_Tools
             'search-products' => $this->search($input),
             'get-product' => $this->product(self::integer($input, 'product_id')),
             'order-summary' => $this->orders($input),
-            'search-web' => Oyiso_Agent_Research::search(self::text($input, 'query')),
-            'read-webpage' => Oyiso_Agent_Research::webpage(self::text($input, 'url')),
-            'get-keyword-metrics' => Oyiso_Agent_Research::keywords(self::strings($input['keywords'] ?? [])),
             'prepare-product-update' => $this->prepare($input),
             'apply-product-update' => $this->change(self::text($input, 'proposal_id'), false),
             'revert-product-update' => $this->change(self::text($input, 'proposal_id'), true),
@@ -95,7 +92,7 @@ final class Oyiso_Agent_Tools
                 $attributes[wc_attribute_label($key)] = $product->get_attribute($key);
             }
         }
-        return ['id' => $id, 'parent_id' => $product->get_parent_id(), 'name' => $product->get_name(), 'sku' => $product->get_sku(), 'type' => $product->get_type(), 'url' => $product->get_permalink(), 'price' => $product->get_price(), 'currency' => get_woocommerce_currency(), 'stock_status' => $product->get_stock_status(), 'attributes' => $attributes, 'fields' => array_map(static fn(string $value): string => mb_substr($value, 0, 20000), $fields), 'seopress' => self::seoEnabled(), 'notice' => '描述单字段最多返回 20000 字符。价格、库存和规格以本站资料为准；外部资料冲突时需说明。SEO 字段为空表示未单独设置，页面可能使用全局模板。'];
+        return ['id' => $id, 'parent_id' => $product->get_parent_id(), 'name' => $product->get_name(), 'sku' => $product->get_sku(), 'type' => $product->get_type(), 'url' => $product->get_permalink(), 'price' => $product->get_price(), 'currency' => get_woocommerce_currency(), 'stock_status' => $product->get_stock_status(), 'attributes' => $attributes, 'fields' => array_map(static fn(string $value): string => mb_substr($value, 0, 20000), $fields), 'seopress' => self::seoEnabled(), 'notice' => '描述单字段最多返回 20000 字符。价格、库存和规格以本站资料为准；与用户提供的资料冲突时需说明。SEO 字段为空表示未单独设置，页面可能使用全局模板。'];
     }
 
     /** @param array<string, mixed> $input
@@ -300,12 +297,6 @@ final class Oyiso_Agent_Tools
             }
         }
         return $fields;
-    }
-
-    /** @return list<string> */
-    private static function strings(mixed $input): array
-    {
-        return is_array($input) ? array_values(array_filter($input, 'is_string')) : [];
     }
 
     private static function date(string $date): bool

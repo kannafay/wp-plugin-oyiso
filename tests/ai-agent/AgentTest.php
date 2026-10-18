@@ -43,21 +43,19 @@ final class AgentTest extends TestCase
     private array $tasks = [];
     private array $products = [];
     private array $users = [];
-    private ?Closure $http = null;
 
     protected function setUp(): void
     {
         wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
         $this->options = Oyiso_Agent_Config::options();
         $this->secrets = get_option('oyiso_agent_secrets', false);
-        update_option('oyiso', array_merge($this->options, ['agent_enabled' => true, 'agent_max_steps' => '8', 'agent_provider' => '', 'agent_model' => '', 'agent_search_provider' => '', 'agent_keywords_provider' => '']), false);
+        update_option('oyiso', array_merge($this->options, ['agent_enabled' => true, 'agent_max_steps' => '8', 'agent_provider' => '', 'agent_model' => '']), false);
     }
 
     protected function tearDown(): void
     {
         Oyiso_Agent_Abilities::bind(null);
         wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
-        if ($this->http) remove_filter('pre_http_request', $this->http, 10);
         foreach ($this->tasks as $id) {
             wp_clear_scheduled_hook(Oyiso_Agent_Runner::HOOK, [$id]);
             as_unschedule_all_actions(Oyiso_Agent_Runner::HOOK, [$id], 'oyiso-agent');
@@ -127,20 +125,9 @@ final class AgentTest extends TestCase
         return rest_get_server()->dispatch($request);
     }
 
-    private function http(Closure $callback): void
-    {
-        $this->http = $callback;
-        add_filter('pre_http_request', $callback, 10, 3);
-    }
-
-    private static function response(array|string $body, int $status = 200, string $type = 'application/json'): array
-    {
-        return ['headers' => ['content-type' => $type], 'body' => is_array($body) ? wp_json_encode($body) : $body, 'response' => ['code' => $status, 'message' => 'fixture'], 'cookies' => [], 'filename' => null];
-    }
-
     public function testAbilitiesAreRegisteredAndWriteAbilitiesAreNotModelTools(): void
     {
-        foreach (['get-product', 'search-products', 'order-summary', 'search-web', 'read-webpage', 'get-keyword-metrics', 'prepare-product-update', 'apply-product-update', 'revert-product-update'] as $name) {
+        foreach (['get-product', 'search-products', 'order-summary', 'prepare-product-update', 'apply-product-update', 'revert-product-update'] as $name) {
             $ability = wp_get_ability('oyiso/' . $name);
             self::assertInstanceOf(WP_Ability::class, $ability);
             self::assertFalse($ability->get_meta()['show_in_rest']);
@@ -226,7 +213,7 @@ final class AgentTest extends TestCase
         $this->proposal($run, $product);
         $this->proposal($run, $product, ['short_description' => 'Replacement']);
         self::assertSame('superseded', $run['changes'][0]['status']);
-        $product->set_description('Changed during research'); $product->save();
+        $product->set_description('Changed during review'); $product->save();
         self::assertWPError($this->tool($run, 'prepare-product-update', ['product_id' => $product->get_id(), 'fields' => ['short_description' => 'Outdated proposal']]));
     }
 
@@ -365,63 +352,45 @@ final class AgentTest extends TestCase
 
     public function testCredentialsAreEncryptedPreservedClearedAndRedacted(): void
     {
-        $saved = Oyiso_Agent_Config::saveOptions(['agent_search_key' => 'fixture-secret-key', 'agent_keywords_password' => 'fixture-password']);
-        self::assertSame('', $saved['agent_search_key']); self::assertSame('fixture-secret-key', Oyiso_Agent_Config::secret('search_key'));
+        $saved = Oyiso_Agent_Config::saveOptions(['agent_deepseek_key' => 'fixture-secret-key', 'agent_gemini_key' => 'fixture-other-key']);
+        self::assertSame('', $saved['agent_deepseek_key']); self::assertSame('fixture-secret-key', Oyiso_Agent_Config::secret('deepseek_key'));
         self::assertStringNotContainsString('fixture-secret-key', serialize(get_option('oyiso_agent_secrets')));
-        Oyiso_Agent_Config::saveOptions(['agent_search_key' => '']);
-        self::assertSame('fixture-secret-key', Oyiso_Agent_Config::secret('search_key'));
+        Oyiso_Agent_Config::saveOptions(['agent_deepseek_key' => '']);
+        self::assertSame('fixture-secret-key', Oyiso_Agent_Config::secret('deepseek_key'));
         self::assertStringNotContainsString('fixture-secret-key', Oyiso_Agent_Config::error('Bearer abc fixture-secret-key token=foo'));
-        Oyiso_Agent_Config::saveOptions(['agent_search_key_clear' => true]);
-        self::assertFalse(Oyiso_Agent_Config::hasSecret('search_key'));
+        Oyiso_Agent_Config::saveOptions(['agent_deepseek_key_clear' => true]);
+        self::assertFalse(Oyiso_Agent_Config::hasSecret('deepseek_key'));
     }
 
-    public function testSearchReturnsSourceAndNeverSendsKeyToModelOutput(): void
+    public function testRemovedResearchCannotBeEnabledByLegacySettingsOrOldToolCalls(): void
     {
-        Oyiso_Agent_Config::saveOptions(['agent_search_key' => 'fixture-search-key']);
-        update_option('oyiso', array_merge(Oyiso_Agent_Config::options(), ['agent_search_provider' => 'tavily']));
-        $this->http(function ($pre, $args, $url) {
-            self::assertSame('https://api.tavily.com/search', $url);
-            self::assertSame('Bearer fixture-search-key', $args['headers']['Authorization']);
-            return self::response(['results' => [['url' => 'https://93.184.215.14/product', 'title' => 'Manufacturer', 'content' => 'Verified product information']]]);
-        });
-        $result = Oyiso_Agent_Research::search('product model');
-        self::assertSame('Tavily', $result['source']); self::assertCount(1, $result['results']);
-        self::assertStringNotContainsString('fixture-search-key', wp_json_encode($result));
-    }
-
-    public function testWebpageReaderStripsScriptsAndBlocksPrivateRedirects(): void
-    {
-        foreach (['http://example.com', 'https://localhost', 'https://127.0.0.1', 'https://10.0.0.1', 'https://169.254.169.254', 'https://user:pass@example.com', 'https://example.com:8443', 'https://vape.local', 'https://[::1]'] as $url) {
-            self::assertFalse(Oyiso_Agent_Research::publicUrl($url));
+        update_option('oyiso', array_merge(Oyiso_Agent_Config::options(), ['agent_search_provider' => 'tavily', 'agent_keywords_provider' => 'dataforseo']));
+        update_option('oyiso_agent_secrets', ['search_key' => 'legacy-encrypted-search', 'keywords_password' => 'legacy-encrypted-keywords'], false);
+        $saved = Oyiso_Agent_Config::saveOptions(['agent_search_key' => 'removed-input', 'agent_keywords_password' => 'removed-password']);
+        self::assertArrayNotHasKey('agent_search_key', $saved);
+        self::assertArrayNotHasKey('agent_keywords_password', $saved);
+        self::assertSame('legacy-encrypted-search', get_option('oyiso_agent_secrets')['search_key']);
+        self::assertSame(['deepseek_key', 'gemini_key', 'agnes_key'], array_keys(Oyiso_Agent_Config::secretStatus()));
+        self::assertFalse(class_exists('Oyiso_Agent_Research', false));
+        $run = $this->task();
+        $tools = new Oyiso_Agent_Tools($run);
+        foreach (['search-web', 'read-webpage', 'get-keyword-metrics'] as $name) {
+            self::assertNull(wp_get_ability('oyiso/' . $name));
+            self::assertNotContains('oyiso/' . $name, Oyiso_Agent_Abilities::allowed());
+            self::assertSame('agent_unknown_tool', $tools->execute($name, [])->get_error_code());
         }
-        $this->http(static fn() => self::response('<html><head><title>Source</title><script>SECRET_SCRIPT</script></head><body><h1>Product facts</h1><p>Capacity 100</p><nav>SECRET_NAV</nav></body></html>', 200, 'text/html'));
-        $page = Oyiso_Agent_Research::webpage('https://93.184.215.14/product');
-        self::assertSame('Source', $page['title']); self::assertStringContainsString('Product facts', $page['content']);
-        self::assertStringNotContainsString('SECRET_SCRIPT', $page['content']); self::assertStringNotContainsString('SECRET_NAV', $page['content']);
-        remove_filter('pre_http_request', $this->http, 10);
-        $this->http = static fn() => ['headers' => ['location' => 'https://127.0.0.1/secret'], 'body' => '', 'response' => ['code' => 302, 'message' => 'redirect'], 'cookies' => [], 'filename' => null];
-        add_filter('pre_http_request', $this->http, 10, 3);
-        self::assertWPError(Oyiso_Agent_Research::webpage('https://93.184.215.14/product'));
+        $block = static function () { self::fail('Removed tools must not issue HTTP requests.'); };
+        add_filter('pre_http_request', $block, 10);
+        try {
+            Oyiso_Agent_Runner::message($run, 'Legacy webpage request');
+            (new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('', [['read-webpage', ['url' => 'https://example.com/source']]])])))->step($run['id']);
+            $fresh = Oyiso_Agent_Store::get($run['id']);
+            self::assertContains('该工具或参数不在允许范围。', array_column($fresh['events'], 'detail'));
+        } finally { remove_filter('pre_http_request', $block, 10); }
     }
 
-    public function testKeywordMetricsKeepRegionLanguageAndMetricSemantics(): void
+    public function testInvalidOrderDatesReturnExplicitErrors(): void
     {
-        Oyiso_Agent_Config::saveOptions(['agent_keywords_password' => 'fixture-password']);
-        update_option('oyiso', array_merge(Oyiso_Agent_Config::options(), ['agent_keywords_provider' => 'dataforseo', 'agent_keywords_login' => 'fixture-login', 'agent_keywords_location' => '2616', 'agent_keywords_language' => 'pl']));
-        $this->http(function ($pre, $args, $url) {
-            $body = json_decode($args['body'], true);
-            self::assertSame(2616, $body[0]['location_code']); self::assertSame('pl', $body[0]['language_code']);
-            return self::response(['tasks' => [['status_code' => 20000, 'result' => [['keyword' => 'example', 'search_volume' => 90, 'competition' => 'LOW', 'competition_index' => 10, 'cpc' => 0.2]]]]]);
-        });
-        $result = Oyiso_Agent_Research::keywords(['example']);
-        self::assertSame(90, $result['items'][0]['search_volume']);
-        self::assertStringContainsString('广告', $result['notice']); self::assertSame(2616, $result['location_code']);
-    }
-
-    public function testMissingServicesAndInvalidDatesReturnExplicitErrors(): void
-    {
-        self::assertWPError(Oyiso_Agent_Research::search('not configured'));
-        self::assertWPError(Oyiso_Agent_Research::keywords(['not configured']));
         $run = $this->task();
         self::assertWPError($this->tool($run, 'order-summary', ['start_date' => '2026-02-30', 'end_date' => '2026-03-01']));
         $summary = $this->tool($run, 'order-summary', ['start_date' => '2099-01-01', 'end_date' => '2099-01-02']);
@@ -450,7 +419,7 @@ final class AgentTest extends TestCase
     {
         $sections = CSF::$args['sections']['oyiso'];
         $children = array_values(array_filter($sections, static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
-        self::assertSame(['agent-chat', 'agent-model', 'agent-research', 'agent-records'], array_column($children, 'id'));
+        self::assertSame(['agent-chat', 'agent-model', 'agent-records'], array_column($children, 'id'));
         ob_start(); Oyiso_Agent_Admin::chat(); Oyiso_Agent_Admin::history(); Oyiso_Agent_Admin::connection(); $html = ob_get_clean();
         self::assertStringContainsString('oyiso-agent-chat', $html); self::assertStringContainsString('oyiso-agent-history', $html);
         self::assertStringNotContainsString('<form', $html); self::assertStringContainsString('options-connectors.php', $html);
@@ -477,7 +446,7 @@ final class AgentTest extends TestCase
             CSF::$args['sections']['oyiso'] = [];
             require dirname(__DIR__, 2) . '/src/ai-agent/settings.php';
             $sections = CSF::$args['sections']['oyiso'];
-            self::assertCount(5, $sections);
+            self::assertCount(4, $sections);
             self::assertSame('ai-agent', $sections[0]['id']);
             $provider = array_values(array_filter($sections[2]['fields'], static fn(array $field): bool => ($field['id'] ?? '') === 'agent_provider'))[0];
             ob_start(); CSF::field($provider, '', 'oyiso'); $select = ob_get_clean();
@@ -496,19 +465,6 @@ final class AgentTest extends TestCase
         finally { remove_filter('update_post_metadata', $block, 10); }
         self::assertSame($before, Oyiso_Agent_Tools::fields(wc_get_product($product->get_id())));
         self::assertSame('pending', $run['changes'][0]['status']);
-    }
-
-    public function testTransportFailuresDoNotReturnFabricatedResearch(): void
-    {
-        Oyiso_Agent_Config::saveOptions(['agent_search_key' => 'fixture-key']);
-        update_option('oyiso', array_merge(Oyiso_Agent_Config::options(), ['agent_search_provider' => 'tavily']));
-        $this->http(static fn() => self::response([], 401));
-        self::assertWPError(Oyiso_Agent_Research::search('unauthorized'));
-        remove_filter('pre_http_request', $this->http, 10);
-        $this->http = static fn() => self::response('invalid-json');
-        add_filter('pre_http_request', $this->http, 10, 3);
-        self::assertWPError(Oyiso_Agent_Research::search('invalid response'));
-        self::assertWPError(Oyiso_Agent_Research::webpage('https://93.184.215.14/data'));
     }
 
     public function testNativeModelReportsUnavailableProviderAndContextLimit(): void
@@ -537,17 +493,23 @@ final class AgentTest extends TestCase
 
     public function testProgressCheckpointHasNoUnansweredToolCalls(): void
     {
-        $run = $this->task(); Oyiso_Agent_Runner::message($run, 'Read a webpage');
-        $this->http(function () use ($run) {
+        $run = $this->task(); Oyiso_Agent_Runner::message($run, 'Search products');
+        $observed = false;
+        $observe = function ($args) use ($run, &$observed) {
             $checkpoint = Oyiso_Agent_Store::get($run['id']);
             self::assertCount(1, $checkpoint['messages']);
             self::assertSame('running', $checkpoint['status']);
-            return self::response('<p>Manufacturer facts</p>', 200, 'text/html');
-        });
-        (new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('', [['read-webpage', ['url' => 'https://93.184.215.14/source']]])])))->step($run['id']);
+            $observed = true;
+            return $args;
+        };
+        add_filter('woocommerce_product_object_query_args', $observe);
+        try {
+            (new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('', [['search-products', []]])])))->step($run['id']);
+        } finally { remove_filter('woocommerce_product_object_query_args', $observe); }
+        self::assertTrue($observed);
         $fresh = Oyiso_Agent_Store::get($run['id']);
         self::assertCount(3, $fresh['messages']);
-        self::assertContains('资料来源', array_column($fresh['events'], 'label'));
+        self::assertContains('查询商品', array_column($fresh['events'], 'label'));
     }
 
     public function testRestStatusAndCompletedTaskCanContinueConversation(): void
@@ -555,6 +517,8 @@ final class AgentTest extends TestCase
         $state = $this->request('GET', 'status')->get_data();
         self::assertTrue($state['enabled']); self::assertTrue($state['supported']);
         self::assertArrayNotHasKey('search_key', $state);
+        self::assertArrayNotHasKey('search_configured', $state);
+        self::assertArrayNotHasKey('keywords_configured', $state);
         $run = $this->task(); $run['status'] = 'completed'; Oyiso_Agent_Store::save($run);
         self::assertSame(201, $this->request('POST', 'runs', ['message' => 'Follow-up', 'run_id' => $run['id']])->get_status());
         self::assertSame(200, $this->request('GET', 'runs/' . $run['id'])->get_status());

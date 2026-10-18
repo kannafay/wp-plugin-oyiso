@@ -361,7 +361,7 @@
             api('status').then(state => {
                 config.enabled = state.enabled;
                 config.supported = state.supported;
-                for (const [name, configured] of Object.entries(state.secrets || { search_key: state.search_configured, keywords_password: state.keywords_configured })) {
+                for (const [name, configured] of Object.entries(state.secrets || {})) {
                     if (errors[`agent_${name}`]) continue;
                     const input = document.querySelector(`input[name="oyiso[agent_${name}]"]`);
                     const clear = document.querySelector(`input[type="checkbox"][name="oyiso[agent_${name}_clear]"]`);

@@ -11,7 +11,7 @@ final class Oyiso_Agent_Admin
     {
         $permission = static fn(): bool => current_user_can('manage_options');
         $root = 'oyiso-agent/v1';
-        register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'search_configured' => Oyiso_Agent_Config::hasSecret('search_key'), 'keywords_configured' => Oyiso_Agent_Config::hasSecret('keywords_password'), 'secrets' => Oyiso_Agent_Config::secretStatus()])]);
+        register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'secrets' => Oyiso_Agent_Config::secretStatus()])]);
         register_rest_route($root, '/connections/(?P<preset>deepseek|gemini|agnes)/test', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
             $result = Oyiso_Agent_Connectors::test((string) $request->get_param('preset'));
             return is_wp_error($result) ? $result : new WP_REST_Response($result);
@@ -159,12 +159,12 @@ final class Oyiso_Agent_Admin
     {
         ?>
         <div id="oyiso-agent-chat" class="oyiso-agent">
-            <div class="oyiso-agent-heading"><div><h2>对话助手</h2><p class="description">查询站内数据、调查公开资料，生成商品内容修改方案。</p></div><button type="button" class="button" data-agent-new>新建对话</button></div>
+            <div class="oyiso-agent-heading"><div><h2>对话助手</h2><p class="description">查询站内数据，生成商品长短描述和 SEO 信息修改方案。</p></div><button type="button" class="button" data-agent-new>新建对话</button></div>
             <p class="oyiso-agent-notice" data-agent-notice role="status" aria-live="polite"></p>
             <div class="oyiso-agent-workspace">
                 <div class="oyiso-agent-main">
-                    <div class="oyiso-agent-messages" data-agent-messages role="log" aria-label="对话内容" aria-live="polite"><div class="oyiso-agent-empty"><h3>从一个具体任务开始</h3><p>可以指定商品 ID、分类或资料网址。商品修改会先生成预览。</p><div class="oyiso-agent-examples"><button type="button" class="button" data-agent-example="查找缺少短描述和 SEO 信息的商品，先列出需要完善的内容。">检查商品内容</button><button type="button" class="button" data-agent-example="我想完善一个商品的长短描述和 SEO 信息。请先询问商品 ID，再读取商品并核实资料，生成修改预览。">完善商品文案</button></div></div></div>
-                    <div class="oyiso-agent-composer"><label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label><textarea id="oyiso-agent-prompt" rows="3" maxlength="4000" placeholder="例如：读取商品 123，参考官网资料完善长短描述和 SEO 信息，先给我预览。"></textarea><div class="oyiso-agent-composer-actions"><span class="description">Ctrl / ⌘ + Enter 发送</span><div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送任务</button></div></div></div>
+                    <div class="oyiso-agent-messages" data-agent-messages role="log" aria-label="对话内容" aria-live="polite"><div class="oyiso-agent-empty"><h3>从一个具体任务开始</h3><p>可以指定商品 ID、分类，或粘贴商品参考资料。商品修改会先生成预览。</p><div class="oyiso-agent-examples"><button type="button" class="button" data-agent-example="查找缺少短描述和 SEO 信息的商品，先列出需要完善的内容。">检查商品内容</button><button type="button" class="button" data-agent-example="我想完善一个商品的长短描述和 SEO 信息。请先询问商品 ID，再读取商品并核对现有信息，生成修改预览。">完善商品文案</button></div></div></div>
+                    <div class="oyiso-agent-composer"><label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label><textarea id="oyiso-agent-prompt" rows="3" maxlength="4000" placeholder="例如：读取商品 123，根据站内商品参数完善长短描述和 SEO 信息，先给我预览。"></textarea><div class="oyiso-agent-composer-actions"><span class="description">Ctrl / ⌘ + Enter 发送</span><div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送任务</button></div></div></div>
                 </div>
                 <aside class="oyiso-agent-progress" aria-label="执行过程"><div class="oyiso-agent-progress-heading"><h3>执行过程</h3><span data-agent-status>尚未开始</span></div><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></aside>
             </div>

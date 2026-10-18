@@ -17,7 +17,7 @@ const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42
 const proposal = () => ({ id: '12345678-1234-1234-1234-123456789abc', product_id: 99, name: '商品示例', before: { description: '<p>Original</p>' }, after: { description: '<p>Proposed</p>' }, status: 'pending' });
 
 function fixture(t, router = () => undefined, settings = {}, before = () => {}) {
-    const dom = new JSDOM(`<div class="csf-options" data-unique="oyiso"><form id="csf-form"><nav class="csf-nav"><a data-tab-id="ai-agent/agent-chat" href="#tab=ai-agent/agent-chat">对话助手</a></nav><div class="csf-content">${markup}</div><input type="password" name="oyiso[agent_search_key]"><input type="checkbox" name="oyiso[agent_search_key_clear]"><input name="oyiso[agent_deepseek_url]" value="https://api.deepseek.com" data-agent-connection="deepseek"><input name="oyiso[agent_deepseek_model]" value="deepseek-flash" data-agent-connection="deepseek"><input type="password" name="oyiso[agent_deepseek_key]" data-agent-connection="deepseek"><input type="checkbox" name="oyiso[agent_deepseek_key_clear]" data-agent-connection="deepseek"></form></div>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only', pretendToBeVisual: true });
+    const dom = new JSDOM(`<div class="csf-options" data-unique="oyiso"><form id="csf-form"><nav class="csf-nav"><a data-tab-id="ai-agent/agent-chat" href="#tab=ai-agent/agent-chat">对话助手</a></nav><div class="csf-content">${markup}</div><input name="oyiso[agent_deepseek_url]" value="https://api.deepseek.com" data-agent-connection="deepseek"><input name="oyiso[agent_deepseek_model]" value="deepseek-flash" data-agent-connection="deepseek"><input type="password" name="oyiso[agent_deepseek_key]" data-agent-connection="deepseek"><input type="checkbox" name="oyiso[agent_deepseek_key_clear]" data-agent-connection="deepseek"></form></div>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only', pretendToBeVisual: true });
     const { window } = dom;
     const calls = [];
     const errors = [];
@@ -150,9 +150,9 @@ test('source URLs are accessible in execution trace', async t => {
 });
 
 test('saving native settings updates availability and clears entered credentials', async t => {
-    const f = fixture(t, route => route === 'status' ? { enabled: true, supported: true, search_configured: true, keywords_configured: false } : undefined, { enabled: false });
-    const input = f.$('input[name="oyiso[agent_search_key]"]'); input.value = 'fixture-key';
-    const clear = f.$('input[name="oyiso[agent_search_key_clear]"]'); clear.checked = true;
+    const f = fixture(t, route => route === 'status' ? { enabled: true, supported: true, secrets: { deepseek_key: true } } : undefined, { enabled: false });
+    const input = f.$('input[name="oyiso[agent_deepseek_key]"]'); input.value = 'fixture-key';
+    const clear = f.$('input[name="oyiso[agent_deepseek_key_clear]"]'); clear.checked = true;
     f.window.jQuery(f.window.document).trigger('ajaxSuccess', [{}, { data: 'action=csf_oyiso_ajax_save&data=fixture' }]);
     await settle();
     assert.equal(f.$('[data-agent-send]').disabled, false);

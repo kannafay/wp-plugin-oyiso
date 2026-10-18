@@ -64,7 +64,7 @@ final class Oyiso_Agent_Config
     /** @return list<string> */
     public static function secretNames(): array
     {
-        return ['search_key', 'keywords_password', 'deepseek_key', 'gemini_key', 'agnes_key'];
+        return ['deepseek_key', 'gemini_key', 'agnes_key'];
     }
 
     /** @return array<string, bool> */
@@ -102,6 +102,10 @@ final class Oyiso_Agent_Config
     {
         $stored = get_option(self::SECRETS, []);
         $secrets = is_array($stored) ? $stored : [];
+        // Keep retired credentials encrypted for rollback, and discard obsolete plaintext inputs.
+        foreach (['search_key', 'keywords_password'] as $name) {
+            unset($options['agent_' . $name], $options['agent_' . $name . '_clear']);
+        }
         foreach (self::secretNames() as $name) {
             $field = 'agent_' . $name;
             $value = isset($options[$field]) && is_string($options[$field]) ? trim($options[$field]) : '';

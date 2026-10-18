@@ -7,7 +7,6 @@ defined('ABSPATH') || exit;
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/connections.php';
 require_once __DIR__ . '/store.php';
-require_once __DIR__ . '/research.php';
 require_once __DIR__ . '/tools.php';
 require_once __DIR__ . '/abilities.php';
 require_once __DIR__ . '/model.php';

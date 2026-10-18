@@ -59,26 +59,6 @@ CSF::createSection('oyiso', [
     ]),
 ]);
 unset($oyisoAgentPresetFields, $oyisoAgentPresetId, $oyisoAgentPreset, $oyisoAgentFields, $oyisoAgentField);
-CSF::createSection('oyiso', [
-    'parent' => 'ai-agent', 'id' => 'agent-research', 'title' => '联网检索', 'icon' => 'fas fa-globe', 'priority' => 30,
-    'fields' => array_merge(
-        [
-            ['type' => 'heading', 'content' => '网页搜索'],
-            ['id' => 'agent_search_provider', 'type' => 'select', 'title' => '搜索服务', 'options' => ['' => '未配置', 'tavily' => 'Tavily'], 'default' => '', 'desc' => '配置后可搜索产品资料与竞品。即使未配置搜索，也可以在对话中提供公开网页地址供读取。'],
-        ],
-        $oyisoAgentSecret('search_key', '搜索 API Key'),
-        [
-            ['type' => 'heading', 'content' => '关键词指标'],
-            ['id' => 'agent_keywords_provider', 'type' => 'select', 'title' => '关键词服务', 'options' => ['' => '未配置', 'dataforseo' => 'DataForSEO / Google Ads'], 'default' => '', 'desc' => '提供搜索量估算和广告竞争程度，使用服务额度。未配置时仅提供关键词内容建议。'],
-            ['id' => 'agent_keywords_login', 'type' => 'text', 'title' => 'DataForSEO 登录名', 'attributes' => ['autocomplete' => 'off']],
-        ],
-        $oyisoAgentSecret('keywords_password', 'DataForSEO API 密码'),
-        [
-            ['id' => 'agent_keywords_location', 'type' => 'text', 'title' => '地区代码', 'attributes' => ['inputmode' => 'numeric'], 'desc' => '填写 DataForSEO 的 location_code。<a href="https://docs.dataforseo.com/v3/keywords_data/google_ads/locations/" target="_blank" rel="noopener noreferrer">查询地区代码</a>'],
-            ['id' => 'agent_keywords_language', 'type' => 'text', 'title' => '指标语言代码', 'default' => 'en', 'desc' => '填写数据服务支持的 language_code，例如 en、pl、cs 或 hu。指标会按所配地区和语言查询。'],
-        ]
-    ),
-]);
 unset($oyisoAgentSecret);
 
 CSF::createSection('oyiso', [
