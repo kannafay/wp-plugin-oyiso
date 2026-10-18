@@ -1,5 +1,6 @@
 .csf-options[data-unique="oyiso"] {
     --oyiso-config-border: #e5e7eb;
+    --oyiso-config-tab-border: #dcdcde;
     --oyiso-config-text: #646970;
     --oyiso-config-action: #3858e9;
     --oyiso-config-label-width: 224px;
@@ -98,14 +99,14 @@
     white-space: nowrap;
 }
 
-/* One tab treatment everywhere, including the independent quick-action settings. */
+/* The selected tab opens directly into its bordered content panel. */
 .csf-options[data-unique="oyiso"] .csf-tabbed-nav {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--oyiso-config-border);
+    align-items: flex-end;
+    gap: 4px;
+    padding: 0;
+    border-bottom: 1px solid var(--oyiso-config-tab-border);
 }
 
 .csf-options[data-unique="oyiso"] .csf-tabbed-nav > a {
@@ -115,10 +116,11 @@
     gap: 6px;
     min-height: 34px;
     box-sizing: border-box;
-    margin: 0;
+    position: relative;
+    margin: 0 0 -1px;
     padding: 6px 12px;
-    border: 1px solid var(--oyiso-config-border);
-    border-radius: 4px;
+    border: 1px solid var(--oyiso-config-tab-border);
+    border-radius: 4px 4px 0 0;
     background: #f6f7f7;
     color: var(--oyiso-config-text);
     font-weight: 600;
@@ -142,15 +144,28 @@
 }
 
 .csf-options[data-unique="oyiso"] .csf-tabbed-nav > a.csf-tabbed-active {
-    border-color: #bec8ff;
-    background: #eef2ff;
+    z-index: 1;
+    border-color: var(--oyiso-config-tab-border);
+    border-bottom-color: #fff;
+    background: #fff;
     color: var(--oyiso-config-action);
+}
+
+.csf-options[data-unique="oyiso"] .csf-tabbed-contents {
+    border: 1px solid var(--oyiso-config-tab-border);
+    border-top: 0;
+    border-radius: 0 0 4px 4px;
+    background: #fff;
 }
 
 .csf-options[data-unique="oyiso"] .csf-tabbed-content,
 .csf-options[data-unique="oyiso"] .csf-fieldset-content {
     border: 0;
     box-shadow: none;
+}
+
+.csf-options[data-unique="oyiso"] .csf-tabbed-content {
+    padding: 4px 16px;
 }
 
 .csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content) > .csf-field {
