@@ -10,6 +10,8 @@ const phpQuote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\
 const markup = JSON.parse(execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } function esc_html($value) { return esc_attr($value); } function esc_url($value) { return esc_attr($value); } function admin_url($value) { return 'https://vape.local/wp-admin/' . $value; } function current_user_can($value) { return true; } function is_network_admin() { return false; } function is_user_admin() { return false; } require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; $parts = []; foreach (['panel', 'history'] as $method) { ob_start(); Oyiso_Agent_Admin::$method(); $parts[$method] = ob_get_clean(); } ob_start(); Oyiso_Agent_Admin::connectionTest('deepseek'); $parts['connection'] = ob_get_clean(); echo json_encode($parts);`], { encoding: 'utf8' }));
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.js'), 'utf8');
 const panelScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/panel.js'), 'utf8');
+const csfScript = fs.readFileSync(path.join(repo, 'assets/js/main.min.js'), 'utf8');
+const nativeNavigation = Array.from(fs.readFileSync(path.join(repo, 'src/_init.php'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g), match => match[1]).find(source => source.includes('function switchToSection(tabId)'));
 const wpRoot = process.env.OYISO_WORDPRESS_ROOT || path.resolve(repo, '../../..');
 const jquery = fs.readFileSync(path.join(wpRoot, 'wp-includes/js/jquery/jquery.js'), 'utf8');
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve)); };
@@ -18,7 +20,9 @@ const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42
 const proposal = () => ({ id: '12345678-1234-1234-1234-123456789abc', product_id: 99, name: '商品示例', before: { description: '<p>Original</p>' }, after: { description: '<p>Proposed</p>' }, status: 'pending' });
 
 function fixture(t, router = () => undefined, settings = {}, before = () => {}, view = {}) {
-    const settingsMarkup = `<div class="csf-options" data-unique="oyiso"><form id="csf-form"><div class="csf-content">${markup.history}${markup.connection}</div><input name="oyiso[agent_deepseek_url]" value="https://api.deepseek.com" data-agent-connection="deepseek"><input name="oyiso[agent_deepseek_model]" value="deepseek-flash" data-agent-connection="deepseek"><input type="password" name="oyiso[agent_deepseek_key]" data-agent-connection="deepseek"><input type="checkbox" name="oyiso[agent_deepseek_key_clear]" data-agent-connection="deepseek"></form></div>`;
+    const navigation = view.nativeNavigation ? '<nav class="csf-nav csf-nav-options"><ul><li class="csf-tab-item"><a class="csf-arrow" data-tab-id="ai-agent" href="#tab=ai-agent">AI Agent</a><ul><li><a data-tab-id="ai-agent/agent-model" href="#tab=ai-agent/agent-model">模型配置</a></li><li><a data-tab-id="ai-agent/agent-records" href="#tab=ai-agent/agent-records">执行记录</a></li></ul></li></ul></nav>' : '';
+    const content = view.nativeNavigation ? `<section class="csf-section hidden" data-section-id="ai-agent/agent-model"><h2>模型配置</h2>${markup.connection}</section><section class="csf-section hidden" data-section-id="ai-agent/agent-records">${markup.history}</section>` : markup.history + markup.connection;
+    const settingsMarkup = `<div class="csf-options" data-unique="oyiso"><form id="csf-form">${navigation}<div class="csf-content">${content}</div><input name="oyiso[agent_deepseek_url]" value="https://api.deepseek.com" data-agent-connection="deepseek"><input name="oyiso[agent_deepseek_model]" value="deepseek-flash" data-agent-connection="deepseek"><input type="password" name="oyiso[agent_deepseek_key]" data-agent-connection="deepseek"><input type="checkbox" name="oyiso[agent_deepseek_key_clear]" data-agent-connection="deepseek"></form></div>`;
     const dom = new JSDOM(`${view.globalOnly ? '<div id="wpcontent">仪表盘</div>' : settingsMarkup}${markup.panel}`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only', pretendToBeVisual: true });
     const { window } = dom;
     const calls = [];
@@ -34,6 +38,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
         return { ok: response.ok !== false, status: response.status || 200, json: async () => response.body || response };
     };
     window.eval(jquery);
+    if (view.nativeNavigation) { window.eval(csfScript); window.eval(nativeNavigation); }
     before(window);
     if (!view.closed && window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open') === null) window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open', '1');
     window.eval(panelScript);
@@ -494,4 +499,58 @@ test('invalid geometry preferences and unavailable storage keep the launcher usa
     await settle();
     f.$('#oyiso-agent-launcher').click();
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+});
+
+test('settings shortcut uses native tab navigation and resets page scroll', async t => {
+    const scrolls = [];
+    const f = fixture(t, undefined, {}, window => { window.scrollTo = options => scrolls.push(options); }, { nativeNavigation: true });
+    await settle();
+    f.$('.csf-nav [data-tab-id="ai-agent/agent-records"]').click(); await settle();
+    assert.equal(f.window.location.hash, '#tab=ai-agent/agent-records');
+    f.$('#oyiso-agent-panel a[aria-label="模型配置"]').click(); await settle();
+    assert.equal(f.window.document.querySelectorAll('.csf-section:not(.hidden)').length, 1);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open'), '0');
+    assert.equal(f.window.location.hash, '#tab=ai-agent/agent-model');
+    assert.equal(f.$('[data-section-id="ai-agent/agent-model"]').classList.contains('hidden'), false);
+    assert.equal(f.$('.csf-nav [data-tab-id="ai-agent/agent-model"]').classList.contains('csf-active'), true);
+    assert.equal(scrolls.at(-1).top, 0);
+    assert.equal(f.calls.some(call => call.route.endsWith('/cancel')), false);
+});
+
+test('history shortcut switches native tabs even when the URL already matches', async t => {
+    const f = fixture(t, undefined, {}, window => { window.scrollTo = () => {}; }, { nativeNavigation: true });
+    await settle();
+    f.window.history.replaceState(null, '', '#tab=ai-agent/agent-records');
+    f.$('#oyiso-agent-panel a[aria-label="执行记录"]').click(); await settle();
+    assert.equal(f.$('[data-section-id="ai-agent/agent-records"]').classList.contains('hidden'), false);
+    assert.equal(f.window.document.querySelectorAll('.csf-section:not(.hidden)').length, 1);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+});
+
+test('settings shortcut closes the panel before normal navigation from another admin page', async t => {
+    const f = fixture(t, undefined, {}, window => window.history.replaceState(null, '', '/wp-admin/edit.php?post_type=product'), { globalOnly: true });
+    let prevented;
+    f.window.document.addEventListener('click', event => {
+        prevented = event.defaultPrevented;
+        event.preventDefault(); // Observe default navigation without leaving the test document.
+    }, { once: true });
+    f.$('#oyiso-agent-panel a[aria-label="模型配置"]').click();
+    assert.equal(prevented, false);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open'), '0');
+    assert.equal(new URL(f.$('a[aria-label="模型配置"]').href).hash, '#tab=ai-agent/agent-model');
+    assert.equal(f.calls.some(call => call.route.endsWith('/cancel')), false);
+});
+
+test('opening a settings shortcut in a new tab preserves the current assistant', async t => {
+    const f = fixture(t, undefined, {}, undefined, { globalOnly: true });
+    for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey']) {
+        let prevented;
+        f.window.document.addEventListener('click', event => { prevented = event.defaultPrevented; event.preventDefault(); }, { once: true });
+        f.$('a[aria-label="模型配置"]').dispatchEvent(new f.window.MouseEvent('click', { button: 0, [modifier]: true, bubbles: true, cancelable: true }));
+        assert.equal(prevented, false);
+        assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    }
+    assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open'), '1');
 });

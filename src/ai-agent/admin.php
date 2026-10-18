@@ -176,8 +176,8 @@ final class Oyiso_Agent_Admin
                 <div class="oyiso-agent-panel-actions">
                     <button type="button" class="button" data-agent-new>新建对话</button>
                     <button type="button" class="oyiso-agent-icon-button" data-agent-layout title="切换为悬浮窗" aria-label="切换为悬浮窗" aria-pressed="false"><span class="dashicons dashicons-external" aria-hidden="true"></span></button>
-                    <a class="oyiso-agent-icon-button" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-records')); ?>" title="执行记录" aria-label="执行记录"><span class="dashicons dashicons-backup" aria-hidden="true"></span></a>
-                    <a class="oyiso-agent-icon-button" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-model')); ?>" title="模型配置" aria-label="模型配置"><span class="dashicons dashicons-admin-generic" aria-hidden="true"></span></a>
+                    <a class="oyiso-agent-icon-button" data-agent-tab="ai-agent/agent-records" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-records')); ?>" title="执行记录" aria-label="执行记录"><span class="dashicons dashicons-backup" aria-hidden="true"></span></a>
+                    <a class="oyiso-agent-icon-button" data-agent-tab="ai-agent/agent-model" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-model')); ?>" title="模型配置" aria-label="模型配置"><span class="dashicons dashicons-admin-generic" aria-hidden="true"></span></a>
                     <button type="button" class="oyiso-agent-icon-button" data-agent-close title="关闭助手" aria-label="关闭助手"><span class="dashicons dashicons-no-alt" aria-hidden="true"></span></button>
                 </div>
             </header>

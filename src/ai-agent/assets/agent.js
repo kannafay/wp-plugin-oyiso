@@ -401,6 +401,23 @@
         lists.forEach(list => loadList(list));
     }
 
+    panel.querySelectorAll('a[data-agent-tab]').forEach(link => {
+        link.addEventListener('click', event => {
+            if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || (link.target && link.target !== '_self')) return;
+            const target = new URL(link.href);
+            const current = new URL(window.location.href);
+            const settings = document.querySelector('.csf-options[data-unique="oyiso"]');
+            const tab = settings?.querySelector(`.csf-nav a[data-tab-id="${link.dataset.agentTab}"]`);
+            const samePage = target.origin === current.origin && target.pathname === current.pathname && target.searchParams.get('page') === current.searchParams.get('page');
+            setPanel(false, false);
+            if (!samePage || !tab) return;
+            event.preventDefault();
+            // Use Oyiso's menu handler: changing only the hash leaves the previous section visible.
+            tab.click();
+            tab.focus({ preventScroll: true });
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        });
+    });
     launcher.addEventListener('click', () => setPanel(panel.hidden));
     $('[data-agent-close]').addEventListener('click', () => setPanel(false));
     $('[data-agent-layout]').addEventListener('click', () => setLayout(!document.body.classList.contains('oyiso-agent-floating')));
