@@ -29,6 +29,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     const errors = [];
     window.addEventListener('error', event => errors.push(event.error));
     window.HTMLElement.prototype.scrollIntoView = () => {};
+    window.matchMedia = query => ({ matches: !view.motion, media: query });
     window.oyisoAgent = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce', user: 1, enabled: true, supported: true, ...settings };
     window.fetch = async (url, options) => {
         const route = url.replace(window.oyisoAgent.url, '');
@@ -159,6 +160,94 @@ test('global launcher works on other admin pages without loading task data until
     assert.equal(f.window.document.activeElement, f.$('#oyiso-agent-launcher'));
     assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open'), '0');
     assert.equal(f.calls.some(call => call.route.endsWith('/cancel')), false);
+});
+
+function transitionEnd(f, target = f.$('#oyiso-agent-panel'), property = 'transform') {
+    const event = new f.window.Event('transitionend', { bubbles: true });
+    Object.defineProperty(event, 'propertyName', { value: property });
+    target.dispatchEvent(event);
+}
+
+test('panel open and close animate while focus and accessibility update immediately', t => {
+    const f = fixture(t, undefined, {}, undefined, { globalOnly: true, closed: true, motion: true });
+    const panel = f.$('#oyiso-agent-panel');
+    const body = f.window.document.body;
+    f.$('#oyiso-agent-launcher').click();
+    assert.equal(panel.hidden, false);
+    assert.equal(panel.hasAttribute('inert'), false);
+    assert.equal(panel.getAttribute('aria-hidden'), 'false');
+    assert.equal(body.classList.contains('oyiso-agent-transitioning'), true);
+    assert.equal(f.window.document.activeElement, f.$('[data-agent-close]'));
+    transitionEnd(f, f.$('[data-agent-close]'));
+    transitionEnd(f, panel, 'opacity');
+    assert.equal(body.classList.contains('oyiso-agent-transitioning'), true);
+    transitionEnd(f);
+    assert.equal(body.classList.contains('oyiso-agent-transitioning'), false);
+    f.$('[data-agent-close]').click();
+    assert.equal(panel.hidden, false, 'exit animation keeps the panel painted');
+    assert.equal(panel.hasAttribute('inert'), true);
+    assert.equal(panel.getAttribute('aria-hidden'), 'true');
+    assert.equal(f.$('#oyiso-agent-launcher-wrap').hidden, false);
+    assert.equal(f.$('#oyiso-agent-launcher').getAttribute('aria-expanded'), 'false');
+    assert.equal(f.window.document.activeElement, f.$('#oyiso-agent-launcher'));
+    assert.equal(body.classList.contains('oyiso-agent-open'), false);
+    transitionEnd(f);
+    assert.equal(panel.hidden, true);
+    assert.equal(body.classList.contains('oyiso-agent-transitioning'), false);
+});
+
+test('rapid open close open cancels stale cleanup and missing transition events still settle', async t => {
+    const f = fixture(t, undefined, {}, undefined, { globalOnly: true, closed: true, motion: true });
+    f.$('#oyiso-agent-launcher').click();
+    f.$('[data-agent-close]').click();
+    f.$('#oyiso-agent-launcher').click();
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(f.$('#oyiso-agent-panel').hasAttribute('inert'), false);
+    await new Promise(resolve => setTimeout(resolve, 280));
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
+    assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open'), '1');
+    f.$('[data-agent-close]').click();
+    await new Promise(resolve => setTimeout(resolve, 280));
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
+});
+
+test('closing animation immediately invalidates polling without starting a returned queued task', async t => {
+    let finish;
+    let reads = 0;
+    const f = fixture(t, route => {
+        if (route === 'runs/12') return ++reads === 1 ? new Promise(resolve => { finish = resolve; }) : task({ conversation: [{ role: 'assistant', text: '重新打开后读取' }] });
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'), { globalOnly: true, closed: true, motion: true });
+    f.$('#oyiso-agent-launcher').click();
+    await settle();
+    f.$('[data-agent-close]').click();
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    finish(task({ status: 'queued', conversation: [{ role: 'assistant', text: '已过期的响应' }] }));
+    await settle();
+    assert.equal(f.calls.some(call => call.route.endsWith('/step')), false);
+    assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /已过期的响应/);
+    f.$('#oyiso-agent-launcher').click();
+    await settle();
+    assert.match(f.$('[data-agent-messages]').textContent, /重新打开后读取/);
+    transitionEnd(f);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+});
+
+test('reduced motion uses immediate toggles and page restoration skips the entrance animation', t => {
+    const reduced = fixture(t, undefined, {}, undefined, { globalOnly: true, closed: true });
+    reduced.$('#oyiso-agent-launcher').click();
+    assert.equal(reduced.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(reduced.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
+    reduced.$('[data-agent-close]').click();
+    assert.equal(reduced.$('#oyiso-agent-panel').hidden, true);
+    const restored = fixture(t, undefined, {}, undefined, { globalOnly: true, motion: true });
+    assert.equal(restored.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(restored.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
+    restored.$('[data-agent-close]').click();
+    restored.$('[data-agent-layout]').click();
+    assert.equal(restored.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(restored.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
 });
 
 test('open panel, floating layout, conversation and unsent draft restore across admin navigation', async t => {

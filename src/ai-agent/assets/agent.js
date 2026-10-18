@@ -27,6 +27,8 @@
     let loading = false;
     let pollRevision = 0;
     let version = '';
+    let panelOpen = false;
+    let cancelPanelMotion;
 
     function store(key, value) {
         try { localStorage.setItem(storageKey + key, value); } catch { /* Storage is optional. */ }
@@ -36,14 +38,42 @@
         try { sessionStorage.setItem(storageKey + ':draft', JSON.stringify({ id: runId, text: prompt.value })); } catch { /* Storage is optional. */ }
     }
 
-    function setPanel(open, focus = true) {
-        panel.hidden = !open;
+    function finishPanelMotion() {
+        cancelPanelMotion?.();
+        cancelPanelMotion = undefined;
+        document.body.classList.remove('oyiso-agent-transitioning');
+        panel.hidden = !panelOpen;
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    function setPanel(open, focus = true, animate = true) {
+        const moving = animate && open !== panelOpen && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        cancelPanelMotion?.();
+        cancelPanelMotion = undefined;
+        if (moving) {
+            panel.hidden = false;
+            document.body.classList.add('oyiso-agent-transitioning');
+            // Commit the starting position before changing the transition target.
+            panel.getBoundingClientRect();
+        }
+        panelOpen = open;
+        panel.toggleAttribute('inert', !open);
+        panel.setAttribute('aria-hidden', String(!open));
         launcher.setAttribute('aria-expanded', String(open));
         launcherWrapper.hidden = open;
         document.body.classList.toggle('oyiso-agent-open', open);
         store(':open', open ? '1' : '0');
+        if (moving) {
+            const ended = event => { if (event.target === panel && event.propertyName === 'transform') finishPanelMotion(); };
+            panel.addEventListener('transitionend', ended);
+            // Hidden tabs or interrupted transitions may not dispatch transitionend.
+            const timeout = setTimeout(finishPanelMotion, 250);
+            cancelPanelMotion = () => { clearTimeout(timeout); panel.removeEventListener('transitionend', ended); };
+        } else {
+            finishPanelMotion();
+        }
         if (open) {
-            if (focus) $('[data-agent-close]').focus();
+            if (focus) $('[data-agent-close]').focus({ preventScroll: true });
             poll();
         } else {
             clearTimeout(timer);
@@ -51,12 +81,13 @@
             loading = false;
             controls();
             rememberDraft();
-            if (focus) launcher.focus();
+            if (focus) launcher.focus({ preventScroll: true });
         }
         window.dispatchEvent(new Event('resize'));
     }
 
     function setLayout(floating) {
+        if (cancelPanelMotion) finishPanelMotion();
         document.body.classList.toggle('oyiso-agent-floating', floating);
         const button = $('[data-agent-layout]');
         const label = floating ? '切换为分屏' : '切换为悬浮窗';
@@ -277,19 +308,19 @@
     async function poll() {
         clearTimeout(timer);
         const id = runId;
-        if (!id || panel.hidden) return;
+        if (!id || !panelOpen) return;
         const revision = ++pollRevision;
         loading = !run || run.id !== id;
         controls();
         try {
             const data = await api(`runs/${id}`);
-            if (id !== runId || revision !== pollRevision || panel.hidden) return;
+            if (id !== runId || revision !== pollRevision || !panelOpen) return;
             loading = false;
             render(data);
             if (data.status === 'queued' || data.recoverable) drive(id);
             if (['queued', 'running'].includes(data.status)) timer = setTimeout(poll, 2500);
         } catch (error) {
-            if (id === runId && revision === pollRevision && !panel.hidden) {
+            if (id === runId && revision === pollRevision && panelOpen) {
                 loading = false;
                 controls();
                 showNotice(error.message, true);
@@ -409,7 +440,7 @@
             const settings = document.querySelector('.csf-options[data-unique="oyiso"]');
             const tab = settings?.querySelector(`.csf-nav a[data-tab-id="${link.dataset.agentTab}"]`);
             const samePage = target.origin === current.origin && target.pathname === current.pathname && target.searchParams.get('page') === current.searchParams.get('page');
-            setPanel(false, false);
+            setPanel(false, false, false);
             if (!samePage || !tab) return;
             event.preventDefault();
             // Use Oyiso's menu handler: changing only the hash leaves the previous section visible.
@@ -418,11 +449,11 @@
             window.scrollTo({ top: 0, behavior: 'instant' });
         });
     });
-    launcher.addEventListener('click', () => setPanel(panel.hidden));
+    launcher.addEventListener('click', () => setPanel(!panelOpen));
     $('[data-agent-close]').addEventListener('click', () => setPanel(false));
     $('[data-agent-layout]').addEventListener('click', () => setLayout(!document.body.classList.contains('oyiso-agent-floating')));
     document.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && !panel.hidden && (panel.contains(event.target) || event.target === document.body || event.target === launcher)) {
+        if (event.key === 'Escape' && panelOpen && (panel.contains(event.target) || event.target === document.body || event.target === launcher)) {
             event.preventDefault();
             setPanel(false);
         }
@@ -497,6 +528,6 @@
         const draft = JSON.parse(sessionStorage.getItem(storageKey + ':draft') || 'null');
         if (draft?.id === runId && typeof draft.text === 'string') prompt.value = draft.text.slice(0, 4000);
         setLayout(localStorage.getItem(storageKey + ':layout') === 'floating');
-        if (localStorage.getItem(storageKey + ':open') === '1') setPanel(true, false);
+        if (localStorage.getItem(storageKey + ':open') === '1') setPanel(true, false, false);
     } catch { /* Storage is optional. */ }
 })();

@@ -1,4 +1,4 @@
-body { --oyiso-agent-bar-height: 0px; --oyiso-agent-panel-width: clamp(400px, 34vw, 560px); }
+body { --oyiso-agent-bar-height: 0px; --oyiso-agent-panel-width: clamp(400px, 34vw, 560px); --oyiso-agent-motion-duration: 200ms; }
 body.admin-bar { --oyiso-agent-bar-height: 32px; }
 body.is-fullscreen-mode { --oyiso-agent-bar-height: 0px; }
 .csf-options[data-unique="oyiso"] .csf-field.oyiso-agent-panel { padding: 24px; }
@@ -29,7 +29,9 @@ body.is-fullscreen-mode { --oyiso-agent-bar-height: 0px; }
 #oyiso-agent-launcher-wrap.is-hovered[data-agent-edge] #oyiso-agent-launcher > span { opacity: 1; }
 #oyiso-agent-launcher-wrap.is-hovered[data-agent-edge] #oyiso-agent-launcher::after { display: none; }
 #oyiso-agent-launcher-wrap.is-dragging #oyiso-agent-launcher { transition: none; cursor: grabbing; }
-#oyiso-agent-panel { position: fixed; z-index: 9990; right: 24px; bottom: 24px; display: flex; flex-direction: column; width: var(--oyiso-agent-panel-width, 480px); max-width: calc(100vw - 48px); height: min(720px, calc(100dvh - var(--oyiso-agent-bar-height) - 48px)); box-sizing: border-box; overflow: hidden; border: 1px solid #c3c4c7; border-radius: 8px; background: #fff; box-shadow: 0 8px 36px #0003; text-align: left; }
+#oyiso-agent-panel { position: fixed; z-index: 9990; right: 24px; bottom: 24px; display: flex; flex-direction: column; width: var(--oyiso-agent-panel-width, 480px); max-width: calc(100vw - 48px); height: min(720px, calc(100dvh - var(--oyiso-agent-bar-height) - 48px)); box-sizing: border-box; overflow: hidden; border: 1px solid #c3c4c7; border-radius: 8px; background: #fff; box-shadow: 0 8px 36px #0003; text-align: left; opacity: 0; transform: translateX(24px); pointer-events: none; }
+body.oyiso-agent-open #oyiso-agent-panel { opacity: 1; transform: translateX(0); pointer-events: auto; }
+body.oyiso-agent-transitioning #oyiso-agent-panel { transition: transform var(--oyiso-agent-motion-duration) cubic-bezier(.22, 1, .36, 1), opacity var(--oyiso-agent-motion-duration) ease; }
 .oyiso-agent-resize { position: absolute; z-index: 2; top: 0; bottom: 0; left: 0; width: 7px; cursor: ew-resize; touch-action: none; }
 .oyiso-agent-resize::before { content: ""; position: absolute; top: calc(50% - 16px); left: 2px; width: 3px; height: 32px; border-radius: 2px; background: #c3c4c7; }
 .oyiso-agent-resize:hover, .oyiso-agent-resize:focus-visible, .oyiso-agent-resizing .oyiso-agent-resize { background: #2271b11a; outline: none; }
@@ -97,9 +99,12 @@ body:is(.oyiso-agent-resizing, .oyiso-agent-dragging) iframe { pointer-events: n
 [data-agent-runs] .oyiso-agent-table-wrap td:not(:first-child) { white-space: nowrap; }
 .oyiso-agent-pagination { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 16px; }
 @media (min-width: 1280px) {
+    body.oyiso-agent-transitioning:not(.oyiso-agent-floating):not(.block-editor-page):not(.oyiso-agent-resizing) #wpcontent { transition: margin-right var(--oyiso-agent-motion-duration) cubic-bezier(.22, 1, .36, 1); }
+    body.oyiso-agent-transitioning:not(.oyiso-agent-floating):not(.block-editor-page):not(.oyiso-agent-resizing) #wpfooter { transition: right var(--oyiso-agent-motion-duration) cubic-bezier(.22, 1, .36, 1); }
     body.oyiso-agent-open:not(.oyiso-agent-floating):not(.block-editor-page) #wpcontent { margin-right: var(--oyiso-agent-panel-width); }
     body.oyiso-agent-open:not(.oyiso-agent-floating):not(.block-editor-page) #wpfooter { right: var(--oyiso-agent-panel-width); }
-    body.oyiso-agent-open:not(.oyiso-agent-floating):not(.block-editor-page) #oyiso-agent-panel { top: var(--oyiso-agent-bar-height); right: 0; bottom: 0; width: var(--oyiso-agent-panel-width); max-width: none; height: auto; border-width: 0 0 0 1px; border-radius: 0; box-shadow: -3px 0 16px #0001; }
+    body:not(.oyiso-agent-floating):not(.block-editor-page) #oyiso-agent-panel { top: var(--oyiso-agent-bar-height); right: 0; bottom: 0; width: var(--oyiso-agent-panel-width); max-width: none; height: auto; border-width: 0 0 0 1px; border-radius: 0; box-shadow: -3px 0 16px #0001; }
+    body:not(.oyiso-agent-open):not(.oyiso-agent-floating):not(.block-editor-page) #oyiso-agent-panel { transform: translateX(100%); }
 }
 @media (max-width: 1279px) {
     .oyiso-agent-panel [data-agent-layout] { display: none; }
@@ -112,6 +117,7 @@ body:is(.oyiso-agent-resizing, .oyiso-agent-dragging) iframe { pointer-events: n
     #oyiso-agent-launcher-wrap { right: 16px; bottom: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
+    body { --oyiso-agent-motion-duration: 0ms; }
     #oyiso-agent-launcher { transition: none; }
 }
 @media (max-width: 600px) {
