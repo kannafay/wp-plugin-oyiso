@@ -173,6 +173,7 @@
 
 .csf-options[data-unique="oyiso"] .csf-tabbed-content {
     padding: 4px 16px;
+    background: transparent;
 }
 
 .csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content) > .csf-field {
