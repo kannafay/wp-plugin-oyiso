@@ -1,0 +1,79 @@
+:root {
+    --oyiso-color-accent: #e5702a;
+    --oyiso-color-primary: #bf5316;
+    --oyiso-color-primary-hover: #a8440d;
+    --oyiso-color-primary-soft: #fff4ec;
+    --oyiso-color-accent-border: #edc5a9;
+}
+
+/* Scope WordPress control colors to Oyiso's own settings and dialogs. */
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) {
+    --wp-admin-theme-color: var(--oyiso-color-primary);
+    --wp-admin-theme-color--rgb: 191, 83, 22;
+    --wp-admin-theme-color-darker-10: var(--oyiso-color-primary-hover);
+    --wp-admin-theme-color-darker-20: var(--oyiso-color-primary-hover);
+}
+
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button:not(.button-primary, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled) {
+    color: var(--oyiso-color-primary);
+    border-color: var(--oyiso-color-primary);
+    background: #fff;
+}
+
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button:not(.button-primary, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):is(:hover, :focus-visible) {
+    color: var(--oyiso-color-primary-hover);
+    border-color: var(--oyiso-color-primary-hover);
+    background: var(--oyiso-color-primary-soft);
+}
+
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button-primary:not(.csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled) {
+    color: #fff;
+    border-color: var(--oyiso-color-primary);
+    background: var(--oyiso-color-primary);
+}
+
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button-primary:not(.csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):is(:hover, :focus-visible) {
+    color: #fff;
+    border-color: var(--oyiso-color-primary-hover);
+    background: var(--oyiso-color-primary-hover);
+}
+
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button:not(.csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):focus-visible {
+    /* CSF suppresses header-button focus outlines with !important. */
+    outline: 2px solid var(--oyiso-color-primary) !important;
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+.csf-options[data-unique="oyiso"] :is(.csf-desc-text, .csf-submessage, .csf-before-text, .csf-after-text, .csf-field-callback) a:not(.button) {
+    color: var(--oyiso-color-primary);
+}
+
+.csf-options[data-unique="oyiso"] :is(.csf-desc-text, .csf-submessage, .csf-before-text, .csf-after-text, .csf-field-callback) a:not(.button):hover {
+    color: var(--oyiso-color-primary-hover);
+}
+
+.csf-options[data-unique="oyiso"] :is(input[type="text"], input[type="password"], input[type="url"], input[type="number"], input[type="search"], input[type="email"], textarea, select):focus {
+    border-color: var(--oyiso-color-primary);
+    outline: none;
+    box-shadow: 0 0 0 1px var(--oyiso-color-primary);
+}
+
+.csf-options[data-unique="oyiso"] :is(input[type="checkbox"], input[type="radio"]) {
+    accent-color: var(--oyiso-color-primary);
+}
+
+.csf-options[data-unique="oyiso"] :is(input[type="checkbox"], input[type="radio"]):focus {
+    border-color: var(--oyiso-color-primary);
+    box-shadow: 0 0 0 1px var(--oyiso-color-primary);
+}
+
+.csf-options[data-unique="oyiso"] .chosen-container-active :is(.chosen-single, .chosen-choices) {
+    border-color: var(--oyiso-color-primary);
+    box-shadow: 0 0 0 1px var(--oyiso-color-primary);
+}
+
+.csf-options[data-unique="oyiso"] .chosen-container .chosen-results li.highlighted {
+    color: #fff;
+    background: var(--oyiso-color-primary);
+}

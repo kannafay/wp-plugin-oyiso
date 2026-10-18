@@ -105,7 +105,7 @@ body.oyiso-archive-modal-open {
 
 .oyiso-archive-header-button:hover,
 .oyiso-archive-header-button:focus-visible {
-    color: #135e96;
+    color: var(--oyiso-color-primary-hover, #a8440d);
     background: #f0f0f1;
 }
 
@@ -176,15 +176,15 @@ body.oyiso-archive-modal-open {
 }
 
 .oyiso-archive-record-select:focus-visible {
-    border-color: #2271b1;
-    outline: 2px solid #2271b1;
+    border-color: var(--oyiso-color-primary, #bf5316);
+    outline: 2px solid var(--oyiso-color-primary, #bf5316);
     outline-offset: -2px;
 }
 
 .oyiso-archive-record.is-active {
-    background: #f0f6fc;
-    border-color: #2271b1;
-    box-shadow: inset 3px 0 #2271b1;
+    background: var(--oyiso-color-primary-soft, #fff4ec);
+    border-color: var(--oyiso-color-primary, #bf5316);
+    box-shadow: inset 3px 0 var(--oyiso-color-primary, #bf5316);
 }
 
 .oyiso-archive-record-top {
@@ -284,8 +284,8 @@ body.oyiso-archive-modal-open {
 
 .oyiso-archive-notification.is-queued,
 .oyiso-archive-notification.is-sending {
-    color: #135e96;
-    background: #edf4fb;
+    color: var(--oyiso-color-primary-hover, #a8440d);
+    background: var(--oyiso-color-primary-soft, #fff4ec);
 }
 
 .oyiso-archive-record-date {
@@ -384,7 +384,7 @@ body.oyiso-archive-modal-open {
 .oyiso-archive-tabs button:hover:not(:disabled),
 .oyiso-archive-tabs button:focus-visible:not(:disabled),
 .oyiso-archive-tabs button[aria-selected="true"] {
-    color: #135e96;
+    color: var(--oyiso-color-primary-hover, #a8440d);
 }
 
 .oyiso-archive-tabs button[aria-selected="true"]::after {
@@ -393,7 +393,7 @@ body.oyiso-archive-modal-open {
     bottom: 0;
     left: 0;
     height: 2px;
-    background: #2271b1;
+    background: var(--oyiso-color-primary, #bf5316);
     content: "";
 }
 
@@ -433,7 +433,7 @@ body.oyiso-archive-modal-open {
     height: 26px;
     box-sizing: border-box;
     border: 3px solid #c3c4c7;
-    border-top-color: #2271b1;
+    border-top-color: var(--oyiso-color-primary, #bf5316);
     border-radius: 50%;
     animation: oyiso-archive-preview-spin 0.75s linear infinite;
 }

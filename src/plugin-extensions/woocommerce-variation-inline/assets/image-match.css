@@ -78,7 +78,7 @@
 }
 
 .oyiso-vim-close:focus-visible {
-    outline: 2px solid var(--wp-admin-theme-color, #3858e9);
+    outline: 2px solid var(--oyiso-color-primary, #bf5316);
     outline-offset: 3px;
     border-radius: 2px;
 }
@@ -375,8 +375,8 @@
 }
 
 .oyiso-vim-dialog select:focus {
-    border-color: var(--wp-admin-theme-color, #3858e9);
-    box-shadow: 0 0 0 1px var(--wp-admin-theme-color, #3858e9);
+    border-color: var(--oyiso-color-primary, #bf5316);
+    box-shadow: 0 0 0 1px var(--oyiso-color-primary, #bf5316);
 }
 
 .oyiso-vim-footer {

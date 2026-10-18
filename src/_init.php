@@ -103,7 +103,7 @@ if (!function_exists('oyiso_admin_bar_update_dot_css')) {
             display: inline-block !important;
             width: 6px !important;
             height: 6px !important;
-            background-color: #e5702a !important;
+            background-color: var(--oyiso-color-accent, #e5702a) !important;
             border-radius: 50% !important;
             position: absolute !important;
             top: 10px !important;
@@ -121,7 +121,7 @@ if (!function_exists('oyiso_admin_bar_update_dot_css')) {
             left: 0 !important;
             width: 100% !important;
             height: 100% !important;
-            background-color: #e5702a !important;
+            background-color: var(--oyiso-color-accent, #e5702a) !important;
             border-radius: 50% !important;
             animation: oyiso-pulse-dot 1.5s cubic-bezier(0.24, 0, 0.38, 1) infinite !important;
             box-sizing: border-box !important;
@@ -232,7 +232,7 @@ if (!function_exists('oyiso_render_admin_bar_update_check_modal')) {
             width: 18px;
             height: 18px;
             border: 2px solid #dcdcde;
-            border-top-color: #e5702a;
+            border-top-color: var(--oyiso-color-accent, #e5702a);
             border-radius: 50%;
             animation: oyiso-admin-update-spin 0.8s linear infinite;
             box-sizing: border-box;
@@ -253,7 +253,7 @@ if (!function_exists('oyiso_render_admin_bar_update_check_modal')) {
             min-height: 34px;
             margin: 0;
             padding: 0 14px;
-            border: 1px solid #3858e9;
+            border: 1px solid var(--oyiso-color-primary, #bf5316);
             border-radius: 3px;
             box-sizing: border-box;
             cursor: pointer;
@@ -265,22 +265,22 @@ if (!function_exists('oyiso_render_admin_bar_update_check_modal')) {
         }
         .oyiso-admin-update-modal__footer .button {
             background: #fff;
-            color: #3858e9;
+            color: var(--oyiso-color-primary, #bf5316);
         }
         .oyiso-admin-update-modal__footer .button:hover,
         .oyiso-admin-update-modal__footer .button:focus {
-            background: #f0f5ff;
-            color: #3858e9;
+            background: var(--oyiso-color-primary-soft, #fff4ec);
+            color: var(--oyiso-color-primary, #bf5316);
             outline: none;
             box-shadow: none;
         }
         .oyiso-admin-update-modal__footer .button-primary {
-            background: #3858e9;
+            background: var(--oyiso-color-primary, #bf5316);
             color: #fff;
         }
         .oyiso-admin-update-modal__footer .button-primary:hover,
         .oyiso-admin-update-modal__footer .button-primary:focus {
-            background: #2145e6;
+            background: var(--oyiso-color-primary-hover, #a8440d);
             color: #fff;
             outline: none;
             box-shadow: none;
@@ -581,7 +581,7 @@ if (class_exists('CSF')) {
                 bottom: 0;
                 left: 0;
                 width: var(--oyiso-nav-accent-width);
-                background-color: #e5702a;
+                background-color: var(--oyiso-color-accent, #e5702a);
                 opacity: 0;
                 pointer-events: none;
                 transform: scaleY(0);
@@ -620,7 +620,7 @@ if (class_exists('CSF')) {
                 bottom: 0;
                 left: 0;
                 width: var(--oyiso-nav-accent-width);
-                background-color: #e5702a;
+                background-color: var(--oyiso-color-accent, #e5702a);
                 opacity: 0;
                 pointer-events: none;
                 transform: scaleX(0);

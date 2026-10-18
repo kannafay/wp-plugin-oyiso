@@ -2,7 +2,7 @@
     --oyiso-config-border: #e5e7eb;
     --oyiso-config-tab-border: #dcdcde;
     --oyiso-config-text: #646970;
-    --oyiso-config-action: #3858e9;
+    --oyiso-config-action: var(--oyiso-color-primary, #bf5316);
     --oyiso-config-label-width: 224px;
     --oyiso-config-control-offset: 248px;
     --oyiso-config-detail-offset: 278px;
@@ -34,7 +34,7 @@
     margin-inline: calc(var(--oyiso-config-detail-offset) - 18px) 30px;
     padding: 12px 0 12px 16px;
     border: 0;
-    border-inline-start: 2px solid #dce3ed;
+    border-inline-start: 2px solid var(--oyiso-color-accent-border, #edc5a9);
     background: transparent;
 }
 
@@ -245,7 +245,7 @@
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-toggle:hover {
-    color: #2145e6;
+    color: var(--oyiso-color-primary-hover, #a8440d);
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-toggle:focus-visible,

@@ -97,9 +97,9 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
     align-items: center;
     padding: 4px 10px;
     border-radius: 999px !important;
-    border: 1px solid #e5702a !important;
-    background: #fff7f2;
-    color: #e5702a;
+    border: 1px solid var(--oyiso-color-primary, #bf5316) !important;
+    background: var(--oyiso-color-primary-soft, #fff4ec);
+    color: var(--oyiso-color-primary, #bf5316);
     font-size: 12px;
     line-height: 1;
     vertical-align: middle;
@@ -109,14 +109,14 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
     box-shadow: none !important;
 }
 .oyiso-update-header-badge:hover {
-    background: #e5702a !important;
+    background: var(--oyiso-color-primary, #bf5316) !important;
     color: #fff !important;
 }
 .oyiso-update-header-badge:focus,
 .oyiso-update-header-badge:active {
     outline: none !important;
     box-shadow: none !important;
-    color: #e5702a;
+    color: var(--oyiso-color-primary, #bf5316);
 }
 CSS);
 

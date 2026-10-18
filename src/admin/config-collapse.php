@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
+function oyiso_enqueue_admin_theme_assets(): void
+{
+    wp_enqueue_style(
+        'oyiso-admin-theme',
+        plugins_url('assets/admin-theme.css', __FILE__),
+        [],
+        (string) filemtime(__DIR__ . '/assets/admin-theme.css')
+    );
+}
+
 function oyiso_enqueue_config_collapse_assets(string $hook): void
 {
     if (!oyiso_is_settings_page_hook($hook)) {
@@ -13,7 +23,7 @@ function oyiso_enqueue_config_collapse_assets(string $hook): void
     wp_enqueue_style(
         'oyiso-config-collapse',
         plugins_url('assets/config-collapse.css', __FILE__),
-        ['csf', 'dashicons'],
+        ['csf', 'dashicons', 'oyiso-admin-theme'],
         (string) filemtime(__DIR__ . '/assets/config-collapse.css')
     );
     wp_enqueue_script(
@@ -25,4 +35,5 @@ function oyiso_enqueue_config_collapse_assets(string $hook): void
     );
 }
 
+add_action('admin_enqueue_scripts', 'oyiso_enqueue_admin_theme_assets');
 add_action('admin_enqueue_scripts', 'oyiso_enqueue_config_collapse_assets');

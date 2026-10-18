@@ -241,7 +241,7 @@ if (!function_exists('oyiso_render_plugin_backup_panel')) {
                         --oyiso-backup-muted: #6b7280;
                         --oyiso-backup-surface: #ffffff;
                         --oyiso-backup-soft-surface: #f8fafc;
-                        --oyiso-backup-accent-soft: #eff6ff;
+                        --oyiso-backup-accent-soft: var(--oyiso-color-primary-soft, #fff4ec);
                     }
                     .oyiso-plugin-backup-panel .oyiso-panel-block {
                         margin-top: 16px;
