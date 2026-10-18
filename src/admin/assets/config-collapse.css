@@ -1,20 +1,22 @@
 .csf-options[data-unique="oyiso"] {
-    --oyiso-config-surface: #fff;
-    --oyiso-config-heading: #f8fafc;
-    --oyiso-config-border: #e4e7ec;
-    --oyiso-config-accent: #e5702a;
+    --oyiso-config-border: #e5e7eb;
     --oyiso-config-text: #646970;
     --oyiso-config-action: #3858e9;
-    --oyiso-config-label-width: 160px;
-    --oyiso-config-control-width: calc(100% - 184px);
+    --oyiso-config-label-width: 176px;
+    --oyiso-config-control-offset: 200px;
+    --oyiso-config-detail-offset: 230px;
+    --oyiso-config-child-label-width: 132px;
+    --oyiso-config-child-control-offset: 148px;
+    --oyiso-config-form-width: 840px;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-parent {
-    padding-block: 24px;
+/* One left-aligned reading column, regardless of the window width. */
+.csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.csf-field-heading, .oyiso-config-details) {
+    padding: 20px 30px;
 }
 
 .csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-title {
-    width: 200px;
+    width: var(--oyiso-config-label-width);
 }
 
 .csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-title h4 {
@@ -22,76 +24,64 @@
 }
 
 .csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-fieldset {
-    width: calc(100% - 224px);
+    float: none;
+    width: auto;
+    max-width: var(--oyiso-config-form-width);
+    margin-inline-start: var(--oyiso-config-control-offset);
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-parent.oyiso-config-open {
-    background: var(--oyiso-config-heading);
-}
-
-.csf-options[data-unique="oyiso"] .oyiso-config-parent.oyiso-config-open::before {
-    content: "";
-    display: block;
-    position: absolute;
-    inset-inline-start: 14px;
-    top: 24px;
-    bottom: 24px;
-    width: 3px;
-    border-radius: 2px;
-    background: var(--oyiso-config-accent);
-}
-
-/* Keep the original sibling structure for CSF dependencies and form submission. */
+/* Keep dependent fields as siblings so native CSF dependencies continue to work. */
 .csf-options[data-unique="oyiso"] .oyiso-config-details {
-    margin-inline: 30px;
-    padding: 20px 24px;
+    max-width: var(--oyiso-config-form-width);
+    margin-inline: var(--oyiso-config-detail-offset) 30px;
+    padding: 12px 0;
     border: 0;
-    border-inline-start: 2px solid var(--oyiso-config-border);
-    background: var(--oyiso-config-surface);
-}
-
-.csf-options[data-unique="oyiso"] .oyiso-config-details + .oyiso-config-details {
-    border-top: 1px solid var(--oyiso-config-border);
+    background: transparent;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details.oyiso-config-details-first {
-    border-top: 0;
+    padding-top: 4px;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details.oyiso-config-details-last {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-details > .csf-title h4 {
-    font-weight: 600;
-}
-
+/* Expanded settings and standalone tabs share the same inner label column. */
 .csf-options[data-unique="oyiso"] .oyiso-config-details > .csf-title,
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-field > .csf-title {
-    width: var(--oyiso-config-label-width);
+.csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content, .csf-cloneable-content, .csf-accordion-content, .csf-repeater-content) > .csf-field > .csf-title {
+    width: var(--oyiso-config-child-label-width);
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-details > .csf-title h4,
+.csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content, .csf-cloneable-content, .csf-accordion-content, .csf-repeater-content) > .csf-field > .csf-title h4 {
+    font-size: 13px;
+    font-weight: 500;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details > .csf-fieldset,
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-field > .csf-fieldset {
-    width: var(--oyiso-config-control-width);
-}
-
-/* Composite controls use the full reading width instead of nesting label columns. */
-.csf-options[data-unique="oyiso"] .oyiso-config-composite > .csf-title,
-.csf-options[data-unique="oyiso"] .oyiso-config-details :is(.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater) > .csf-title {
+.csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content, .csf-cloneable-content, .csf-accordion-content, .csf-repeater-content) > .csf-field > .csf-fieldset {
     float: none;
     width: auto;
-    margin-bottom: 12px;
+    margin-inline-start: var(--oyiso-config-child-control-offset);
+}
+
+.csf-options[data-unique="oyiso"] .oyiso-config-composite > .csf-title,
+.csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content, .csf-cloneable-content, .csf-accordion-content, .csf-repeater-content) > :is(.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater) > .csf-title {
+    float: none;
+    width: auto;
+    margin-bottom: 10px;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-composite > .csf-fieldset,
-.csf-options[data-unique="oyiso"] .oyiso-config-details :is(.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater) > .csf-fieldset {
+.csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content, .csf-cloneable-content, .csf-accordion-content, .csf-repeater-content) > :is(.csf-field-tabbed, .csf-field-group, .csf-field-fieldset, .csf-field-accordion, .csf-field-repeater) > .csf-fieldset {
     float: none;
     width: auto;
     min-width: 0;
+    margin-inline-start: 0;
 }
 
-/* A single composite is already named by its feature heading; retain its accessible title. */
+/* A single composite already has its feature heading; preserve its accessible title. */
 .csf-options[data-unique="oyiso"] .oyiso-config-composite.oyiso-config-details-first.oyiso-config-details-last > .csf-title:not(:has(.csf-subtitle-text)) {
     position: absolute;
     width: 1px;
@@ -103,16 +93,17 @@
     white-space: nowrap;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav {
+/* One tab treatment everywhere, including the independent quick-action settings. */
+.csf-options[data-unique="oyiso"] .csf-tabbed-nav {
     display: flex;
     flex-wrap: wrap;
-    gap: 0 24px;
+    gap: 0 20px;
     border-bottom: 1px solid var(--oyiso-config-border);
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a {
+.csf-options[data-unique="oyiso"] .csf-tabbed-nav > a {
     margin: 0 0 -1px;
-    padding: 10px 2px 12px;
+    padding: 8px 0 10px;
     border: 0;
     border-bottom: 2px solid transparent;
     background: transparent;
@@ -121,48 +112,62 @@
     transition: none;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a:hover,
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a.csf-tabbed-active {
-    border-bottom-color: var(--oyiso-config-accent);
-    background: transparent;
-    color: #1d2327;
+.csf-options[data-unique="oyiso"] .csf-tabbed-nav > a > .csf--icon {
+    display: none;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a.csf-tabbed-active {
+.csf-options[data-unique="oyiso"] .csf-tabbed-nav > a:hover,
+.csf-options[data-unique="oyiso"] .csf-tabbed-nav > a.csf-tabbed-active {
+    border-bottom-color: var(--oyiso-config-action);
+    background: transparent;
+    color: var(--oyiso-config-action);
+}
+
+.csf-options[data-unique="oyiso"] .csf-tabbed-nav > a.csf-tabbed-active {
     font-weight: 600;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-content,
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-fieldset-content {
+.csf-options[data-unique="oyiso"] .csf-tabbed-content,
+.csf-options[data-unique="oyiso"] .csf-fieldset-content {
     border: 0;
     box-shadow: none;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-content > .csf-field,
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-fieldset-content > .csf-field {
-    padding: 20px 0;
+.csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content) > .csf-field {
+    padding: 14px 0;
+    border: 0;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-desc-text,
-.csf-options[data-unique="oyiso"] .oyiso-config-parent .csf-desc-text {
-    max-width: 80ch;
+.csf-options[data-unique="oyiso"] .csf-desc-text {
+    max-width: 76ch;
     color: var(--oyiso-config-text);
-    line-height: 1.65;
+    line-height: 1.6;
 }
 
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-fieldset :is(input[type="text"], input[type="password"], input[type="url"], select, textarea) {
+.csf-options[data-unique="oyiso"] .csf--label {
+    color: var(--oyiso-config-text);
+}
+
+.csf-options[data-unique="oyiso"] .csf-section :where(input[type="text"], input[type="password"], input[type="url"], select, textarea, .chosen-container) {
     max-width: 100%;
     box-sizing: border-box;
 }
 
-/* Nested tabs already provide a container; keep their dependent rows compact. */
+.csf-options[data-unique="oyiso"] .csf-section .csf-field-text input {
+    max-width: 560px;
+}
+
+.csf-options[data-unique="oyiso"] .csf-section .csf-field-textarea textarea {
+    max-width: 640px;
+}
+
 .csf-options[data-unique="oyiso"] .oyiso-config-details .oyiso-config-details {
-    margin-inline: 15px;
-    padding: 15px 18px;
+    margin-inline: 0;
+    padding: 12px 0;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details .oyiso-config-details-last {
-    margin-bottom: 15px;
+    margin-bottom: 8px;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details.oyiso-config-collapsed {
@@ -183,7 +188,7 @@
     float: right;
     align-items: center;
     gap: 4px;
-    margin-inline-start: 12px;
+    margin-inline-start: 16px;
     padding: 4px 0;
     border: 0;
     background: transparent;
@@ -204,7 +209,7 @@
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-toggle:focus-visible,
-.csf-options[data-unique="oyiso"] .oyiso-config-details .csf-tabbed-nav > a:focus-visible {
+.csf-options[data-unique="oyiso"] .csf-tabbed-nav > a:focus-visible {
     outline: 2px solid var(--oyiso-config-action);
     outline-offset: 4px;
     box-shadow: none;
@@ -230,30 +235,18 @@
     float: left;
 }
 
-@media only screen and (max-width: 782px) {
+@media only screen and (max-width: 1024px) {
     .csf-options[data-unique="oyiso"] {
         --oyiso-config-label-width: 100%;
-        --oyiso-config-control-width: 100%;
+        --oyiso-config-control-offset: 0px;
+        --oyiso-config-detail-offset: 44px;
+        --oyiso-config-child-label-width: 100%;
+        --oyiso-config-child-control-offset: 0px;
     }
 
-    .csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-title,
-    .csf-options[data-unique="oyiso"] .csf-section > .csf-field:not(.oyiso-config-details) > .csf-fieldset {
+    .csf-options[data-unique="oyiso"] .csf-section .csf-field > .csf-title,
+    .csf-options[data-unique="oyiso"] .csf-section .csf-field > .csf-fieldset {
         float: none;
-        width: 100%;
-    }
-
-    .csf-options[data-unique="oyiso"] .oyiso-config-details {
-        margin-inline: 15px;
-        padding: 18px 16px;
-    }
-
-    .csf-options[data-unique="oyiso"] .oyiso-config-details.oyiso-config-details-last {
-        margin-bottom: 20px;
-    }
-
-    .csf-options[data-unique="oyiso"] .oyiso-config-details .oyiso-config-details {
-        margin-inline: 8px;
-        padding-inline: 12px;
     }
 
     .csf-options[data-unique="oyiso"] .oyiso-config-toggle {
