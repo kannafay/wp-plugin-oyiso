@@ -151,8 +151,9 @@ final class Oyiso_Agent_Admin
             return;
         }
         wp_enqueue_style('oyiso-agent', plugins_url('assets/agent.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/agent.css'));
-        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
-        wp_localize_script('oyiso-agent', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported()]);
+        wp_enqueue_script('oyiso-agent-panel', plugins_url('assets/panel.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/panel.js'), true);
+        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
+        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported()]);
     }
 
     private static function available(): bool
@@ -166,8 +167,10 @@ final class Oyiso_Agent_Admin
             return;
         }
         ?>
-        <button type="button" id="oyiso-agent-launcher" aria-controls="oyiso-agent-panel" aria-expanded="false"><span class="dashicons dashicons-format-chat" aria-hidden="true"></span><span>AI 助手</span></button>
+        <span id="oyiso-agent-launcher-help" class="screen-reader-text">拖动可移动，靠边自动收起；也可使用方向键移动，按住 Shift 加快。</span>
+        <div id="oyiso-agent-launcher-wrap"><button type="button" id="oyiso-agent-launcher" aria-label="AI 助手" aria-describedby="oyiso-agent-launcher-help" aria-controls="oyiso-agent-panel" aria-expanded="false" title="AI 助手（可拖动，靠边自动收起）"><span class="dashicons dashicons-format-chat" aria-hidden="true"></span><span>AI 助手</span></button></div>
         <aside id="oyiso-agent-panel" class="oyiso-agent oyiso-agent-panel" aria-labelledby="oyiso-agent-title" hidden>
+            <div class="oyiso-agent-resize" data-agent-resize role="separator" tabindex="0" aria-label="调整助手宽度" aria-controls="oyiso-agent-panel" aria-orientation="vertical" aria-valuemin="360" aria-valuemax="1000" aria-valuenow="480" title="拖动调整宽度，也可使用左右方向键"></div>
             <header class="oyiso-agent-panel-heading">
                 <h2 id="oyiso-agent-title">AI 助手</h2>
                 <div class="oyiso-agent-panel-actions">

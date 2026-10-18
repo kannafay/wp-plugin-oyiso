@@ -4,8 +4,9 @@
     const config = window.oyisoAgent;
     const panel = document.getElementById('oyiso-agent-panel');
     const launcher = document.getElementById('oyiso-agent-launcher');
+    const launcherWrapper = document.getElementById('oyiso-agent-launcher-wrap');
     const chat = document.getElementById('oyiso-agent-chat');
-    if (!config || !panel || !launcher || !chat) return;
+    if (!config || !panel || !launcher || !launcherWrapper || !chat) return;
 
     const $ = (selector, root = panel) => root?.querySelector(selector);
     const prompt = $('#oyiso-agent-prompt');
@@ -38,6 +39,7 @@
     function setPanel(open, focus = true) {
         panel.hidden = !open;
         launcher.setAttribute('aria-expanded', String(open));
+        launcherWrapper.hidden = open;
         document.body.classList.toggle('oyiso-agent-open', open);
         store(':open', open ? '1' : '0');
         if (open) {

@@ -464,17 +464,23 @@ final class AgentTest extends TestCase
         self::assertSame(10, has_action('admin_footer', [Oyiso_Agent_Admin::class, 'panel']));
         Oyiso_Agent_Admin::assets('index.php');
         self::assertTrue(wp_script_is('oyiso-agent', 'enqueued'));
+        self::assertTrue(wp_script_is('oyiso-agent-panel', 'enqueued'));
+        self::assertContains('oyiso-agent-panel', wp_scripts()->registered['oyiso-agent']->deps);
+        self::assertStringContainsString('var oyisoAgent', wp_scripts()->get_data('oyiso-agent-panel', 'data'));
         self::assertTrue(wp_style_is('oyiso-agent', 'enqueued'));
         ob_start(); Oyiso_Agent_Admin::panel(); $html = ob_get_clean();
         self::assertStringContainsString('id="oyiso-agent-launcher"', $html);
         self::assertStringContainsString('aria-expanded="false"', $html);
         self::assertStringContainsString('aria-labelledby="oyiso-agent-title" hidden', $html);
         self::assertStringContainsString('id="oyiso-agent-chat"', $html);
+        self::assertStringContainsString('id="oyiso-agent-launcher-wrap"', $html);
+        self::assertStringContainsString('aria-label="调整助手宽度"', $html);
         self::assertStringNotContainsString('<form', $html);
-        wp_dequeue_script('oyiso-agent'); wp_dequeue_style('oyiso-agent');
+        wp_dequeue_script('oyiso-agent'); wp_dequeue_script('oyiso-agent-panel'); wp_dequeue_style('oyiso-agent');
         wp_set_current_user(0);
         Oyiso_Agent_Admin::assets('index.php');
         self::assertFalse(wp_script_is('oyiso-agent', 'enqueued'));
+        self::assertFalse(wp_script_is('oyiso-agent-panel', 'enqueued'));
         ob_start(); Oyiso_Agent_Admin::panel(); $html = ob_get_clean();
         self::assertSame('', $html);
     }

@@ -9,6 +9,7 @@ const repo = path.resolve(__dirname, '../..');
 const phpQuote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
 const markup = JSON.parse(execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } function esc_html($value) { return esc_attr($value); } function esc_url($value) { return esc_attr($value); } function admin_url($value) { return 'https://vape.local/wp-admin/' . $value; } function current_user_can($value) { return true; } function is_network_admin() { return false; } function is_user_admin() { return false; } require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; $parts = []; foreach (['panel', 'history'] as $method) { ob_start(); Oyiso_Agent_Admin::$method(); $parts[$method] = ob_get_clean(); } ob_start(); Oyiso_Agent_Admin::connectionTest('deepseek'); $parts['connection'] = ob_get_clean(); echo json_encode($parts);`], { encoding: 'utf8' }));
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.js'), 'utf8');
+const panelScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/panel.js'), 'utf8');
 const wpRoot = process.env.OYISO_WORDPRESS_ROOT || path.resolve(repo, '../../..');
 const jquery = fs.readFileSync(path.join(wpRoot, 'wp-includes/js/jquery/jquery.js'), 'utf8');
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve)); };
@@ -35,10 +36,41 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     window.eval(jquery);
     before(window);
     if (!view.closed && window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open') === null) window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open', '1');
+    window.eval(panelScript);
     window.eval(script);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
     const $ = selector => window.document.querySelector(selector);
     return { window, calls, $ };
+}
+
+function geometry(window, width = 1600, height = 1000) {
+    Object.defineProperties(window, { innerWidth: { value: width, writable: true }, innerHeight: { value: height, writable: true } });
+    Object.defineProperty(window.document.documentElement, 'clientWidth', { get: () => window.innerWidth, configurable: true });
+    window.document.body.style.setProperty('--oyiso-agent-bar-height', '32px');
+    const launcher = window.document.getElementById('oyiso-agent-launcher');
+    Object.defineProperties(launcher, { offsetWidth: { get: () => 120 }, offsetHeight: { get: () => 44 } });
+    for (const element of [launcher, window.document.querySelector('[data-agent-resize]')]) {
+        let captured;
+        element.setPointerCapture = id => { captured = id; };
+        element.hasPointerCapture = id => captured === id;
+        element.releasePointerCapture = () => { captured = undefined; };
+    }
+}
+
+function pointer(f, target, type, x, y, extra = {}) {
+    const event = new f.window.MouseEvent(type, { clientX: x, clientY: y, button: extra.button || 0, bubbles: true, cancelable: true });
+    Object.defineProperties(event, { pointerId: { value: extra.id || 1 }, isPrimary: { value: extra.primary !== false }, pointerType: { value: extra.touch ? 'touch' : 'mouse' } });
+    target.dispatchEvent(event);
+}
+
+function dragLauncher(f, x, y) {
+    const wrapper = f.$('#oyiso-agent-launcher-wrap');
+    const startX = parseFloat(wrapper.style.left) + 8;
+    const startY = parseFloat(wrapper.style.top) + 8;
+    pointer(f, f.$('#oyiso-agent-launcher'), 'pointerdown', startX, startY);
+    pointer(f, f.window.document, 'pointermove', x + 8, y + 8);
+    pointer(f, f.window.document, 'pointerup', x + 8, y + 8);
+    f.$('#oyiso-agent-launcher').click();
 }
 
 test('disabled or unsupported agent shows guidance and prevents sending', async t => {
@@ -309,4 +341,152 @@ test('failed settings saves preserve unsaved keys and connection tests show erro
     assert.equal(f.$('[data-agent-connection-notice] img'), null);
     assert.match(f.$('[data-agent-connection-notice]').textContent, /服务不可用/);
     assert.equal(f.$('[data-agent-test-connection]').disabled, false);
+});
+
+test('panel resize changes split width, persists it and supports keyboard limits', async t => {
+    const f = fixture(t, undefined, {}, geometry);
+    const handle = f.$('[data-agent-resize]');
+    assert.equal(handle.getAttribute('aria-valuenow'), '544');
+    pointer(f, handle, 'pointerdown', 1056, 400);
+    pointer(f, f.window.document, 'pointermove', 900, 400);
+    assert.equal(handle.getAttribute('aria-valuenow'), '700');
+    assert.equal(f.window.document.body.style.getPropertyValue('--oyiso-agent-panel-width'), '700px');
+    pointer(f, f.window.document, 'pointerup', 900, 400);
+    assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:width'), '700');
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-resizing'), false);
+    handle.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    assert.equal(handle.getAttribute('aria-valuenow'), '960');
+    handle.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    assert.equal(handle.getAttribute('aria-valuenow'), '360');
+    f.$('[data-agent-layout]').click();
+    pointer(f, handle, 'pointerdown', 800, 400);
+    pointer(f, f.window.document, 'pointermove', 560, 400);
+    pointer(f, f.window.document, 'pointerup', 560, 400);
+    assert.equal(handle.getAttribute('aria-valuenow'), '600');
+});
+
+test('launcher moves freely without opening on drag release and still opens on a click', async t => {
+    const f = fixture(t, undefined, {}, geometry, { closed: true, globalOnly: true });
+    dragLauncher(f, 700, 410);
+    const wrapper = f.$('#oyiso-agent-launcher-wrap');
+    assert.equal(wrapper.style.left, '700px');
+    assert.equal(wrapper.style.top, '410px');
+    assert.equal(wrapper.dataset.agentEdge, undefined);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(f.calls.length, 0);
+    const saved = JSON.parse(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:position'));
+    assert.ok(saved.x > 0 && saved.x < 1 && saved.y > 0 && saved.y < 1);
+    await settle();
+    f.$('#oyiso-agent-launcher').click();
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(wrapper.hidden, true);
+    f.$('[data-agent-close]').click();
+    assert.equal(wrapper.hidden, false);
+    assert.equal(wrapper.style.left, '700px');
+});
+
+test('launcher docks to each edge and can be dragged back into the page', async t => {
+    for (const [edge, x, y, property, value] of [['left', 5, 400, 'left', '0px'], ['right', 1475, 400, 'left', '1480px'], ['top', 700, 36, 'top', '32px'], ['bottom', 700, 950, 'top', '956px']]) {
+        const f = fixture(t, undefined, {}, geometry, { closed: true, globalOnly: true });
+        dragLauncher(f, x, y);
+        const wrapper = f.$('#oyiso-agent-launcher-wrap');
+        assert.equal(wrapper.dataset.agentEdge, edge);
+        assert.equal(wrapper.style[property], value);
+        assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+        dragLauncher(f, 600, 450);
+        assert.equal(wrapper.dataset.agentEdge, undefined);
+        assert.equal(wrapper.style.left, '600px');
+        assert.equal(wrapper.style.top, '450px');
+    }
+});
+
+test('saved width and edge position adapt to narrow viewports without losing preferences', async t => {
+    const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+    const f = fixture(t, undefined, {}, window => {
+        geometry(window);
+        window.localStorage.setItem(key + ':width', '700');
+        window.localStorage.setItem(key + ':position', JSON.stringify({ x: 1, y: 0.5, edge: 'right' }));
+    }, { closed: true, globalOnly: true });
+    const wrapper = f.$('#oyiso-agent-launcher-wrap');
+    assert.equal(wrapper.style.left, '1480px');
+    assert.equal(f.$('[data-agent-resize]').getAttribute('aria-valuenow'), '700');
+    f.window.innerWidth = 375; f.window.innerHeight = 600;
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(wrapper.style.left, '255px');
+    assert.equal(wrapper.style.top, '294px');
+    assert.equal(wrapper.dataset.agentEdge, 'right');
+    assert.equal(f.$('[data-agent-resize]').getAttribute('aria-valuenow'), '351');
+    assert.equal(f.window.localStorage.getItem(key + ':width'), '700');
+    f.window.innerWidth = 1280;
+    Object.defineProperty(f.window.document.documentElement, 'clientWidth', { get: () => f.window.innerWidth - 15 });
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(f.$('[data-agent-resize]').getAttribute('aria-valuemax'), '625');
+    f.window.innerWidth = 1600; f.window.innerHeight = 1000;
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(wrapper.style.left, '1465px');
+    assert.equal(f.$('[data-agent-resize]').getAttribute('aria-valuenow'), '700');
+});
+
+test('escape and lost pointer capture restore geometry and release drag state', async t => {
+    const f = fixture(t, undefined, {}, geometry);
+    const handle = f.$('[data-agent-resize]');
+    pointer(f, handle, 'pointerdown', 1056, 400);
+    pointer(f, f.window.document, 'pointermove', 900, 400, { id: 2 });
+    assert.equal(handle.getAttribute('aria-valuenow'), '544');
+    pointer(f, f.window.document, 'pointermove', 900, 400);
+    f.window.document.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(handle.getAttribute('aria-valuenow'), '544');
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-resizing'), false);
+    f.$('[data-agent-close]').click();
+    const wrapper = f.$('#oyiso-agent-launcher-wrap');
+    const old = wrapper.style.cssText;
+    pointer(f, f.$('#oyiso-agent-launcher'), 'pointerdown', 1464, 940, { touch: true });
+    pointer(f, f.window.document, 'pointermove', 600, 450, { touch: true });
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), true);
+    pointer(f, f.$('#oyiso-agent-launcher'), 'lostpointercapture', 600, 450, { touch: true });
+    assert.equal(wrapper.style.cssText, old);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), false);
+    assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:position'), null);
+});
+
+test('launcher keyboard movement can leave an edge and touch cancellation does not move it', async t => {
+    const f = fixture(t, undefined, {}, window => {
+        geometry(window);
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:position', JSON.stringify({ x: 0, y: 0.5, edge: 'left' }));
+    }, { closed: true, globalOnly: true });
+    const launcher = f.$('#oyiso-agent-launcher');
+    const wrapper = f.$('#oyiso-agent-launcher-wrap');
+    pointer(f, launcher, 'pointerenter', 8, 502);
+    assert.equal(wrapper.classList.contains('is-hovered'), true);
+    pointer(f, launcher, 'pointerleave', 8, 502);
+    assert.equal(wrapper.classList.contains('is-hovered'), false);
+    pointer(f, launcher, 'pointerenter', 8, 502, { touch: true });
+    assert.equal(wrapper.classList.contains('is-hovered'), false);
+    launcher.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    assert.equal(wrapper.style.left, '10px');
+    assert.equal(wrapper.dataset.agentEdge, undefined);
+    const old = wrapper.style.cssText;
+    pointer(f, launcher, 'pointerdown', 18, 502, { touch: true });
+    pointer(f, f.window.document, 'pointermove', 500, 502, { touch: true });
+    pointer(f, f.window.document, 'pointercancel', 500, 502, { touch: true });
+    assert.equal(wrapper.style.cssText, old);
+    pointer(f, launcher, 'pointerdown', 18, 502, { button: 2 });
+    pointer(f, f.window.document, 'pointermove', 500, 502);
+    pointer(f, f.window.document, 'pointerup', 500, 502);
+    assert.equal(wrapper.style.cssText, old);
+});
+
+test('invalid geometry preferences and unavailable storage keep the launcher usable', async t => {
+    const f = fixture(t, undefined, {}, window => {
+        geometry(window);
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:width', 'NaN');
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:position', '{invalid');
+    }, { closed: true, globalOnly: true });
+    assert.equal(f.$('[data-agent-resize]').getAttribute('aria-valuenow'), '544');
+    Object.defineProperty(f.window, 'localStorage', { get() { throw new Error('Storage disabled'); } });
+    dragLauncher(f, 600, 450);
+    await settle();
+    f.$('#oyiso-agent-launcher').click();
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
 });
