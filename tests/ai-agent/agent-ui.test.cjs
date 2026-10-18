@@ -7,7 +7,7 @@ const { JSDOM } = require('jsdom');
 
 const repo = path.resolve(__dirname, '../..');
 const phpQuote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
-const markup = JSON.parse(execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } function esc_html($value) { return esc_attr($value); } function esc_url($value) { return esc_attr($value); } function admin_url($value) { return 'https://vape.local/wp-admin/' . $value; } function current_user_can($value) { return true; } function is_network_admin() { return false; } function is_user_admin() { return false; } require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; $parts = []; foreach (['panel', 'history', 'tasks'] as $method) { ob_start(); Oyiso_Agent_Admin::$method(); $parts[$method] = ob_get_clean(); } ob_start(); Oyiso_Agent_Admin::connectionTest('deepseek'); $parts['connection'] = ob_get_clean(); echo json_encode($parts);`], { encoding: 'utf8' }));
+const markup = JSON.parse(execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } function esc_html($value) { return esc_attr($value); } function esc_url($value) { return esc_attr($value); } function admin_url($value) { return 'https://vape.local/wp-admin/' . $value; } function current_user_can($value) { return true; } function is_network_admin() { return false; } function is_user_admin() { return false; } require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; $parts = []; foreach (['panel', 'history'] as $method) { ob_start(); Oyiso_Agent_Admin::$method(); $parts[$method] = ob_get_clean(); } ob_start(); Oyiso_Agent_Admin::connectionTest('deepseek'); $parts['connection'] = ob_get_clean(); echo json_encode($parts);`], { encoding: 'utf8' }));
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.js'), 'utf8');
 const wpRoot = process.env.OYISO_WORDPRESS_ROOT || path.resolve(repo, '../../..');
 const jquery = fs.readFileSync(path.join(wpRoot, 'wp-includes/js/jquery/jquery.js'), 'utf8');
@@ -17,7 +17,7 @@ const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42
 const proposal = () => ({ id: '12345678-1234-1234-1234-123456789abc', product_id: 99, name: '商品示例', before: { description: '<p>Original</p>' }, after: { description: '<p>Proposed</p>' }, status: 'pending' });
 
 function fixture(t, router = () => undefined, settings = {}, before = () => {}, view = {}) {
-    const settingsMarkup = `<div class="csf-options" data-unique="oyiso"><form id="csf-form"><div class="csf-content">${markup.history}${markup.tasks}${markup.connection}</div><input name="oyiso[agent_deepseek_url]" value="https://api.deepseek.com" data-agent-connection="deepseek"><input name="oyiso[agent_deepseek_model]" value="deepseek-flash" data-agent-connection="deepseek"><input type="password" name="oyiso[agent_deepseek_key]" data-agent-connection="deepseek"><input type="checkbox" name="oyiso[agent_deepseek_key_clear]" data-agent-connection="deepseek"></form></div>`;
+    const settingsMarkup = `<div class="csf-options" data-unique="oyiso"><form id="csf-form"><div class="csf-content">${markup.history}${markup.connection}</div><input name="oyiso[agent_deepseek_url]" value="https://api.deepseek.com" data-agent-connection="deepseek"><input name="oyiso[agent_deepseek_model]" value="deepseek-flash" data-agent-connection="deepseek"><input type="password" name="oyiso[agent_deepseek_key]" data-agent-connection="deepseek"><input type="checkbox" name="oyiso[agent_deepseek_key_clear]" data-agent-connection="deepseek"></form></div>`;
     const dom = new JSDOM(`${view.globalOnly ? '<div id="wpcontent">仪表盘</div>' : settingsMarkup}${markup.panel}`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only', pretendToBeVisual: true });
     const { window } = dom;
     const calls = [];
@@ -177,22 +177,26 @@ test('switching tasks clears previous proposals while the next conversation is l
     assert.equal(f.$('[data-agent-send]').disabled, false);
 });
 
-test('task management cancels an active task once and refreshes both lists', async t => {
+test('execution history cancels eligible tasks once and refreshes their status', async t => {
     let cancelled = false;
     let finish;
     const f = fixture(t, route => {
-        if (route === 'runs?page=1') return { items: [{ id: 12, title: '管理任务', status: cancelled ? 'cancelled' : 'running', updated: '2026-10-19' }], pages: 1 };
+        if (route === 'runs?page=1') return { items: ['running', 'queued', 'waiting', 'completed', 'failed', 'cancelled'].map((status, index) => ({ id: 12 + index, title: `任务 ${12 + index}`, status: index === 0 && cancelled ? 'cancelled' : status, updated: '2026-10-19' })), pages: 1 };
         if (route === 'runs/12/cancel') return new Promise(resolve => { finish = () => { cancelled = true; resolve(task({ status: 'cancelled' })); }; });
-    }, {}, undefined, { closed: true });
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'), { closed: true });
     await settle();
-    const button = f.$('#oyiso-agent-tasks [data-agent-history-body] button:last-child');
+    const rows = Array.from(f.window.document.querySelectorAll('#oyiso-agent-history tbody tr'));
+    assert.deepEqual(rows.map(row => row.querySelectorAll('button').length), [2, 2, 2, 1, 1, 1]);
+    const button = rows[0].querySelector('button:last-child');
     assert.equal(button.textContent, '取消任务');
-    assert.equal(f.$('#oyiso-agent-history [data-agent-history-body] button:last-child').textContent, '查看对话');
+    assert.equal(rows[0].querySelector('button:first-child').textContent, '查看对话');
     button.click(); button.click(); await settle();
     assert.equal(f.calls.filter(call => call.route === 'runs/12/cancel').length, 1);
+    assert.equal(f.calls.find(call => call.route === 'runs/12/cancel').options.headers['X-WP-Nonce'], 'fixture-nonce');
     finish(); await settle();
-    assert.match(f.$('#oyiso-agent-tasks tbody').textContent, /已取消/);
-    assert.match(f.$('#oyiso-agent-history tbody').textContent, /已取消/);
+    assert.match(f.$('#oyiso-agent-history tbody tr:first-child').textContent, /已取消/);
+    assert.equal(f.$('#oyiso-agent-history tbody tr:first-child').querySelectorAll('button').length, 1);
+    assert.equal(f.$('[data-agent-status]').textContent, '已取消');
     assert.equal(f.$('#oyiso-agent-panel').hidden, true);
 });
 

@@ -214,17 +214,7 @@ final class Oyiso_Agent_Admin
 
     public static function history(): void
     {
-        self::runList('history', '执行记录', '查看你发起的对话、执行过程和商品修改。');
-    }
-
-    public static function tasks(): void
-    {
-        self::runList('tasks', '任务管理', '打开任务查看进度和修改预览；可以取消正在执行或等待确认的任务。关闭助手不会取消任务。');
-    }
-
-    private static function runList(string $type, string $title, string $description): void
-    {
-        printf('<div id="oyiso-agent-%s" class="oyiso-agent" data-agent-runs="%s"><div class="oyiso-agent-heading"><div><h2>%s</h2><p class="description">%s</p></div><button type="button" class="button" data-agent-history-refresh>刷新记录</button></div><p role="status" aria-live="polite" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th>任务</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="4">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>', esc_attr($type), esc_attr($type), esc_html($title), esc_html($description));
+        echo '<div id="oyiso-agent-history" class="oyiso-agent" data-agent-runs="history"><div class="oyiso-agent-heading"><div><h2>执行记录</h2><p class="description">查看你发起的对话、执行过程和商品修改；可取消正在执行或等待确认的任务。</p></div><button type="button" class="button" data-agent-history-refresh>刷新记录</button></div><p role="status" aria-live="polite" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th>任务</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="4">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>';
     }
 
     public static function tools(): void

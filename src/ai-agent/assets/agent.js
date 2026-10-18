@@ -368,7 +368,7 @@
                 button.type = 'button';
                 button.addEventListener('click', () => openRun(item.id));
                 cell.append(button);
-                if (root.dataset.agentRuns === 'tasks' && ['queued', 'running', 'waiting'].includes(item.status)) {
+                if (['queued', 'running', 'waiting'].includes(item.status)) {
                     const cancel = node('button', 'button button-small', '取消任务');
                     cancel.type = 'button';
                     cancel.addEventListener('click', async () => {

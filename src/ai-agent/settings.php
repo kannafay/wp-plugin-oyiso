@@ -62,11 +62,6 @@ CSF::createSection('oyiso', [
 ]);
 
 CSF::createSection('oyiso', [
-    'parent' => 'ai-agent', 'id' => 'agent-tasks', 'title' => '任务管理', 'icon' => 'fas fa-tasks', 'priority' => 30,
-    'fields' => [['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'tasks']]],
-]);
-
-CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-records', 'title' => '执行记录', 'icon' => 'fas fa-history', 'priority' => 40,
     'fields' => [['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'history']]],
 ]);
