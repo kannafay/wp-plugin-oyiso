@@ -6,6 +6,9 @@ defined('ABSPATH') || exit;
 
 final class Oyiso_Comments_Protection
 {
+    /** @var array<string, true> Comment support removed by this feature during this request. */
+    private static array $commentTypes = [];
+
     private readonly bool $enabled;
     private readonly bool $allTypes;
     /** @var list<string> */
@@ -56,15 +59,17 @@ final class Oyiso_Comments_Protection
     public static function postTypeOptions(): array
     {
         $types = get_post_types(['show_ui' => true], 'objects');
+        $orderTypes = function_exists('wc_get_order_types') ? wc_get_order_types() : [];
         $options = [];
-        foreach (['post', 'page', 'attachment'] as $name) {
-            $type = get_post_type_object($name);
-            if ($type !== null) {
-                $options[$name] = $type->labels->name;
+        $names = array_unique(array_merge(['post', 'page', 'attachment'], array_keys($types)));
+        foreach ($names as $name) {
+            // WooCommerce uses comment support for internal order notes.
+            if (!isset($types[$name]) || in_array($name, $orderTypes, true)) {
+                continue;
             }
-        }
-        foreach ($types as $name => $type) {
-            $options[$name] = $type->labels->name;
+            if (post_type_supports($name, 'comments') || isset(self::$commentTypes[$name])) {
+                $options[$name] = $types[$name]->labels->name;
+            }
         }
         return $options;
     }
@@ -94,6 +99,10 @@ final class Oyiso_Comments_Protection
     public function removeSupport(string $postType): void
     {
         if ($this->disabledType($postType)) {
+            // Keep disabled types selectable after their editor support has been removed.
+            if (post_type_supports($postType, 'comments')) {
+                self::$commentTypes[$postType] = true;
+            }
             remove_post_type_support($postType, 'comments');
             remove_post_type_support($postType, 'trackbacks');
         }

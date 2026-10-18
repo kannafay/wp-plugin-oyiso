@@ -76,7 +76,7 @@ CSF::createSection($prefix, [
             'inline' => true,
             'options' => 'Oyiso_Comments_Protection::postTypeOptions',
             'sanitize' => [Oyiso_Comments_Protection::class, 'sanitizePostTypes'],
-            'desc' => '勾选要禁用的类型，列表动态读取当前站点。要保留商品评价，请勿勾选 Products（商品）。',
+            'desc' => '仅列出支持评论的文章类型。要保留商品评价，请勿勾选 Products（商品）。',
             'default' => [],
             'dependency' => ['opt-disable-comments|opt-disable-comments-scope', '==|==', 'true|selected'],
         ],
