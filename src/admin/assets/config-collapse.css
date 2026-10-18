@@ -47,6 +47,13 @@
     margin-bottom: 24px;
 }
 
+/* A sole tab panel already marks the expanded group's boundary. */
+.csf-options[data-unique="oyiso"] .csf-section > .csf-field-tabbed.oyiso-config-details-first.oyiso-config-details-last {
+    margin-inline-start: var(--oyiso-config-detail-offset);
+    padding-inline-start: 0;
+    border-inline-start: 0;
+}
+
 /* Expanded settings and standalone tabs share the same inner label column. */
 .csf-options[data-unique="oyiso"] .oyiso-config-details > .csf-title,
 .csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content, .csf-cloneable-content, .csf-accordion-content, .csf-repeater-content) > .csf-field > .csf-title {
