@@ -22,6 +22,8 @@ add_action('plugins_loaded', function () {
         return;
     }
     require_once __DIR__ . '/woocommerce-checkout-form/checkout-protection.php';
+    $securityOptions = get_option('oyiso', []);
+    Oyiso_WC_Checkout_Protection::register(is_array($securityOptions) && !empty($securityOptions['opt-checkout-input-protection']));
     require_once __DIR__ . '/woocommerce-product-table/index.php';
     require_once __DIR__ . '/woocommerce-quick-attributes/settings.php';
     require_once __DIR__ . '/woocommerce-variation-split/settings.php';

@@ -16,8 +16,12 @@ final class Oyiso_WC_Checkout_Protection
     private const NOTE_MAX_BYTES = 16384;
     private const ERROR_CODE = 'oyiso_invalid_checkout_input';
 
-    public static function register(): void
+    public static function register(bool $enabled): void
     {
+        if (!$enabled) {
+            return;
+        }
+
         add_action('woocommerce_before_checkout_process', [self::class, 'validateClassicRequest'], 5);
         add_action('woocommerce_after_checkout_validation', [self::class, 'validateClassic'], 5, 2);
         add_filter('rest_pre_dispatch', [self::class, 'validateStoreApi'], 5, 3);
@@ -134,5 +138,3 @@ final class Oyiso_WC_Checkout_Protection
         return new WP_Error(self::ERROR_CODE, self::message(), ['status' => 400]);
     }
 }
-
-Oyiso_WC_Checkout_Protection::register();
