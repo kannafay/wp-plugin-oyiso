@@ -2,27 +2,68 @@
     'use strict';
 
     const config = window.oyisoAgent;
+    const panel = document.getElementById('oyiso-agent-panel');
+    const launcher = document.getElementById('oyiso-agent-launcher');
     const chat = document.getElementById('oyiso-agent-chat');
-    const history = document.getElementById('oyiso-agent-history');
-    if (!config || !chat || !history) return;
+    if (!config || !panel || !launcher || !chat) return;
 
-    const $ = (selector, root = chat) => root.querySelector(selector);
+    const $ = (selector, root = panel) => root?.querySelector(selector);
     const prompt = $('#oyiso-agent-prompt');
     const messages = $('[data-agent-messages]');
+    const scroll = $('.oyiso-agent-scroll');
     const empty = messages.firstElementChild.cloneNode(true);
     const notice = $('[data-agent-notice]');
     const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
     const fields = { description: '长描述', short_description: '短描述', seo_title: 'SEO 标题', seo_description: 'SEO 描述', seo_keywords: '目标关键词' };
     const storageKey = `oyiso-agent:${config.user}:${new URL(config.url).pathname}`;
     const changing = new Set();
+    const lists = Array.from(document.querySelectorAll('[data-agent-runs]'), root => ({ root, page: 1, pages: 1, revision: 0 }));
     let run = null;
     let runId = 0;
     let timer;
     let sending = false;
     let stepping = false;
+    let loading = false;
+    let pollRevision = 0;
     let version = '';
-    let historyPage = 1;
-    let historyPages = 1;
+
+    function store(key, value) {
+        try { localStorage.setItem(storageKey + key, value); } catch { /* Storage is optional. */ }
+    }
+
+    function rememberDraft() {
+        try { sessionStorage.setItem(storageKey + ':draft', JSON.stringify({ id: runId, text: prompt.value })); } catch { /* Storage is optional. */ }
+    }
+
+    function setPanel(open, focus = true) {
+        panel.hidden = !open;
+        launcher.setAttribute('aria-expanded', String(open));
+        document.body.classList.toggle('oyiso-agent-open', open);
+        store(':open', open ? '1' : '0');
+        if (open) {
+            if (focus) $('[data-agent-close]').focus();
+            poll();
+        } else {
+            clearTimeout(timer);
+            pollRevision++;
+            loading = false;
+            controls();
+            rememberDraft();
+            if (focus) launcher.focus();
+        }
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    function setLayout(floating) {
+        document.body.classList.toggle('oyiso-agent-floating', floating);
+        const button = $('[data-agent-layout]');
+        const label = floating ? '切换为分屏' : '切换为悬浮窗';
+        button.setAttribute('aria-pressed', String(floating));
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        store(':layout', floating ? 'floating' : 'docked');
+        window.dispatchEvent(new Event('resize'));
+    }
 
     const node = (tag, className, text) => {
         const element = document.createElement(tag);
@@ -94,10 +135,11 @@
     function controls() {
         const active = run && ['queued', 'running'].includes(run.status);
         const ready = config.enabled && config.supported;
-        $('[data-agent-send]').disabled = !ready || sending || active || run?.status === 'cancelled';
-        prompt.disabled = !ready || sending || active || run?.status === 'cancelled';
+        $('[data-agent-send]').disabled = !ready || loading || sending || changing.size > 0 || active || run?.status === 'cancelled';
+        prompt.disabled = !ready || loading || sending || active || run?.status === 'cancelled';
+        $('[data-agent-new]').disabled = sending || changing.size > 0;
         $('[data-agent-cancel]').hidden = !run || !['queued', 'running', 'waiting'].includes(run.status);
-        $('[data-agent-status]').textContent = run ? statuses[run.status] || run.status : '尚未开始';
+        $('[data-agent-status]').textContent = loading ? '读取中' : run ? statuses[run.status] || run.status : '尚未开始';
         $('[data-agent-usage]').textContent = run ? `本次任务 ${run.step} 轮 · 累计 ${Number(run.tokens).toLocaleString()} Token` : '';
     }
 
@@ -194,7 +236,7 @@
         const signature = JSON.stringify([next.conversation, next.events, next.changes]);
         if (signature === version) return;
         version = signature;
-        const nearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 90;
+        const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
         messages.replaceChildren();
         for (const entry of next.conversation) {
             const item = node('article', `oyiso-agent-message is-${entry.role}`);
@@ -205,7 +247,6 @@
             messages.append(item);
         }
         if (!next.conversation.length) messages.append(empty.cloneNode(true));
-        if (nearBottom) messages.scrollTop = messages.scrollHeight;
         const events = $('[data-agent-events]');
         events.replaceChildren();
         for (const event of next.events.slice(-15)) {
@@ -219,6 +260,7 @@
             events.append(item);
         }
         renderChanges(next.changes);
+        if (nearBottom) scroll.scrollTop = scroll.scrollHeight;
     }
 
     function drive(id) {
@@ -233,15 +275,21 @@
     async function poll() {
         clearTimeout(timer);
         const id = runId;
-        if (!id) return;
+        if (!id || panel.hidden) return;
+        const revision = ++pollRevision;
+        loading = !run || run.id !== id;
+        controls();
         try {
             const data = await api(`runs/${id}`);
-            if (id !== runId) return;
+            if (id !== runId || revision !== pollRevision || panel.hidden) return;
+            loading = false;
             render(data);
             if (data.status === 'queued' || data.recoverable) drive(id);
             if (['queued', 'running'].includes(data.status)) timer = setTimeout(poll, 2500);
         } catch (error) {
-            if (id === runId) {
+            if (id === runId && revision === pollRevision && !panel.hidden) {
+                loading = false;
+                controls();
                 showNotice(error.message, true);
                 timer = setTimeout(poll, 6000);
             }
@@ -258,11 +306,12 @@
             runId = next.id;
             remember(runId);
             prompt.value = '';
+            rememberDraft();
             version = '';
             render(next);
-            messages.scrollTop = messages.scrollHeight;
+            scroll.scrollTop = scroll.scrollHeight;
             poll();
-            loadHistory();
+            loadLists();
         } catch (error) { showNotice(error.message, true); }
         finally { sending = false; controls(); }
     }
@@ -271,32 +320,46 @@
         if (changing.has(proposal)) return;
         const id = runId;
         changing.add(proposal);
+        controls();
         renderChanges(run.changes);
         try {
             const next = await api(`runs/${id}/changes/${proposal}`, { method: 'POST', body: JSON.stringify({ action }) });
             if (id === runId) { version = ''; render(next); }
-            loadHistory();
+            loadLists();
         } catch (error) { if (id === runId) showNotice(error.message, true); }
-        finally { changing.delete(proposal); if (runId === id && run) renderChanges(run.changes); }
+        finally { changing.delete(proposal); controls(); if (runId === id && run) renderChanges(run.changes); }
     }
 
     async function openRun(id) {
+        if (sending || changing.size) {
+            setPanel(true);
+            showNotice('请等待当前操作完成后再切换任务。');
+            return;
+        }
         clearTimeout(timer);
         runId = id;
+        run = null;
         version = '';
         remember(id);
-        document.querySelector('.csf-nav a[data-tab-id="ai-agent/agent-chat"]')?.click();
-        await poll();
-        chat.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+        messages.replaceChildren(node('p', 'description', '正在读取对话…'));
+        $('[data-agent-events]').replaceChildren();
+        $('[data-agent-changes]').replaceChildren();
+        prompt.value = '';
+        rememberDraft();
+        setPanel(true);
     }
 
-    async function loadHistory() {
-        const note = $('[data-agent-history-notice]', history);
+    async function loadList(list) {
+        const { root } = list;
+        const revision = ++list.revision;
+        const note = $('[data-agent-history-notice]', root);
         try {
-            const data = await api(`runs?page=${historyPage}`);
-            const body = $('[data-agent-history-body]', history);
+            const data = await api(`runs?page=${list.page}`);
+            if (revision !== list.revision) return;
+            if (list.page > Math.max(1, data.pages)) { list.page = Math.max(1, data.pages); return loadList(list); }
+            const body = $('[data-agent-history-body]', root);
             body.replaceChildren();
-            historyPages = Math.max(1, data.pages);
+            list.pages = Math.max(1, data.pages);
             for (const item of data.items) {
                 const row = node('tr');
                 row.append(node('td', '', item.title), node('td', '', statuses[item.status] || item.status), node('td', '', item.updated));
@@ -304,48 +367,79 @@
                 const button = node('button', 'button button-small', '查看对话');
                 button.type = 'button';
                 button.addEventListener('click', () => openRun(item.id));
-                cell.append(button); row.append(cell); body.append(row);
+                cell.append(button);
+                if (root.dataset.agentRuns === 'tasks' && ['queued', 'running', 'waiting'].includes(item.status)) {
+                    const cancel = node('button', 'button button-small', '取消任务');
+                    cancel.type = 'button';
+                    cancel.addEventListener('click', async () => {
+                        cancel.disabled = true;
+                        try {
+                            const data = await api(`runs/${item.id}/cancel`, { method: 'POST', body: '{}' });
+                            if (item.id === runId) render(data);
+                            loadLists();
+                        } catch (error) { note.textContent = error.message; cancel.disabled = false; }
+                    });
+                    cell.append(document.createTextNode(' '), cancel);
+                }
+                row.append(cell); body.append(row);
             }
             if (!data.items.length) {
                 const cell = node('td', '', '暂无执行记录。发送第一个任务后，记录会显示在这里。');
                 cell.colSpan = 4;
                 const row = node('tr'); row.append(cell); body.append(row);
             }
-            $('[data-agent-history-page]', history).textContent = `${historyPage} / ${historyPages}`;
-            $('[data-agent-history-prev]', history).disabled = historyPage <= 1;
-            $('[data-agent-history-next]', history).disabled = historyPage >= historyPages;
+            $('[data-agent-history-page]', root).textContent = `${list.page} / ${list.pages}`;
+            $('[data-agent-history-prev]', root).disabled = list.page <= 1;
+            $('[data-agent-history-next]', root).disabled = list.page >= list.pages;
             note.textContent = '';
-        } catch (error) { note.textContent = error.message; }
+        } catch (error) { if (revision === list.revision) note.textContent = error.message; }
     }
 
+    function loadLists() {
+        lists.forEach(list => loadList(list));
+    }
+
+    launcher.addEventListener('click', () => setPanel(panel.hidden));
+    $('[data-agent-close]').addEventListener('click', () => setPanel(false));
+    $('[data-agent-layout]').addEventListener('click', () => setLayout(!document.body.classList.contains('oyiso-agent-floating')));
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !panel.hidden && (panel.contains(event.target) || event.target === document.body || event.target === launcher)) {
+            event.preventDefault();
+            setPanel(false);
+        }
+    });
     $('[data-agent-send]').addEventListener('click', send);
     prompt.addEventListener('keydown', event => {
         if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send(); }
     });
     prompt.addEventListener('change', event => event.stopPropagation());
     prompt.addEventListener('keypress', event => event.stopPropagation());
+    prompt.addEventListener('input', rememberDraft);
     chat.addEventListener('click', event => {
         const example = event.target.closest('[data-agent-example]');
-        if (example && !prompt.disabled) { prompt.value = example.dataset.agentExample; prompt.focus(); }
+        if (example && !prompt.disabled) { prompt.value = example.dataset.agentExample; rememberDraft(); prompt.focus(); }
     });
     $('[data-agent-new]').addEventListener('click', () => {
-        clearTimeout(timer); runId = 0; run = null; version = ''; remember(0);
+        clearTimeout(timer); pollRevision++; loading = false; runId = 0; run = null; version = ''; remember(0);
         messages.replaceChildren(empty.cloneNode(true));
         $('[data-agent-events]').replaceChildren(node('li', 'description', '发送任务后，这里会显示查询和处理进度。'));
         $('[data-agent-changes]').replaceChildren();
         prompt.value = '';
+        rememberDraft();
         controls(); initialNotice(); prompt.focus();
     });
     $('[data-agent-cancel]').addEventListener('click', async event => {
         const id = runId;
         event.currentTarget.disabled = true;
-        try { const data = await api(`runs/${id}/cancel`, { method: 'POST', body: '{}' }); if (id === runId) render(data); }
+        try { const data = await api(`runs/${id}/cancel`, { method: 'POST', body: '{}' }); if (id === runId) render(data); loadLists(); }
         catch (error) { showNotice(error.message, true); }
         finally { $('[data-agent-cancel]').disabled = false; }
     });
-    $('[data-agent-history-refresh]', history).addEventListener('click', loadHistory);
-    $('[data-agent-history-prev]', history).addEventListener('click', () => { if (historyPage > 1) { historyPage--; loadHistory(); } });
-    $('[data-agent-history-next]', history).addEventListener('click', () => { if (historyPage < historyPages) { historyPage++; loadHistory(); } });
+    lists.forEach(list => {
+        $('[data-agent-history-refresh]', list.root).addEventListener('click', () => loadList(list));
+        $('[data-agent-history-prev]', list.root).addEventListener('click', () => { if (list.page > 1) { list.page--; loadList(list); } });
+        $('[data-agent-history-next]', list.root).addEventListener('click', () => { if (list.page < list.pages) { list.page++; loadList(list); } });
+    });
 
     function initialNotice() {
         if (!config.supported) showNotice('AI Agent 需要 WordPress 7.0 或以上版本。', true);
@@ -377,6 +471,13 @@
             }).catch(error => showNotice(error.message, true));
         });
     }
-    controls(); initialNotice(); loadHistory();
-    try { const saved = Number(localStorage.getItem(storageKey)); if (Number.isSafeInteger(saved) && saved > 0) { runId = saved; poll(); } } catch { /* Storage is optional. */ }
+    controls(); initialNotice(); loadLists();
+    try {
+        const saved = Number(localStorage.getItem(storageKey));
+        if (Number.isSafeInteger(saved) && saved > 0) runId = saved;
+        const draft = JSON.parse(sessionStorage.getItem(storageKey + ':draft') || 'null');
+        if (draft?.id === runId && typeof draft.text === 'string') prompt.value = draft.text.slice(0, 4000);
+        setLayout(localStorage.getItem(storageKey + ':layout') === 'floating');
+        if (localStorage.getItem(storageKey + ':open') === '1') setPanel(true, false);
+    } catch { /* Storage is optional. */ }
 })();

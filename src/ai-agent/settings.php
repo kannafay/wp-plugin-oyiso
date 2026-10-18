@@ -10,11 +10,6 @@ if (!class_exists('CSF')) {
 
 CSF::createSection('oyiso', ['id' => 'ai-agent', 'title' => 'AI Agent', 'icon' => 'fas fa-robot', 'priority' => 45]);
 
-CSF::createSection('oyiso', [
-    'parent' => 'ai-agent', 'id' => 'agent-chat', 'title' => '对话助手', 'icon' => 'far fa-comments', 'priority' => 10,
-    'fields' => [['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'chat']]],
-]);
-
 $oyisoAgentSecret = static function (string $name, string $title): array {
     $configured = Oyiso_Agent_Config::hasSecret($name);
     return [
@@ -60,6 +55,16 @@ CSF::createSection('oyiso', [
 ]);
 unset($oyisoAgentPresetFields, $oyisoAgentPresetId, $oyisoAgentPreset, $oyisoAgentFields, $oyisoAgentField);
 unset($oyisoAgentSecret);
+
+CSF::createSection('oyiso', [
+    'parent' => 'ai-agent', 'id' => 'agent-tools', 'title' => '站内工具', 'icon' => 'fas fa-tools', 'priority' => 25,
+    'fields' => [['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'tools']]],
+]);
+
+CSF::createSection('oyiso', [
+    'parent' => 'ai-agent', 'id' => 'agent-tasks', 'title' => '任务管理', 'icon' => 'fas fa-tasks', 'priority' => 30,
+    'fields' => [['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'tasks']]],
+]);
 
 CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-records', 'title' => '执行记录', 'icon' => 'fas fa-history', 'priority' => 40,

@@ -147,28 +147,53 @@ final class Oyiso_Agent_Admin
 
     public static function assets(string $hook): void
     {
-        if (!oyiso_is_settings_page_hook($hook)) {
+        if (!self::available()) {
             return;
         }
         wp_enqueue_style('oyiso-agent', plugins_url('assets/agent.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/agent.css'));
-        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
+        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
         wp_localize_script('oyiso-agent', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported()]);
     }
 
-    public static function chat(): void
+    private static function available(): bool
+    {
+        return current_user_can('manage_options') && !is_network_admin() && !is_user_admin();
+    }
+
+    public static function panel(): void
+    {
+        if (!self::available()) {
+            return;
+        }
+        ?>
+        <button type="button" id="oyiso-agent-launcher" aria-controls="oyiso-agent-panel" aria-expanded="false"><span class="dashicons dashicons-format-chat" aria-hidden="true"></span><span>AI 助手</span></button>
+        <aside id="oyiso-agent-panel" class="oyiso-agent oyiso-agent-panel" aria-labelledby="oyiso-agent-title" hidden>
+            <header class="oyiso-agent-panel-heading">
+                <h2 id="oyiso-agent-title">AI 助手</h2>
+                <div class="oyiso-agent-panel-actions">
+                    <button type="button" class="button" data-agent-new>新建对话</button>
+                    <button type="button" class="oyiso-agent-icon-button" data-agent-layout title="切换为悬浮窗" aria-label="切换为悬浮窗" aria-pressed="false"><span class="dashicons dashicons-external" aria-hidden="true"></span></button>
+                    <a class="oyiso-agent-icon-button" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-records')); ?>" title="执行记录" aria-label="执行记录"><span class="dashicons dashicons-backup" aria-hidden="true"></span></a>
+                    <a class="oyiso-agent-icon-button" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-model')); ?>" title="模型配置" aria-label="模型配置"><span class="dashicons dashicons-admin-generic" aria-hidden="true"></span></a>
+                    <button type="button" class="oyiso-agent-icon-button" data-agent-close title="关闭助手" aria-label="关闭助手"><span class="dashicons dashicons-no-alt" aria-hidden="true"></span></button>
+                </div>
+            </header>
+            <?php self::chat(); ?>
+        </aside>
+        <?php
+    }
+
+    private static function chat(): void
     {
         ?>
         <div id="oyiso-agent-chat" class="oyiso-agent">
-            <div class="oyiso-agent-heading"><div><h2>对话助手</h2><p class="description">查询站内数据，生成商品长短描述和 SEO 信息修改方案。</p></div><button type="button" class="button" data-agent-new>新建对话</button></div>
             <p class="oyiso-agent-notice" data-agent-notice role="status" aria-live="polite"></p>
-            <div class="oyiso-agent-workspace">
-                <div class="oyiso-agent-main">
-                    <div class="oyiso-agent-messages" data-agent-messages role="log" aria-label="对话内容" aria-live="polite"><div class="oyiso-agent-empty"><h3>从一个具体任务开始</h3><p>可以指定商品 ID、分类，或粘贴商品参考资料。商品修改会先生成预览。</p><div class="oyiso-agent-examples"><button type="button" class="button" data-agent-example="查找缺少短描述和 SEO 信息的商品，先列出需要完善的内容。">检查商品内容</button><button type="button" class="button" data-agent-example="我想完善一个商品的长短描述和 SEO 信息。请先询问商品 ID，再读取商品并核对现有信息，生成修改预览。">完善商品文案</button></div></div></div>
-                    <div class="oyiso-agent-composer"><label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label><textarea id="oyiso-agent-prompt" rows="3" maxlength="4000" placeholder="例如：读取商品 123，根据站内商品参数完善长短描述和 SEO 信息，先给我预览。"></textarea><div class="oyiso-agent-composer-actions"><span class="description">Ctrl / ⌘ + Enter 发送</span><div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送任务</button></div></div></div>
-                </div>
-                <aside class="oyiso-agent-progress" aria-label="执行过程"><div class="oyiso-agent-progress-heading"><h3>执行过程</h3><span data-agent-status>尚未开始</span></div><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></aside>
+            <div class="oyiso-agent-scroll">
+                <div class="oyiso-agent-messages" data-agent-messages role="log" aria-label="对话内容" aria-live="polite"><div class="oyiso-agent-empty"><h3>从一个具体任务开始</h3><p>查询站内数据，完善商品长短描述和 SEO 信息。可以指定商品 ID，或粘贴参考资料。</p><p>商品修改会先生成预览。</p><div class="oyiso-agent-examples"><button type="button" class="button" data-agent-example="查找缺少短描述和 SEO 信息的商品，先列出需要完善的内容。">检查商品内容</button><button type="button" class="button" data-agent-example="我想完善一个商品的长短描述和 SEO 信息。请先询问商品 ID，再读取商品并核对现有信息，生成修改预览。">完善商品文案</button></div></div></div>
+                <div data-agent-changes class="oyiso-agent-changes"></div>
             </div>
-            <div data-agent-changes class="oyiso-agent-changes"></div>
+            <details class="oyiso-agent-progress"><summary>执行过程 <span data-agent-status>尚未开始</span></summary><div class="oyiso-agent-progress-body"><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></div></details>
+            <div class="oyiso-agent-composer"><label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label><textarea id="oyiso-agent-prompt" rows="3" maxlength="4000" placeholder="例如：读取商品 123，完善长短描述和 SEO 信息，先给我预览。"></textarea><div class="oyiso-agent-composer-actions"><span class="description">Ctrl / ⌘ + Enter 发送</span><div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送任务</button></div></div></div>
         </div>
         <?php
     }
@@ -189,7 +214,37 @@ final class Oyiso_Agent_Admin
 
     public static function history(): void
     {
-        echo '<div id="oyiso-agent-history" class="oyiso-agent"><div class="oyiso-agent-heading"><div><h2>执行记录</h2><p class="description">查看你发起的对话、执行过程和商品修改。</p></div><button type="button" class="button" data-agent-history-refresh>刷新记录</button></div><p role="status" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th>任务</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="4">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>';
+        self::runList('history', '执行记录', '查看你发起的对话、执行过程和商品修改。');
+    }
+
+    public static function tasks(): void
+    {
+        self::runList('tasks', '任务管理', '打开任务查看进度和修改预览；可以取消正在执行或等待确认的任务。关闭助手不会取消任务。');
+    }
+
+    private static function runList(string $type, string $title, string $description): void
+    {
+        printf('<div id="oyiso-agent-%s" class="oyiso-agent" data-agent-runs="%s"><div class="oyiso-agent-heading"><div><h2>%s</h2><p class="description">%s</p></div><button type="button" class="button" data-agent-history-refresh>刷新记录</button></div><p role="status" aria-live="polite" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th>任务</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="4">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>', esc_attr($type), esc_attr($type), esc_html($title), esc_html($description));
+    }
+
+    public static function tools(): void
+    {
+        echo '<div class="oyiso-agent"><div class="oyiso-agent-heading"><div><h2>站内工具</h2><p class="description">助手可用的站内能力。商品修改需在预览中点击应用，查询权限取决于当前账号。</p></div></div>';
+        if (!Oyiso_Agent_Config::supported()) {
+            echo '<p>AI Agent 需要 WordPress 7.0 或以上版本，当前环境暂不可用。</p></div>';
+            return;
+        }
+        $allowed = Oyiso_Agent_Abilities::allowed();
+        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th>工具</th><th>用途</th><th>使用方式</th></tr></thead><tbody>';
+        foreach (wp_get_abilities() as $ability) {
+            if ($ability->get_category() !== 'oyiso-agent') {
+                continue;
+            }
+            $manual = in_array($ability->get_name(), ['oyiso/apply-product-update', 'oyiso/revert-product-update'], true);
+            $usable = Oyiso_Agent_Config::enabled() && ($manual ? function_exists('wc_get_product') && current_user_can('edit_products') : in_array($ability->get_name(), $allowed, true));
+            printf('<tr><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html($ability->get_label()), esc_html($ability->get_description()), esc_html($usable ? ($manual ? '在修改预览中操作' : '助手调用') : '当前不可用'));
+        }
+        echo '</tbody></table></div></div>';
     }
 
     private static function missing(): WP_Error
