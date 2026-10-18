@@ -102,34 +102,49 @@
 .csf-options[data-unique="oyiso"] .csf-tabbed-nav {
     display: flex;
     flex-wrap: wrap;
-    gap: 0 20px;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
     border-bottom: 1px solid var(--oyiso-config-border);
 }
 
 .csf-options[data-unique="oyiso"] .csf-tabbed-nav > a {
-    margin: 0 0 -1px;
-    padding: 8px 0 10px;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 34px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 6px 12px;
+    border: 1px solid var(--oyiso-config-border);
+    border-radius: 4px;
+    background: #f6f7f7;
     color: var(--oyiso-config-text);
-    font-weight: 500;
+    font-weight: 600;
+    line-height: 20px;
+    white-space: nowrap;
     transition: none;
 }
 
 .csf-options[data-unique="oyiso"] .csf-tabbed-nav > a > .csf--icon {
-    display: none;
+    display: inline-block;
+    width: 14px;
+    margin: 0;
+    font-size: 12px;
+    text-align: center;
 }
 
-.csf-options[data-unique="oyiso"] .csf-tabbed-nav > a:hover,
+.csf-options[data-unique="oyiso"] .csf-tabbed-nav > a:hover {
+    border-color: #c3c4c7;
+    background: #f0f0f1;
+    color: #1d2327;
+}
+
 .csf-options[data-unique="oyiso"] .csf-tabbed-nav > a.csf-tabbed-active {
-    border-bottom-color: var(--oyiso-config-action);
-    background: transparent;
+    border-color: #bec8ff;
+    background: #eef2ff;
     color: var(--oyiso-config-action);
-}
-
-.csf-options[data-unique="oyiso"] .csf-tabbed-nav > a.csf-tabbed-active {
-    font-weight: 600;
 }
 
 .csf-options[data-unique="oyiso"] .csf-tabbed-content,
@@ -141,6 +156,10 @@
 .csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content) > .csf-field {
     padding: 14px 0;
     border: 0;
+}
+
+.csf-options[data-unique="oyiso"] .csf-tabbed-content > .csf-field:not(.oyiso-config-details) + .csf-field:not(.oyiso-config-details) {
+    border-top: 1px solid var(--oyiso-config-border);
 }
 
 .csf-options[data-unique="oyiso"] .csf-desc-text {
