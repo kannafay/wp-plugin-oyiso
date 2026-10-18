@@ -49,6 +49,7 @@
         sharedMediaFrame = wp.media({
             title: '选择变体封面',
             button: { text: '使用此图片' },
+            library: { type: 'image' },
             multiple: false
         });
 
@@ -58,7 +59,9 @@
             }
 
             var t = mediaTarget;
-            var attachment = sharedMediaFrame.state().get('selection').first().toJSON();
+            var selected = sharedMediaFrame.state().get('selection').first();
+            if (!selected) return;
+            var attachment = selected.toJSON();
             var thumbSize = (attachment.sizes && attachment.sizes.thumbnail)
                 ? attachment.sizes.thumbnail.url
                 : attachment.url;
@@ -70,6 +73,7 @@
             var $uploadBtn = t.$panel.find('.upload_image_button');
             $uploadBtn.addClass('remove').attr('data-tip', '移除图片');
             $uploadBtn.find('img').attr('src', thumbSize);
+            syncNativeCover(t.$panel, attachment.id, thumbSize);
             saveVariation(t.$variation, 'image_id', attachment.id, t.$thumb);
         });
 
@@ -94,6 +98,41 @@
         return sharedMediaFrame;
     }
 
+    // The empty native gallery has no single-image replace control yet.
+    // Add the selected cover in place, then let WC render its hero controls.
+    function syncNativeCover($panel, imageId, thumbnailUrl) {
+        var $gallery = $panel.find('.wc-variation-gallery-field');
+        var $input = $gallery.find('.wc-variation-gallery-image-ids');
+        if (!$input.length) return;
+
+        var labels = window.wcVariationGalleryL10n || {};
+        var $list = $gallery.find('.wc-variation-gallery-field__thumbs');
+        $list.find('.wc-variation-gallery-thumb').first().remove();
+        $list.find('.wc-variation-gallery-thumb').filter(function () {
+            return Number($(this).attr('data-attachment_id')) === Number(imageId);
+        }).remove();
+        var $button = $('<button type="button" class="wc-variation-gallery-thumb__button"></button>')
+            .attr('aria-label', (labels.thumbLabel || 'Show gallery image %d').replace('%d', imageId))
+            .append($('<img>').attr({ src: thumbnailUrl, alt: '' }));
+        var $remove = $('<button type="button" class="wc-variation-gallery-thumb__remove"></button>')
+            .attr('aria-label', labels.removeLabel || 'Remove image')
+            .append('<span class="dashicons dashicons-no-alt" aria-hidden="true"></span>');
+        $('<li class="wc-variation-gallery-thumb"></li>').attr('data-attachment_id', imageId)
+            .append($button, $remove).prependTo($list);
+
+        var ids = $list.find('.wc-variation-gallery-thumb').map(function () {
+            return Number($(this).attr('data-attachment_id'));
+        }).get();
+        $gallery.removeClass('is-empty');
+        $gallery.find('.wc-variation-gallery-field__count').text(
+            (labels[ids.length === 1 ? 'countSingular' : 'countPlural'] || '%d').replace('%d', ids.length)
+        );
+        $gallery.find('.wc-variation-gallery-field__hint').prop('hidden', false);
+        if ($.fn.sortable && $list.data('wc-variation-gallery-sortable')) $list.sortable('refresh');
+        $button.trigger('click');
+        $input.val(ids.join(',')).trigger('change');
+    }
+
     // Newer WC galleries own both the primary image and the ordered image list.
     // Reuse their controls so the save payload and gallery preview stay in sync.
     function editNativeGallery($variation, clearImage) {
@@ -103,12 +142,13 @@
 
         if (galleryQuickSaveCleanup) galleryQuickSaveCleanup();
         var $first = $gallery.find('.wc-variation-gallery-thumb').first();
+        if (!clearImage && !$first.length) return false;
         if (!clearImage && $first.length) {
             $first.find('.wc-variation-gallery-thumb__button').trigger('click');
         }
         var $trigger = clearImage
             ? $first.find('.wc-variation-gallery-thumb__remove')
-            : $gallery.find($first.length ? '.wc-variation-gallery-replace' : '.wc-variation-gallery-manage').first();
+            : $gallery.find('.wc-variation-gallery-replace').first();
         if (!$trigger.length) return true;
 
         var finished = false;
