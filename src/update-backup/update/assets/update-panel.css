@@ -1,0 +1,252 @@
+.csf-options[data-unique="oyiso"] .csf-section > .oyiso-update-panel-field > .csf-fieldset {
+    margin-inline-start: 0;
+}
+
+.oyiso-plugin-update-panel {
+    color: #1d2327;
+}
+
+.oyiso-update-overview {
+    overflow: hidden;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+}
+
+.oyiso-update-overview-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.oyiso-plugin-update-panel h3 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.oyiso-update-state,
+.oyiso-update-release-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 3px 9px;
+    background: #f0f0f1;
+    color: #50575e;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.6;
+}
+
+.oyiso-update-state--current {
+    background: #edf7ef;
+    color: #206b35;
+}
+
+.oyiso-update-state--available,
+.oyiso-update-release-badge {
+    background: var(--oyiso-color-primary-soft, #fff4ec);
+    color: var(--oyiso-color-primary, #bf5316);
+}
+
+.oyiso-update-versions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.oyiso-update-version {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 24px;
+    min-width: 0;
+}
+
+.oyiso-update-version--latest {
+    border-inline-start: 1px solid #e5e7eb;
+    background: #fffaf6;
+}
+
+.oyiso-update-version strong {
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.5px;
+    overflow-wrap: anywhere;
+}
+
+.oyiso-update-version--latest strong {
+    color: var(--oyiso-color-primary, #bf5316);
+}
+
+.oyiso-update-version > span {
+    color: #646970;
+    font-size: 13px;
+}
+
+.oyiso-update-version > .oyiso-update-version-label {
+    color: #1d2327;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.oyiso-update-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.oyiso-update-repository {
+    margin-inline-start: auto;
+    font-size: 13px;
+}
+
+.oyiso-update-history-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 32px 0 12px;
+}
+
+.oyiso-update-history-heading p {
+    margin: 4px 0 0;
+    color: #646970;
+    font-size: 13px;
+}
+
+.oyiso-update-history-heading > a {
+    font-size: 13px;
+}
+
+.oyiso-update-release {
+    border-top: 1px solid #e5e7eb;
+}
+
+.oyiso-update-release:last-child {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.oyiso-update-release > summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 15px 8px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.oyiso-update-release > summary::-webkit-details-marker {
+    display: none;
+}
+
+.oyiso-update-release > summary > strong {
+    font-size: 14px;
+}
+
+.oyiso-update-release > summary:hover {
+    background: #f6f7f7;
+}
+
+.oyiso-update-release > summary:focus-visible {
+    outline: 2px solid var(--oyiso-color-primary, #bf5316);
+    outline-offset: -2px;
+}
+
+.oyiso-update-release > summary > .dashicons {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    color: #646970;
+}
+
+.oyiso-update-release[open] > summary > .dashicons {
+    transform: rotate(90deg);
+}
+
+.oyiso-update-release-badge--installed {
+    background: #f0f0f1;
+    color: #50575e;
+}
+
+.oyiso-update-release-date {
+    margin-inline-start: auto;
+    color: #646970;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.oyiso-update-release-body {
+    padding: 0 34px 18px;
+    line-height: 1.8;
+}
+
+.oyiso-update-release-notes {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin: 0 0 10px;
+    font-size: 13px;
+}
+
+.oyiso-update-release-body > a {
+    font-size: 12px;
+}
+
+.oyiso-update-history-empty,
+.oyiso-update-history-error {
+    margin: 0;
+    padding: 18px 0;
+    border-top: 1px solid #e5e7eb;
+    color: #646970;
+}
+
+.oyiso-update-history-error {
+    color: #b32d2e;
+}
+
+.oyiso-update-manual-note {
+    margin: 18px 0 0;
+    color: #646970;
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+@media (max-width: 600px) {
+    .oyiso-update-overview-heading {
+        padding: 14px 16px;
+    }
+
+    .oyiso-update-version {
+        padding: 18px 14px;
+    }
+
+    .oyiso-update-version strong {
+        font-size: 24px;
+    }
+
+    .oyiso-update-repository {
+        margin-inline-start: 0;
+    }
+
+    .oyiso-update-release > summary {
+        gap: 8px;
+    }
+
+    .oyiso-update-release-date {
+        width: 100%;
+        padding-inline-start: 24px;
+    }
+
+    .oyiso-update-release-body {
+        padding-inline: 24px 8px;
+    }
+}

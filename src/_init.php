@@ -371,6 +371,11 @@ if (!function_exists('oyiso_render_admin_bar_update_check_modal')) {
                 if (data.actionHtml !== undefined) {
                     panelAction.innerHTML = data.actionHtml || '';
                 }
+
+                var panelComparison = document.getElementById('oyiso-plugin-update-comparison');
+                if (panelComparison && data.comparisonHtml !== undefined) {
+                    panelComparison.innerHTML = data.comparisonHtml || '';
+                }
             }
 
             function openUpdatePage() {

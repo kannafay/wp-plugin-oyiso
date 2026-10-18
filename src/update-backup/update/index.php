@@ -2,6 +2,8 @@
 
 defined('ABSPATH') || exit;
 
+require_once __DIR__ . '/panel.php';
+
 if (!function_exists('oyiso_get_plugin_update_main_file')) {
     function oyiso_get_plugin_update_main_file(): string {
         return dirname(dirname(dirname(__DIR__))) . '/oyiso.php';
@@ -20,26 +22,24 @@ if (!function_exists('oyiso_get_plugin_update_plugin_data')) {
 
 if (!function_exists('oyiso_render_plugin_update_panel')) {
     function oyiso_render_plugin_update_panel(): void {
-        $pluginData = oyiso_get_plugin_update_plugin_data();
-        $currentVersion = (string) ($pluginData['Version'] ?? '');
-        $statusPayload = class_exists('Oyiso_GitHub_Updater')
-            ? (new Oyiso_GitHub_Updater())->buildStatusPayload()
-            : [
-                'status_html' => '<p style="margin:12px 0 0;color:#6b7280;">尚未检查 GitHub 更新。</p>',
-                'action_html' => '',
-            ];
+        $statusPayload = (new Oyiso_GitHub_Updater())->buildStatusPayload();
+        $panel = new Oyiso_Plugin_Update_Panel();
 
         echo '
             <div class="oyiso-plugin-update-panel">
-                <p>当前插件已接入 GitHub Releases 在线更新。</p>
-                <p>仓库地址：<a href="https://github.com/kannafay/wp-plugin-oyiso" target="_blank" rel="noopener noreferrer">https://github.com/kannafay/wp-plugin-oyiso</a></p>
-                <p>如需手动更新，请下载最新 Release 安装包，并确保插件目录为 <code>wp-plugin-oyiso/</code>。</p>
-                <p>当前版本：<code>' . esc_html($currentVersion) . '</code></p>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div id="oyiso-plugin-update-comparison">' . $statusPayload['comparison_html'] . '</div>
+                <div class="oyiso-update-actions">
                     <button type="button" class="button button-secondary" id="oyiso-plugin-update-check">检查更新</button>
                     <span id="oyiso-plugin-update-action">' . $statusPayload['action_html'] . '</span>
+                    <a class="oyiso-update-repository" href="https://github.com/kannafay/wp-plugin-oyiso" target="_blank" rel="noopener noreferrer">查看 GitHub 仓库 <span aria-hidden="true">↗</span></a>
                 </div>
-                <div id="oyiso-plugin-update-status">' . $statusPayload['status_html'] . '</div>
+                <div id="oyiso-plugin-update-status" role="status">' . $statusPayload['status_html'] . '</div>
+                <div class="oyiso-update-history-heading">
+                    <div><h3>更新记录</h3><p>来自 GitHub Releases，显示最近的 10 个正式版本</p></div>
+                    <a href="https://github.com/kannafay/wp-plugin-oyiso/releases" target="_blank" rel="noopener noreferrer">查看全部 <span aria-hidden="true">↗</span></a>
+                </div>
+                <div id="oyiso-plugin-update-history" aria-busy="false">' . $panel->renderHistory() . '</div>
+                <p class="oyiso-update-manual-note">手动更新时，请下载 Release 安装包，并保留插件目录名 <code>wp-plugin-oyiso/</code>。</p>
             </div>
         ';
     }
@@ -63,6 +63,7 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
             add_action('upgrader_process_complete', [$instance, 'purgeCache'], 10, 2);
             add_action('admin_enqueue_scripts', [$instance, 'enqueueAdminAssets']);
             add_action('wp_ajax_oyiso_plugin_update_check', [$instance, 'handleAjaxCheck']);
+            add_action('wp_ajax_oyiso_plugin_update_history', [new Oyiso_Plugin_Update_Panel(), 'handleAjaxHistory']);
         }
 
         public function enqueueAdminAssets(string $hook): void {
@@ -74,6 +75,8 @@ if (!class_exists('Oyiso_GitHub_Updater')) {
 
             wp_register_script('oyiso-plugin-update', '', ['jquery'], null, true);
             wp_enqueue_script('oyiso-plugin-update');
+            wp_enqueue_style('oyiso-plugin-update-panel', plugins_url('assets/update-panel.css', __FILE__), ['csf', 'oyiso-admin-theme'], (string) filemtime(__DIR__ . '/assets/update-panel.css'));
+            wp_enqueue_script('oyiso-plugin-update-panel', plugins_url('assets/update-panel.js', __FILE__), ['jquery', 'oyiso-plugin-update'], (string) filemtime(__DIR__ . '/assets/update-panel.js'), true);
             wp_localize_script('oyiso-plugin-update', 'oyisoPluginUpdate', [
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce'   => wp_create_nonce('oyiso_plugin_update_check'),
@@ -217,6 +220,7 @@ jQuery(function ($) {
             if (response && response.success && response.data && response.data.statusHtml !== undefined) {
                 $status.html(response.data.statusHtml);
                 $action.html(response.data.actionHtml || '');
+                $('#oyiso-plugin-update-comparison').html(response.data.comparisonHtml || '');
                 syncHeaderBadge(response.data.headerBadge || null);
                 return;
             }
@@ -236,6 +240,7 @@ jQuery(function ($) {
             $status.html('<p style="margin:12px 0 0;color:#b91c1c;">' + $('<div/>').text(message).html() + '</p>');
         }).always(function () {
             $button.prop('disabled', false);
+            $(document).trigger('oyiso-plugin-update-checked');
         });
     });
 });
@@ -291,6 +296,8 @@ JS);
             }
 
             delete_site_transient(self::CACHE_KEY);
+            delete_site_transient(Oyiso_Plugin_Update_Panel::HISTORY_CACHE_KEY);
+            delete_site_transient(Oyiso_Plugin_Update_Panel::HISTORY_ERROR_KEY);
         }
 
         public function handleAjaxCheck(): void {
@@ -316,6 +323,7 @@ JS);
                 'statusHtml' => $statusPayload['status_html'],
                 'actionHtml' => $statusPayload['action_html'],
                 'headerBadge' => $this->getHeaderBadgePayload($release),
+                'comparisonHtml' => $statusPayload['comparison_html'],
             ]);
         }
 
@@ -323,11 +331,19 @@ JS);
             $pluginData = oyiso_get_plugin_update_plugin_data();
             $currentVersion = (string) ($pluginData['Version'] ?? '');
             $cached = is_array($cachedOverride) ? $cachedOverride : get_site_transient(self::CACHE_KEY);
+            $successful = is_array($cached) && ($cached['_status'] ?? '') === 'success';
+            $comparisonHtml = (new Oyiso_Plugin_Update_Panel())->renderComparison(
+                $currentVersion,
+                $successful && is_string($cached['version'] ?? null) ? $cached['version'] : '',
+                $successful && is_string($cached['last_updated'] ?? null) ? $cached['last_updated'] : '',
+                is_array($cached) && ($cached['_status'] ?? '') === 'error'
+            );
 
             if (!is_array($cached)) {
                 return [
                     'status_html' => '<p style="margin:12px 0 0;color:#6b7280;">尚未检查 GitHub 更新。</p>',
                     'action_html' => '',
+                    'comparison_html' => $comparisonHtml,
                 ];
             }
 
@@ -341,9 +357,12 @@ JS);
                 $latestVersion = (string) ($cached['version'] ?? '');
                 $hasUpdate = $latestVersion !== '' && $currentVersion !== '' && version_compare($latestVersion, $currentVersion, '>');
                 $statusColor = $hasUpdate ? '#15803d' : '#6b7280';
+                $isAhead = $latestVersion !== '' && $currentVersion !== '' && version_compare($currentVersion, $latestVersion, '>');
                 $statusText = $hasUpdate
                     ? sprintf('已检测到新版本 %1$s，当前版本为 %2$s。', $latestVersion, $currentVersion)
-                    : sprintf('当前已是最新版本 %s。', $currentVersion);
+                    : ($isAhead
+                        ? sprintf('当前安装版本 %1$s 高于仓库最新正式版本 %2$s，无需更新。', $currentVersion, $latestVersion)
+                        : sprintf('当前已是最新版本 %s。', $currentVersion));
 
                 if ($checkedAt !== '') {
                     $statusText .= ' 上次检查时间：' . $checkedAt . '。';
@@ -373,6 +392,7 @@ JS);
                 return [
                     'status_html' => $statusHtml,
                     'action_html' => $actionHtml,
+                    'comparison_html' => $comparisonHtml,
                 ];
             }
 
@@ -386,12 +406,14 @@ JS);
                 return [
                     'status_html' => '<p style="margin:12px 0 0;color:#6b7280;">' . esc_html($message) . '</p>',
                     'action_html' => '',
+                    'comparison_html' => $comparisonHtml,
                 ];
             }
 
             return [
                 'status_html' => '<p style="margin:12px 0 0;color:#6b7280;">尚未检查 GitHub 更新。</p>',
                 'action_html' => '',
+                'comparison_html' => $comparisonHtml,
             ];
         }
 
@@ -686,6 +708,7 @@ if (class_exists('CSF')) {
             [
                 'type'     => 'callback',
                 'function' => 'oyiso_render_plugin_update_panel',
+                'class'    => 'oyiso-update-panel-field',
             ],
         ],
     ]);
