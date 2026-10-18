@@ -9,6 +9,7 @@
     --oyiso-config-child-control-offset: 148px;
     --oyiso-config-form-width: 840px;
     --oyiso-config-control-width: 560px;
+    max-width: 1328px;
 }
 
 /* One left-aligned reading column, regardless of the window width. */
@@ -34,9 +35,10 @@
 /* Keep dependent fields as siblings so native CSF dependencies continue to work. */
 .csf-options[data-unique="oyiso"] .oyiso-config-details {
     max-width: var(--oyiso-config-form-width);
-    margin-inline: var(--oyiso-config-detail-offset) 30px;
-    padding: 12px 0;
+    margin-inline: calc(var(--oyiso-config-detail-offset) - 18px) 30px;
+    padding: 12px 0 12px 16px;
     border: 0;
+    border-inline-start: 2px solid #dce3ed;
     background: transparent;
 }
 
@@ -45,7 +47,8 @@
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details.oyiso-config-details-last {
-    margin-bottom: 20px;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
 }
 
 /* Expanded settings and standalone tabs share the same inner label column. */
@@ -172,6 +175,7 @@
 .csf-options[data-unique="oyiso"] .oyiso-config-details .oyiso-config-details {
     margin-inline: 0;
     padding: 12px 0;
+    border-inline-start: 0;
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-details .oyiso-config-details-last {
