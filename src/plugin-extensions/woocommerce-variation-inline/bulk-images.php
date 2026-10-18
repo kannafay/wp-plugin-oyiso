@@ -98,8 +98,8 @@ final class Oyiso_WC_Variation_Bulk_Images
     /** @return list<int> */
     private static function displayGalleryIds(WC_Product_Variation $variation): array
     {
-        $ids = array_map('intval', $variation->get_gallery_image_ids());
-        $imageId = (int) $variation->get_image_id();
+        $ids = array_values(array_map('intval', $variation->get_gallery_image_ids()));
+        $imageId = (int) $variation->get_image_id('edit');
         if ($imageId > 0 && !in_array($imageId, $ids, true)) {
             array_unshift($ids, $imageId);
         }

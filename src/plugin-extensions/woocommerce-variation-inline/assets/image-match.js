@@ -387,8 +387,38 @@
                 $gallery.find('.wc-variation-gallery-field__hint').prop('hidden', false);
                 $input.val($rendered.find('.wc-variation-gallery-image-ids').val());
             } else if ($input.length) {
-                const extras = String($input.val() || '').split(',').filter(Boolean).slice(1).map(Number);
-                $input.val([...new Set([result.image_id, ...extras])].join(','));
+                const previous = String($input.val() || '').split(',').filter(Boolean).map(Number);
+                const ownedCover = Number($row.find('.upload_image_id').val() || 0);
+                const extras = previous[0] === ownedCover ? previous.slice(1) : previous;
+                const ids = [...new Set(Array.isArray(result.gallery_ids) ? result.gallery_ids : [result.image_id, ...extras])];
+                $input.val(ids.join(','));
+
+                // Rendering hooks can fail after the cover was saved. Keep the native
+                // controls and their next save payload in sync with the saved IDs.
+                const labels = window.wcVariationGalleryL10n || {};
+                const $thumbs = $gallery.find('.wc-variation-gallery-field__thumbs');
+                const $previousThumbs = $thumbs.children('.wc-variation-gallery-thumb').detach();
+                ids.forEach(function (id) {
+                    let $thumb = $previousThumbs.filter(function () { return Number($(this).attr('data-attachment_id')) === id; }).first();
+                    if (!$thumb.length) {
+                        const $button = $('<button type="button" class="wc-variation-gallery-thumb__button">')
+                            .attr('aria-label', (labels.thumbLabel || 'Show gallery image %d').replace('%d', id));
+                        if (id === result.image_id && result.url) $('<img>').attr({src: result.url, alt: ''}).appendTo($button);
+                        else $('<span class="dashicons dashicons-format-image" aria-hidden="true">').appendTo($button);
+                        const $remove = $('<button type="button" class="wc-variation-gallery-thumb__remove">')
+                            .attr('aria-label', labels.removeLabel || 'Remove image')
+                            .append('<span class="dashicons dashicons-no-alt" aria-hidden="true"></span>');
+                        $thumb = $('<li class="wc-variation-gallery-thumb">').attr('data-attachment_id', id).append($button, $remove);
+                    }
+                    $thumb.appendTo($thumbs);
+                });
+                $gallery.toggleClass('is-empty', !ids.length);
+                $gallery.find('.wc-variation-gallery-field__hint').prop('hidden', !ids.length);
+                $gallery.find('.wc-variation-gallery-field__count').text(
+                    (labels[ids.length === 1 ? 'countSingular' : 'countPlural'] || '%d').replace('%d', ids.length)
+                );
+                if ($.fn.sortable && $thumbs.data('ui-sortable')) $thumbs.sortable('refresh');
+                $thumbs.find('.wc-variation-gallery-thumb__button').first().trigger('click');
             }
             $row.find('.upload_image_id').val(result.image_id);
             $row.find('.upload_image_button').addClass('remove').find('img').attr('src', result.url);

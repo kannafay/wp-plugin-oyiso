@@ -12,7 +12,7 @@ require_once __DIR__ . '/image-matcher.php';
  * @phpstan-type PreviewRow array{id: int, label: string, value: string, separator_invalid: bool, current_image_id: int, current_image_url: string, current_gallery_ids: list<int>, candidates: list<ImageData>, suggested_image_id: int}
  * @phpstan-type PreviewData array{attribute: string, attributes: list<array{id: string, label: string}>, gallery: list<GalleryImage>, rows: list<PreviewRow>}
  * @phpstan-type Selection array{variation_id: int, image_id: int, expected_image_id: int}
- * @phpstan-type SaveResult array{variation_id: int, success: bool, message: string, image_id?: int, url?: string, gallery_html?: string}
+ * @phpstan-type SaveResult array{variation_id: int, success: bool, message: string, image_id?: int, url?: string, gallery_ids?: list<int>, gallery_html?: string}
  */
 final class Oyiso_WC_Variation_Image_Match
 {
@@ -201,6 +201,16 @@ final class Oyiso_WC_Variation_Image_Match
                 continue;
             }
             try {
+                $variationGalleryIds = array_map('intval', $variation->get_gallery_image_ids());
+                if (in_array($selection['image_id'], $variationGalleryIds, true)) {
+                    // A selected secondary image must become the primary on the next native save too.
+                    $variation->set_gallery_image_ids(array_values(array_filter(
+                        $variationGalleryIds, static fn (int $imageId): bool => $imageId !== $selection['image_id']
+                    )));
+                    if (class_exists(\Automattic\WooCommerce\Internal\VariationGallery\LegacyVariationGalleryCompatibility::class)) {
+                        \Automattic\WooCommerce\Internal\VariationGallery\LegacyVariationGalleryCompatibility::mark_core_managed($variation);
+                    }
+                }
                 $variation->set_image_id($selection['image_id']);
                 $variation->save();
                 $results[] = [
@@ -209,6 +219,7 @@ final class Oyiso_WC_Variation_Image_Match
                     'message' => '封面已保存',
                     'image_id' => $selection['image_id'],
                     'url' => wp_get_attachment_image_url($selection['image_id'], 'thumbnail') ?: '',
+                    'gallery_ids' => self::displayGalleryIds($variation),
                     'gallery_html' => self::galleryMarkup($id),
                 ];
             } catch (Throwable $exception) {
@@ -263,8 +274,7 @@ final class Oyiso_WC_Variation_Image_Match
     }
 
     /**
-     * Match WC's rendered gallery, including inherited images and its display order.
-     * The saved cover still uses edit context to distinguish an inherited image.
+     * Match the native admin gallery using the stored cover, without frontend inheritance.
      *
      * @return list<int>
      */
@@ -274,7 +284,7 @@ final class Oyiso_WC_Variation_Image_Match
         foreach ($variation->get_gallery_image_ids() as $id) {
             $ids[] = (int) $id;
         }
-        $imageId = (int) $variation->get_image_id();
+        $imageId = (int) $variation->get_image_id('edit');
         if ($imageId > 0 && !in_array($imageId, $ids, true)) {
             array_unshift($ids, $imageId);
         }
