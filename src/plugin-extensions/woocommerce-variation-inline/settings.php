@@ -43,7 +43,7 @@ if (!function_exists('oyiso_wc_variation_inline_get_fields')) {
                                 'id' => 'oyiso_wc_variation_image_match_enabled',
                                 'type' => 'switcher',
                                 'title' => '启用变体封面匹配',
-                                'label' => '从产品图库按文件名匹配属性值，预览并批量设置变体封面，直接保存。',
+                                'label' => '使用产品画廊或从媒体库手动多选的图片，按文件名匹配属性值，预览并批量保存变体封面。',
                                 'default' => false,
                             ],
                             [

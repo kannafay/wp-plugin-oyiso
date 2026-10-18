@@ -16,6 +16,10 @@
         const $body = $modal.find('tbody');
         const $message = $('#oyiso-vim-message');
         const $apply = $modal.find('.oyiso-vim-apply');
+        let source = 'gallery';
+        let mediaImages = [];
+        let mediaFrame = null;
+        let pickingMedia = false;
         let rows = [];
         let gallery = [];
         let previewIds = [];
@@ -48,7 +52,7 @@
         function mountButton() {
             const $anchor = $('#variable_product_options .toolbar-top .add_variation_manually');
             if ($anchor.length && !$('#variable_product_options .oyiso-vim-launch').length) {
-                $('<button type="button" class="button oyiso-vim-launch">从图库匹配封面</button>').insertAfter($anchor);
+                $('<button type="button" class="button oyiso-vim-launch">匹配变体封面</button>').insertAfter($anchor);
             }
         }
 
@@ -57,6 +61,68 @@
                 if ($(this).hasClass('video') || $(this).attr('data-media_type') === 'video') return null;
                 return Number($(this).attr('data-attachment_id')) || null;
             }).get())];
+        }
+
+        function matchingIds() {
+            return source === 'media' ? mediaImages.map(item => item.id) : galleryIds();
+        }
+
+        function renderMediaImages() {
+            $modal.find('.oyiso-vim-media-count').text(mediaImages.length ? '已选择 ' + mediaImages.length + ' 张图片' : '尚未选择图片');
+            $modal.find('.oyiso-vim-select-media').text(mediaImages.length ? '重新选择图片' : '选择图片');
+            $modal.find('.oyiso-vim-clear-media').prop('hidden', !mediaImages.length);
+            const $images = $modal.find('.oyiso-vim-selected-images').empty().prop('hidden', !mediaImages.length);
+            mediaImages.forEach(function (item) {
+                $('<li>').append(image(item.url, item.filename).attr('title', item.filename)).appendTo($images);
+            });
+        }
+
+        function changeSource(value) {
+            if (busy || pickingMedia || source === value || !['gallery', 'media'].includes(value)) return;
+            source = value;
+            $modal.find('[role="tab"][data-source]').each(function () {
+                const selected = this.dataset.source === source;
+                $(this).attr({'aria-selected': String(selected), tabindex: selected ? '0' : '-1'});
+                $('#' + $(this).attr('aria-controls')).prop('hidden', !selected);
+            });
+            scan();
+        }
+
+        function selectMediaImages() {
+            if (busy || loading || pickingMedia || source !== 'media') return;
+            if (!window.wp || !wp.media) { message('媒体库暂不可用，请刷新页面后重试。', true); return; }
+            if (!mediaFrame) {
+                mediaFrame = wp.media({title: '选择用于匹配的图片', library: {type: 'image'}, button: {text: '使用所选图片匹配'}, multiple: 'add'});
+                mediaFrame.on('open', function () {
+                    pickingMedia = true;
+                    $modal.addClass('is-selecting-media').attr('aria-hidden', 'true').prop('inert', true);
+                    const selection = mediaFrame.state().get('selection');
+                    selection.reset();
+                    mediaImages.forEach(function (item) {
+                        const attachment = wp.media.attachment(item.id);
+                        attachment.fetch();
+                        selection.add(attachment);
+                    });
+                });
+                mediaFrame.on('close', function () {
+                    pickingMedia = false;
+                    $modal.removeClass('is-selecting-media').removeAttr('aria-hidden').prop('inert', false);
+                    if (!$modal.prop('hidden')) $modal.find('.oyiso-vim-select-media').trigger('focus');
+                });
+                mediaFrame.on('select', function () {
+                    const images = new Map();
+                    mediaFrame.state().get('selection').each(function (attachment) {
+                        const item = attachment.toJSON();
+                        const id = Number(item.id);
+                        if (!Number.isInteger(id) || id <= 0) return;
+                        images.set(id, {id, filename: item.filename || item.title || '图片 #' + id, url: (item.sizes && item.sizes.thumbnail && item.sizes.thumbnail.url) || item.url || ''});
+                    });
+                    mediaImages = [...images.values()];
+                    renderMediaImages();
+                    scan();
+                });
+            }
+            mediaFrame.open();
         }
 
         function variationRow(id) {
@@ -127,6 +193,8 @@
             $separator.prop('disabled', loading || busy || !$multiFlavor.is(':checked'));
             $modal.find('.oyiso-vim-close, .oyiso-vim-cancel').prop('disabled', busy);
             $modal.find('.oyiso-vim-cancel').text(finished ? '关闭' : '取消');
+            $modal.find('[role="tab"][data-source]').prop('disabled', busy);
+            $modal.find('.oyiso-vim-select-media, .oyiso-vim-clear-media').prop('disabled', loading || busy);
             $body.find('tr[data-variation-id]').each(function () { updateRow($(this), selectByDefault); });
             updateSelection();
         }
@@ -182,12 +250,12 @@
                 else imagePlaceholder(row.current_image_id ? '暂无预览' : '未设置封面').appendTo($current);
                 const $target = $('<div class="oyiso-vim-target">');
                 const $pick = $('<select class="oyiso-vim-pick">').attr('aria-label', '变体 #' + row.id + ' 的封面');
-                $('<option value="0">请选择图库图片</option>').appendTo($pick);
+                $('<option value="0">请选择图片</option>').appendTo($pick);
                 const candidateIds = new Set(row.candidates.map(item => item.id));
                 const groups = [
                     {label: '推荐匹配', images: row.candidates.filter(item => !item.ambiguous)},
                     {label: '可能匹配', images: row.candidates.filter(item => item.ambiguous)},
-                    {label: row.candidates.length ? '其他图库图片' : '产品图库', images: gallery.filter(item => !candidateIds.has(item.id))}
+                    {label: row.candidates.length ? '其他图片' : (source === 'media' ? '所选图片' : '产品画廊'), images: gallery.filter(item => !candidateIds.has(item.id))}
                 ];
                 groups.forEach(function (group) {
                     if (!group.images.length) return;
@@ -199,7 +267,7 @@
                 $pick.val(String(row.suggested_image_id));
                 const target = gallery.find(item => item.id === row.suggested_image_id);
                 if (target && target.url) image(target.url, '所选封面').appendTo($target);
-                else imagePlaceholder(target ? '暂无预览' : '请选择图库图片').appendTo($target);
+                else imagePlaceholder(target ? '暂无预览' : '请选择图片').appendTo($target);
                 $pick.appendTo($target);
                 $('<td>').append($target).appendTo($tr);
                 $tr.appendTo($body);
@@ -214,10 +282,19 @@
             finished = false;
             rows = [];
             gallery = [];
-            previewIds = galleryIds();
+            previewIds = matchingIds();
             previewOptions = matchOptions();
+            if (source === 'media' && !previewIds.length) {
+                request = null;
+                loading = false;
+                $table.attr('aria-busy', 'false');
+                tableState('请先选择图片', '点击上方「选择图片」，从媒体库多选用于匹配的图片。');
+                message('');
+                updateControls();
+                return;
+            }
             $table.attr('aria-busy', 'true');
-            tableState('正在加载匹配结果…', '正在读取产品图库与全部变体，请稍候。', true);
+            tableState('正在加载匹配结果…', source === 'media' ? '正在使用所选图片匹配全部变体，请稍候。' : '正在读取产品图库与全部变体，请稍候。', true);
             if (!$attribute.val()) $attribute.empty().append('<option value="">正在加载属性…</option>');
             updateControls();
             $separator.removeAttr('aria-invalid');
@@ -244,7 +321,7 @@
                 $separator.attr('aria-invalid', invalid > 0 && invalid === rows.filter(row => row.value).length ? 'true' : 'false');
                 const detail = invalid ? invalid + ' 个变体无法按分隔符「' + previewOptions.separator + '」拆分，未自动匹配。请修改分隔符、留空使用预设或手动选图。'
                     : (previewOptions.separator ? '使用分隔符「' + previewOptions.separator + '」拆分口味，组合顺序不限。未匹配的可手动选图。' : '未匹配的可手动选图。');
-                message(rows.length ? '共 ' + rows.length + ' 个变体、' + gallery.length + ' 张图库图片。' + detail : '', invalid > 0);
+                message(rows.length ? '共 ' + rows.length + ' 个变体、' + gallery.length + (source === 'media' ? ' 张所选图片。' : ' 张图库图片。') + detail : '', invalid > 0);
             } catch (error) {
                 if (current === sequence && error.statusText !== 'abort') {
                     rows = [];
@@ -276,7 +353,7 @@
         }
 
         function closeModal() {
-            if (busy || closing || $modal.prop('hidden')) return;
+            if (busy || closing || pickingMedia || $modal.prop('hidden')) return;
             closing = true;
             backdropPress = false;
             ++sequence;
@@ -330,9 +407,9 @@
         async function apply() {
             if (busy || loading || closing || finished) return;
             const optionsChanged = JSON.stringify(matchOptions()) !== JSON.stringify(previewOptions);
-            if (galleryIds().join(',') !== previewIds.join(',') || optionsChanged) {
+            if (matchingIds().join(',') !== previewIds.join(',') || optionsChanged) {
                 await scan();
-                if (rows.length) message(optionsChanged ? '匹配设置已更新，请确认新的匹配结果后再应用。' : '产品图库已更新，请确认新的匹配结果后再应用。');
+                if (rows.length) message(optionsChanged ? '匹配设置已更新，请确认新的匹配结果后再应用。' : (source === 'media' ? '所选图片已更新，请确认新的匹配结果后再应用。' : '产品图库已更新，请确认新的匹配结果后再应用。'));
                 return;
             }
             if ($('#variable_product_options .oyiso-vi-saving, #variable_product_options [data-inline-value]').length) {
@@ -395,6 +472,21 @@
         }
 
         $(document).on('click', '.oyiso-vim-launch', openModal);
+        $modal.on('click', '[role="tab"][data-source]', function () { changeSource(this.dataset.source); });
+        $modal.on('keydown', '[role="tab"][data-source]', function (event) {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const next = event.key === 'Home' ? 'gallery' : event.key === 'End' ? 'media' : (source === 'gallery' ? 'media' : 'gallery');
+            changeSource(next);
+            $modal.find('[role="tab"][data-source="' + source + '"]').trigger('focus');
+        });
+        $modal.on('click', '.oyiso-vim-select-media', selectMediaImages);
+        $modal.on('click', '.oyiso-vim-clear-media', function () {
+            if (busy || loading) return;
+            mediaImages = [];
+            renderMediaImages();
+            scan();
+        });
         $modal.on('click', '.oyiso-vim-close, .oyiso-vim-cancel', closeModal);
         $modal.on('pointerdown', function (event) { backdropPress = event.target === this; });
         $modal.on('pointerup', function (event) { backdropPress = backdropPress && event.target === this; });
@@ -421,7 +513,7 @@
             const candidate = gallery.find(item => item.id === Number($(this).val()));
             $tr.find('.oyiso-vim-target .oyiso-vim-image, .oyiso-vim-target .oyiso-vim-image-placeholder').remove();
             if (candidate && candidate.url) image(candidate.url, '所选封面').prependTo($tr.find('.oyiso-vim-target'));
-            else imagePlaceholder(candidate ? '暂无预览' : '请选择图库图片').prependTo($tr.find('.oyiso-vim-target'));
+            else imagePlaceholder(candidate ? '暂无预览' : '请选择图片').prependTo($tr.find('.oyiso-vim-target'));
             updateRow($tr, true);
             updateSelection();
         });

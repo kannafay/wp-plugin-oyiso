@@ -50,7 +50,8 @@ final class Oyiso_WC_Variation_Image_Match
         if (!in_array($hook, ['post.php', 'post-new.php'], true) || !$screen || $screen->post_type !== 'product') {
             return;
         }
-        wp_enqueue_script('oyiso-variation-image-match', plugins_url('assets/image-match.js', __FILE__), ['jquery'], (string) filemtime(__DIR__ . '/assets/image-match.js'), true);
+        wp_enqueue_media();
+        wp_enqueue_script('oyiso-variation-image-match', plugins_url('assets/image-match.js', __FILE__), ['jquery', 'media-views'], (string) filemtime(__DIR__ . '/assets/image-match.js'), true);
         wp_enqueue_style('oyiso-variation-image-match', plugins_url('assets/image-match.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/image-match.css'));
         wp_localize_script('oyiso-variation-image-match', 'oyisoVariationImageMatch', [
             'ajaxurl' => admin_url('admin-ajax.php'),
@@ -88,7 +89,7 @@ final class Oyiso_WC_Variation_Image_Match
         }
         $images = self::getImages($galleryIds);
         if ($images === []) {
-            return new WP_Error('gallery', '请先在右侧产品图库添加图片，再进行匹配。');
+            return new WP_Error('gallery', '请先选择可用的图片，再进行匹配。');
         }
 
         $variations = [];
@@ -188,7 +189,7 @@ final class Oyiso_WC_Variation_Image_Match
             } elseif (!$overwrite && $row['current_image_id'] > 0) {
                 $error = '已有封面，已跳过。';
             } elseif (!in_array($selection['image_id'], $allowedImages, true)) {
-                $error = '图片不在当前产品图库中或无权使用，请重新识别。';
+                $error = '图片不在本次选图范围内或无权使用，请重新识别。';
             }
             if ($error !== '') {
                 $results[] = ['variation_id' => $id, 'success' => false, 'message' => $error];
@@ -406,11 +407,26 @@ final class Oyiso_WC_Variation_Image_Match
         <div id="oyiso-vim-modal" class="oyiso-vim-backdrop" hidden>
             <div class="oyiso-vim-dialog" role="dialog" aria-modal="true" aria-labelledby="oyiso-vim-title" tabindex="-1">
                 <div class="oyiso-vim-header">
-                    <h2 id="oyiso-vim-title">从产品图库匹配封面</h2>
+                    <h2 id="oyiso-vim-title">匹配变体封面</h2>
                     <button type="button" class="oyiso-vim-close" aria-label="关闭">&times;</button>
                 </div>
                 <div class="oyiso-vim-body">
-                    <p class="oyiso-vim-description">按图库文件名推荐封面，也可为每个变体手动选择一张图库图片。</p>
+                    <div class="oyiso-vim-source-tabs" role="tablist" aria-label="匹配图片来源">
+                        <button type="button" id="oyiso-vim-tab-gallery" role="tab" aria-selected="true" aria-controls="oyiso-vim-source-gallery" data-source="gallery">产品画廊</button>
+                        <button type="button" id="oyiso-vim-tab-media" role="tab" aria-selected="false" aria-controls="oyiso-vim-source-media" data-source="media" tabindex="-1">媒体库选图</button>
+                    </div>
+                    <div id="oyiso-vim-source-gallery" class="oyiso-vim-source-panel" role="tabpanel" aria-labelledby="oyiso-vim-tab-gallery">
+                        <p>使用右侧产品画廊中的图片，按文件名匹配变体属性值。</p>
+                    </div>
+                    <div id="oyiso-vim-source-media" class="oyiso-vim-source-panel" role="tabpanel" aria-labelledby="oyiso-vim-tab-media" hidden>
+                        <p>先从媒体库多选图片，仅用选中的图片匹配，无需添加到产品画廊。</p>
+                        <div class="oyiso-vim-media-actions">
+                            <button type="button" class="button oyiso-vim-select-media">选择图片</button>
+                            <span class="oyiso-vim-media-count" role="status" aria-live="polite">尚未选择图片</span>
+                            <button type="button" class="button-link oyiso-vim-clear-media" hidden>清空</button>
+                        </div>
+                        <ul class="oyiso-vim-selected-images" aria-label="用于匹配的所选图片" hidden></ul>
+                    </div>
                     <div class="oyiso-vim-controls">
                         <label for="oyiso-vim-attribute">匹配属性
                             <select id="oyiso-vim-attribute"></select>

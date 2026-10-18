@@ -20,6 +20,10 @@
     opacity: 1;
 }
 
+.oyiso-vim-backdrop.is-selecting-media {
+    z-index: 159800;
+}
+
 .oyiso-vim-dialog {
     width: 1000px;
     max-width: 100%;
@@ -99,6 +103,95 @@
     color: #333;
     font-size: 14px;
     line-height: 1.6;
+}
+
+.oyiso-vim-source-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #dcdcde;
+}
+
+.oyiso-vim-source-tabs [role="tab"] {
+    position: relative;
+    margin: 0 0 -1px;
+    padding: 9px 16px;
+    border: 1px solid transparent;
+    border-bottom-color: #dcdcde;
+    border-radius: 4px 4px 0 0;
+    background: #f6f7f7;
+    color: #50575e;
+    font-size: 13px;
+    line-height: 20px;
+    cursor: pointer;
+}
+
+.oyiso-vim-source-tabs [aria-selected="true"] {
+    border-color: #dcdcde;
+    border-bottom-color: #fff;
+    background: #fff;
+    color: var(--oyiso-color-primary, #bf5316);
+    font-weight: 600;
+}
+
+.oyiso-vim-source-tabs [role="tab"]:focus-visible {
+    outline: 2px solid var(--oyiso-color-primary, #bf5316);
+    outline-offset: -3px;
+}
+
+.oyiso-vim-source-tabs [role="tab"]:disabled {
+    opacity: .6;
+    cursor: default;
+}
+
+.oyiso-vim-source-panel {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border: 1px solid #dcdcde;
+    border-top: 0;
+    border-radius: 0 0 4px 4px;
+}
+
+.oyiso-vim-source-panel p {
+    margin: 0;
+    color: #646970;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.oyiso-vim-media-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-top: 10px;
+}
+
+.oyiso-vim-media-count {
+    color: #646970;
+    font-size: 12px;
+}
+
+.oyiso-vim-clear-media {
+    margin-left: auto;
+}
+
+.oyiso-vim-selected-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 92px;
+    overflow: auto;
+    margin: 10px 0 0;
+}
+
+.oyiso-vim-selected-images li {
+    margin: 0;
+}
+
+.oyiso-vim-source-panel[hidden],
+.oyiso-vim-selected-images[hidden],
+.oyiso-vim-clear-media[hidden] {
+    display: none;
 }
 
 .oyiso-vim-controls {
