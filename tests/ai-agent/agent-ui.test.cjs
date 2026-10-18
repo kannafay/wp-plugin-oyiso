@@ -385,8 +385,8 @@ test('launcher moves freely without opening on drag release and still opens on a
     assert.equal(wrapper.style.left, '700px');
 });
 
-test('launcher docks to each edge and can be dragged back into the page', async t => {
-    for (const [edge, x, y, property, value] of [['left', 5, 400, 'left', '0px'], ['right', 1475, 400, 'left', '1480px'], ['top', 700, 36, 'top', '32px'], ['bottom', 700, 950, 'top', '956px']]) {
+test('launcher docks within 5px of each edge and stays expanded 6px away', async t => {
+    for (const [edge, x, y, property, value] of [['left', 5, 400, 'left', '0px'], ['right', 1475, 400, 'left', '1480px'], ['top', 700, 37, 'top', '32px'], ['bottom', 700, 951, 'top', '956px']]) {
         const f = fixture(t, undefined, {}, geometry, { closed: true, globalOnly: true });
         dragLauncher(f, x, y);
         const wrapper = f.$('#oyiso-agent-launcher-wrap');
@@ -397,6 +397,11 @@ test('launcher docks to each edge and can be dragged back into the page', async 
         assert.equal(wrapper.dataset.agentEdge, undefined);
         assert.equal(wrapper.style.left, '600px');
         assert.equal(wrapper.style.top, '450px');
+        const outside = { left: [6, 400], right: [1474, 400], top: [700, 38], bottom: [700, 950] }[edge];
+        dragLauncher(f, ...outside);
+        assert.equal(wrapper.dataset.agentEdge, undefined);
+        assert.equal(wrapper.style.left, `${outside[0]}px`);
+        assert.equal(wrapper.style.top, `${outside[1]}px`);
     }
 });
 

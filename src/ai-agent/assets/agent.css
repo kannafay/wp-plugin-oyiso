@@ -15,16 +15,16 @@ body.is-fullscreen-mode { --oyiso-agent-bar-height: 0px; }
 #oyiso-agent-launcher-wrap[style] { right: auto; bottom: auto; }
 #oyiso-agent-launcher { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid #1d2327; border-radius: 24px; background: #1d2327; color: #fff; cursor: grab; font: inherit; font-size: 13px; white-space: nowrap; touch-action: none; user-select: none; pointer-events: auto; transition: transform 160ms ease; }
 #oyiso-agent-launcher[aria-expanded="true"] { display: none; }
-#oyiso-agent-launcher-wrap[data-agent-edge="left"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateX(calc(-100% + 24px)); }
-#oyiso-agent-launcher-wrap[data-agent-edge="right"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateX(calc(100% - 24px)); }
-#oyiso-agent-launcher-wrap[data-agent-edge="top"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateY(calc(-100% + 24px)); }
-#oyiso-agent-launcher-wrap[data-agent-edge="bottom"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateY(calc(100% - 24px)); }
+#oyiso-agent-launcher-wrap[data-agent-edge="left"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateX(calc(-100% + 36px)); }
+#oyiso-agent-launcher-wrap[data-agent-edge="right"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateX(calc(100% - 36px)); }
+#oyiso-agent-launcher-wrap[data-agent-edge="top"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateY(calc(-100% + 36px)); }
+#oyiso-agent-launcher-wrap[data-agent-edge="bottom"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateY(calc(100% - 36px)); }
 #oyiso-agent-launcher-wrap[data-agent-edge] #oyiso-agent-launcher:not(:focus-visible) > span { opacity: 0; }
 #oyiso-agent-launcher-wrap[data-agent-edge] #oyiso-agent-launcher:not(:focus-visible)::after { content: "\f125"; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; font: 20px/1 dashicons; transform: translate(-50%, -50%); }
-#oyiso-agent-launcher-wrap[data-agent-edge="left"] #oyiso-agent-launcher:not(:focus-visible)::after { left: auto; right: 2px; transform: translateY(-50%); }
-#oyiso-agent-launcher-wrap[data-agent-edge="right"] #oyiso-agent-launcher:not(:focus-visible)::after { left: 2px; transform: translateY(-50%); }
-#oyiso-agent-launcher-wrap[data-agent-edge="top"] #oyiso-agent-launcher:not(:focus-visible)::after { top: auto; bottom: 2px; transform: translateX(-50%); }
-#oyiso-agent-launcher-wrap[data-agent-edge="bottom"] #oyiso-agent-launcher:not(:focus-visible)::after { top: 2px; transform: translateX(-50%); }
+#oyiso-agent-launcher-wrap[data-agent-edge="left"] #oyiso-agent-launcher:not(:focus-visible)::after { left: auto; right: 8px; transform: translateY(-50%); }
+#oyiso-agent-launcher-wrap[data-agent-edge="right"] #oyiso-agent-launcher:not(:focus-visible)::after { left: 8px; transform: translateY(-50%); }
+#oyiso-agent-launcher-wrap[data-agent-edge="top"] #oyiso-agent-launcher:not(:focus-visible)::after { top: auto; bottom: 8px; transform: translateX(-50%); }
+#oyiso-agent-launcher-wrap[data-agent-edge="bottom"] #oyiso-agent-launcher:not(:focus-visible)::after { top: 8px; transform: translateX(-50%); }
 #oyiso-agent-launcher-wrap.is-hovered[data-agent-edge] #oyiso-agent-launcher { transform: none; }
 #oyiso-agent-launcher-wrap.is-hovered[data-agent-edge] #oyiso-agent-launcher > span { opacity: 1; }
 #oyiso-agent-launcher-wrap.is-hovered[data-agent-edge] #oyiso-agent-launcher::after { display: none; }

@@ -115,7 +115,7 @@
         } else if (active.moved) {
             if (active.type === 'launcher') {
                 const point = placeLauncher();
-                moveLauncher(point.x, point.y, 24);
+                moveLauncher(point.x, point.y, 5);
                 save(':position', JSON.stringify(position));
                 suppressClick = true;
                 clickTimer = setTimeout(() => { suppressClick = false; }, 0);
