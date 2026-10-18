@@ -43,6 +43,41 @@
         return data;
     }
 
+    const connectionSnapshot = preset => JSON.stringify(Array.from(document.querySelectorAll(`[data-agent-connection="${preset}"]`), input => [input.name, input.type === 'checkbox' ? input.checked : input.value]));
+    const connectionStates = new Map();
+    document.querySelectorAll('[data-agent-test-connection]').forEach(button => {
+        const preset = button.dataset.agentTestConnection;
+        const state = { saved: connectionSnapshot(preset), revision: 0 };
+        connectionStates.set(preset, state);
+        button.disabled = !config.supported;
+        const note = document.querySelector(`[data-agent-connection-notice="${preset}"]`);
+        button.addEventListener('click', async () => {
+            if (connectionSnapshot(preset) !== state.saved) {
+                note.textContent = '请先保存模型配置，再测试连接。';
+                return;
+            }
+            const revision = state.revision;
+            const snapshot = state.saved;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 45000);
+            button.disabled = true;
+            note.textContent = '正在检查模型连接与工具调用…';
+            try {
+                const result = await api(`connections/${preset}/test`, { method: 'POST', body: '{}', signal: controller.signal });
+                note.textContent = revision === state.revision && snapshot === connectionSnapshot(preset) ? `${result.provider} / ${result.model}：${result.message}` : '配置已更新，请保存后重新测试连接。';
+            } catch (error) {
+                note.textContent = error.name === 'AbortError' ? '连接测试超时，请检查网络或稍后重试。' : error.message;
+            } finally {
+                clearTimeout(timeout);
+                button.disabled = !config.supported;
+            }
+        });
+    });
+    document.addEventListener('input', event => {
+        const preset = event.target.dataset.agentConnection;
+        if (preset) document.querySelector(`[data-agent-connection-notice="${preset}"]`).textContent = '';
+    });
+
     function showNotice(text, error = false) {
         notice.textContent = text;
         notice.classList.toggle('is-error', error);
@@ -314,21 +349,29 @@
 
     function initialNotice() {
         if (!config.supported) showNotice('AI Agent 需要 WordPress 7.0 或以上版本。', true);
-        else if (!config.enabled) showNotice('请先在「模型配置」中启用 AI Agent，并配置 WordPress 模型连接。');
+        else if (!config.enabled) showNotice('请先在「模型配置」中启用 AI Agent，并配置模型连接。');
         else showNotice('');
     }
     if (window.jQuery) {
         window.jQuery(document).on('ajaxSuccess.oyisoAgent', (event, xhr, settings) => {
             const action = typeof settings.data === 'string' ? new URLSearchParams(settings.data).get('action') : settings.data?.action;
             if (action !== 'csf_oyiso_ajax_save') return;
+            if (xhr.responseJSON?.success === false) return;
+            const errors = xhr.responseJSON?.data?.errors || {};
             api('status').then(state => {
                 config.enabled = state.enabled;
                 config.supported = state.supported;
-                for (const [name, configured] of [['search_key', state.search_configured], ['keywords_password', state.keywords_configured]]) {
+                for (const [name, configured] of Object.entries(state.secrets || { search_key: state.search_configured, keywords_password: state.keywords_configured })) {
+                    if (errors[`agent_${name}`]) continue;
                     const input = document.querySelector(`input[name="oyiso[agent_${name}]"]`);
                     const clear = document.querySelector(`input[type="checkbox"][name="oyiso[agent_${name}_clear]"]`);
                     if (input) { input.value = ''; input.placeholder = configured ? '已配置，留空保持' : '尚未配置'; }
                     if (clear) clear.checked = false;
+                }
+                for (const [preset, connection] of connectionStates) {
+                    connection.revision++;
+                    if (!Object.keys(errors).some(name => name.startsWith(`agent_${preset}_`))) connection.saved = connectionSnapshot(preset);
+                    document.querySelector(`[data-agent-connection-notice="${preset}"]`).textContent = '';
                 }
                 controls(); initialNotice();
             }).catch(error => showNotice(error.message, true));

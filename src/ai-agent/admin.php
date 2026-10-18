@@ -11,7 +11,11 @@ final class Oyiso_Agent_Admin
     {
         $permission = static fn(): bool => current_user_can('manage_options');
         $root = 'oyiso-agent/v1';
-        register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'search_configured' => Oyiso_Agent_Config::hasSecret('search_key'), 'keywords_configured' => Oyiso_Agent_Config::hasSecret('keywords_password')])]);
+        register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'search_configured' => Oyiso_Agent_Config::hasSecret('search_key'), 'keywords_configured' => Oyiso_Agent_Config::hasSecret('keywords_password'), 'secrets' => Oyiso_Agent_Config::secretStatus()])]);
+        register_rest_route($root, '/connections/(?P<preset>deepseek|gemini|agnes)/test', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
+            $result = Oyiso_Agent_Connectors::test((string) $request->get_param('preset'));
+            return is_wp_error($result) ? $result : new WP_REST_Response($result);
+        }]);
         register_rest_route($root, '/runs', [
             ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response => new WP_REST_Response(Oyiso_Agent_Store::recent(max(1, (int) $request->get_param('page')))), 'args' => ['page' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]]],
             ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'send'], 'args' => ['message' => ['type' => 'string', 'required' => true, 'minLength' => 1, 'maxLength' => 4000], 'run_id' => ['type' => 'integer', 'minimum' => 0, 'default' => 0]]],
@@ -175,7 +179,12 @@ final class Oyiso_Agent_Admin
             echo '<p>AI Agent 需要 WordPress 7.0 或以上版本，当前环境暂不可用。</p>';
             return;
         }
-        printf('<p>模型服务和密钥在 WordPress 连接器中管理，请选择支持工具调用的模型。</p><a class="button" href="%s">配置模型连接</a>', esc_url(admin_url('options-connectors.php')));
+        printf('<p>选择下方的 DeepSeek、Gemini 或 agnes 预设后，可直接在本页配置。每个预设分别保存地址、模型和密钥。</p><p>也可使用已安装的 WordPress 模型连接器。<a href="%s">管理 WordPress 连接器</a></p>', esc_url(admin_url('options-connectors.php')));
+    }
+
+    public static function connectionTest(string $preset): void
+    {
+        printf('<button type="button" class="button" data-agent-test-connection="%s">测试连接</button><p class="description">先保存配置。测试会发送两次简短模型请求，检查工具调用和结果回传，并消耗少量 API 额度。</p><p data-agent-connection-notice="%s" role="status" aria-live="polite"></p>', esc_attr($preset), esc_attr($preset));
     }
 
     public static function history(): void

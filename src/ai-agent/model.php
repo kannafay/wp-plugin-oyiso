@@ -47,6 +47,7 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
             $requestOptions = new RequestOptions();
             $requestOptions->setTimeout(45.0);
             $requestOptions->setConnectTimeout(10.0);
+            $requestOptions->setMaxRedirects(0);
             $builder = ($this->builderFactory !== null ? ($this->builderFactory)($messages) : wp_ai_client_prompt($messages))
                 ->using_system_instruction(self::instructions())
                 ->using_abilities(...$abilities)
@@ -54,14 +55,22 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
                 ->using_request_options($requestOptions);
             $provider = Oyiso_Agent_Config::text('provider');
             $model = Oyiso_Agent_Config::text('model');
-            if ($provider !== '') {
+            $preset = Oyiso_Agent_Connectors::preset($provider);
+            if ($preset !== '') {
+                $connection = Oyiso_Agent_Connectors::load($preset);
+                if (is_wp_error($connection)) {
+                    return $connection;
+                }
+                Oyiso_Agent_Connectors::register();
+                $builder->using_model(\WordPress\AiClient\AiClient::defaultRegistry()->getProviderModel($provider, $connection->model));
+            } elseif ($provider !== '') {
                 $builder->using_provider($provider);
             }
-            if ($model !== '') {
+            if ($preset === '' && $model !== '') {
                 $builder->using_model_preference($model);
             }
             if (!$builder->is_supported_for_text_generation()) {
-                return new WP_Error('agent_model_missing', '尚无可用的工具调用模型。请在 WordPress「设置 → 连接器」配置模型服务，并检查模型偏好。');
+                return new WP_Error('agent_model_missing', '尚无可用的工具调用模型。请在「模型配置」中保存预设连接，或配置 WordPress 连接器。');
             }
             $result = $builder->generate_text_result();
             if (is_wp_error($result)) {

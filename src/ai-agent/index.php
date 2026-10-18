@@ -5,6 +5,7 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/connections.php';
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/research.php';
 require_once __DIR__ . '/tools.php';
@@ -15,6 +16,8 @@ require_once __DIR__ . '/admin.php';
 require_once __DIR__ . '/settings.php';
 
 add_filter('csf_oyiso_save', [Oyiso_Agent_Config::class, 'saveOptions']);
+add_action('init', [Oyiso_Agent_Connectors::class, 'register'], 5);
+add_action('wp_connectors_init', [Oyiso_Agent_Connectors::class, 'connectors']);
 add_action('init', [Oyiso_Agent_Store::class, 'register']);
 add_action('wp_abilities_api_categories_init', [Oyiso_Agent_Abilities::class, 'categories']);
 add_action('wp_abilities_api_init', [Oyiso_Agent_Abilities::class, 'register']);

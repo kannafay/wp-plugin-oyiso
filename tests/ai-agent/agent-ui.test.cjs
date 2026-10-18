@@ -7,7 +7,7 @@ const { JSDOM } = require('jsdom');
 
 const repo = path.resolve(__dirname, '../..');
 const phpQuote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
-const markup = execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; Oyiso_Agent_Admin::chat(); Oyiso_Agent_Admin::history();`], { encoding: 'utf8' });
+const markup = execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; Oyiso_Agent_Admin::chat(); Oyiso_Agent_Admin::history(); Oyiso_Agent_Admin::connectionTest('deepseek');`], { encoding: 'utf8' });
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.js'), 'utf8');
 const wpRoot = process.env.OYISO_WORDPRESS_ROOT || path.resolve(repo, '../../..');
 const jquery = fs.readFileSync(path.join(wpRoot, 'wp-includes/js/jquery/jquery.js'), 'utf8');
@@ -17,7 +17,7 @@ const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42
 const proposal = () => ({ id: '12345678-1234-1234-1234-123456789abc', product_id: 99, name: '商品示例', before: { description: '<p>Original</p>' }, after: { description: '<p>Proposed</p>' }, status: 'pending' });
 
 function fixture(t, router = () => undefined, settings = {}, before = () => {}) {
-    const dom = new JSDOM(`<div class="csf-options" data-unique="oyiso"><form id="csf-form"><nav class="csf-nav"><a data-tab-id="ai-agent/agent-chat" href="#tab=ai-agent/agent-chat">对话助手</a></nav><div class="csf-content">${markup}</div><input type="password" name="oyiso[agent_search_key]"><input type="checkbox" name="oyiso[agent_search_key_clear]"></form></div>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only', pretendToBeVisual: true });
+    const dom = new JSDOM(`<div class="csf-options" data-unique="oyiso"><form id="csf-form"><nav class="csf-nav"><a data-tab-id="ai-agent/agent-chat" href="#tab=ai-agent/agent-chat">对话助手</a></nav><div class="csf-content">${markup}</div><input type="password" name="oyiso[agent_search_key]"><input type="checkbox" name="oyiso[agent_search_key_clear]"><input name="oyiso[agent_deepseek_url]" value="https://api.deepseek.com" data-agent-connection="deepseek"><input name="oyiso[agent_deepseek_model]" value="deepseek-flash" data-agent-connection="deepseek"><input type="password" name="oyiso[agent_deepseek_key]" data-agent-connection="deepseek"><input type="checkbox" name="oyiso[agent_deepseek_key_clear]" data-agent-connection="deepseek"></form></div>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only', pretendToBeVisual: true });
     const { window } = dom;
     const calls = [];
     const errors = [];
@@ -166,4 +166,52 @@ test('history pagination requests a separate page', async t => {
     assert.equal(f.$('[data-agent-history-page]').textContent, '2 / 2');
     assert.ok(f.calls.some(call => call.route === 'runs?page=2'));
     assert.equal(f.$('[data-agent-history-next]').disabled, true);
+});
+
+test('connection test requires saving edited endpoint or key first', async t => {
+    const f = fixture(t);
+    f.$('input[name="oyiso[agent_deepseek_key]"]').value = 'unsaved-fixture-key';
+    f.$('[data-agent-test-connection]').click(); await settle();
+    assert.match(f.$('[data-agent-connection-notice]').textContent, /先保存/);
+    assert.equal(f.calls.some(call => call.route.startsWith('connections/')), false);
+});
+
+test('saved preset tests use protected REST and block duplicate clicks', async t => {
+    let finish;
+    const f = fixture(t, route => route.startsWith('connections/') ? new Promise(resolve => { finish = () => resolve({ provider: 'DeepSeek', model: 'deepseek-flash', message: '工具调用测试通过。' }); }) : undefined);
+    const button = f.$('[data-agent-test-connection]');
+    button.click(); button.click(); await settle();
+    assert.equal(button.disabled, true);
+    assert.equal(f.calls.filter(call => call.route.startsWith('connections/')).length, 1);
+    const call = f.calls.find(call => call.route.startsWith('connections/'));
+    assert.equal(call.route, 'connections/deepseek/test');
+    assert.equal(call.options.headers['X-WP-Nonce'], 'fixture-nonce');
+    assert.equal(call.options.body, '{}');
+    finish(); await settle();
+    assert.equal(button.disabled, false);
+    assert.match(f.$('[data-agent-connection-notice]').textContent, /DeepSeek \/ deepseek-flash/);
+});
+
+test('saving preset credentials clears inputs and enables testing the saved settings', async t => {
+    const f = fixture(t, route => route === 'status' ? { enabled: false, supported: true, secrets: { deepseek_key: true } } : route.startsWith('connections/') ? { provider: 'DeepSeek', model: 'new-model', message: '通过。' } : undefined);
+    const key = f.$('input[name="oyiso[agent_deepseek_key]"]');
+    key.value = 'fixture-new-key'; f.$('input[name="oyiso[agent_deepseek_model]"]').value = 'new-model';
+    f.window.jQuery(f.window.document).trigger('ajaxSuccess', [{ responseJSON: { success: true, data: { errors: {} } } }, { data: 'action=csf_oyiso_ajax_save' }]);
+    await settle();
+    assert.equal(key.value, ''); assert.match(key.placeholder, /已配置/);
+    f.$('[data-agent-test-connection]').click(); await settle();
+    assert.match(f.$('[data-agent-connection-notice]').textContent, /new-model/);
+    assert.equal(f.$('[data-agent-send]').disabled, true);
+});
+
+test('failed settings saves preserve unsaved keys and connection tests show errors as text', async t => {
+    const f = fixture(t, route => route.startsWith('connections/') ? { ok: false, body: { message: '<img src=x onerror=alert(1)>服务不可用' } } : undefined);
+    const key = f.$('input[name="oyiso[agent_deepseek_key]"]'); key.value = 'fixture-key';
+    f.window.jQuery(f.window.document).trigger('ajaxSuccess', [{ responseJSON: { success: false } }, { data: 'action=csf_oyiso_ajax_save' }]); await settle();
+    assert.equal(key.value, 'fixture-key');
+    assert.equal(f.calls.some(call => call.route === 'status'), false);
+    key.value = ''; f.$('[data-agent-test-connection]').click(); await settle();
+    assert.equal(f.$('[data-agent-connection-notice] img'), null);
+    assert.match(f.$('[data-agent-connection-notice]').textContent, /服务不可用/);
+    assert.equal(f.$('[data-agent-test-connection]').disabled, false);
 });

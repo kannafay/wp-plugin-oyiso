@@ -44,9 +44,11 @@ final class Oyiso_Agent_Config
             return $providers;
         }
         try {
+            Oyiso_Agent_Connectors::register();
             wp_ai_client_prompt();
             foreach (\WordPress\AiClient\AiClient::defaultRegistry()->getRegisteredProviderIds() as $id) {
-                $providers[$id] = $id;
+                $preset = Oyiso_Agent_Connectors::preset($id);
+                $providers[$id] = $preset !== '' ? Oyiso_Agent_Connectors::presets()[$preset]['name'] . '（Oyiso 预设）' : $id;
             }
         } catch (Throwable) {
             // The settings remain usable before a provider is installed.
@@ -57,6 +59,22 @@ final class Oyiso_Agent_Config
     public static function hasSecret(string $name): bool
     {
         return self::secret($name) !== '';
+    }
+
+    /** @return list<string> */
+    public static function secretNames(): array
+    {
+        return ['search_key', 'keywords_password', 'deepseek_key', 'gemini_key', 'agnes_key'];
+    }
+
+    /** @return array<string, bool> */
+    public static function secretStatus(): array
+    {
+        $status = [];
+        foreach (self::secretNames() as $name) {
+            $status[$name] = self::hasSecret($name);
+        }
+        return $status;
     }
 
     public static function credential(mixed $value): string
@@ -84,12 +102,12 @@ final class Oyiso_Agent_Config
     {
         $stored = get_option(self::SECRETS, []);
         $secrets = is_array($stored) ? $stored : [];
-        foreach (['search_key', 'keywords_password'] as $name) {
+        foreach (self::secretNames() as $name) {
             $field = 'agent_' . $name;
             $value = isset($options[$field]) && is_string($options[$field]) ? trim($options[$field]) : '';
             if (!empty($options[$field . '_clear'])) {
                 unset($secrets[$name]);
-            } elseif ($value !== '' && function_exists('openssl_encrypt')) {
+            } elseif ($value !== '' && (!str_ends_with($name, '_key') || Oyiso_Agent_Connectors::validateKey($value) === null) && function_exists('openssl_encrypt')) {
                 $iv = random_bytes(12);
                 $tag = '';
                 $cipher = openssl_encrypt($value, 'aes-256-gcm', self::key(), OPENSSL_RAW_DATA, $iv, $tag, $name);
@@ -106,7 +124,7 @@ final class Oyiso_Agent_Config
 
     public static function error(string $message): string
     {
-        foreach (['search_key', 'keywords_password'] as $name) {
+        foreach (self::secretNames() as $name) {
             $secret = self::secret($name);
             if ($secret !== '') {
                 $message = str_replace($secret, '[已隐藏]', $message);
