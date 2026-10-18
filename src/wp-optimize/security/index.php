@@ -6,6 +6,7 @@ defined('ABSPATH') || exit;
 
 require_once __DIR__ . '/login-protection.php';
 require_once __DIR__ . '/xmlrpc-protection.php';
+require_once __DIR__ . '/comments-protection.php';
 
 /**
  * 安全防护
@@ -51,6 +52,60 @@ CSF::createSection($prefix, [
             'label' => '拦截结账字段中的目录穿越、HTML 与脚本注入、空字符和异常超长输入',
             'desc' => '适用于 WooCommerce 传统结账及区块结账；姓名、地址和备注仅接受纯文本，不允许 HTML 标签、事件属性或脚本链接。',
             'default' => false,
+        ],
+        [
+            'id' => 'opt-disable-comments',
+            'type' => 'switcher',
+            'title' => '禁用评论',
+            'label' => '关闭全站或指定文章类型的评论、Trackback 和 Pingback',
+            'default' => false,
+        ],
+        [
+            'id' => 'opt-disable-comments-scope',
+            'type' => 'radio',
+            'title' => '禁用范围',
+            'inline' => true,
+            'options' => ['all' => '全站禁用', 'selected' => '指定文章类型'],
+            'default' => 'selected',
+            'dependency' => ['opt-disable-comments', '==', true],
+        ],
+        [
+            'id' => 'opt-disable-comments-post-types',
+            'type' => 'checkbox',
+            'title' => '禁用的文章类型',
+            'inline' => true,
+            'options' => 'Oyiso_Comments_Protection::postTypeOptions',
+            'sanitize' => [Oyiso_Comments_Protection::class, 'sanitizePostTypes'],
+            'desc' => '勾选要禁用的类型，列表动态读取当前站点。要保留商品评价，请勿勾选 Products（商品）。',
+            'default' => [],
+            'dependency' => ['opt-disable-comments|opt-disable-comments-scope', '==|==', 'true|selected'],
+        ],
+        [
+            'id' => 'opt-disable-comments-show-existing',
+            'type' => 'switcher',
+            'title' => '显示已有评论',
+            'label' => '继续在前台显示已禁用类型的已有评论',
+            'desc' => '关闭后隐藏已有评论及评论数量，评论记录仍保留，可在后台管理。',
+            'default' => true,
+            'dependency' => ['opt-disable-comments', '==', true],
+        ],
+        [
+            'id' => 'opt-disable-comments-xmlrpc',
+            'type' => 'switcher',
+            'title' => '禁用 XML-RPC 评论提交',
+            'label' => '禁止通过 XML-RPC 新增评论和 Pingback',
+            'desc' => '对所有文章类型生效，其他 XML-RPC 功能仍由原有设置控制。',
+            'default' => false,
+            'dependency' => ['opt-disable-comments', '==', true],
+        ],
+        [
+            'id' => 'opt-disable-comments-rest',
+            'type' => 'switcher',
+            'title' => '禁用 REST API 评论提交',
+            'label' => '禁止通过 WordPress 和 WooCommerce REST API 新增评论及商品评价',
+            'desc' => '对所有文章类型生效，包括未勾选禁用的类型；已有评论的后台管理仍可使用。',
+            'default' => false,
+            'dependency' => ['opt-disable-comments', '==', true],
         ],
         [
             'id' => 'opt-limit-login',
@@ -118,6 +173,7 @@ if (!empty($options['opt-disable-file-edit'])) {
 
 Oyiso_Login_Protection::register(is_array($options) ? $options : []);
 Oyiso_Xmlrpc_Protection::register(!empty($options['opt-disable-xmlrpc']));
+Oyiso_Comments_Protection::register(is_array($options) ? $options : []);
 
 if (!empty($options['opt-disable-pingback'])) {
     add_filter('pings_open', '__return_false');
