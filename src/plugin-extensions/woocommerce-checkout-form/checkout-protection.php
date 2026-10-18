@@ -24,6 +24,8 @@ final class Oyiso_WC_Checkout_Protection
 
         add_action('woocommerce_before_checkout_process', [self::class, 'validateClassicRequest'], 5);
         add_action('woocommerce_after_checkout_validation', [self::class, 'validateClassic'], 5, 2);
+        add_action('woocommerce_checkout_create_order', [self::class, 'validateOrder'], PHP_INT_MAX);
+        add_action('woocommerce_checkout_validate_order_before_payment', [self::class, 'validateOrder'], PHP_INT_MAX, 2);
         add_filter('rest_pre_dispatch', [self::class, 'validateStoreApi'], 5, 3);
     }
 
@@ -41,6 +43,25 @@ final class Oyiso_WC_Checkout_Protection
         if (self::invalidClassic($data)) {
             $errors->add(self::ERROR_CODE, self::message());
         }
+    }
+
+    public static function validateOrder(WC_Order $order, ?WP_Error $errors = null): void
+    {
+        // Recheck saved customer/session values when checkout omits an address.
+        $data = ['order_comments' => $order->get_customer_note()];
+        foreach (['billing', 'shipping'] as $group) {
+            foreach ($order->get_address($group) as $field => $value) {
+                $data[$group . '_' . $field] = $value;
+            }
+        }
+        if (!self::invalidClassic($data)) {
+            return;
+        }
+        if ($errors !== null) {
+            $errors->add(self::ERROR_CODE, self::message());
+            return;
+        }
+        throw new Exception(self::message());
     }
 
     /** @param WP_REST_Request<array<string, mixed>> $request */
@@ -115,7 +136,8 @@ final class Oyiso_WC_Checkout_Protection
         // Normalize only a copy for detection; leave valid customer data unchanged.
         for ($round = 0; $round <= 4; ++$round) {
             if (preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/', $value)
-                || preg_match('~(?:^|[/\s])\.\./~', str_replace('\\', '/', $value))) {
+                || preg_match('~(?:^|[/\s])\.\./~', str_replace('\\', '/', $value))
+                || self::containsMarkup($value)) {
                 return true;
             }
             $decoded = rawurldecode(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
@@ -126,6 +148,21 @@ final class Oyiso_WC_Checkout_Protection
         }
 
         return false;
+    }
+
+    private static function containsMarkup(string $value): bool
+    {
+        // These checkout fields are plain text. Reject markup, including split tags.
+        if (preg_match('~<\s*/?\s*[a-z][^<>]*>|<\s*(?:script|iframe|object|embed|svg|math|img|style|link|meta)\b|<\s*(?:!--|!doctype\b|\?)~i', $value)) {
+            return true;
+        }
+
+        // URL parsers ignore tabs/newlines within a scheme; inspect a copy only.
+        $compact = str_replace(["\t", "\n", "\r"], '', $value);
+        $event = '~(?:^|[\s"\'`<>/])on[a-z][a-z0-9:_-]*\s*=~i';
+        return preg_match($event, $value) === 1
+            || preg_match($event, $compact) === 1
+            || preg_match('~(?:javascript|vbscript)\s*:|data\s*:\s*(?:text/(?:html|xml)|application/(?:xhtml\+xml|xml)|image/svg\+xml)~i', $compact) === 1;
     }
 
     private static function message(): string

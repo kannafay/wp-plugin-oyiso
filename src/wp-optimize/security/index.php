@@ -48,8 +48,8 @@ CSF::createSection($prefix, [
             'id' => 'opt-checkout-input-protection',
             'type' => 'switcher',
             'title' => '结账恶意输入拦截',
-            'label' => '拦截结账字段中的目录穿越、空字符和异常超长输入',
-            'desc' => '适用于 WooCommerce 传统结账及区块结账，在提交订单前校验姓名、地址和备注。',
+            'label' => '拦截结账字段中的目录穿越、HTML 与脚本注入、空字符和异常超长输入',
+            'desc' => '适用于 WooCommerce 传统结账及区块结账；姓名、地址和备注仅接受纯文本，不允许 HTML 标签、事件属性或脚本链接。',
             'default' => false,
         ],
         [
