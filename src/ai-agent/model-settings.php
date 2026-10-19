@@ -66,16 +66,18 @@ final class Oyiso_Agent_Model_Settings
             <p class="description">提供商在弹窗内单独保存。默认模型和下方偏好使用页面顶部的「保存配置」。<a href="<?php echo esc_url(admin_url('options-connectors.php')); ?>">管理 WordPress 连接器</a></p>
             <dialog class="oyiso-agent-provider-dialog" aria-labelledby="oyiso-provider-dialog-title" data-provider-dialog>
                 <div class="oyiso-agent-provider-dialog-heading"><h2 id="oyiso-provider-dialog-title">添加提供商</h2><button type="button" class="oyiso-agent-provider-close" data-provider-close aria-label="关闭">×</button></div>
-                <div class="oyiso-agent-provider-fields">
-                    <label>提供商预设<select data-provider-field="preset"><option value="deepseek">DeepSeek</option><option value="gemini">Gemini</option><option value="agnes">agnes</option><option value="custom">自定义</option></select></label>
-                    <label>连接名称<input type="text" maxlength="80" data-provider-field="name" placeholder="例如：DeepSeek 主账号"></label>
-                    <label class="oyiso-agent-provider-wide">Base URL<input type="url" maxlength="1000" spellcheck="false" data-provider-field="url" placeholder="https://api.example.com/v1"></label>
-                    <label class="oyiso-agent-provider-wide">接口类型<select data-provider-field="protocol"><option value="openai_chat">OpenAI Chat Completions（兼容）</option></select><span class="description">DeepSeek、Gemini 和 agnes 预设均使用兼容接口。</span></label>
-                    <label class="oyiso-agent-provider-wide">API Key<input type="password" maxlength="4096" autocomplete="new-password" data-provider-field="key" placeholder="填写 API Key"><span class="description">加密保存，已有密钥留空保持。</span></label>
-                    <label class="oyiso-agent-provider-clear"><input type="checkbox" data-provider-field="clear_key">清除已保存的密钥</label>
-                    <label class="oyiso-agent-provider-wide">可用模型<textarea rows="4" spellcheck="false" data-provider-field="models" placeholder="每行填写一个模型 ID"></textarea><span class="description">每行一个模型 ID，最多 30 个。用于 Agent 的模型须支持工具调用。</span></label>
+                <div class="oyiso-agent-provider-dialog-body">
+                    <div class="oyiso-agent-provider-fields">
+                        <label>提供商预设<select data-provider-field="preset"><option value="deepseek">DeepSeek</option><option value="gemini">Gemini</option><option value="agnes">agnes</option><option value="custom">自定义</option></select></label>
+                        <label>连接名称<input type="text" maxlength="80" data-provider-field="name" placeholder="例如：DeepSeek 主账号"></label>
+                        <label class="oyiso-agent-provider-wide">Base URL<input type="url" maxlength="1000" spellcheck="false" data-provider-field="url" placeholder="https://api.example.com/v1"></label>
+                        <label class="oyiso-agent-provider-wide">接口类型<select data-provider-field="protocol"><option value="openai_chat">OpenAI Chat Completions（兼容）</option></select><span class="description">DeepSeek、Gemini 和 agnes 预设均使用兼容接口。</span></label>
+                        <label class="oyiso-agent-provider-wide">API Key<input type="password" maxlength="4096" autocomplete="new-password" data-provider-field="key" placeholder="填写 API Key"><span class="description">加密保存，已有密钥留空保持。</span></label>
+                        <label class="oyiso-agent-provider-clear"><input type="checkbox" data-provider-field="clear_key">清除已保存的密钥</label>
+                        <label class="oyiso-agent-provider-wide">可用模型<textarea rows="4" spellcheck="false" data-provider-field="models" placeholder="每行填写一个模型 ID"></textarea><span class="description">每行一个模型 ID，最多 30 个。用于 Agent 的模型须支持工具调用。</span></label>
+                    </div>
+                    <p class="oyiso-agent-provider-dialog-notice" data-provider-dialog-notice role="status" aria-live="polite"></p>
                 </div>
-                <p class="oyiso-agent-provider-dialog-notice" data-provider-dialog-notice role="status" aria-live="polite"></p>
                 <div class="oyiso-agent-provider-dialog-footer"><button type="button" class="button" data-provider-close>取消</button><button type="button" class="button button-primary" data-provider-save>保存提供商</button></div>
             </dialog>
         </div>

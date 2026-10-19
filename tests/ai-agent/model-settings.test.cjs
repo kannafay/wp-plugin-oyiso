@@ -10,7 +10,7 @@ const markup = execFileSync('php', ['-r', `define('ABSPATH', '/'); function wp_j
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/model-settings.js'), 'utf8');
 const settle = async () => { for (let i = 0; i < 6; i++) await new Promise(resolve => setImmediate(resolve)); };
 const row = (id = 'first', extra = {}) => ({ id, name: 'DeepSeek 主账号', preset: 'deepseek', protocol: 'openai_chat', url: 'https://api.example.com/v1', models: ['model-a', 'model-b'], configured: true, ...extra });
-function fixture(t, rows = [], router = () => ({ connections: rows })) {
+function fixture(t, rows = [], router = () => ({ connections: rows }), { reducedMotion = true } = {}) {
     const dom = new JSDOM(`<form class="csf-content">${markup}</form>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only' });
     const { window } = dom; const document = window.document; const root = document.querySelector('[data-agent-settings]');
     const state = JSON.parse(root.dataset.state); state.connections = rows; root.dataset.state = JSON.stringify(state);
@@ -19,6 +19,7 @@ function fixture(t, rows = [], router = () => ({ connections: rows })) {
     window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
     window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new window.Event('close')); };
     window.confirm = () => true;
+    window.matchMedia = () => ({ matches: reducedMotion });
     window.oyisoModelSettings = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce' };
     window.fetch = async (url, options) => { const route = url.replace(window.oyisoModelSettings.url, ''); calls.push({ route, options }); const result = await router(route, options); return { ok: result.ok !== false, status: result.status || 200, json: async () => result.body || result }; };
     window.eval(script);
@@ -26,6 +27,80 @@ function fixture(t, rows = [], router = () => ({ connections: rows })) {
     const $ = selector => document.querySelector(selector);
     return { window, $, calls, field: name => $(`[data-provider-field="${name}"]`) };
 }
+function transitionEnd(f, target = f.$('dialog'), propertyName = 'transform') {
+    const event = new f.window.Event('transitionend', { bubbles: true });
+    Object.defineProperty(event, 'propertyName', { value: propertyName });
+    target.dispatchEvent(event);
+}
+
+test('modal closes after its own exit transition, clears the key immediately and restores focus', t => {
+    const f = fixture(t, [], undefined, { reducedMotion: false });
+    const dialog = f.$('dialog'); const add = f.$('[data-provider-add]');
+    add.click();
+    assert.equal(dialog.open, true); assert.equal(dialog.classList.contains('is-open'), true);
+    f.field('key').value = 'fixture-animation-key';
+    f.$('[data-provider-close]').click();
+    assert.equal(dialog.open, true); assert.equal(dialog.classList.contains('is-open'), false);
+    assert.equal(dialog.inert, true); assert.equal(f.field('key').value, '');
+    // Ignore transitions from the contents or the faster backdrop fade.
+    transitionEnd(f, f.field('models')); transitionEnd(f, dialog, 'opacity');
+    assert.equal(dialog.open, true);
+    f.$('[data-provider-save]').click(); assert.equal(f.calls.length, 0);
+    transitionEnd(f);
+    assert.equal(dialog.open, false); assert.equal(dialog.inert, false);
+    assert.equal(dialog.classList.contains('is-closing'), false);
+    assert.equal(f.window.document.activeElement, add);
+});
+
+test('Escape and the footer cancel button share the animated close path', t => {
+    const f = fixture(t, [], undefined, { reducedMotion: false });
+    for (const trigger of [
+        () => { const event = new f.window.Event('cancel', { cancelable: true }); f.$('dialog').dispatchEvent(event); assert.equal(event.defaultPrevented, true); },
+        () => f.$('.oyiso-agent-provider-dialog-footer [data-provider-close]').click(),
+    ]) {
+        f.$('[data-provider-add]').click(); trigger();
+        assert.equal(f.$('dialog').open, true); assert.equal(f.$('dialog').classList.contains('is-closing'), true);
+        transitionEnd(f); assert.equal(f.$('dialog').open, false);
+    }
+});
+
+test('successful saves animate the exit and pending requests prevent cancellation', async t => {
+    let finish;
+    const f = fixture(t, [row()], () => new Promise(resolve => { finish = resolve; }), { reducedMotion: false });
+    f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click();
+    f.field('key').value = 'fixture-save-key'; f.$('[data-provider-save]').click();
+    f.$('[data-provider-close]').click();
+    f.$('dialog').dispatchEvent(new f.window.Event('cancel', { cancelable: true }));
+    assert.equal(f.$('dialog').classList.contains('is-open'), true);
+    assert.equal(f.field('key').value, 'fixture-save-key');
+    finish({ connections: [row()] }); await settle();
+    assert.equal(f.$('dialog').open, true); assert.equal(f.$('dialog').classList.contains('is-closing'), true);
+    assert.equal(f.field('key').value, '');
+    transitionEnd(f); assert.equal(f.$('dialog').open, false);
+    // Rendering updated rows detaches the old edit button.
+    assert.equal(f.window.document.activeElement, f.$('[data-provider-add]'));
+});
+
+test('closing has a timeout fallback and reopening cancels stale cleanup', async t => {
+    const f = fixture(t, [], undefined, { reducedMotion: false });
+    f.$('[data-provider-add]').click(); f.$('[data-provider-close]').click();
+    await new Promise(resolve => setTimeout(resolve, 280));
+    assert.equal(f.$('dialog').open, false);
+    f.$('[data-provider-add]').click(); f.$('[data-provider-close]').click();
+    f.$('[data-provider-add]').click(); f.field('key').value = 'fixture-reopened-key';
+    transitionEnd(f);
+    await new Promise(resolve => setTimeout(resolve, 280));
+    assert.equal(f.$('dialog').open, true); assert.equal(f.$('dialog').inert, false);
+    assert.equal(f.$('dialog').classList.contains('is-open'), true);
+    assert.equal(f.field('key').value, 'fixture-reopened-key');
+});
+
+test('reduced motion closes immediately without waiting for a transition', t => {
+    const f = fixture(t);
+    f.$('[data-provider-add]').click(); f.$('[data-provider-close]').click();
+    assert.equal(f.$('dialog').open, false); assert.equal(f.$('dialog').classList.contains('is-closing'), false);
+    f.$('[data-provider-add]').click(); assert.equal(f.$('dialog').open, true);
+});
 test('provider presets prefill independent forms and cancel clears credentials without dirtying global settings', t => {
     const f = fixture(t); const document = f.window.document;
     let changed = 0; document.querySelector('form').addEventListener('change', () => changed++);

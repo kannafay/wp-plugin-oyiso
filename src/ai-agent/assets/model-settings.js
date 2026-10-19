@@ -16,6 +16,8 @@
     let revision = 0;
     const testing = new Set();
     let opener;
+    let cancelCloseMotion;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     const make = (tag, text, className = '') => { const element = document.createElement(tag); if (text !== undefined) element.textContent = text; element.className = className; return element; };
     const notify = (text, error = false) => { const notice = $('[data-provider-notice]'); notice.textContent = text; notice.hidden = !text; notice.classList.toggle('is-error', error); };
     async function api(route, method = 'GET', data, signal) {
@@ -59,6 +61,9 @@
         $('[data-provider-add]').disabled = busy;
     }
     function open(row, target) {
+        if (busy) return;
+        cancelCloseMotion?.(); cancelCloseMotion = undefined;
+        dialog.inert = false; dialog.classList.remove('is-closing');
         opener = target; editing = row?.id || '';
         fields.preset.value = row?.preset || 'deepseek';
         const preset = presets[fields.preset.value];
@@ -70,20 +75,39 @@
         fields.clear_key.checked = false; fields.clear_key.disabled = !row?.configured;
         $('#oyiso-provider-dialog-title').textContent = row ? '编辑提供商' : '添加提供商';
         $('[data-provider-dialog-notice]').textContent = '';
-        dialog.showModal(); fields.name.focus();
+        if (!dialog.open) dialog.showModal();
+        // Establish the initial scale before starting the shared modal transition.
+        void dialog.offsetHeight;
+        dialog.classList.add('is-open'); fields.name.focus();
     }
-    function close() { if (!busy) { dialog.close(); fields.key.value = ''; opener?.focus(); } }
+    function finishClose() {
+        cancelCloseMotion?.(); cancelCloseMotion = undefined;
+        dialog.close();
+        (opener?.isConnected && !opener.disabled ? opener : $('[data-provider-add]')).focus();
+    }
+    function close() {
+        if (busy || !dialog.open || dialog.classList.contains('is-closing')) return;
+        fields.key.value = ''; dialog.classList.remove('is-open');
+        if (reducedMotion?.matches) { finishClose(); return; }
+        dialog.inert = true; dialog.classList.add('is-closing');
+        const ended = event => { if (event.target === dialog && event.propertyName === 'transform') finishClose(); };
+        dialog.addEventListener('transitionend', ended);
+        // Interrupted transitions and hidden tabs may not emit transitionend.
+        const timeout = setTimeout(finishClose, 250);
+        cancelCloseMotion = () => { clearTimeout(timeout); dialog.removeEventListener('transitionend', ended); };
+    }
     async function save() {
-        if (busy) return;
+        if (busy || !dialog.open || dialog.classList.contains('is-closing')) return;
         const data = { preset: fields.preset.value, name: fields.name.value.trim(), url: fields.url.value.trim(), protocol: fields.protocol.value, models: fields.models.value.split(/\r?\n/).map(value => value.trim()).filter(Boolean), key: fields.key.value, clear_key: fields.clear_key.checked };
         if (!data.name || !data.url || !data.models.length) { $('[data-provider-dialog-notice]').textContent = '请填写连接名称、Base URL 和可用模型。'; return; }
         busy = true; $('[data-provider-save]').disabled = true; render();
+        let saved = false;
         try {
             const result = await api(`providers${editing ? '/' + editing : ''}`, editing ? 'PUT' : 'POST', data);
-            rows = result.connections; revision++; updateDefaults(); fields.key.value = ''; dialog.close();
+            rows = result.connections; revision++; updateDefaults(); fields.key.value = ''; saved = true;
             notify('提供商已保存。选择默认模型后，请点击页面顶部的「保存配置」。');
         } catch (error) { $('[data-provider-dialog-notice]').textContent = error.message; }
-        finally { busy = false; $('[data-provider-save]').disabled = false; render(); if (!dialog.open) $('[data-provider-add]').focus(); }
+        finally { busy = false; $('[data-provider-save]').disabled = false; render(); if (saved) close(); }
     }
     async function remove(row) {
         if (busy || !window.confirm(`删除「${row.name}」及其已保存的密钥？`)) return;
@@ -107,7 +131,11 @@
     $('[data-provider-save]').addEventListener('click', save);
     dialog.querySelectorAll('[data-provider-close]').forEach(button => button.addEventListener('click', close));
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
-    dialog.addEventListener('close', () => { fields.key.value = ''; });
+    dialog.addEventListener('close', () => {
+        if (dialog.open) return;
+        cancelCloseMotion?.(); cancelCloseMotion = undefined;
+        dialog.inert = false; dialog.classList.remove('is-open', 'is-closing'); fields.key.value = '';
+    });
     fields.preset.addEventListener('change', () => { const preset = presets[fields.preset.value]; fields.name.value = preset?.name || ''; fields.url.value = preset?.url || ''; fields.models.value = preset?.model || ''; });
     fields.clear_key.addEventListener('change', () => { if (fields.clear_key.checked) fields.key.value = ''; fields.key.disabled = fields.clear_key.checked; });
     dialog.addEventListener('keydown', event => { if (event.key === 'Enter' && event.target.matches('input, select')) { event.preventDefault(); save(); } });
