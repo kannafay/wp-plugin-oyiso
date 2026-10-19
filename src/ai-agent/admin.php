@@ -178,12 +178,18 @@ final class Oyiso_Agent_Admin
                 <div class="oyiso-agent-panel-actions">
                     <button type="button" class="button" data-agent-new>新建对话</button>
                     <button type="button" class="oyiso-agent-icon-button" data-agent-layout title="切换为悬浮窗" aria-label="切换为悬浮窗" aria-pressed="false"><span class="dashicons dashicons-external" aria-hidden="true"></span></button>
-                    <a class="oyiso-agent-icon-button" data-agent-tab="ai-agent/agent-records" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-records')); ?>" title="执行记录" aria-label="执行记录"><span class="dashicons dashicons-backup" aria-hidden="true"></span></a>
+                    <button type="button" class="oyiso-agent-icon-button" data-agent-history-toggle aria-controls="oyiso-agent-panel-history" aria-expanded="false" title="对话记录" aria-label="对话记录"><span class="dashicons dashicons-backup" aria-hidden="true"></span></button>
                     <a class="oyiso-agent-icon-button" data-agent-tab="ai-agent/agent-model" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-model')); ?>" title="模型配置" aria-label="模型配置"><span class="dashicons dashicons-admin-generic" aria-hidden="true"></span></a>
                     <button type="button" class="oyiso-agent-icon-button" data-agent-close title="关闭助手" aria-label="关闭助手"><span class="dashicons dashicons-no-alt" aria-hidden="true"></span></button>
                 </div>
             </header>
             <?php self::chat(); ?>
+            <section id="oyiso-agent-panel-history" class="oyiso-agent-panel-history" data-agent-runs="panel" aria-labelledby="oyiso-agent-history-title" hidden>
+                <div class="oyiso-agent-history-heading"><h3 id="oyiso-agent-history-title">对话记录</h3><button type="button" class="button" data-agent-history-back>返回对话</button><button type="button" class="oyiso-agent-icon-button" data-agent-history-refresh title="刷新记录" aria-label="刷新记录"><span class="dashicons dashicons-update" aria-hidden="true"></span></button></div>
+                <p class="oyiso-agent-history-notice" data-agent-history-notice role="status" aria-live="polite"></p>
+                <ul class="oyiso-agent-history-list" data-agent-history-body aria-label="历史对话"></ul>
+                <div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div>
+            </section>
         </aside>
         <?php
     }
@@ -224,10 +230,10 @@ final class Oyiso_Agent_Admin
     public static function history(): void
     {
         if (!Oyiso_Agent_Config::enabled()) {
-            echo '<p class="description">请先启用 AI Agent 并保存配置，刷新页面后查看执行记录。</p>';
+            echo '<p class="description">请先启用 AI Agent 并保存配置，刷新页面后查看对话记录。</p>';
             return;
         }
-        echo '<div id="oyiso-agent-history" class="oyiso-agent" data-agent-runs="history"><div class="oyiso-agent-heading"><div><h2>执行记录</h2><p class="description">查看你发起的对话、执行过程和商品修改；可取消正在执行或等待确认的任务。</p></div><button type="button" class="button" data-agent-history-refresh>刷新记录</button></div><p role="status" aria-live="polite" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th>任务</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="4">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>';
+        echo '<div id="oyiso-agent-history" class="oyiso-agent" data-agent-runs="history"><div class="oyiso-agent-heading"><div><h2>对话记录</h2><p class="description">查看你发起的对话、执行过程和商品修改；可取消正在执行或等待确认的任务。</p></div><button type="button" class="button" data-agent-history-refresh>刷新记录</button></div><p role="status" aria-live="polite" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th>对话</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="4">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>';
     }
 
     public static function tools(): void

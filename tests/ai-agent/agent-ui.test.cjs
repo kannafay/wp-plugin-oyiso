@@ -20,7 +20,7 @@ const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42
 const proposal = () => ({ id: '12345678-1234-1234-1234-123456789abc', product_id: 99, name: '商品示例', before: { description: '<p>Original</p>' }, after: { description: '<p>Proposed</p>' }, status: 'pending' });
 
 function fixture(t, router = () => undefined, settings = {}, before = () => {}, view = {}) {
-    const navigation = view.nativeNavigation ? '<nav class="csf-nav csf-nav-options"><ul><li class="csf-tab-item"><a class="csf-arrow" data-tab-id="ai-agent" href="#tab=ai-agent">AI Agent</a><ul><li><a data-tab-id="ai-agent/agent-model" href="#tab=ai-agent/agent-model">模型配置</a></li><li><a data-tab-id="ai-agent/agent-records" href="#tab=ai-agent/agent-records">执行记录</a></li></ul></li></ul></nav>' : '';
+    const navigation = view.nativeNavigation ? '<nav class="csf-nav csf-nav-options"><ul><li class="csf-tab-item"><a data-tab-id="ai-agent" class="csf-arrow" href="#tab=ai-agent">AI Agent</a><ul><li><a data-tab-id="ai-agent/agent-model" href="#tab=ai-agent/agent-model">模型配置</a></li><li><a data-tab-id="ai-agent/agent-records" href="#tab=ai-agent/agent-records">对话记录</a></li></ul></li></ul></nav>' : '';
     const content = view.nativeNavigation ? `<section class="csf-section hidden" data-section-id="ai-agent/agent-model"><h2>模型配置</h2>${markup.connection}</section><section class="csf-section hidden" data-section-id="ai-agent/agent-records">${markup.history}</section>` : markup.history + markup.connection;
     const settingsMarkup = `<div class="csf-options" data-unique="oyiso"><form id="csf-form">${navigation}<div class="csf-content">${content}</div><input name="oyiso[agent_deepseek_url]" value="https://api.deepseek.com" data-agent-connection="deepseek"><input name="oyiso[agent_deepseek_model]" value="deepseek-flash" data-agent-connection="deepseek"><input type="password" name="oyiso[agent_deepseek_key]" data-agent-connection="deepseek"><input type="checkbox" name="oyiso[agent_deepseek_key_clear]" data-agent-connection="deepseek"></form></div>`;
     const dom = new JSDOM(`${view.globalOnly ? '<div id="wpcontent">仪表盘</div>' : settingsMarkup}${markup.panel}`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only', pretendToBeVisual: true });
@@ -161,6 +161,145 @@ test('global launcher works on other admin pages without loading task data until
     assert.equal(f.window.document.activeElement, f.$('#oyiso-agent-launcher'));
     assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open'), '0');
     assert.equal(f.calls.some(call => call.route.endsWith('/cancel')), false);
+});
+
+const panelRecords = '[data-agent-runs="panel"]';
+const inputDraft = (f, value) => { const input = f.$('#oyiso-agent-prompt'); input.value = value; input.dispatchEvent(new f.window.Event('input', { bubbles: true })); };
+
+test('panel conversation history loads on demand and switches conversations without navigating or changing window geometry', async t => {
+    const f = fixture(t, route => route === 'runs?page=1' ? { items: [{ id: 12, title: '商品内容检查', status: 'completed', updated: '2026-10-19' }], pages: 1 } : route === 'runs/12' ? task({ conversation: [{ role: 'assistant', text: '已读取历史对话' }] }) : undefined, {}, window => {
+        geometry(window);
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:layout', 'floating');
+    }, { globalOnly: true });
+    await settle();
+    const url = f.window.location.href;
+    const geometryBefore = f.$('#oyiso-agent-panel').style.cssText;
+    assert.equal(f.calls.length, 0);
+    f.$('[data-agent-history-toggle]').click();
+    await settle();
+    assert.equal(f.$('#oyiso-agent-chat').hidden, true);
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, false);
+    assert.equal(f.$('[data-agent-history-toggle]').getAttribute('aria-expanded'), 'true');
+    assert.equal(f.$(`${panelRecords} .oyiso-agent-history-title`).textContent, '商品内容检查');
+    f.$(`${panelRecords} .oyiso-agent-history-open`).click();
+    await settle();
+    assert.equal(f.$('#oyiso-agent-chat').hidden, false);
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, true);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(f.window.location.href, url);
+    assert.equal(f.$('#oyiso-agent-panel').style.cssText, geometryBefore);
+    assert.match(f.$('[data-agent-messages]').textContent, /已读取历史对话/);
+});
+
+test('quick conversation switching keeps separate drafts and returning to the list preserves the current one', async t => {
+    const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+    const router = route => route === 'runs?page=1' ? { items: [12, 13].map(id => ({ id, title: `对话 ${id}`, status: 'completed', updated: '2026-10-19' })), pages: 1 } : route === 'runs/12' || route === 'runs/13' ? task({ id: Number(route.split('/')[1]) }) : undefined;
+    const f = fixture(t, router, {}, window => window.localStorage.setItem(key, '12'), { globalOnly: true });
+    await settle();
+    inputDraft(f, '对话十二的草稿');
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    assert.equal(f.$(`${panelRecords} .oyiso-agent-history-open`).getAttribute('aria-current'), 'true');
+    f.$(`${panelRecords} li:nth-child(2) .oyiso-agent-history-open`).click(); await settle();
+    assert.equal(f.$('#oyiso-agent-prompt').value, '');
+    inputDraft(f, '对话十三的草稿');
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    f.$(`${panelRecords} li:first-child .oyiso-agent-history-open`).click(); await settle();
+    assert.equal(f.$('#oyiso-agent-prompt').value, '对话十二的草稿');
+    assert.equal(f.window.sessionStorage.getItem(key + ':draft:13'), '对话十三的草稿');
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    f.$('[data-agent-history-back]').click();
+    assert.equal(f.$('#oyiso-agent-prompt').value, '对话十二的草稿');
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    f.$('[data-agent-history-back]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, true);
+    assert.equal(f.window.document.activeElement, f.$('[data-agent-history-toggle]'));
+    const restored = fixture(t, router, {}, window => {
+        window.localStorage.setItem(key, '13');
+        window.sessionStorage.setItem(key + ':draft:13', f.window.sessionStorage.getItem(key + ':draft:13'));
+    }, { globalOnly: true });
+    await settle();
+    assert.equal(restored.$('#oyiso-agent-prompt').value, '对话十三的草稿');
+});
+
+test('panel conversation history handles errors, empty results and pagination and renders titles as text', async t => {
+    let failed = true;
+    const title = '<img src=x onerror="window.historyXss=true">历史对话';
+    const f = fixture(t, route => {
+        if (route === 'runs?page=1') return failed ? { ok: false, status: 500, body: { message: '读取对话失败' } } : { items: [{ id: 12, title, status: 'completed', updated: '2026-10-19' }], pages: 2 };
+        if (route === 'runs?page=2') return { items: [], pages: 2 };
+    }, {}, undefined, { globalOnly: true });
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    assert.match(f.$(`${panelRecords} [data-agent-history-notice]`).textContent, /读取对话失败/);
+    failed = false;
+    f.$(`${panelRecords} [data-agent-history-refresh]`).click(); await settle();
+    assert.equal(f.$(`${panelRecords} .oyiso-agent-history-title`).textContent, title);
+    assert.equal(f.$(`${panelRecords} img`), null);
+    assert.equal(f.window.historyXss, undefined);
+    f.$(`${panelRecords} [data-agent-history-next]`).click(); await settle();
+    assert.equal(f.$(`${panelRecords} [data-agent-history-page]`).textContent, '2 / 2');
+    assert.match(f.$(`${panelRecords} [data-agent-history-body]`).textContent, /暂无对话记录/);
+    assert.equal(f.$(`${panelRecords} [data-agent-history-next]`).disabled, true);
+});
+
+test('an unsent new conversation draft survives viewing history and disappears after successful submission', async t => {
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs?page=1') return { items: [{ id: 13, title: '已有对话', status: 'completed', updated: '2026-10-19' }], pages: 1 };
+        if (route === 'runs/13') return task({ id: 13 });
+        if (route === 'runs' && options.method === 'POST' || route === 'runs/14') return task({ id: 14 });
+    }, {}, undefined, { globalOnly: true });
+    inputDraft(f, '还没发送的新对话');
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    f.$(`${panelRecords} .oyiso-agent-history-open`).click(); await settle();
+    f.$('[data-agent-new]').click();
+    assert.equal(f.$('#oyiso-agent-prompt').value, '还没发送的新对话');
+    f.$('[data-agent-send]').click(); await settle();
+    assert.equal(f.window.sessionStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:draft:0'), null);
+    f.$('[data-agent-new]').click();
+    assert.equal(f.$('#oyiso-agent-prompt').value, '');
+});
+
+test('panel history cancellation submits once and updates the record without closing the list', async t => {
+    let finish;
+    let cancelled = false;
+    const f = fixture(t, route => {
+        if (route === 'runs?page=1') return { items: [{ id: 12, title: '待确认的商品修改', status: cancelled ? 'cancelled' : 'waiting', updated: '2026-10-19' }], pages: 1 };
+        if (route === 'runs/12/cancel') return new Promise(resolve => { finish = () => { cancelled = true; resolve(task({ status: 'cancelled' })); }; });
+    }, {}, undefined, { globalOnly: true });
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    const cancel = f.$(`${panelRecords} li .button`);
+    cancel.click(); cancel.click(); await settle();
+    assert.equal(f.calls.filter(call => call.route === 'runs/12/cancel').length, 1);
+    assert.equal(cancel.disabled, true);
+    finish(); await settle();
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, false);
+    assert.match(f.$(`${panelRecords} li`).textContent, /已取消/);
+    assert.equal(f.$(`${panelRecords} li .button`), null);
+});
+
+test('rapid switches ignore earlier conversation responses and sending clears the submitted draft', async t => {
+    let oldResponse;
+    let newResponse;
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs?page=1') return { items: [13, 14].map(id => ({ id, title: `对话 ${id}`, status: 'completed', updated: '2026-10-19' })), pages: 1 };
+        if (route === 'runs/13') return new Promise(resolve => { oldResponse = resolve; });
+        if (route === 'runs/14') return new Promise(resolve => { newResponse = resolve; });
+        if (route === 'runs' && options.method === 'POST') return task({ id: 14 });
+    }, {}, undefined, { globalOnly: true });
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    f.$(`${panelRecords} li:first-child .oyiso-agent-history-open`).click(); await settle();
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    f.$(`${panelRecords} li:nth-child(2) .oyiso-agent-history-open`).click(); await settle();
+    oldResponse(task({ id: 13, status: 'waiting', changes: [proposal()], conversation: [{ role: 'assistant', text: '旧对话的响应' }] }));
+    newResponse(task({ id: 14, conversation: [{ role: 'assistant', text: '当前对话的响应' }] }));
+    await settle();
+    assert.match(f.$('[data-agent-messages]').textContent, /当前对话的响应/);
+    assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /旧对话的响应/);
+    assert.equal(f.$('[data-agent-changes] button'), null);
+    inputDraft(f, '提交这条消息');
+    f.$('[data-agent-send]').click(); await settle();
+    assert.equal(f.window.sessionStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:draft:14'), null);
+    assert.equal(f.$('#oyiso-agent-prompt').value, '');
 });
 
 test('launcher stays unpainted until saved position, edge and open state have all restored', t => {
@@ -810,14 +949,19 @@ test('settings shortcut uses native tab navigation and resets page scroll', asyn
     assert.equal(f.calls.some(call => call.route.endsWith('/cancel')), false);
 });
 
-test('history shortcut switches native tabs even when the URL already matches', async t => {
+test('conversation shortcut opens panel history without switching native tabs or changing the URL', async t => {
     const f = fixture(t, undefined, {}, window => { window.scrollTo = () => {}; }, { nativeNavigation: true });
+    await new Promise(resolve => f.window.jQuery(resolve));
+    f.$('.csf-nav [data-tab-id="ai-agent/agent-model"]').click();
     await settle();
     f.window.history.replaceState(null, '', '#tab=ai-agent/agent-records');
-    f.$('#oyiso-agent-panel a[aria-label="执行记录"]').click(); await settle();
-    assert.equal(f.$('[data-section-id="ai-agent/agent-records"]').classList.contains('hidden'), false);
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    assert.equal(f.$('[data-section-id="ai-agent/agent-model"]').classList.contains('hidden'), false);
     assert.equal(f.window.document.querySelectorAll('.csf-section:not(.hidden)').length, 1);
-    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(f.window.location.hash, '#tab=ai-agent/agent-records');
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, false);
+    assert.equal(f.$('#oyiso-agent-chat').hidden, true);
 });
 
 test('settings shortcut closes the panel before normal navigation from another admin page', async t => {

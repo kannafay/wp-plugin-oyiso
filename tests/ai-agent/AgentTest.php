@@ -420,10 +420,12 @@ final class AgentTest extends TestCase
         $sections = CSF::$args['sections']['oyiso'];
         $children = array_values(array_filter($sections, static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
         self::assertSame(['agent-model', 'agent-tools', 'agent-records'], array_column($children, 'id'));
-        self::assertSame(['模型配置', '站内工具', '执行记录'], array_column($children, 'title'));
+        self::assertSame(['模型配置', '站内工具', '对话记录'], array_column($children, 'title'));
         ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_Admin::history(); Oyiso_Agent_Admin::connection(); $html = ob_get_clean();
         self::assertStringNotContainsString('oyiso-agent-chat', $html); self::assertStringContainsString('oyiso-agent-history', $html);
         self::assertStringNotContainsString('oyiso-agent-tasks', $html);
+        self::assertStringContainsString('<h2>对话记录</h2>', $html);
+        self::assertStringNotContainsString('执行记录', $html);
         self::assertStringContainsString('可取消正在执行或等待确认的任务', $html);
         self::assertStringContainsString('查询商品', $html); self::assertStringContainsString('在修改预览中操作', $html);
         self::assertStringNotContainsString('<form', $html); self::assertStringContainsString('options-connectors.php', $html);
@@ -478,6 +480,9 @@ final class AgentTest extends TestCase
         self::assertStringContainsString('aria-label="调整助手宽度"', $html);
         self::assertSame(8, substr_count($html, 'data-agent-resize="'));
         self::assertStringContainsString('data-agent-drag tabindex="-1"', $html);
+        self::assertStringContainsString('data-agent-history-toggle aria-controls="oyiso-agent-panel-history"', $html);
+        self::assertStringContainsString('data-agent-runs="panel"', $html);
+        self::assertStringNotContainsString('data-agent-tab="ai-agent/agent-records"', $html);
         self::assertStringNotContainsString('title="拖动调整宽度', $html);
         self::assertStringNotContainsString('<form', $html);
         wp_dequeue_script('oyiso-agent'); wp_dequeue_script('oyiso-agent-panel'); wp_dequeue_style('oyiso-agent');

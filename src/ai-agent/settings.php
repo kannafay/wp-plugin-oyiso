@@ -62,6 +62,6 @@ CSF::createSection('oyiso', [
 ]);
 
 CSF::createSection('oyiso', [
-    'parent' => 'ai-agent', 'id' => 'agent-records', 'title' => '执行记录', 'icon' => 'fas fa-history', 'priority' => 40,
+    'parent' => 'ai-agent', 'id' => 'agent-records', 'title' => '对话记录', 'icon' => 'fas fa-history', 'priority' => 40,
     'fields' => [['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'history']]],
 ]);

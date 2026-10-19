@@ -14,11 +14,14 @@
     const scroll = $('.oyiso-agent-scroll');
     const empty = messages.firstElementChild.cloneNode(true);
     const notice = $('[data-agent-notice]');
+    const panelHistory = $('#oyiso-agent-panel-history');
+    const historyToggle = $('[data-agent-history-toggle]');
     const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
     const fields = { description: '长描述', short_description: '短描述', seo_title: 'SEO 标题', seo_description: 'SEO 描述', seo_keywords: '目标关键词' };
     const storageKey = `oyiso-agent:${config.user}:${new URL(config.url).pathname}`;
     const changing = new Set();
-    const lists = Array.from(document.querySelectorAll('[data-agent-runs]'), root => ({ root, page: 1, pages: 1, revision: 0 }));
+    const lists = Array.from(document.querySelectorAll('[data-agent-runs]'), root => ({ root, inline: root === panelHistory, page: 1, pages: 1, revision: 0 }));
+    const drafts = new Map();
     let run = null;
     let runId = 0;
     let timer;
@@ -35,7 +38,36 @@
     }
 
     function rememberDraft() {
-        try { sessionStorage.setItem(storageKey + ':draft', JSON.stringify({ id: runId, text: prompt.value })); } catch { /* Storage is optional. */ }
+        drafts.set(runId, prompt.value);
+        try {
+            sessionStorage.setItem(storageKey + ':draft', JSON.stringify({ id: runId, text: prompt.value }));
+            if (prompt.value) sessionStorage.setItem(storageKey + ':draft:' + runId, prompt.value);
+            else sessionStorage.removeItem(storageKey + ':draft:' + runId);
+        } catch { /* Storage is optional. */ }
+    }
+
+    function draftFor(id) {
+        if (drafts.has(id)) return drafts.get(id);
+        try {
+            const saved = sessionStorage.getItem(storageKey + ':draft:' + id);
+            if (saved !== null) return saved.slice(0, 4000);
+            const legacy = JSON.parse(sessionStorage.getItem(storageKey + ':draft') || 'null');
+            if (legacy?.id === id && typeof legacy.text === 'string') return legacy.text.slice(0, 4000);
+        } catch { /* Storage is optional. */ }
+        return '';
+    }
+
+    function forgetDraft(id) {
+        drafts.delete(id);
+        try { sessionStorage.removeItem(storageKey + ':draft:' + id); } catch { /* Storage is optional. */ }
+    }
+
+    function setHistory(open, focus = true) {
+        panelHistory.hidden = !open;
+        chat.hidden = open;
+        historyToggle.setAttribute('aria-expanded', String(open));
+        if (open) loadList(lists.find(list => list.inline));
+        if (focus) (open ? $('[data-agent-history-back]') : historyToggle).focus({ preventScroll: true });
     }
 
     function finishPanelMotion() {
@@ -76,6 +108,7 @@
         if (open) {
             if (focus) $('[data-agent-close]').focus({ preventScroll: true });
             poll();
+            if (!panelHistory.hidden) loadList(lists.find(list => list.inline));
         } else {
             clearTimeout(timer);
             pollRevision++;
@@ -337,6 +370,7 @@
         controls();
         try {
             const next = await api('runs', { method: 'POST', body: JSON.stringify({ message, run_id: runId }) });
+            forgetDraft(runId);
             runId = next.id;
             remember(runId);
             prompt.value = '';
@@ -365,11 +399,14 @@
     }
 
     async function openRun(id) {
+        setHistory(false, false);
         if (sending || changing.size) {
             setPanel(true);
-            showNotice('请等待当前操作完成后再切换任务。');
+            showNotice('请等待当前操作完成后再切换对话。');
             return;
         }
+        rememberDraft();
+        if (id === runId && run) { setPanel(true); return; }
         clearTimeout(timer);
         runId = id;
         run = null;
@@ -378,15 +415,18 @@
         messages.replaceChildren(node('p', 'description', '正在读取对话…'));
         $('[data-agent-events]').replaceChildren();
         $('[data-agent-changes]').replaceChildren();
-        prompt.value = '';
+        prompt.value = draftFor(id);
         rememberDraft();
+        initialNotice();
         setPanel(true);
     }
 
     async function loadList(list) {
+        if (list.inline && (panelHistory.hidden || !panelOpen)) return;
         const { root } = list;
         const revision = ++list.revision;
         const note = $('[data-agent-history-notice]', root);
+        if (list.inline) note.textContent = '正在读取对话记录…';
         try {
             const data = await api(`runs?page=${list.page}`);
             if (revision !== list.revision) return;
@@ -395,11 +435,15 @@
             body.replaceChildren();
             list.pages = Math.max(1, data.pages);
             for (const item of data.items) {
-                const row = node('tr');
-                row.append(node('td', '', item.title), node('td', '', statuses[item.status] || item.status), node('td', '', item.updated));
-                const cell = node('td');
-                const button = node('button', 'button button-small', '查看对话');
+                const row = node(list.inline ? 'li' : 'tr', list.inline ? 'oyiso-agent-history-item' : '');
+                const cell = list.inline ? row : node('td');
+                if (!list.inline) row.append(node('td', '', item.title), node('td', '', statuses[item.status] || item.status), node('td', '', item.updated));
+                const button = node('button', list.inline ? 'oyiso-agent-history-open' : 'button button-small', list.inline ? undefined : '查看对话');
                 button.type = 'button';
+                if (list.inline) {
+                    button.append(node('span', 'oyiso-agent-history-title', item.title), node('span', 'oyiso-agent-history-meta', `${statuses[item.status] || item.status} · ${item.updated}`));
+                    if (item.id === runId) button.setAttribute('aria-current', 'true');
+                }
                 button.addEventListener('click', () => openRun(item.id));
                 cell.append(button);
                 if (['queued', 'running', 'waiting'].includes(item.status)) {
@@ -415,12 +459,13 @@
                     });
                     cell.append(document.createTextNode(' '), cancel);
                 }
-                row.append(cell); body.append(row);
+                if (!list.inline) row.append(cell);
+                body.append(row);
             }
             if (!data.items.length) {
-                const cell = node('td', '', '暂无执行记录。发送第一个任务后，记录会显示在这里。');
-                cell.colSpan = 4;
-                const row = node('tr'); row.append(cell); body.append(row);
+                const cell = node(list.inline ? 'li' : 'td', list.inline ? 'oyiso-agent-history-empty' : '', '暂无对话记录。发送第一条消息后，记录会显示在这里。');
+                if (list.inline) body.append(cell);
+                else { cell.colSpan = 4; const row = node('tr'); row.append(cell); body.append(row); }
             }
             $('[data-agent-history-page]', root).textContent = `${list.page} / ${list.pages}`;
             $('[data-agent-history-prev]', root).disabled = list.page <= 1;
@@ -451,13 +496,16 @@
         });
     });
     launcher.addEventListener('click', () => setPanel(!panelOpen));
+    historyToggle.addEventListener('click', () => setHistory(panelHistory.hidden));
+    $('[data-agent-history-back]').addEventListener('click', () => setHistory(false));
     panel.addEventListener('oyiso-agent-geometry-start', () => { if (cancelPanelMotion) finishPanelMotion(); });
     $('[data-agent-close]').addEventListener('click', () => setPanel(false));
     $('[data-agent-layout]').addEventListener('click', () => setLayout(!document.body.classList.contains('oyiso-agent-floating')));
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && panelOpen && (panel.contains(event.target) || event.target === document.body || event.target === launcher)) {
             event.preventDefault();
-            setPanel(false);
+            if (!panelHistory.hidden) setHistory(false);
+            else setPanel(false);
         }
     });
     $('[data-agent-send]').addEventListener('click', send);
@@ -472,11 +520,15 @@
         if (example && !prompt.disabled) { prompt.value = example.dataset.agentExample; rememberDraft(); prompt.focus(); }
     });
     $('[data-agent-new]').addEventListener('click', () => {
+        rememberDraft();
+        const draft = runId === 0 ? '' : draftFor(0);
+        if (runId === 0) forgetDraft(0);
+        setHistory(false, false);
         clearTimeout(timer); pollRevision++; loading = false; runId = 0; run = null; version = ''; remember(0);
         messages.replaceChildren(empty.cloneNode(true));
         $('[data-agent-events]').replaceChildren(node('li', 'description', '发送任务后，这里会显示查询和处理进度。'));
         $('[data-agent-changes]').replaceChildren();
-        prompt.value = '';
+        prompt.value = draft;
         rememberDraft();
         controls(); initialNotice(); prompt.focus();
     });
@@ -528,8 +580,7 @@
     try {
         const saved = Number(localStorage.getItem(storageKey));
         if (Number.isSafeInteger(saved) && saved > 0) runId = saved;
-        const draft = JSON.parse(sessionStorage.getItem(storageKey + ':draft') || 'null');
-        if (draft?.id === runId && typeof draft.text === 'string') prompt.value = draft.text.slice(0, 4000);
+        prompt.value = draftFor(runId);
         setLayout(localStorage.getItem(storageKey + ':layout') === 'floating');
         if (localStorage.getItem(storageKey + ':open') === '1') setPanel(true, false, false);
     } catch { /* Storage is optional. */ }
