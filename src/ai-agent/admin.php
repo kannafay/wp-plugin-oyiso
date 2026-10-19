@@ -9,6 +9,7 @@ final class Oyiso_Agent_Admin
 {
     public static function routes(): void
     {
+        Oyiso_Agent_Model_Settings::routes();
         $permission = static fn(): bool => current_user_can('manage_options');
         $root = 'oyiso-agent/v1';
         register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'secrets' => Oyiso_Agent_Config::secretStatus()])]);
@@ -147,6 +148,7 @@ final class Oyiso_Agent_Admin
 
     public static function assets(string $hook): void
     {
+        Oyiso_Agent_Model_Settings::assets($hook);
         if (!self::available()) {
             return;
         }

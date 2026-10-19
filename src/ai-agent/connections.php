@@ -15,7 +15,7 @@ use WordPress\AiClient\Tools\DTO\FunctionResponse;
 
 final readonly class Oyiso_Agent_Connection
 {
-    public function __construct(public string $id, public string $name, public string $url, public string $model)
+    public function __construct(public string $id, public string $name, public string $url, public string $model, public bool $managed = false)
     {
     }
 }
@@ -46,13 +46,28 @@ final class Oyiso_Agent_Connectors
         }
         $url = rtrim(Oyiso_Agent_Config::text($id . '_url') ?: $preset['url'], '/');
         $model = Oyiso_Agent_Config::text($id . '_model') ?: $preset['model'];
+        $connectionId = $id;
+        $secret = $id . '_key';
+        $name = $preset['name'];
+        $managed = is_array(get_option('oyiso_agent_connections', null));
+        if ($managed) {
+            $matching = array_values(array_filter(Oyiso_Agent_Connections::all(), static fn(array $row): bool => $row['id'] === 'legacy-' . $id));
+            if ($matching === []) {
+                return new WP_Error('agent_connector_retired', '此预设连接已迁移，请选择已保存的模型连接。', ['status' => 400]);
+            }
+            $connectionId = $matching[0]['id'];
+            $name = $matching[0]['name'];
+            $url = $matching[0]['url'];
+            $model = $matching[0]['models'][0];
+            $secret = Oyiso_Agent_Connections::secretName($connectionId);
+        }
         if (self::validateUrl($url) !== null || preg_match('/[\x00-\x20\x7f]/', $model) || strlen($model) > 200) {
             return new WP_Error('agent_connector_invalid', '请检查模型预设的 HTTPS API 地址和模型 ID。', ['status' => 400]);
         }
-        if ($requireKey && Oyiso_Agent_Config::secret($id . '_key') === '') {
+        if ($requireKey && Oyiso_Agent_Config::secret($secret) === '') {
             return new WP_Error('agent_connector_key', '请先在「模型配置」中保存此预设的 API Key。', ['status' => 400]);
         }
-        return new Oyiso_Agent_Connection($id, $preset['name'], $url, $model);
+        return new Oyiso_Agent_Connection($connectionId, $name, $url, $model, $managed);
     }
 
     public static function validateUrl(mixed $value): ?string
@@ -90,7 +105,12 @@ final class Oyiso_Agent_Connectors
             if (!$registry->hasProvider('oyiso-' . $id)) {
                 $registry->registerProvider($class);
             }
-            $registry->setProviderRequestAuthentication('oyiso-' . $id, new ApiKeyRequestAuthentication(Oyiso_Agent_Config::secret($id . '_key')));
+            $connection = self::load($id, false);
+            $secret = !is_wp_error($connection) && $connection->managed ? Oyiso_Agent_Connections::secretName($connection->id) : $id . '_key';
+            $registry->setProviderRequestAuthentication('oyiso-' . $id, new ApiKeyRequestAuthentication(Oyiso_Agent_Config::secret($secret)));
+        }
+        if (!$registry->hasProvider('oyiso-custom')) {
+            $registry->registerProvider(Oyiso_Agent_Custom_Provider::class);
         }
     }
 
@@ -109,12 +129,12 @@ final class Oyiso_Agent_Connectors
     }
 
     /** @return array{provider:string, model:string, message:string}|WP_Error */
-    public static function test(string $id): array|WP_Error
+    public static function test(string $id, string $model = ''): array|WP_Error
     {
         if (!Oyiso_Agent_Config::supported()) {
             return new WP_Error('agent_connector_unsupported', '模型连接需要 WordPress 7.0 或以上版本。', ['status' => 400]);
         }
-        $connection = self::load($id);
+        $connection = isset(self::presets()[$id]) ? self::load($id) : Oyiso_Agent_Connections::load($id, $model);
         if (is_wp_error($connection)) {
             return $connection;
         }
@@ -154,7 +174,10 @@ final class Oyiso_Agent_Connectors
         $options = new RequestOptions();
         $options->setTimeout(20.0);
         $options->setMaxRedirects(0);
-        $model = AiClient::defaultRegistry()->getProviderModel('oyiso-' . $connection->id, $connection->model);
+        $model = $connection->managed ? Oyiso_Agent_Connections::model($connection->id, $connection->model) : AiClient::defaultRegistry()->getProviderModel('oyiso-' . $connection->id, $connection->model);
+        if (is_wp_error($model)) {
+            throw new RuntimeException($model->get_error_message());
+        }
         return wp_ai_client_prompt($messages)->using_model($model)->using_max_tokens(2048)->using_request_options($options)
             ->using_function_declarations(new FunctionDeclaration('oyiso_connection_probe', 'Return the supplied value. This is a harmless connectivity test.', ['type' => 'object', 'properties' => ['value' => ['type' => 'string', 'enum' => ['ok']]], 'required' => ['value']]));
     }

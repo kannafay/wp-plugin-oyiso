@@ -17,7 +17,9 @@ final class Oyiso_Agent_Config
 
     public static function text(string $name, string $default = ''): string
     {
-        $value = self::options()['agent_' . $name] ?? $default;
+        $options = self::options();
+        $advanced = $options['agent_advanced'] ?? [];
+        $value = is_array($advanced) && in_array($name, ['max_steps', 'model'], true) && isset($advanced[$name]) ? $advanced[$name] : ($options['agent_' . $name] ?? $default);
         return is_string($value) || is_int($value) ? trim((string) $value) : $default;
     }
 
@@ -64,7 +66,29 @@ final class Oyiso_Agent_Config
     /** @return list<string> */
     public static function secretNames(): array
     {
-        return ['deepseek_key', 'gemini_key', 'agnes_key'];
+        $stored = get_option(self::SECRETS, []);
+        return array_values(array_unique(array_merge(['deepseek_key', 'gemini_key', 'agnes_key'], is_array($stored) ? array_filter(array_keys($stored), static fn(mixed $name): bool => is_string($name) && str_starts_with($name, 'connection_')) : [])));
+    }
+
+    public static function setSecret(string $name, string $value): bool
+    {
+        $stored = get_option(self::SECRETS, []);
+        $secrets = is_array($stored) ? $stored : [];
+        if ($value === '') {
+            unset($secrets[$name]);
+        } else {
+            if (!function_exists('openssl_encrypt')) {
+                return false;
+            }
+            $iv = random_bytes(12);
+            $tag = '';
+            $cipher = openssl_encrypt($value, 'aes-256-gcm', self::key(), OPENSSL_RAW_DATA, $iv, $tag, $name);
+            if (!is_string($cipher)) {
+                return false;
+            }
+            $secrets[$name] = base64_encode($iv . $tag . $cipher);
+        }
+        return update_option(self::SECRETS, $secrets, false) || get_option(self::SECRETS, []) === $secrets;
     }
 
     /** @return array<string, bool> */
@@ -100,29 +124,26 @@ final class Oyiso_Agent_Config
      */
     public static function saveOptions(array $options): array
     {
-        $stored = get_option(self::SECRETS, []);
-        $secrets = is_array($stored) ? $stored : [];
         // Keep retired credentials encrypted for rollback, and discard obsolete plaintext inputs.
         foreach (['search_key', 'keywords_password'] as $name) {
             unset($options['agent_' . $name], $options['agent_' . $name . '_clear']);
         }
-        foreach (self::secretNames() as $name) {
+        foreach (array_keys($options) as $field) {
+            if (preg_match('/^agent_connection_[a-z0-9-]+_key(?:_clear)?$/', $field)) {
+                unset($options[$field]);
+            }
+        }
+        foreach (['deepseek_key', 'gemini_key', 'agnes_key'] as $name) {
             $field = 'agent_' . $name;
             $value = isset($options[$field]) && is_string($options[$field]) ? trim($options[$field]) : '';
             if (!empty($options[$field . '_clear'])) {
-                unset($secrets[$name]);
-            } elseif ($value !== '' && (!str_ends_with($name, '_key') || Oyiso_Agent_Connectors::validateKey($value) === null) && function_exists('openssl_encrypt')) {
-                $iv = random_bytes(12);
-                $tag = '';
-                $cipher = openssl_encrypt($value, 'aes-256-gcm', self::key(), OPENSSL_RAW_DATA, $iv, $tag, $name);
-                if (is_string($cipher)) {
-                    $secrets[$name] = base64_encode($iv . $tag . $cipher);
-                }
+                self::setSecret($name, '');
+            } elseif ($value !== '' && Oyiso_Agent_Connectors::validateKey($value) === null) {
+                self::setSecret($name, $value);
             }
             $options[$field] = '';
             $options[$field . '_clear'] = false;
         }
-        update_option(self::SECRETS, $secrets, false);
         return $options;
     }
 

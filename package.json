@@ -8,7 +8,7 @@
     "i18n:prune": "php scripts/update-oyiso-pot.php --prune",
     "i18n:check": "php scripts/update-oyiso-pot.php --check --strict",
     "i18n:build": "node scripts/build-i18n.js",
-    "test:agent-ui": "node --test tests/ai-agent/agent-ui.test.cjs"
+    "test:agent-ui": "node --test tests/ai-agent/agent-ui.test.cjs tests/ai-agent/model-settings.test.cjs"
   },
   "devDependencies": {
     "archiver": "^7.0.1",

@@ -16,6 +16,7 @@ final class ConnectorTest extends TestCase
 {
     private array $options;
     private mixed $secrets;
+    private mixed $connections;
     private ?Closure $http = null;
 
     protected function setUp(): void
@@ -23,8 +24,11 @@ final class ConnectorTest extends TestCase
         wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
         $this->options = Oyiso_Agent_Config::options();
         $this->secrets = get_option('oyiso_agent_secrets', false);
+        $this->connections = get_option('oyiso_agent_connections', false);
+        delete_option('oyiso_agent_connections');
         delete_option('oyiso_agent_secrets');
         $options = $this->options;
+        unset($options['agent_selection'], $options['agent_advanced']);
         foreach (Oyiso_Agent_Connectors::presets() as $id => $preset) {
             unset($options['agent_' . $id . '_url'], $options['agent_' . $id . '_model']);
         }
@@ -38,6 +42,8 @@ final class ConnectorTest extends TestCase
         update_option('oyiso', $this->options, false);
         if ($this->secrets === false) delete_option('oyiso_agent_secrets');
         else update_option('oyiso_agent_secrets', $this->secrets, false);
+        if ($this->connections === false) delete_option('oyiso_agent_connections');
+        else update_option('oyiso_agent_connections', $this->connections, false);
         Oyiso_Agent_Connectors::register();
         wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
     }
@@ -111,8 +117,8 @@ final class ConnectorTest extends TestCase
         ob_start();
         foreach ($modelSection['fields'] as $field) CSF::field($field, $saved[$field['id'] ?? ''] ?? '', 'oyiso');
         $html = ob_get_clean();
-        self::assertStringContainsString('data-agent-test-connection="agnes"', $html);
-        self::assertStringContainsString('oyiso[agent_gemini_key]', $html);
+        self::assertStringContainsString('data-agent-settings', $html);
+        self::assertStringContainsString('data-provider-field="key"', $html);
         self::assertStringNotContainsString('fixture-gemini-key', $html);
         self::assertStringNotContainsString('fixture-agnes-key', $html);
         self::assertStringNotContainsString('oauth', $html);

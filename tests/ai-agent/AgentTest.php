@@ -40,6 +40,7 @@ final class AgentTest extends TestCase
 {
     private array $options;
     private mixed $secrets;
+    private mixed $connections;
     private array $tasks = [];
     private array $products = [];
     private array $users = [];
@@ -49,7 +50,11 @@ final class AgentTest extends TestCase
         wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
         $this->options = Oyiso_Agent_Config::options();
         $this->secrets = get_option('oyiso_agent_secrets', false);
-        update_option('oyiso', array_merge($this->options, ['agent_enabled' => true, 'agent_max_steps' => '8', 'agent_provider' => '', 'agent_model' => '']), false);
+        $this->connections = get_option('oyiso_agent_connections', false);
+        delete_option('oyiso_agent_connections');
+        $options = $this->options;
+        unset($options['agent_selection'], $options['agent_advanced']);
+        update_option('oyiso', array_merge($options, ['agent_enabled' => true, 'agent_max_steps' => '8', 'agent_provider' => '', 'agent_model' => '']), false);
     }
 
     protected function tearDown(): void
@@ -71,6 +76,8 @@ final class AgentTest extends TestCase
         update_option('oyiso', $this->options, false);
         if ($this->secrets === false) delete_option('oyiso_agent_secrets');
         else update_option('oyiso_agent_secrets', $this->secrets, false);
+        if ($this->connections === false) delete_option('oyiso_agent_connections');
+        else update_option('oyiso_agent_connections', $this->connections, false);
     }
 
     private function task(): array
@@ -454,7 +461,7 @@ final class AgentTest extends TestCase
             $sections = CSF::$args['sections']['oyiso'];
             self::assertCount(4, $sections);
             self::assertSame('ai-agent', $sections[0]['id']);
-            $provider = array_values(array_filter($sections[1]['fields'], static fn(array $field): bool => ($field['id'] ?? '') === 'agent_provider'))[0];
+            $provider = array_values(array_filter($sections[1]['fields'], static fn(array $field): bool => ($field['id'] ?? '') === 'agent_selection'))[0];
             ob_start(); CSF::field($provider, '', 'oyiso'); $select = ob_get_clean();
             self::assertStringContainsString('自动选择', $select);
             self::assertStringNotContainsString('value="0"', $select);

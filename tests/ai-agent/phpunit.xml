@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit bootstrap="bootstrap.php" cacheResult="false" failOnWarning="true" failOnRisky="true">
-    <testsuites><testsuite name="Oyiso Agent"><file>AgentTest.php</file><file>ConnectorTest.php</file></testsuite></testsuites>
+    <testsuites><testsuite name="Oyiso Agent"><file>AgentTest.php</file><file>ConnectorTest.php</file><file>ManagedConnectionsTest.php</file></testsuite></testsuites>
     <source><include><directory>../../src/ai-agent</directory></include></source>
 </phpunit>

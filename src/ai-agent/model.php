@@ -55,6 +55,21 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
                 ->using_request_options($requestOptions);
             $provider = Oyiso_Agent_Config::text('provider');
             $model = Oyiso_Agent_Config::text('model');
+            $selection = Oyiso_Agent_Config::text('selection');
+            if (str_contains($selection, '|')) {
+                [$connectionId, $modelId] = explode('|', $selection, 2);
+                $selectedModel = Oyiso_Agent_Connections::model($connectionId, $modelId);
+                if (is_wp_error($selectedModel)) {
+                    return $selectedModel;
+                }
+                $builder->using_model($selectedModel);
+                $provider = '';
+                $model = '';
+            } elseif (str_starts_with($selection, 'wp:')) {
+                $provider = substr($selection, 3);
+            } elseif (array_key_exists('agent_selection', Oyiso_Agent_Config::options())) {
+                $provider = '';
+            }
             $preset = Oyiso_Agent_Connectors::preset($provider);
             if ($preset !== '') {
                 $connection = Oyiso_Agent_Connectors::load($preset);

@@ -13,6 +13,7 @@ use WordPress\AiClient\Providers\Contracts\ProviderAvailabilityInterface;
 use WordPress\AiClient\Providers\DTO\ProviderMetadata;
 use WordPress\AiClient\Providers\Enums\ProviderTypeEnum;
 use WordPress\AiClient\Providers\Http\DTO\Request;
+use WordPress\AiClient\Providers\Http\DTO\ApiKeyRequestAuthentication;
 use WordPress\AiClient\Providers\Http\DTO\RequestOptions;
 use WordPress\AiClient\Providers\Http\Enums\HttpMethodEnum;
 use WordPress\AiClient\Providers\Http\Enums\RequestAuthenticationMethod;
@@ -64,6 +65,16 @@ final class Oyiso_Agent_Agnes_Provider extends Oyiso_Agent_Provider
     protected const PRESET = 'agnes';
 }
 
+final class Oyiso_Agent_Custom_Provider extends Oyiso_Agent_Provider
+{
+    protected const PRESET = 'custom';
+
+    protected static function createProviderMetadata(): ProviderMetadata
+    {
+        return new ProviderMetadata('oyiso-custom', 'Oyiso 模型连接', ProviderTypeEnum::cloud(), 'https://developer.wordpress.org/', RequestAuthenticationMethod::apiKey());
+    }
+}
+
 final readonly class Oyiso_Agent_Provider_Availability implements ProviderAvailabilityInterface
 {
     public function __construct(private string $id)
@@ -88,13 +99,18 @@ final readonly class Oyiso_Agent_Model_Directory implements ModelMetadataDirecto
         if (is_wp_error($connection)) {
             return [];
         }
+        return [self::metadata($connection->model)];
+    }
+
+    public static function metadata(string $model): ModelMetadata
+    {
         $options = array_map(
             static fn(OptionEnum $option): SupportedOption => new SupportedOption($option),
             [OptionEnum::systemInstruction(), OptionEnum::maxTokens(), OptionEnum::functionDeclarations()]
         );
         $options[] = new SupportedOption(OptionEnum::inputModalities(), [[ModalityEnum::text()]]);
         $options[] = new SupportedOption(OptionEnum::outputModalities(), [[ModalityEnum::text()]]);
-        return [new ModelMetadata($connection->model, $connection->model, [CapabilityEnum::textGeneration(), CapabilityEnum::chatHistory()], $options)];
+        return new ModelMetadata($model, $model, [CapabilityEnum::textGeneration(), CapabilityEnum::chatHistory()], $options);
     }
 
     public function hasModelMetadata(string $modelId): bool
@@ -118,11 +134,19 @@ final readonly class Oyiso_Agent_Model_Directory implements ModelMetadataDirecto
  */
 final class Oyiso_Agent_Compatible_Model extends AbstractOpenAiCompatibleTextGenerationModel
 {
+    public function __construct(ModelMetadata $metadata, ProviderMetadata $providerMetadata, private readonly ?string $connectionId = null)
+    {
+        parent::__construct($metadata, $providerMetadata);
+    }
+
     protected function createRequest(HttpMethodEnum $method, string $path, array $headers = [], $data = null): Request
     {
-        $connection = Oyiso_Agent_Connectors::load(Oyiso_Agent_Connectors::preset($this->providerMetadata()->getId()));
+        $connection = $this->connectionId !== null ? Oyiso_Agent_Connections::load($this->connectionId, $this->metadata()->getId()) : Oyiso_Agent_Connectors::load(Oyiso_Agent_Connectors::preset($this->providerMetadata()->getId()));
         if (is_wp_error($connection)) {
             throw new InvalidArgumentException($connection->get_error_message());
+        }
+        if ($connection->managed) {
+            $this->setRequestAuthentication(new ApiKeyRequestAuthentication(Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($connection->id))));
         }
         $configuredOptions = $this->getRequestOptions();
         $options = $configuredOptions !== null ? clone $configuredOptions : new RequestOptions();
