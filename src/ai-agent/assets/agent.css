@@ -22,21 +22,25 @@ body.oyiso-agent-transitioning #oyiso-agent-launcher-wrap { transition: transfor
 #oyiso-agent-launcher-wrap[data-agent-edge="bottom"] { transform-origin: center bottom; }
 #oyiso-agent-launcher { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid #1d2327; border-radius: 24px; background: #1d2327; color: #fff; cursor: pointer; font: inherit; font-size: 13px; white-space: nowrap; touch-action: none; user-select: none; pointer-events: auto; transition: transform 160ms ease; }
 #oyiso-agent-launcher[aria-expanded="true"] { pointer-events: none; }
+#oyiso-agent-launcher > span { opacity: 1; transition: opacity 160ms ease; }
+#oyiso-agent-launcher::after { content: "\f125"; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; font: 20px/1 dashicons; transform: translate(-50%, -50%); opacity: 0; pointer-events: none; transition: opacity 160ms ease; }
 #oyiso-agent-launcher-wrap[data-agent-edge="left"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateX(calc(-100% + 36px)); }
 #oyiso-agent-launcher-wrap[data-agent-edge="right"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateX(calc(100% - 36px)); }
 #oyiso-agent-launcher-wrap[data-agent-edge="top"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateY(calc(-100% + 36px)); }
 #oyiso-agent-launcher-wrap[data-agent-edge="bottom"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateY(calc(100% - 36px)); }
 #oyiso-agent-launcher-wrap[data-agent-edge] #oyiso-agent-launcher:not(:focus-visible) > span { opacity: 0; }
-#oyiso-agent-launcher-wrap[data-agent-edge] #oyiso-agent-launcher:not(:focus-visible)::after { content: "\f125"; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; font: 20px/1 dashicons; transform: translate(-50%, -50%); }
-#oyiso-agent-launcher-wrap[data-agent-edge="left"] #oyiso-agent-launcher:not(:focus-visible)::after { left: auto; right: 8px; transform: translateY(-50%); }
-#oyiso-agent-launcher-wrap[data-agent-edge="right"] #oyiso-agent-launcher:not(:focus-visible)::after { left: 8px; transform: translateY(-50%); }
-#oyiso-agent-launcher-wrap[data-agent-edge="top"] #oyiso-agent-launcher:not(:focus-visible)::after { top: auto; bottom: 8px; transform: translateX(-50%); }
-#oyiso-agent-launcher-wrap[data-agent-edge="bottom"] #oyiso-agent-launcher:not(:focus-visible)::after { top: 8px; transform: translateX(-50%); }
+#oyiso-agent-launcher-wrap[data-agent-edge] #oyiso-agent-launcher:not(:focus-visible)::after { opacity: 1; }
+#oyiso-agent-launcher-wrap[data-agent-edge="left"] #oyiso-agent-launcher::after { left: auto; right: 8px; transform: translateY(-50%); }
+#oyiso-agent-launcher-wrap[data-agent-edge="right"] #oyiso-agent-launcher::after { left: 8px; transform: translateY(-50%); }
+#oyiso-agent-launcher-wrap[data-agent-edge="top"] #oyiso-agent-launcher::after { top: auto; bottom: 8px; transform: translateX(-50%); }
+#oyiso-agent-launcher-wrap[data-agent-edge="bottom"] #oyiso-agent-launcher::after { top: 8px; transform: translateX(-50%); }
 #oyiso-agent-launcher-wrap.is-hovered[data-agent-edge] #oyiso-agent-launcher { transform: none; }
 #oyiso-agent-launcher-wrap.is-hovered[data-agent-edge] #oyiso-agent-launcher > span { opacity: 1; }
-#oyiso-agent-launcher-wrap.is-hovered[data-agent-edge] #oyiso-agent-launcher::after { display: none; }
-#oyiso-agent-launcher-wrap.is-dragging #oyiso-agent-launcher { transition: none; cursor: grabbing; }
-#oyiso-agent-launcher-wrap[data-agent-initializing] #oyiso-agent-launcher { transition: none; }
+#oyiso-agent-launcher-wrap.is-hovered[data-agent-edge] #oyiso-agent-launcher::after { opacity: 0; }
+#oyiso-agent-launcher-wrap.is-dragging #oyiso-agent-launcher { cursor: grabbing; }
+#oyiso-agent-launcher-wrap:is(.is-dragging, [data-agent-initializing]) #oyiso-agent-launcher,
+#oyiso-agent-launcher-wrap:is(.is-dragging, [data-agent-initializing]) #oyiso-agent-launcher > span { transition: none; }
+#oyiso-agent-launcher-wrap:is(.is-dragging, [data-agent-initializing]) #oyiso-agent-launcher::after { transition: none; }
 #oyiso-agent-panel { position: fixed; z-index: 9990; right: 24px; bottom: 24px; display: flex; flex-direction: column; width: var(--oyiso-agent-panel-width, 480px); max-width: calc(100vw - 48px); height: min(720px, calc(100dvh - var(--oyiso-agent-bar-height) - 48px)); box-sizing: border-box; overflow: hidden; border: 1px solid #c3c4c7; border-radius: 8px; background: #fff; box-shadow: 0 8px 36px #0003; text-align: left; opacity: 0; transform: translateY(24px); pointer-events: none; }
 #oyiso-agent-panel[data-agent-window] { z-index: 100000; max-width: 100vw; border: 0; color: #1e1e1e; box-shadow: 0 4px 20px rgba(0, 0, 0, .15), 0 1px 3px rgba(0, 0, 0, .08); transform: scale(.9); }
 #oyiso-agent-panel[data-agent-fullscreen] { border-radius: 0; box-shadow: none; }
@@ -193,7 +197,8 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 }
 @media (prefers-reduced-motion: reduce) {
     body { --oyiso-agent-motion-duration: 0ms; }
-    #oyiso-agent-launcher { transition: none; }
+    #oyiso-agent-launcher, #oyiso-agent-launcher > span { transition: none; }
+    #oyiso-agent-launcher::after { transition: none; }
     body.oyiso-agent-transitioning #oyiso-agent-launcher-wrap { transition: none; }
     body.oyiso-agent-transitioning #oyiso-agent-panel[data-agent-window] { transition: none; }
 }
