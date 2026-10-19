@@ -6,6 +6,13 @@
     --oyiso-color-accent-border: #edc5a9;
 }
 
+/* Preserve the user's admin palette before Oyiso scopes its own control colors. */
+body {
+    --oyiso-admin-theme-color: var(--wp-admin-theme-color, #2271b1);
+    --oyiso-admin-theme-color-darker-10: var(--wp-admin-theme-color-darker-10, #135e96);
+    --oyiso-admin-theme-color-darker-20: var(--wp-admin-theme-color-darker-20, #0a4b78);
+}
+
 /* Scope WordPress control colors to Oyiso's own settings and dialogs. */
 :is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) {
     --wp-admin-theme-color: var(--oyiso-color-primary);
@@ -26,23 +33,35 @@
     background: var(--oyiso-color-primary-soft);
 }
 
-:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button-primary:not(.csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled) {
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button-primary:not(.csf-save, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled) {
     color: #fff;
     border-color: var(--oyiso-color-primary);
     background: var(--oyiso-color-primary);
 }
 
-:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button-primary:not(.csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):is(:hover, :focus-visible) {
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button-primary:not(.csf-save, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):is(:hover, :focus-visible) {
     color: #fff;
     border-color: var(--oyiso-color-primary-hover);
     background: var(--oyiso-color-primary-hover);
 }
 
-:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button:not(.csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):focus-visible {
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline) .button:not(.csf-save, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):focus-visible {
     /* CSF suppresses header-button focus outlines with !important. */
     outline: 2px solid var(--oyiso-color-primary) !important;
     outline-offset: 2px;
     box-shadow: none;
+}
+
+.csf-options[data-unique="oyiso"] .csf-save {
+    --wp-admin-theme-color: var(--oyiso-admin-theme-color);
+    --wp-admin-theme-color-darker-10: var(--oyiso-admin-theme-color-darker-10);
+    --wp-admin-theme-color-darker-20: var(--oyiso-admin-theme-color-darker-20);
+}
+
+.csf-options[data-unique="oyiso"] .csf-buttons .csf-save:focus {
+    /* Restore the native focus ring suppressed by CSF's header styles. */
+    outline: 1px solid transparent !important;
+    box-shadow: 0 0 0 var(--wp-admin-border-width-focus, 1.5px) var(--wp-admin-theme-color, #2271b1), inset 0 0 0 1px #fff !important;
 }
 
 .csf-options[data-unique="oyiso"] :is(.csf-desc-text, .csf-submessage, .csf-before-text, .csf-after-text, .csf-field-callback) a:not(.button) {
