@@ -16,6 +16,8 @@
     const notice = $('[data-agent-notice]');
     const panelHistory = $('#oyiso-agent-panel-history');
     const historyToggle = $('[data-agent-history-toggle]');
+    const historyDismiss = $('[data-agent-history-dismiss]');
+    const layoutMenu = $('[data-agent-layout-menu]');
     const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
     const fields = { description: '长描述', short_description: '短描述', seo_title: 'SEO 标题', seo_description: 'SEO 描述', seo_keywords: '目标关键词' };
     const storageKey = `oyiso-agent:${config.user}:${new URL(config.url).pathname}`;
@@ -64,10 +66,19 @@
 
     function setHistory(open, focus = true) {
         panelHistory.hidden = !open;
-        chat.hidden = open;
         historyToggle.setAttribute('aria-expanded', String(open));
+        store(':history-open', open ? '1' : '0');
+        syncHistory();
         if (open) loadList(lists.find(list => list.inline));
         if (focus) (open ? $('[data-agent-history-back]') : historyToggle).focus({ preventScroll: true });
+    }
+
+    function syncHistory() {
+        const overlay = !panelHistory.hidden && panel.dataset.historyLayout !== 'sidebar';
+        const moveFocus = overlay && chat.contains(document.activeElement);
+        chat.toggleAttribute('inert', overlay);
+        historyDismiss.hidden = !overlay;
+        if (moveFocus) $('[data-agent-history-back]').focus({ preventScroll: true });
     }
 
     function finishPanelMotion() {
@@ -110,6 +121,7 @@
             poll();
             if (!panelHistory.hidden) loadList(lists.find(list => list.inline));
         } else {
+            setLayoutMenu(false, false);
             clearTimeout(timer);
             pollRevision++;
             loading = false;
@@ -123,13 +135,32 @@
     function setLayout(floating) {
         if (cancelPanelMotion) finishPanelMotion();
         document.body.classList.toggle('oyiso-agent-floating', floating);
-        const button = $('[data-agent-layout]');
-        const label = floating ? '切换为分屏' : '切换为悬浮窗';
-        button.setAttribute('aria-pressed', String(floating));
-        button.setAttribute('aria-label', label);
-        button.title = label;
         store(':layout', floating ? 'floating' : 'docked');
+        updateLayoutControls();
         window.dispatchEvent(new Event('resize'));
+    }
+
+    function setSide(left) {
+        if (cancelPanelMotion) finishPanelMotion();
+        document.body.classList.toggle('oyiso-agent-dock-left', left);
+        store(':side', left ? 'left' : 'right');
+        updateLayoutControls();
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    function updateLayoutControls() {
+        const floating = document.body.classList.contains('oyiso-agent-floating');
+        const left = document.body.classList.contains('oyiso-agent-dock-left');
+        $('[data-agent-layout-icon="split"]').hidden = floating;
+        $('[data-agent-layout-icon="floating"]').hidden = !floating;
+        $('[data-agent-split-divider]').setAttribute('d', left ? 'M9 4v16' : 'M15 4v16');
+        layoutMenu.querySelectorAll('[data-agent-layout-choice]').forEach(button => button.setAttribute('aria-checked', String(button.dataset.agentLayoutChoice === (floating ? 'floating' : left ? 'left' : 'right'))));
+    }
+
+    function setLayoutMenu(open, focus = true) {
+        layoutMenu.hidden = !open;
+        $('[data-agent-layout]').setAttribute('aria-expanded', String(open));
+        if (focus) (open ? $('[aria-checked="true"]', layoutMenu) : $('[data-agent-layout]')).focus({ preventScroll: true });
     }
 
     const node = (tag, className, text) => {
@@ -197,6 +228,10 @@
             if (id) localStorage.setItem(storageKey, String(id));
             else localStorage.removeItem(storageKey);
         } catch { /* Private browsing may disable localStorage. */ }
+        panelHistory.querySelectorAll('[data-agent-run]').forEach(button => {
+            if (Number(button.dataset.agentRun) === id) button.setAttribute('aria-current', 'true');
+            else button.removeAttribute('aria-current');
+        });
     }
 
     function controls() {
@@ -399,7 +434,7 @@
     }
 
     async function openRun(id) {
-        setHistory(false, false);
+        if (panel.dataset.historyLayout !== 'sidebar') setHistory(false, false);
         if (sending || changing.size) {
             setPanel(true);
             showNotice('请等待当前操作完成后再切换对话。');
@@ -441,6 +476,7 @@
                 const button = node('button', list.inline ? 'oyiso-agent-history-open' : 'button button-small', list.inline ? undefined : '查看对话');
                 button.type = 'button';
                 if (list.inline) {
+                    button.dataset.agentRun = String(item.id);
                     button.append(node('span', 'oyiso-agent-history-title', item.title), node('span', 'oyiso-agent-history-meta', `${statuses[item.status] || item.status} · ${item.updated}`));
                     if (item.id === runId) button.setAttribute('aria-current', 'true');
                 }
@@ -498,10 +534,36 @@
     launcher.addEventListener('click', () => setPanel(!panelOpen));
     historyToggle.addEventListener('click', () => setHistory(panelHistory.hidden));
     $('[data-agent-history-back]').addEventListener('click', () => setHistory(false));
+    historyDismiss.addEventListener('click', () => setHistory(false));
+    panel.addEventListener('oyiso-agent-history-layout', syncHistory);
     panel.addEventListener('oyiso-agent-geometry-start', () => { if (cancelPanelMotion) finishPanelMotion(); });
     $('[data-agent-close]').addEventListener('click', () => setPanel(false));
-    $('[data-agent-layout]').addEventListener('click', () => setLayout(!document.body.classList.contains('oyiso-agent-floating')));
+    $('[data-agent-layout]').addEventListener('click', () => setLayoutMenu(layoutMenu.hidden));
+    layoutMenu.querySelectorAll('[data-agent-layout-choice]').forEach(button => button.addEventListener('click', () => {
+        const choice = button.dataset.agentLayoutChoice;
+        if (choice !== 'floating') setSide(choice === 'left');
+        setLayout(choice === 'floating');
+        setLayoutMenu(false);
+    }));
+    $('[data-agent-reset]').addEventListener('click', () => {
+        setLayoutMenu(false, false);
+        setSide(false);
+        panel.dispatchEvent(new Event('oyiso-agent-reset-geometry'));
+    });
+    document.addEventListener('click', event => { if (!layoutMenu.hidden && !event.target.closest('[data-agent-layout], [data-agent-layout-menu]')) setLayoutMenu(false, false); });
+    window.addEventListener('resize', () => { if (!layoutMenu.hidden) setLayoutMenu(false, false); });
+    layoutMenu.addEventListener('keydown', event => {
+        const buttons = Array.from(layoutMenu.querySelectorAll('button'));
+        const index = buttons.indexOf(document.activeElement);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : event.key === 'ArrowDown' ? (index + 1) % buttons.length : event.key === 'ArrowUp' ? (index + buttons.length - 1) % buttons.length : -1;
+        if (next >= 0) { event.preventDefault(); buttons[next].focus(); }
+    });
     document.addEventListener('keydown', event => {
+        if (!layoutMenu.hidden && (event.key === 'Escape' || event.key === 'Tab')) {
+            if (event.key === 'Escape') event.preventDefault();
+            setLayoutMenu(false);
+            return;
+        }
         if (event.key === 'Escape' && panelOpen && (panel.contains(event.target) || event.target === document.body || event.target === launcher)) {
             event.preventDefault();
             if (!panelHistory.hidden) setHistory(false);
@@ -523,7 +585,7 @@
         rememberDraft();
         const draft = runId === 0 ? '' : draftFor(0);
         if (runId === 0) forgetDraft(0);
-        setHistory(false, false);
+        if (panel.dataset.historyLayout !== 'sidebar') setHistory(false, false);
         clearTimeout(timer); pollRevision++; loading = false; runId = 0; run = null; version = ''; remember(0);
         messages.replaceChildren(empty.cloneNode(true));
         $('[data-agent-events]').replaceChildren(node('li', 'description', '发送任务后，这里会显示查询和处理进度。'));
@@ -581,9 +643,12 @@
         const saved = Number(localStorage.getItem(storageKey));
         if (Number.isSafeInteger(saved) && saved > 0) runId = saved;
         prompt.value = draftFor(runId);
+        setSide(localStorage.getItem(storageKey + ':side') === 'left');
         setLayout(localStorage.getItem(storageKey + ':layout') === 'floating');
+        if (localStorage.getItem(storageKey + ':history-open') === '1') setHistory(true, false);
         if (localStorage.getItem(storageKey + ':open') === '1') setPanel(true, false, false);
     } catch { /* Storage is optional. */ }
+    syncHistory();
     // Keep the launcher unpainted until its saved geometry and open state are restored.
     launcher.getBoundingClientRect();
     launcherWrapper.removeAttribute('data-agent-initializing');

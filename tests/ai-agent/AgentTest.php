@@ -482,6 +482,11 @@ final class AgentTest extends TestCase
         self::assertStringContainsString('data-agent-drag tabindex="-1"', $html);
         self::assertStringContainsString('data-agent-history-toggle aria-controls="oyiso-agent-panel-history"', $html);
         self::assertStringContainsString('data-agent-runs="panel"', $html);
+        self::assertStringContainsString('data-agent-layout-menu role="menu"', $html);
+        self::assertStringContainsString('data-agent-layout-choice="left"', $html);
+        self::assertStringContainsString('data-agent-layout-choice="right"', $html);
+        self::assertStringContainsString('data-agent-reset', $html);
+        self::assertStringContainsString('data-agent-history-dismiss', $html);
         self::assertStringNotContainsString('data-agent-tab="ai-agent/agent-records"', $html);
         self::assertStringNotContainsString('title="拖动调整宽度', $html);
         self::assertStringNotContainsString('<form', $html);

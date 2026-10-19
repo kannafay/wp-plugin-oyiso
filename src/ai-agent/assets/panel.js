@@ -42,6 +42,8 @@
     }
 
     const docked = () => window.innerWidth >= 1280 && !document.body.classList.contains('oyiso-agent-floating') && !document.body.classList.contains('block-editor-page');
+    const leftDock = () => document.body.classList.contains('oyiso-agent-dock-left');
+    const dockEdge = () => leftDock() ? 'e' : 'w';
 
     function widthBounds() {
         const { w, gap } = viewport();
@@ -64,9 +66,12 @@
         const view = viewport();
         const value = Math.round(floating ? clamp(windowState?.width ?? width ?? 480, bounds.minWidth, bounds.maxWidth) : clamp(width ?? bounds.defaultWidth, bounds.min, bounds.max));
         const height = floating ? Math.round(clamp(windowState?.height ?? 720, bounds.minHeight, bounds.maxHeight)) : view.h - view.top;
-        const rect = { width: value, height, x: floating ? Math.round(bounds.left + (windowState?.x ?? 1) * (bounds.maxWidth - value)) : view.w - value, y: floating ? Math.round(bounds.top + (windowState?.y ?? 1) * (bounds.maxHeight - height)) : view.top };
+        const menuWidth = parseFloat(getComputedStyle(document.body).getPropertyValue('--oyiso-agent-admin-menu-width')) || (document.body.classList.contains('folded') ? 36 : 160);
+        const rect = { width: value, height, x: floating ? Math.round(bounds.left + (windowState?.x ?? 1) * (bounds.maxWidth - value)) : leftDock() ? menuWidth : view.w - value, y: floating ? Math.round(bounds.top + (windowState?.y ?? 1) * (bounds.maxHeight - height)) : view.top };
         document.body.style.setProperty('--oyiso-agent-panel-width', `${value}px`);
         panel.toggleAttribute('data-agent-window', floating);
+        if (floating) delete panel.dataset.agentDock;
+        else panel.dataset.agentDock = leftDock() ? 'left' : 'right';
         heading.tabIndex = floating ? 0 : -1;
         if (floating) {
             heading.setAttribute('aria-label', '移动助手窗口，也可使用方向键');
@@ -84,6 +89,11 @@
             handle.setAttribute('aria-valuemax', String(max));
             handle.setAttribute('aria-valuenow', String(horizontal ? value : height));
             handle.setAttribute('aria-valuetext', `${horizontal ? value : height} 像素`);
+        }
+        const historyLayout = value >= 720 ? 'sidebar' : 'overlay';
+        if (panel.dataset.historyLayout !== historyLayout) {
+            panel.dataset.historyLayout = historyLayout;
+            panel.dispatchEvent(new Event('oyiso-agent-history-layout'));
         }
         return rect;
     }
@@ -147,7 +157,7 @@
     }
 
     function start(event, type, edge = '') {
-        if (!config.enabled || gesture || event.button !== 0 || event.isPrimary === false || (type === 'window' && docked()) || (type === 'resize' && docked() && edge !== 'w')) return;
+        if (!config.enabled || gesture || event.button !== 0 || event.isPrimary === false || (type === 'window' && docked()) || (type === 'resize' && docked() && edge !== dockEdge())) return;
         if (type !== 'launcher') panel.dispatchEvent(new Event('oyiso-agent-geometry-start'));
         clearTimeout(clickTimer);
         suppressClick = false;
@@ -211,7 +221,7 @@
             resizeWindow(gesture.rect, gesture.edge, dx, dy);
         } else {
             const bounds = widthBounds();
-            width = clamp(gesture.rect.width - dx, bounds.min, bounds.max);
+            width = clamp(gesture.rect.width + (gesture.edge === 'e' ? dx : -dx), bounds.min, bounds.max);
             applyGeometry();
         }
     });
@@ -219,7 +229,7 @@
     document.addEventListener('pointercancel', event => finish(event, true));
     for (const [element, type] of [[launcher, 'launcher'], ...resizers.map(handle => [handle, 'resize']), [heading, 'window']]) {
         element.addEventListener('pointerdown', event => {
-            if (type === 'window' && event.target.closest('button, a, input, textarea, select, [contenteditable]')) return;
+            if (type === 'window' && event.target.closest('button, a, input, textarea, select, [contenteditable], [data-agent-layout-menu]')) return;
             start(event, type, element.dataset.agentResize || '');
         });
         element.addEventListener('lostpointercapture', event => finish(event, true));
@@ -253,8 +263,9 @@
         const step = event.shiftKey ? 40 : 20;
         const rect = applyGeometry();
         if (docked()) {
-            if (edge !== 'w') return;
-            width = event.key === 'Home' ? bounds.min : event.key === 'End' ? bounds.max : clamp(rect.width + (event.key === 'ArrowLeft' ? step : -step), bounds.min, bounds.max);
+            if (edge !== dockEdge()) return;
+            const delta = (event.key === 'ArrowLeft' ? -step : step) * (edge === 'e' ? 1 : -1);
+            width = event.key === 'Home' ? bounds.min : event.key === 'End' ? bounds.max : clamp(rect.width + delta, bounds.min, bounds.max);
             applyGeometry();
             save(':width', String(width));
         } else {
@@ -290,5 +301,12 @@
         placeLauncher();
     }
     window.addEventListener('resize', sync);
+    panel.addEventListener('oyiso-agent-reset-geometry', () => {
+        if (gesture) finish(null, true);
+        width = null;
+        windowState = null;
+        try { localStorage.removeItem(key + ':width'); localStorage.removeItem(key + ':window'); } catch { /* Storage is optional. */ }
+        window.dispatchEvent(new Event('resize'));
+    });
     sync();
 })();

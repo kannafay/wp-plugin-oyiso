@@ -15,6 +15,7 @@ const nativeNavigation = Array.from(fs.readFileSync(path.join(repo, 'src/_init.p
 const wpRoot = process.env.OYISO_WORDPRESS_ROOT || path.resolve(repo, '../../..');
 const jquery = fs.readFileSync(path.join(wpRoot, 'wp-includes/js/jquery/jquery.js'), 'utf8');
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve)); };
+const chooseLayout = (f, mode) => { f.$('[data-agent-layout]').click(); f.$(`[data-agent-layout-choice="${mode}"]`).click(); };
 
 const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42, conversation: [], events: [], changes: [], error: '', recoverable: false, ...extra });
 const proposal = () => ({ id: '12345678-1234-1234-1234-123456789abc', product_id: 99, name: '商品示例', before: { description: '<p>Original</p>' }, after: { description: '<p>Proposed</p>' }, status: 'pending' });
@@ -177,7 +178,8 @@ test('panel conversation history loads on demand and switches conversations with
     assert.equal(f.calls.length, 0);
     f.$('[data-agent-history-toggle]').click();
     await settle();
-    assert.equal(f.$('#oyiso-agent-chat').hidden, true);
+    assert.equal(f.$('#oyiso-agent-chat').hidden, false);
+    assert.equal(f.$('#oyiso-agent-chat').hasAttribute('inert'), true);
     assert.equal(f.$('#oyiso-agent-panel-history').hidden, false);
     assert.equal(f.$('[data-agent-history-toggle]').getAttribute('aria-expanded'), 'true');
     assert.equal(f.$(`${panelRecords} .oyiso-agent-history-title`).textContent, '商品内容检查');
@@ -426,7 +428,7 @@ test('reduced motion uses immediate toggles and page restoration skips the entra
     assert.equal(restored.$('#oyiso-agent-panel').hidden, false);
     assert.equal(restored.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
     restored.$('[data-agent-close]').click();
-    restored.$('[data-agent-layout]').click();
+    chooseLayout(restored, 'floating');
     assert.equal(restored.$('#oyiso-agent-panel').hidden, true);
     assert.equal(restored.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
 });
@@ -443,9 +445,9 @@ test('open panel, floating layout, conversation and unsent draft restore across 
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
     assert.equal(f.window.document.body.classList.contains('oyiso-agent-floating'), true);
     assert.equal(f.$('#oyiso-agent-prompt').value, '待发送的商品问题');
-    f.$('[data-agent-layout]').click();
+    chooseLayout(f, 'right');
     assert.equal(f.window.document.body.classList.contains('oyiso-agent-floating'), false);
-    assert.equal(f.$('[data-agent-layout]').getAttribute('aria-pressed'), 'false');
+    assert.equal(f.$('[data-agent-layout-choice="right"]').getAttribute('aria-checked'), 'true');
     assert.equal(f.window.localStorage.getItem(key + ':layout'), 'docked');
     f.$('#oyiso-agent-prompt').value = '下一页继续';
     f.$('#oyiso-agent-prompt').dispatchEvent(new f.window.Event('input', { bubbles: true }));
@@ -633,7 +635,7 @@ test('panel resize changes split width, persists it and supports keyboard limits
     assert.equal(handle.getAttribute('aria-valuenow'), '960');
     handle.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
     assert.equal(handle.getAttribute('aria-valuenow'), '360');
-    f.$('[data-agent-layout]').click();
+    chooseLayout(f, 'floating');
     pointer(f, handle, 'pointerdown', 800, 400);
     pointer(f, f.window.document, 'pointermove', 560, 400);
     pointer(f, f.window.document, 'pointerup', 560, 400);
@@ -661,6 +663,126 @@ function resizeFloating(f, edge, dx, dy) {
     pointer(f, f.window.document, 'pointermove', x + dx, y + dy);
     pointer(f, f.window.document, 'pointerup', x + dx, y + dy);
 }
+
+test('layout menu supports both split sides, keyboard navigation, dismissal and saved side restoration', async t => {
+    const f = fixture(t, undefined, {}, geometry, { globalOnly: true });
+    const menu = f.$('[data-agent-layout-menu]');
+    const toggle = f.$('[data-agent-layout]');
+    toggle.click();
+    assert.equal(menu.hidden, false);
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.equal(f.window.document.activeElement.dataset.agentLayoutChoice, 'right');
+    menu.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    assert.equal(f.window.document.activeElement.dataset.agentLayoutChoice, 'left');
+    f.window.document.activeElement.click();
+    assert.equal(menu.hidden, true);
+    assert.equal(f.$('#oyiso-agent-panel').dataset.agentDock, 'left');
+    assert.equal(f.$('[data-agent-layout-choice="left"]').getAttribute('aria-checked'), 'true');
+    assert.equal(f.$('[data-agent-split-divider]').getAttribute('d'), 'M9 4v16');
+    assert.equal(f.window.localStorage.getItem(windowKey + ':side'), 'left');
+    toggle.click();
+    menu.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.equal(menu.hidden, true);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(f.window.document.activeElement, toggle);
+    toggle.click();
+    f.window.document.body.click();
+    assert.equal(menu.hidden, true);
+    const restored = fixture(t, undefined, {}, window => {
+        geometry(window);
+        window.localStorage.setItem(windowKey + ':side', 'left');
+    }, { globalOnly: true });
+    assert.equal(restored.$('#oyiso-agent-panel').dataset.agentDock, 'left');
+    chooseLayout(restored, 'right');
+    assert.equal(restored.$('#oyiso-agent-panel').dataset.agentDock, 'right');
+    chooseLayout(restored, 'floating');
+    assert.equal(restored.$('#oyiso-agent-panel').hasAttribute('data-agent-window'), true);
+    assert.equal(restored.$('[data-agent-layout-icon="floating"]').hidden, false);
+    assert.equal(restored.$('[data-agent-layout-icon="split"]').hidden, true);
+    await settle();
+});
+
+test('left split resizes from its right edge with matching keyboard direction and ignores its outer edge', t => {
+    const f = fixture(t, undefined, {}, geometry, { globalOnly: true });
+    chooseLayout(f, 'left');
+    const inner = f.$('[data-agent-resize="e"]');
+    const outer = f.$('[data-agent-resize="w"]');
+    pointer(f, inner, 'pointerdown', 704, 400);
+    pointer(f, f.window.document, 'pointermove', 844, 400);
+    pointer(f, f.window.document, 'pointerup', 844, 400);
+    assert.equal(inner.getAttribute('aria-valuenow'), '684');
+    inner.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    assert.equal(inner.getAttribute('aria-valuenow'), '704');
+    pointer(f, outer, 'pointerdown', 160, 400);
+    pointer(f, f.window.document, 'pointermove', 100, 400);
+    pointer(f, f.window.document, 'pointerup', 100, 400);
+    assert.equal(inner.getAttribute('aria-valuenow'), '704');
+    outer.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    assert.equal(inner.getAttribute('aria-valuenow'), '704');
+    inner.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    assert.equal(inner.getAttribute('aria-valuenow'), '360');
+    inner.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    assert.equal(inner.getAttribute('aria-valuenow'), '960');
+    chooseLayout(f, 'right');
+    assert.equal(outer.getAttribute('aria-valuenow'), '960');
+});
+
+test('reset restores default panel geometry and right split while preserving mode, launcher position and draft', t => {
+    const launcherPosition = JSON.stringify({ x: 0, y: 0.5, edge: 'left' });
+    const f = floatingWindow(t, window => {
+        window.localStorage.setItem(windowKey + ':width', '700');
+        window.localStorage.setItem(windowKey + ':position', launcherPosition);
+    });
+    inputDraft(f, '恢复布局时保留这段草稿');
+    resizeFloating(f, 'se', 80, 40);
+    f.$('[data-agent-reset]').click();
+    assert.deepEqual(windowRect(f), { x: 1096, y: 256, width: 480, height: 720 });
+    assert.equal(f.window.localStorage.getItem(windowKey + ':layout'), 'floating');
+    assert.equal(f.window.localStorage.getItem(windowKey + ':width'), null);
+    assert.equal(f.window.localStorage.getItem(windowKey + ':window'), null);
+    assert.equal(f.window.localStorage.getItem(windowKey + ':position'), launcherPosition);
+    assert.equal(f.$('#oyiso-agent-prompt').value, '恢复布局时保留这段草稿');
+    chooseLayout(f, 'left');
+    f.$('[data-agent-resize="e"]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    assert.equal(f.$('[data-agent-resize="e"]').getAttribute('aria-valuenow'), '960');
+    f.$('[data-agent-reset]').click();
+    assert.equal(f.$('#oyiso-agent-panel').dataset.agentDock, 'right');
+    assert.equal(f.$('[data-agent-resize="w"]').getAttribute('aria-valuenow'), '544');
+    assert.equal(f.$('#oyiso-agent-panel').hasAttribute('data-agent-window'), false);
+});
+
+test('history stays beside chat in a wide panel and becomes a dismissible left overlay when narrowed', async t => {
+    const f = fixture(t, route => route === 'runs?page=1' ? { items: [12, 13].map(id => ({ id, title: `对话 ${id}`, status: 'completed', updated: '2026-10-19' })), pages: 1 } : route === 'runs/12' || route === 'runs/13' ? task({ id: Number(route.split('/')[1]), conversation: [{ role: 'assistant', text: route }] }) : undefined, {}, window => {
+        geometry(window);
+        window.localStorage.setItem(windowKey + ':layout', 'floating');
+        window.localStorage.setItem(windowKey + ':window', JSON.stringify({ x: 0.25, y: 0.25, width: 800, height: 600 }));
+    }, { globalOnly: true });
+    const panel = f.$('#oyiso-agent-panel');
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    assert.equal(panel.dataset.historyLayout, 'sidebar');
+    assert.equal(f.$('#oyiso-agent-chat').hidden, false);
+    assert.equal(f.$('#oyiso-agent-chat').hasAttribute('inert'), false);
+    assert.equal(f.$('[data-agent-history-dismiss]').hidden, true);
+    f.$(`${panelRecords} li:first-child .oyiso-agent-history-open`).click(); await settle();
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, false);
+    assert.equal(f.$(`${panelRecords} li:first-child .oyiso-agent-history-open`).getAttribute('aria-current'), 'true');
+    resizeFloating(f, 'e', -160, 0);
+    assert.equal(panel.dataset.historyLayout, 'overlay');
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, false);
+    assert.equal(f.$('#oyiso-agent-chat').hasAttribute('inert'), true);
+    assert.equal(f.$('[data-agent-history-dismiss]').hidden, false);
+    resizeFloating(f, 'e', 80, 0);
+    assert.equal(panel.dataset.historyLayout, 'sidebar');
+    assert.equal(f.$('#oyiso-agent-chat').hasAttribute('inert'), false);
+    resizeFloating(f, 'e', -80, 0);
+    f.$('[data-agent-history-dismiss]').click();
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, true);
+    assert.equal(f.$('#oyiso-agent-chat').hasAttribute('inert'), false);
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    f.$(`${panelRecords} li:nth-child(2) .oyiso-agent-history-open`).click(); await settle();
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, true);
+    assert.match(f.$('[data-agent-messages]').textContent, /runs\/13/);
+});
 
 test('floating window resizes from every edge and corner while preserving opposite edges', t => {
     for (const edge of ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se']) {
@@ -721,7 +843,7 @@ test('floating geometry survives layout switches, reload and temporary viewport 
     const moved = windowRect(f);
     const saved = f.window.localStorage.getItem(windowKey + ':window');
     assert.equal(f.window.localStorage.getItem(windowKey + ':width'), '700');
-    f.$('[data-agent-layout]').click();
+    chooseLayout(f, 'right');
     assert.equal(f.$('#oyiso-agent-panel').hasAttribute('data-agent-window'), false);
     assert.equal(f.$('#oyiso-agent-panel').style.left, '');
     assert.equal(f.$('[data-agent-drag]').tabIndex, -1);
@@ -729,7 +851,7 @@ test('floating geometry survives layout switches, reload and temporary viewport 
     assert.equal(dockedWidth.getAttribute('aria-valuenow'), '700');
     dockedWidth.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
     assert.equal(f.window.localStorage.getItem(windowKey + ':width'), '720');
-    f.$('[data-agent-layout]').click();
+    chooseLayout(f, 'floating');
     assert.deepEqual(windowRect(f), moved);
     const restored = floatingWindow(t, window => {
         window.localStorage.setItem(windowKey + ':window', saved);
@@ -961,7 +1083,8 @@ test('conversation shortcut opens panel history without switching native tabs or
     assert.equal(f.window.location.hash, '#tab=ai-agent/agent-records');
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
     assert.equal(f.$('#oyiso-agent-panel-history').hidden, false);
-    assert.equal(f.$('#oyiso-agent-chat').hidden, true);
+    assert.equal(f.$('#oyiso-agent-chat').hidden, false);
+    assert.equal(f.$('#oyiso-agent-chat').hasAttribute('inert'), true);
 });
 
 test('settings shortcut closes the panel before normal navigation from another admin page', async t => {

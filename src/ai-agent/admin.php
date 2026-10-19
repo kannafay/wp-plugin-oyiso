@@ -177,19 +177,27 @@ final class Oyiso_Agent_Admin
                 <h2 id="oyiso-agent-title">AI 助手</h2>
                 <div class="oyiso-agent-panel-actions">
                     <button type="button" class="button" data-agent-new>新建对话</button>
-                    <button type="button" class="oyiso-agent-icon-button" data-agent-layout title="切换为悬浮窗" aria-label="切换为悬浮窗" aria-pressed="false"><span class="dashicons dashicons-external" aria-hidden="true"></span></button>
+                    <button type="button" class="oyiso-agent-icon-button" data-agent-layout title="窗口布局" aria-label="窗口布局" aria-haspopup="menu" aria-controls="oyiso-agent-layout-menu" aria-expanded="false">
+                        <span data-agent-layout-icon="split" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path data-agent-split-divider d="M15 4v16"/></svg></span>
+                        <span data-agent-layout-icon="floating" aria-hidden="true" hidden><svg viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></span>
+                    </button>
+                    <div id="oyiso-agent-layout-menu" class="oyiso-agent-layout-menu" data-agent-layout-menu role="menu" aria-label="窗口布局" hidden><button type="button" role="menuitemradio" aria-checked="false" data-agent-layout-choice="left">左侧分屏</button><button type="button" role="menuitemradio" aria-checked="true" data-agent-layout-choice="right">右侧分屏</button><button type="button" role="menuitemradio" aria-checked="false" data-agent-layout-choice="floating">悬浮窗</button></div>
+                    <button type="button" class="oyiso-agent-icon-button" data-agent-reset title="恢复默认大小和位置" aria-label="恢复默认大小和位置"><span class="dashicons dashicons-image-rotate" aria-hidden="true"></span></button>
                     <button type="button" class="oyiso-agent-icon-button" data-agent-history-toggle aria-controls="oyiso-agent-panel-history" aria-expanded="false" title="对话记录" aria-label="对话记录"><span class="dashicons dashicons-backup" aria-hidden="true"></span></button>
                     <a class="oyiso-agent-icon-button" data-agent-tab="ai-agent/agent-model" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-model')); ?>" title="模型配置" aria-label="模型配置"><span class="dashicons dashicons-admin-generic" aria-hidden="true"></span></a>
                     <button type="button" class="oyiso-agent-icon-button" data-agent-close title="关闭助手" aria-label="关闭助手"><span class="dashicons dashicons-no-alt" aria-hidden="true"></span></button>
                 </div>
             </header>
-            <?php self::chat(); ?>
-            <section id="oyiso-agent-panel-history" class="oyiso-agent-panel-history" data-agent-runs="panel" aria-labelledby="oyiso-agent-history-title" hidden>
-                <div class="oyiso-agent-history-heading"><h3 id="oyiso-agent-history-title">对话记录</h3><button type="button" class="button" data-agent-history-back>返回对话</button><button type="button" class="oyiso-agent-icon-button" data-agent-history-refresh title="刷新记录" aria-label="刷新记录"><span class="dashicons dashicons-update" aria-hidden="true"></span></button></div>
-                <p class="oyiso-agent-history-notice" data-agent-history-notice role="status" aria-live="polite"></p>
-                <ul class="oyiso-agent-history-list" data-agent-history-body aria-label="历史对话"></ul>
-                <div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div>
-            </section>
+            <div class="oyiso-agent-panel-body">
+                <section id="oyiso-agent-panel-history" class="oyiso-agent-panel-history" data-agent-runs="panel" aria-labelledby="oyiso-agent-history-title" hidden>
+                    <div class="oyiso-agent-history-heading"><h3 id="oyiso-agent-history-title">对话记录</h3><button type="button" class="oyiso-agent-icon-button" data-agent-history-refresh title="刷新记录" aria-label="刷新记录"><span class="dashicons dashicons-update" aria-hidden="true"></span></button><button type="button" class="oyiso-agent-icon-button" data-agent-history-back title="关闭对话记录" aria-label="关闭对话记录"><span class="dashicons dashicons-no-alt" aria-hidden="true"></span></button></div>
+                    <p class="oyiso-agent-history-notice" data-agent-history-notice role="status" aria-live="polite"></p>
+                    <ul class="oyiso-agent-history-list" data-agent-history-body aria-label="历史对话"></ul>
+                    <div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div>
+                </section>
+                <button type="button" class="oyiso-agent-history-dismiss" data-agent-history-dismiss tabindex="-1" aria-label="关闭对话记录" hidden></button>
+                <?php self::chat(); ?>
+            </div>
         </aside>
         <?php
     }
