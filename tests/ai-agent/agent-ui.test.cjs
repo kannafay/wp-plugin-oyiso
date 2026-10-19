@@ -727,6 +727,78 @@ test('left split resizes from its right edge with matching keyboard direction an
     assert.equal(outer.getAttribute('aria-valuenow'), '960');
 });
 
+test('split layout separates the full-height assistant from the native WordPress toolbar, menu and content', t => {
+    let desktopStyle;
+    let desktopCss;
+    const f = fixture(t, undefined, {}, window => {
+        geometry(window);
+        const document = window.document;
+        document.body.classList.add('admin-bar', 'sticky-menu');
+        document.body.insertAdjacentHTML('afterbegin', '<div id="wpadminbar"></div><div id="adminmenumain"><div id="adminmenuback"></div><div id="adminmenuwrap"></div></div><div id="wpfooter"></div>');
+        const addStyle = source => { const style = document.createElement('style'); style.textContent = source; document.head.append(style); return style; };
+        addStyle(['wp-admin/css/common.css', 'wp-admin/css/admin-menu.css', 'wp-includes/css/admin-bar.css'].map(file => fs.readFileSync(path.join(wpRoot, file), 'utf8')).join('\n'));
+        const agent = addStyle(fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.css'), 'utf8'));
+        // jsdom has no media-query evaluation; enable the real desktop block for this viewport.
+        const desktop = Array.from(agent.sheet.cssRules).find(rule => rule.conditionText === '(min-width: 1280px)');
+        desktopCss = Array.from(desktop.cssRules, rule => rule.cssText).join('\n');
+        desktopStyle = addStyle(desktopCss);
+    }, { globalOnly: true });
+    const css = (selector, property) => f.window.getComputedStyle(f.$(selector)).getPropertyValue(property);
+    const panel = '#oyiso-agent-panel';
+    const bar = '#wpadminbar';
+    const offset = 'var(--oyiso-agent-panel-width)';
+    const normalMenu = () => {
+        assert.equal(parseFloat(css('#adminmenuwrap', 'margin-left')), 0);
+        assert.equal(parseFloat(css('#adminmenuback', 'margin-left')), 0);
+        assert.equal(css('#wpcontent', 'margin-left'), '160px');
+    };
+    const fullToolbar = () => { assert.equal(css(bar, 'left'), '0px'); assert.equal(css(bar, 'right'), '0px'); };
+    assert.equal(css(panel, 'top'), '0px');
+    assert.equal(css(panel, 'bottom'), '0px');
+    assert.equal(css(panel, 'right'), '0px');
+    assert.equal(f.$('[data-agent-resize="s"]').getAttribute('aria-valuenow'), '1000');
+    assert.equal(css(bar, 'left'), '0px');
+    assert.equal(css(bar, 'right'), offset);
+    assert.equal(css(bar, 'width'), 'auto');
+    assert.equal(parseFloat(css(bar, 'min-width')), 0);
+    normalMenu();
+    chooseLayout(f, 'left');
+    assert.equal(css(panel, 'left'), '0px');
+    assert.equal(css(panel, 'top'), '0px');
+    assert.equal(css(bar, 'left'), offset);
+    assert.equal(css(bar, 'right'), '0px');
+    for (const selector of ['#adminmenuwrap', '#adminmenuback']) assert.equal(css(selector, 'margin-left'), offset);
+    assert.equal(css('#wpcontent', 'margin-left'), 'calc(var(--oyiso-agent-admin-menu-width) + var(--oyiso-agent-panel-width))');
+    f.window.document.body.classList.add('folded');
+    assert.equal(css('body', '--oyiso-agent-admin-menu-width').trim(), '36px');
+    assert.equal(css(bar, 'left'), offset);
+    f.window.document.body.classList.remove('folded');
+    f.$('[data-agent-close]').click();
+    fullToolbar(); normalMenu();
+    f.$('#oyiso-agent-launcher').click();
+    assert.equal(css(bar, 'left'), offset);
+    chooseLayout(f, 'floating');
+    assert.equal(css(bar, 'left'), '0px');
+    assert.equal(css(bar, 'width'), '100%');
+    normalMenu();
+    chooseLayout(f, 'right');
+    assert.equal(css(bar, 'right'), offset);
+    f.window.document.body.classList.add('block-editor-page');
+    assert.equal(css(bar, 'width'), '100%');
+    normalMenu();
+    f.window.document.body.classList.remove('block-editor-page');
+    desktopStyle.textContent = '';
+    f.window.innerWidth = 1000;
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(css(bar, 'width'), '100%');
+    normalMenu();
+    desktopStyle.textContent = desktopCss;
+    f.window.innerWidth = 1600;
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(css(bar, 'right'), offset);
+    assert.equal(css(panel, 'top'), '0px');
+});
+
 test('reset restores default panel geometry and right split while preserving mode, launcher position and draft', t => {
     const launcherPosition = JSON.stringify({ x: 0, y: 0.5, edge: 'left' });
     const f = floatingWindow(t, window => {
