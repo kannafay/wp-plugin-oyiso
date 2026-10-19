@@ -32,9 +32,11 @@ body.is-fullscreen-mode { --oyiso-agent-bar-height: 0px; }
 #oyiso-agent-launcher-wrap.is-dragging #oyiso-agent-launcher { transition: none; cursor: grabbing; }
 #oyiso-agent-launcher-wrap[data-agent-initializing] #oyiso-agent-launcher { transition: none; }
 #oyiso-agent-panel { position: fixed; z-index: 9990; right: 24px; bottom: 24px; display: flex; flex-direction: column; width: var(--oyiso-agent-panel-width, 480px); max-width: calc(100vw - 48px); height: min(720px, calc(100dvh - var(--oyiso-agent-bar-height) - 48px)); box-sizing: border-box; overflow: hidden; border: 1px solid #c3c4c7; border-radius: 8px; background: #fff; box-shadow: 0 8px 36px #0003; text-align: left; opacity: 0; transform: translateY(24px); pointer-events: none; }
-#oyiso-agent-panel[data-agent-window] { border: 0; color: #1e1e1e; box-shadow: 0 4px 20px rgba(0, 0, 0, .15), 0 1px 3px rgba(0, 0, 0, .08); }
+#oyiso-agent-panel[data-agent-window] { border: 0; color: #1e1e1e; box-shadow: 0 4px 20px rgba(0, 0, 0, .15), 0 1px 3px rgba(0, 0, 0, .08); transform: scale(.9); }
 body.oyiso-agent-open #oyiso-agent-panel { opacity: 1; transform: translateY(0); pointer-events: auto; }
+body.oyiso-agent-open #oyiso-agent-panel[data-agent-window] { transform: scale(1); }
 body.oyiso-agent-transitioning #oyiso-agent-panel { transition: transform var(--oyiso-agent-motion-duration) cubic-bezier(.22, 1, .36, 1), opacity var(--oyiso-agent-motion-duration) ease; }
+body.oyiso-agent-transitioning #oyiso-agent-panel[data-agent-window] { transition: transform var(--oyiso-agent-motion-duration) cubic-bezier(.4, 0, .2, 1), opacity 150ms ease-out; }
 .oyiso-agent-resize { display: none; position: absolute; z-index: 3; touch-action: none; }
 .oyiso-agent-resize[data-agent-resize="w"] { display: block; top: 0; bottom: 0; left: 0; width: 7px; cursor: ew-resize; }
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-resize { display: block; }
@@ -185,6 +187,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 @media (prefers-reduced-motion: reduce) {
     body { --oyiso-agent-motion-duration: 0ms; }
     #oyiso-agent-launcher { transition: none; }
+    body.oyiso-agent-transitioning #oyiso-agent-panel[data-agent-window] { transition: none; }
 }
 @media (max-width: 600px) {
     .csf-options[data-unique="oyiso"] .csf-field.oyiso-agent-panel { padding: 16px; }
