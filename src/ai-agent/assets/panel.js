@@ -66,8 +66,7 @@
         const view = viewport();
         const value = Math.round(floating ? clamp(windowState?.width ?? width ?? 480, bounds.minWidth, bounds.maxWidth) : clamp(width ?? bounds.defaultWidth, bounds.min, bounds.max));
         const height = floating ? Math.round(clamp(windowState?.height ?? 720, bounds.minHeight, bounds.maxHeight)) : view.h - view.top;
-        const menuWidth = parseFloat(getComputedStyle(document.body).getPropertyValue('--oyiso-agent-admin-menu-width')) || (document.body.classList.contains('folded') ? 36 : 160);
-        const rect = { width: value, height, x: floating ? Math.round(bounds.left + (windowState?.x ?? 1) * (bounds.maxWidth - value)) : leftDock() ? menuWidth : view.w - value, y: floating ? Math.round(bounds.top + (windowState?.y ?? 1) * (bounds.maxHeight - height)) : view.top };
+        const rect = { width: value, height, x: floating ? Math.round(bounds.left + (windowState?.x ?? 1) * (bounds.maxWidth - value)) : leftDock() ? 0 : view.w - value, y: floating ? Math.round(bounds.top + (windowState?.y ?? 1) * (bounds.maxHeight - height)) : view.top };
         document.body.style.setProperty('--oyiso-agent-panel-width', `${value}px`);
         panel.toggleAttribute('data-agent-window', floating);
         if (floating) delete panel.dataset.agentDock;

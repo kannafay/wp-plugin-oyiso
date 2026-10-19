@@ -146,11 +146,12 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
     body.oyiso-agent-transitioning:not(.oyiso-agent-floating):not(.block-editor-page):not(.oyiso-agent-resizing) #wpfooter { transition: right var(--oyiso-agent-motion-duration) cubic-bezier(.22, 1, .36, 1); }
     body.oyiso-agent-open:not(.oyiso-agent-floating):not(.block-editor-page):not(.oyiso-agent-dock-left) #wpcontent { margin-right: var(--oyiso-agent-panel-width); }
     body.oyiso-agent-open:not(.oyiso-agent-floating):not(.block-editor-page):not(.oyiso-agent-dock-left) #wpfooter { right: var(--oyiso-agent-panel-width); }
+    body.oyiso-agent-open.oyiso-agent-dock-left:not(.oyiso-agent-floating):not(.block-editor-page) :is(#adminmenuwrap, #adminmenuback) { margin-left: var(--oyiso-agent-panel-width); }
     body.oyiso-agent-open.oyiso-agent-dock-left:not(.oyiso-agent-floating):not(.block-editor-page) :is(#wpcontent, #wpfooter) { margin-left: calc(var(--oyiso-agent-admin-menu-width) + var(--oyiso-agent-panel-width)); }
-    body.oyiso-agent-transitioning.oyiso-agent-dock-left:not(.oyiso-agent-floating):not(.block-editor-page):not(.oyiso-agent-resizing) :is(#wpcontent, #wpfooter) { transition: margin-left var(--oyiso-agent-motion-duration) cubic-bezier(.22, 1, .36, 1); }
+    body.oyiso-agent-transitioning.oyiso-agent-dock-left:not(.oyiso-agent-floating):not(.block-editor-page):not(.oyiso-agent-resizing) :is(#adminmenuwrap, #adminmenuback, #wpcontent, #wpfooter) { transition: margin-left var(--oyiso-agent-motion-duration) cubic-bezier(.22, 1, .36, 1); }
     body:not(.oyiso-agent-floating):not(.block-editor-page) #oyiso-agent-panel { top: var(--oyiso-agent-bar-height); right: 0; bottom: 0; width: var(--oyiso-agent-panel-width); max-width: none; height: auto; border-width: 0 0 0 1px; border-radius: 0; box-shadow: -3px 0 16px #0001; }
     body:not(.oyiso-agent-open):not(.oyiso-agent-floating):not(.block-editor-page) #oyiso-agent-panel { transform: translateX(100%); }
-    body.oyiso-agent-dock-left:not(.oyiso-agent-floating):not(.block-editor-page) #oyiso-agent-panel { left: var(--oyiso-agent-admin-menu-width); right: auto; border-width: 0 1px 0 0; box-shadow: 3px 0 16px #0001; }
+    body.oyiso-agent-dock-left:not(.oyiso-agent-floating):not(.block-editor-page) #oyiso-agent-panel { left: 0; right: auto; border-width: 0 1px 0 0; box-shadow: 3px 0 16px #0001; }
     body.oyiso-agent-dock-left:not(.oyiso-agent-open):not(.oyiso-agent-floating):not(.block-editor-page) #oyiso-agent-panel { transform: translateX(-100%); }
 }
 @media (max-width: 1279px) {
