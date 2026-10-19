@@ -476,6 +476,9 @@ final class AgentTest extends TestCase
         self::assertStringContainsString('id="oyiso-agent-launcher-wrap"', $html);
         self::assertStringContainsString('style="visibility: hidden" data-agent-initializing', $html);
         self::assertStringContainsString('aria-label="调整助手宽度"', $html);
+        self::assertSame(8, substr_count($html, 'data-agent-resize="'));
+        self::assertStringContainsString('data-agent-drag tabindex="-1"', $html);
+        self::assertStringNotContainsString('title="拖动调整宽度', $html);
         self::assertStringNotContainsString('<form', $html);
         wp_dequeue_script('oyiso-agent'); wp_dequeue_script('oyiso-agent-panel'); wp_dequeue_style('oyiso-agent');
         wp_set_current_user(0);

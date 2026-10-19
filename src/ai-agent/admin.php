@@ -170,8 +170,10 @@ final class Oyiso_Agent_Admin
         <span id="oyiso-agent-launcher-help" class="screen-reader-text">拖动可移动，靠边自动收起；也可使用方向键移动，按住 Shift 加快。</span>
         <div id="oyiso-agent-launcher-wrap" style="visibility: hidden" data-agent-initializing><button type="button" id="oyiso-agent-launcher" aria-label="AI 助手" aria-describedby="oyiso-agent-launcher-help" aria-controls="oyiso-agent-panel" aria-expanded="false" title="AI 助手（可拖动，靠边自动收起）"><span class="dashicons dashicons-format-chat" aria-hidden="true"></span><span>AI 助手</span></button></div>
         <aside id="oyiso-agent-panel" class="oyiso-agent oyiso-agent-panel" aria-labelledby="oyiso-agent-title" hidden>
-            <div class="oyiso-agent-resize" data-agent-resize role="separator" tabindex="0" aria-label="调整助手宽度" aria-controls="oyiso-agent-panel" aria-orientation="vertical" aria-valuemin="360" aria-valuemax="1000" aria-valuenow="480" title="拖动调整宽度，也可使用左右方向键"></div>
-            <header class="oyiso-agent-panel-heading">
+            <?php foreach (['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se'] as $edge): ?>
+                <div class="oyiso-agent-resize" data-agent-resize="<?php echo esc_attr($edge); ?>" <?php if (strlen($edge) === 1): ?>role="separator" tabindex="0" aria-label="<?php echo esc_attr(in_array($edge, ['w', 'e'], true) ? '调整助手宽度' : '调整助手高度'); ?>" aria-controls="oyiso-agent-panel" aria-orientation="<?php echo esc_attr(in_array($edge, ['w', 'e'], true) ? 'vertical' : 'horizontal'); ?>"<?php else: ?>aria-hidden="true"<?php endif; ?>></div>
+            <?php endforeach; ?>
+            <header class="oyiso-agent-panel-heading" data-agent-drag tabindex="-1">
                 <h2 id="oyiso-agent-title">AI 助手</h2>
                 <div class="oyiso-agent-panel-actions">
                     <button type="button" class="button" data-agent-new>新建对话</button>

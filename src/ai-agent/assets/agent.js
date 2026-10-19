@@ -451,6 +451,7 @@
         });
     });
     launcher.addEventListener('click', () => setPanel(!panelOpen));
+    panel.addEventListener('oyiso-agent-geometry-start', () => { if (cancelPanelMotion) finishPanelMotion(); });
     $('[data-agent-close]').addEventListener('click', () => setPanel(false));
     $('[data-agent-layout]').addEventListener('click', () => setLayout(!document.body.classList.contains('oyiso-agent-floating')));
     document.addEventListener('keydown', event => {

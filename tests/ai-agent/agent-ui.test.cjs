@@ -56,7 +56,7 @@ function geometry(window, width = 1600, height = 1000) {
     window.document.body.style.setProperty('--oyiso-agent-bar-height', '32px');
     const launcher = window.document.getElementById('oyiso-agent-launcher');
     Object.defineProperties(launcher, { offsetWidth: { get: () => 120 }, offsetHeight: { get: () => 44 } });
-    for (const element of [launcher, window.document.querySelector('[data-agent-resize]')]) {
+    for (const element of [launcher, ...window.document.querySelectorAll('[data-agent-resize], [data-agent-drag]')]) {
         let captured;
         element.setPointerCapture = id => { captured = id; };
         element.hasPointerCapture = id => captured === id;
@@ -499,6 +499,167 @@ test('panel resize changes split width, persists it and supports keyboard limits
     pointer(f, f.window.document, 'pointermove', 560, 400);
     pointer(f, f.window.document, 'pointerup', 560, 400);
     assert.equal(handle.getAttribute('aria-valuenow'), '600');
+});
+
+const windowKey = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+const initialWindow = { x: 0.25, y: 0.25, width: 600, height: 500 };
+const windowRect = f => Object.fromEntries([['x', 'left'], ['y', 'top'], ['width', 'width'], ['height', 'height']].map(([name, property]) => [name, parseFloat(f.$('#oyiso-agent-panel').style[property])]));
+
+function floatingWindow(t, before = () => {}, view = {}) {
+    return fixture(t, undefined, {}, window => {
+        geometry(window);
+        window.localStorage.setItem(windowKey + ':layout', 'floating');
+        window.localStorage.setItem(windowKey + ':window', JSON.stringify(initialWindow));
+        before(window);
+    }, { globalOnly: true, ...view });
+}
+
+function resizeFloating(f, edge, dx, dy) {
+    const rect = windowRect(f);
+    const x = rect.x + (edge.includes('w') ? 0 : edge.includes('e') ? rect.width : rect.width / 2);
+    const y = rect.y + (edge.includes('n') ? 0 : edge.includes('s') ? rect.height : rect.height / 2);
+    pointer(f, f.$(`[data-agent-resize="${edge}"]`), 'pointerdown', x, y);
+    pointer(f, f.window.document, 'pointermove', x + dx, y + dy);
+    pointer(f, f.window.document, 'pointerup', x + dx, y + dy);
+}
+
+test('floating window resizes from every edge and corner while preserving opposite edges', t => {
+    for (const edge of ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se']) {
+        const f = floatingWindow(t);
+        assert.deepEqual(windowRect(f), { x: 262, y: 161, width: 600, height: 500 });
+        const dx = edge.includes('w') ? -40 : edge.includes('e') ? 60 : 0;
+        const dy = edge.includes('n') ? -30 : edge.includes('s') ? 50 : 0;
+        resizeFloating(f, edge, dx, dy);
+        const expected = { x: edge.includes('w') ? 222 : 262, y: edge.includes('n') ? 131 : 161, width: 600 + (edge.includes('w') ? 40 : edge.includes('e') ? 60 : 0), height: 500 + (edge.includes('n') ? 30 : edge.includes('s') ? 50 : 0) };
+        assert.deepEqual(windowRect(f), expected, edge);
+        const saved = JSON.parse(f.window.localStorage.getItem(windowKey + ':window'));
+        assert.equal(saved.width, expected.width);
+        assert.equal(saved.height, expected.height);
+        assert.equal(f.window.document.body.classList.contains('oyiso-agent-resizing'), false);
+        assert.equal(f.window.document.body.style.getPropertyValue('--oyiso-agent-resize-cursor'), '');
+    }
+});
+
+test('title-bar dragging is bounded and ignores action buttons and links', t => {
+    const f = floatingWindow(t);
+    const old = windowRect(f);
+    for (const control of f.window.document.querySelectorAll('[data-agent-drag] button, [data-agent-drag] a')) {
+        pointer(f, control, 'pointerdown', 500, 180);
+        pointer(f, f.window.document, 'pointermove', 650, 280);
+        pointer(f, f.window.document, 'pointerup', 650, 280);
+        assert.deepEqual(windowRect(f), old);
+    }
+    const title = f.$('#oyiso-agent-title');
+    pointer(f, title, 'pointerdown', 280, 180);
+    pointer(f, f.window.document, 'pointermove', -800, -900);
+    assert.deepEqual(windowRect(f), { x: 24, y: 56, width: 600, height: 500 });
+    pointer(f, f.window.document, 'pointermove', 4000, 4000);
+    pointer(f, f.window.document, 'pointerup', 4000, 4000);
+    assert.deepEqual(windowRect(f), { x: 976, y: 476, width: 600, height: 500 });
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), false);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+});
+
+test('window minimum size and available viewport constrain all resize directions', t => {
+    const f = floatingWindow(t);
+    resizeFloating(f, 'nw', 4000, 4000);
+    assert.deepEqual(windowRect(f), { x: 502, y: 301, width: 360, height: 360 });
+    resizeFloating(f, 'nw', -4000, -4000);
+    assert.deepEqual(windowRect(f), { x: 24, y: 56, width: 838, height: 605 });
+    resizeFloating(f, 'se', 4000, 4000);
+    assert.deepEqual(windowRect(f), { x: 24, y: 56, width: 1552, height: 920 });
+    resizeFloating(f, 'se', -4000, -4000);
+    assert.deepEqual(windowRect(f), { x: 24, y: 56, width: 360, height: 360 });
+});
+
+test('floating geometry survives layout switches, reload and temporary viewport shrink independently of split width', t => {
+    const f = floatingWindow(t, window => window.localStorage.setItem(windowKey + ':width', '700'));
+    resizeFloating(f, 'se', 80, 40);
+    const heading = f.$('[data-agent-drag]');
+    pointer(f, heading, 'pointerdown', 300, 180);
+    pointer(f, f.window.document, 'pointermove', 200, 130);
+    pointer(f, f.window.document, 'pointerup', 200, 130);
+    const moved = windowRect(f);
+    const saved = f.window.localStorage.getItem(windowKey + ':window');
+    assert.equal(f.window.localStorage.getItem(windowKey + ':width'), '700');
+    f.$('[data-agent-layout]').click();
+    assert.equal(f.$('#oyiso-agent-panel').hasAttribute('data-agent-window'), false);
+    assert.equal(f.$('#oyiso-agent-panel').style.left, '');
+    assert.equal(f.$('[data-agent-drag]').tabIndex, -1);
+    const dockedWidth = f.$('[data-agent-resize="w"]');
+    assert.equal(dockedWidth.getAttribute('aria-valuenow'), '700');
+    dockedWidth.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    assert.equal(f.window.localStorage.getItem(windowKey + ':width'), '720');
+    f.$('[data-agent-layout]').click();
+    assert.deepEqual(windowRect(f), moved);
+    const restored = floatingWindow(t, window => {
+        window.localStorage.setItem(windowKey + ':window', saved);
+        window.localStorage.setItem(windowKey + ':width', '720');
+    });
+    assert.deepEqual(windowRect(restored), moved);
+    restored.window.innerWidth = 375; restored.window.innerHeight = 600;
+    restored.window.dispatchEvent(new restored.window.Event('resize'));
+    const small = windowRect(restored);
+    assert.equal(small.x, 12);
+    assert.equal(small.width, 351);
+    assert.ok(small.y >= 44 && small.y + small.height <= 588);
+    assert.equal(restored.window.localStorage.getItem(windowKey + ':window'), saved);
+    restored.window.innerWidth = 1600; restored.window.innerHeight = 1000;
+    restored.window.dispatchEvent(new restored.window.Event('resize'));
+    assert.deepEqual(windowRect(restored), moved);
+});
+
+test('escape, touch cancellation and lost capture restore floating geometry without closing the assistant', t => {
+    for (const cancel of ['escape', 'pointercancel', 'lostpointercapture', 'blur', 'resize']) {
+        const f = floatingWindow(t);
+        const old = windowRect(f);
+        const saved = f.window.localStorage.getItem(windowKey + ':window');
+        const handle = f.$(cancel === 'pointercancel' ? '[data-agent-drag]' : '[data-agent-resize="nw"]');
+        pointer(f, handle, 'pointerdown', 262, 161, { touch: true });
+        pointer(f, f.window.document, 'pointermove', 200, 100, { touch: true });
+        assert.notDeepEqual(windowRect(f), old);
+        if (cancel === 'escape') f.window.document.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        else if (cancel === 'blur' || cancel === 'resize') f.window.dispatchEvent(new f.window.Event(cancel));
+        else pointer(f, cancel === 'lostpointercapture' ? handle : f.window.document, cancel, 200, 100, { touch: true });
+        assert.deepEqual(windowRect(f), old, cancel);
+        assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+        assert.equal(f.window.localStorage.getItem(windowKey + ':window'), saved);
+        assert.equal(f.window.document.body.classList.contains('oyiso-agent-resizing'), false);
+        assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), false);
+    }
+});
+
+test('floating title and edge keyboard controls move and resize without intercepting action keys', t => {
+    const f = floatingWindow(t);
+    const heading = f.$('[data-agent-drag]');
+    assert.equal(heading.tabIndex, 0);
+    heading.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));
+    heading.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    assert.deepEqual(windowRect(f), { x: 222, y: 151, width: 600, height: 500 });
+    f.$('[data-agent-resize="e"]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    f.$('[data-agent-resize="s"]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    assert.deepEqual(windowRect(f), { x: 222, y: 151, width: 620, height: 520 });
+    const old = windowRect(f);
+    f.$('[data-agent-new]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    assert.deepEqual(windowRect(f), old);
+    f.$('[data-agent-resize="n"]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    assert.equal(windowRect(f).height, 360);
+    assert.equal(windowRect(f).y + windowRect(f).height, 671);
+});
+
+test('dragging during entrance finishes the animation before capture so its timeout cannot cancel the drag', async t => {
+    const f = floatingWindow(t, undefined, { closed: true, motion: true });
+    f.$('#oyiso-agent-launcher').click();
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), true);
+    pointer(f, f.$('[data-agent-drag]'), 'pointerdown', 300, 180);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
+    pointer(f, f.window.document, 'pointermove', 200, 130);
+    const moving = windowRect(f);
+    await new Promise(resolve => setTimeout(resolve, 280));
+    assert.deepEqual(windowRect(f), moving);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), true);
+    pointer(f, f.window.document, 'pointerup', 200, 130);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), false);
 });
 
 test('launcher moves freely without opening on drag release and still opens on a click', async t => {
