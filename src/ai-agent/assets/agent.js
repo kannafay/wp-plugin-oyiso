@@ -86,6 +86,7 @@
         cancelPanelMotion = undefined;
         document.body.classList.remove('oyiso-agent-transitioning');
         panel.hidden = !panelOpen;
+        launcherWrapper.hidden = panelOpen || !config.enabled;
         window.dispatchEvent(new Event('resize'));
     }
 
@@ -96,15 +97,18 @@
         cancelPanelMotion = undefined;
         if (moving) {
             panel.hidden = false;
+            launcherWrapper.hidden = false;
             document.body.classList.add('oyiso-agent-transitioning');
             // Commit the starting position before changing the transition target.
             panel.getBoundingClientRect();
+            launcherWrapper.getBoundingClientRect();
         }
         panelOpen = open;
         panel.toggleAttribute('inert', !open);
         panel.setAttribute('aria-hidden', String(!open));
         launcher.setAttribute('aria-expanded', String(open));
-        launcherWrapper.hidden = open;
+        launcherWrapper.toggleAttribute('inert', open || !config.enabled);
+        launcherWrapper.setAttribute('aria-hidden', String(open || !config.enabled));
         document.body.classList.toggle('oyiso-agent-open', open);
         store(':open', open ? '1' : '0');
         if (moving) {
@@ -531,7 +535,7 @@
             window.scrollTo({ top: 0, behavior: 'instant' });
         });
     });
-    launcher.addEventListener('click', () => setPanel(!panelOpen));
+    launcher.addEventListener('click', () => { if (!panelOpen) setPanel(true); });
     historyToggle.addEventListener('click', () => setHistory(panelHistory.hidden));
     $('[data-agent-history-back]').addEventListener('click', () => setHistory(false));
     historyDismiss.addEventListener('click', () => setHistory(false));

@@ -354,9 +354,17 @@ function transitionEnd(f, target = f.$('#oyiso-agent-panel'), property = 'transf
 test('panel open and close animate while focus and accessibility update immediately', t => {
     const f = fixture(t, undefined, {}, undefined, { globalOnly: true, closed: true, motion: true });
     const panel = f.$('#oyiso-agent-panel');
+    const wrapper = f.$('#oyiso-agent-launcher-wrap');
     const body = f.window.document.body;
     f.$('#oyiso-agent-launcher').click();
     assert.equal(panel.hidden, false);
+    assert.equal(wrapper.hidden, false, 'launcher stays painted while fading out');
+    assert.equal(wrapper.hasAttribute('inert'), true);
+    assert.equal(wrapper.getAttribute('aria-hidden'), 'true');
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(wrapper.hidden, false, 'geometry updates must not interrupt the fade');
+    f.$('#oyiso-agent-launcher').click();
+    assert.equal(body.classList.contains('oyiso-agent-open'), true, 'fading launcher cannot close the panel again');
     assert.equal(panel.hasAttribute('inert'), false);
     assert.equal(panel.getAttribute('aria-hidden'), 'false');
     assert.equal(body.classList.contains('oyiso-agent-transitioning'), true);
@@ -366,16 +374,20 @@ test('panel open and close animate while focus and accessibility update immediat
     assert.equal(body.classList.contains('oyiso-agent-transitioning'), true);
     transitionEnd(f);
     assert.equal(body.classList.contains('oyiso-agent-transitioning'), false);
+    assert.equal(wrapper.hidden, true);
     f.$('[data-agent-close]').click();
     assert.equal(panel.hidden, false, 'exit animation keeps the panel painted');
     assert.equal(panel.hasAttribute('inert'), true);
     assert.equal(panel.getAttribute('aria-hidden'), 'true');
     assert.equal(f.$('#oyiso-agent-launcher-wrap').hidden, false);
+    assert.equal(wrapper.hasAttribute('inert'), false);
+    assert.equal(wrapper.getAttribute('aria-hidden'), 'false');
     assert.equal(f.$('#oyiso-agent-launcher').getAttribute('aria-expanded'), 'false');
     assert.equal(f.window.document.activeElement, f.$('#oyiso-agent-launcher'));
     assert.equal(body.classList.contains('oyiso-agent-open'), false);
     transitionEnd(f);
     assert.equal(panel.hidden, true);
+    assert.equal(wrapper.hidden, false);
     assert.equal(body.classList.contains('oyiso-agent-transitioning'), false);
 });
 
@@ -388,12 +400,51 @@ test('rapid open close open cancels stale cleanup and missing transition events 
     assert.equal(f.$('#oyiso-agent-panel').hasAttribute('inert'), false);
     await new Promise(resolve => setTimeout(resolve, 280));
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(f.$('#oyiso-agent-launcher-wrap').hidden, true);
     assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
     assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open'), '1');
     f.$('[data-agent-close]').click();
     await new Promise(resolve => setTimeout(resolve, 280));
     assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(f.$('#oyiso-agent-launcher-wrap').hidden, false);
     assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
+});
+
+test('dragging the fading-in launcher settles the transition before moving and cancels stale cleanup', async t => {
+    const f = fixture(t, undefined, {}, geometry, { globalOnly: true, motion: true });
+    const wrapper = f.$('#oyiso-agent-launcher-wrap');
+    f.$('[data-agent-close]').click();
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), true);
+    const x = parseFloat(wrapper.style.left) + 8;
+    const y = parseFloat(wrapper.style.top) + 8;
+    pointer(f, f.$('#oyiso-agent-launcher'), 'pointerdown', x, y);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+    pointer(f, f.window.document, 'pointermove', x - 100, y - 80);
+    const moved = wrapper.style.left;
+    assert.equal(wrapper.classList.contains('is-dragging'), true);
+    await new Promise(resolve => setTimeout(resolve, 280));
+    assert.equal(wrapper.classList.contains('is-dragging'), true, 'old animation timeout must not cancel the active drag');
+    assert.equal(wrapper.style.left, moved);
+    pointer(f, f.window.document, 'pointerup', x - 100, y - 80);
+    assert.equal(wrapper.hidden, false);
+    assert.equal(wrapper.classList.contains('is-dragging'), false);
+});
+
+test('disabling the agent during launcher fade hides both controls immediately and cancels pending animation', async t => {
+    const f = fixture(t, route => route === 'status' ? { enabled: false, supported: true, secrets: {} } : undefined, {}, geometry, { closed: true, motion: true });
+    f.$('#oyiso-agent-launcher').click();
+    assert.equal(f.$('#oyiso-agent-launcher-wrap').hidden, false);
+    f.window.jQuery(f.window.document).trigger('ajaxSuccess', [{ responseJSON: { success: true, data: { errors: {} } } }, { data: 'action=csf_oyiso_ajax_save' }]);
+    await settle();
+    assert.equal(f.$('#oyiso-agent-launcher-wrap').hidden, true);
+    assert.equal(f.$('#oyiso-agent-launcher-wrap').hasAttribute('inert'), true);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
+    await new Promise(resolve => setTimeout(resolve, 280));
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(f.$('#oyiso-agent-launcher-wrap').hidden, true);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, true);
 });
 
 test('closing animation immediately invalidates polling without starting a returned queued task', async t => {
@@ -421,11 +472,14 @@ test('reduced motion uses immediate toggles and page restoration skips the entra
     const reduced = fixture(t, undefined, {}, undefined, { globalOnly: true, closed: true });
     reduced.$('#oyiso-agent-launcher').click();
     assert.equal(reduced.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(reduced.$('#oyiso-agent-launcher-wrap').hidden, true);
     assert.equal(reduced.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
     reduced.$('[data-agent-close]').click();
     assert.equal(reduced.$('#oyiso-agent-panel').hidden, true);
+    assert.equal(reduced.$('#oyiso-agent-launcher-wrap').hidden, false);
     const restored = fixture(t, undefined, {}, undefined, { globalOnly: true, motion: true });
     assert.equal(restored.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(restored.$('#oyiso-agent-launcher-wrap').hidden, true);
     assert.equal(restored.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
     restored.$('[data-agent-close]').click();
     chooseLayout(restored, 'floating');

@@ -157,7 +157,8 @@
 
     function start(event, type, edge = '') {
         if (!config.enabled || gesture || event.button !== 0 || event.isPrimary === false || (type === 'window' && docked()) || (type === 'resize' && docked() && edge !== dockEdge())) return;
-        if (type !== 'launcher') panel.dispatchEvent(new Event('oyiso-agent-geometry-start'));
+        if (type === 'launcher' && launcher.getAttribute('aria-expanded') === 'true') return;
+        panel.dispatchEvent(new Event('oyiso-agent-geometry-start'));
         clearTimeout(clickTimer);
         suppressClick = false;
         if (event.pointerType === 'touch') wrapper.classList.remove('is-hovered');
@@ -294,7 +295,7 @@
     window.addEventListener('blur', () => finish(null, true));
     function sync() {
         if (gesture) finish(null, true);
-        wrapper.hidden = !config.enabled || launcher.getAttribute('aria-expanded') === 'true';
+        wrapper.hidden = !config.enabled || (launcher.getAttribute('aria-expanded') === 'true' && !document.body.classList.contains('oyiso-agent-transitioning'));
         if (wrapper.hidden) wrapper.classList.remove('is-hovered');
         applyGeometry();
         placeLauncher();
