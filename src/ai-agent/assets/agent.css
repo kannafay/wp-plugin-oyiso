@@ -14,7 +14,7 @@ body.is-fullscreen-mode { --oyiso-agent-bar-height: 0px; }
 .oyiso-agent-heading .button { flex-shrink: 0; }
 #oyiso-agent-launcher-wrap { position: fixed; z-index: 9991; right: 24px; bottom: 24px; display: flex; width: max-content; height: max-content; overflow: hidden; pointer-events: none; filter: drop-shadow(0 3px 6px #0002); }
 #oyiso-agent-launcher-wrap[style] { right: auto; bottom: auto; }
-#oyiso-agent-launcher { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid #1d2327; border-radius: 24px; background: #1d2327; color: #fff; cursor: grab; font: inherit; font-size: 13px; white-space: nowrap; touch-action: none; user-select: none; pointer-events: auto; transition: transform 160ms ease; }
+#oyiso-agent-launcher { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid #1d2327; border-radius: 24px; background: #1d2327; color: #fff; cursor: pointer; font: inherit; font-size: 13px; white-space: nowrap; touch-action: none; user-select: none; pointer-events: auto; transition: transform 160ms ease; }
 #oyiso-agent-launcher[aria-expanded="true"] { display: none; }
 #oyiso-agent-launcher-wrap[data-agent-edge="left"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateX(calc(-100% + 36px)); }
 #oyiso-agent-launcher-wrap[data-agent-edge="right"] #oyiso-agent-launcher:not(:focus-visible) { transform: translateX(calc(100% - 36px)); }
