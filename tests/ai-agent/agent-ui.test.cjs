@@ -718,6 +718,122 @@ function resizeFloating(f, edge, dx, dy) {
     pointer(f, f.window.document, 'pointerup', x + dx, y + dy);
 }
 
+test('fullscreen fills the viewport and restores floating geometry, draft and accessible controls', t => {
+    const f = floatingWindow(t);
+    const panel = f.$('#oyiso-agent-panel');
+    const toggle = f.$('[data-agent-fullscreen-toggle]');
+    const original = windowRect(f);
+    const saved = f.window.localStorage.getItem(windowKey + ':window');
+    inputDraft(f, '全屏时保留草稿');
+    f.$('[data-agent-history-toggle]').click();
+    assert.equal(panel.dataset.historyLayout, 'overlay');
+    for (const control of panel.querySelectorAll('.oyiso-agent-icon-button')) {
+        assert.ok(control.querySelector('svg'));
+        assert.ok(control.getAttribute('aria-label'));
+        assert.equal(control.querySelector('.dashicons'), null);
+    }
+    toggle.click();
+    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 1600, height: 1000 });
+    assert.equal(panel.hasAttribute('data-agent-fullscreen'), true);
+    assert.equal(toggle.getAttribute('aria-pressed'), 'true');
+    assert.equal(toggle.getAttribute('aria-label'), '退出全屏');
+    assert.equal(f.$('[data-agent-fullscreen-icon="enter"]').hidden, true);
+    assert.equal(f.$('[data-agent-fullscreen-icon="exit"]').hidden, false);
+    assert.equal(f.$('[data-agent-drag]').tabIndex, -1);
+    assert.equal(panel.dataset.historyLayout, 'sidebar');
+    assert.equal(f.$('#oyiso-agent-chat').hasAttribute('inert'), false);
+    assert.equal(f.window.localStorage.getItem(windowKey + ':window'), saved);
+    assert.equal(f.window.localStorage.getItem(windowKey + ':layout'), 'floating');
+    for (const edge of ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se']) resizeFloating(f, edge, 100, 100);
+    const heading = f.$('[data-agent-drag]');
+    pointer(f, heading, 'pointerdown', 300, 180);
+    pointer(f, f.window.document, 'pointermove', 500, 280);
+    pointer(f, f.window.document, 'pointerup', 500, 280);
+    heading.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    f.$('[data-agent-resize="n"]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 1600, height: 1000 });
+    toggle.click();
+    assert.deepEqual(windowRect(f), original);
+    assert.equal(panel.hasAttribute('data-agent-fullscreen'), false);
+    assert.equal(toggle.getAttribute('aria-pressed'), 'false');
+    assert.equal(toggle.getAttribute('aria-label'), '全屏');
+    assert.equal(f.$('[data-agent-fullscreen-icon="enter"]').hidden, false);
+    assert.equal(f.$('[data-agent-fullscreen-icon="exit"]').hidden, true);
+    assert.equal(f.$('[data-agent-drag]').tabIndex, 0);
+    assert.equal(f.$('[data-agent-resize="n"]').tabIndex, 0);
+    assert.equal(f.$('#oyiso-agent-prompt').value, '全屏时保留草稿');
+    assert.equal(f.window.localStorage.getItem(windowKey + ':window'), saved);
+});
+
+test('fullscreen tracks viewport changes and restores saved geometry after temporary viewport shrink', t => {
+    const f = floatingWindow(t);
+    const original = windowRect(f);
+    const saved = f.window.localStorage.getItem(windowKey + ':window');
+    f.$('[data-agent-fullscreen-toggle]').click();
+    f.window.innerWidth = 375; f.window.innerHeight = 600;
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 375, height: 600 });
+    f.$('[data-agent-fullscreen-toggle]').click();
+    assert.deepEqual(windowRect(f), { x: 0, y: 25, width: 375, height: 500 });
+    assert.equal(f.window.localStorage.getItem(windowKey + ':window'), saved);
+    f.window.innerWidth = 1600; f.window.innerHeight = 1000;
+    f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.deepEqual(windowRect(f), original);
+});
+
+test('fullscreen from a split panel restores its side and width on Escape and yields to layout changes', t => {
+    const f = fixture(t, undefined, {}, window => {
+        geometry(window);
+        window.localStorage.setItem(windowKey + ':side', 'left');
+        window.localStorage.setItem(windowKey + ':width', '700');
+    }, { globalOnly: true });
+    const toggle = f.$('[data-agent-fullscreen-toggle]');
+    toggle.click();
+    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 1600, height: 1000 });
+    assert.equal(f.window.localStorage.getItem(windowKey + ':layout'), 'docked');
+    f.window.document.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.equal(f.$('#oyiso-agent-panel').hasAttribute('data-agent-window'), false);
+    assert.equal(f.$('#oyiso-agent-panel').dataset.agentDock, 'left');
+    assert.equal(f.$('[data-agent-resize="e"]').getAttribute('aria-valuenow'), '700');
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(toggle.getAttribute('aria-pressed'), 'false');
+    toggle.click(); chooseLayout(f, 'right');
+    assert.equal(f.$('#oyiso-agent-panel').hasAttribute('data-agent-fullscreen'), false);
+    assert.equal(f.$('#oyiso-agent-panel').dataset.agentDock, 'right');
+    assert.equal(f.window.localStorage.getItem(windowKey + ':fullscreen'), '0');
+});
+
+test('fullscreen restores across navigation without entrance flashing and Escape preserves pinned history', t => {
+    const f = floatingWindow(t, window => {
+        window.localStorage.setItem(windowKey + ':fullscreen', '1');
+        window.localStorage.setItem(windowKey + ':history-open', '1');
+    }, { motion: true });
+    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 1600, height: 1000 });
+    assert.equal(f.$('[data-agent-fullscreen-toggle]').getAttribute('aria-pressed'), 'true');
+    assert.equal(f.$('#oyiso-agent-launcher-wrap').hidden, true);
+    assert.equal(f.window.document.body.classList.contains('oyiso-agent-transitioning'), false);
+    f.$('[data-agent-close]').click(); f.$('#oyiso-agent-launcher').click(); transitionEnd(f);
+    assert.equal(f.$('#oyiso-agent-panel').hasAttribute('data-agent-fullscreen'), true);
+    f.window.document.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.deepEqual(windowRect(f), { x: 250, y: 125, width: 600, height: 500 });
+    assert.equal(f.$('#oyiso-agent-panel-history').hidden, false);
+    assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.equal(f.window.localStorage.getItem(windowKey + ':fullscreen'), '0');
+});
+
+test('resetting a fullscreen panel restores default geometry and preserves the floating layout and draft', t => {
+    const f = floatingWindow(t);
+    inputDraft(f, '恢复全屏布局时保留');
+    f.$('[data-agent-fullscreen-toggle]').click(); f.$('[data-agent-reset]').click();
+    assert.equal(f.$('#oyiso-agent-panel').hasAttribute('data-agent-fullscreen'), false);
+    assert.equal(f.$('[data-agent-fullscreen-toggle]').getAttribute('aria-pressed'), 'false');
+    assert.equal(f.window.localStorage.getItem(windowKey + ':fullscreen'), '0');
+    assert.equal(f.window.localStorage.getItem(windowKey + ':layout'), 'floating');
+    assert.equal(f.window.localStorage.getItem(windowKey + ':window'), null);
+    assert.deepEqual(windowRect(f), { x: 1120, y: 280, width: 480, height: 720 });
+    assert.equal(f.$('#oyiso-agent-prompt').value, '恢复全屏布局时保留');
+});
+
 test('layout menu supports both split sides, keyboard navigation, dismissal and saved side restoration', async t => {
     const f = fixture(t, undefined, {}, geometry, { globalOnly: true });
     const menu = f.$('[data-agent-layout-menu]');
@@ -862,7 +978,7 @@ test('reset restores default panel geometry and right split while preserving mod
     inputDraft(f, '恢复布局时保留这段草稿');
     resizeFloating(f, 'se', 80, 40);
     f.$('[data-agent-reset]').click();
-    assert.deepEqual(windowRect(f), { x: 1096, y: 256, width: 480, height: 720 });
+    assert.deepEqual(windowRect(f), { x: 1120, y: 280, width: 480, height: 720 });
     assert.equal(f.window.localStorage.getItem(windowKey + ':layout'), 'floating');
     assert.equal(f.window.localStorage.getItem(windowKey + ':width'), null);
     assert.equal(f.window.localStorage.getItem(windowKey + ':window'), null);
@@ -913,11 +1029,11 @@ test('history stays beside chat in a wide panel and becomes a dismissible left o
 test('floating window resizes from every edge and corner while preserving opposite edges', t => {
     for (const edge of ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se']) {
         const f = floatingWindow(t);
-        assert.deepEqual(windowRect(f), { x: 262, y: 161, width: 600, height: 500 });
+        assert.deepEqual(windowRect(f), { x: 250, y: 125, width: 600, height: 500 });
         const dx = edge.includes('w') ? -40 : edge.includes('e') ? 60 : 0;
         const dy = edge.includes('n') ? -30 : edge.includes('s') ? 50 : 0;
         resizeFloating(f, edge, dx, dy);
-        const expected = { x: edge.includes('w') ? 222 : 262, y: edge.includes('n') ? 131 : 161, width: 600 + (edge.includes('w') ? 40 : edge.includes('e') ? 60 : 0), height: 500 + (edge.includes('n') ? 30 : edge.includes('s') ? 50 : 0) };
+        const expected = { x: edge.includes('w') ? 210 : 250, y: edge.includes('n') ? 95 : 125, width: 600 + (edge.includes('w') ? 40 : edge.includes('e') ? 60 : 0), height: 500 + (edge.includes('n') ? 30 : edge.includes('s') ? 50 : 0) };
         assert.deepEqual(windowRect(f), expected, edge);
         const saved = JSON.parse(f.window.localStorage.getItem(windowKey + ':window'));
         assert.equal(saved.width, expected.width);
@@ -939,10 +1055,10 @@ test('title-bar dragging is bounded and ignores action buttons and links', t => 
     const title = f.$('#oyiso-agent-title');
     pointer(f, title, 'pointerdown', 280, 180);
     pointer(f, f.window.document, 'pointermove', -800, -900);
-    assert.deepEqual(windowRect(f), { x: 24, y: 56, width: 600, height: 500 });
+    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 600, height: 500 });
     pointer(f, f.window.document, 'pointermove', 4000, 4000);
     pointer(f, f.window.document, 'pointerup', 4000, 4000);
-    assert.deepEqual(windowRect(f), { x: 976, y: 476, width: 600, height: 500 });
+    assert.deepEqual(windowRect(f), { x: 1000, y: 500, width: 600, height: 500 });
     assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), false);
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
 });
@@ -950,13 +1066,13 @@ test('title-bar dragging is bounded and ignores action buttons and links', t => 
 test('window minimum size and available viewport constrain all resize directions', t => {
     const f = floatingWindow(t);
     resizeFloating(f, 'nw', 4000, 4000);
-    assert.deepEqual(windowRect(f), { x: 502, y: 301, width: 360, height: 360 });
+    assert.deepEqual(windowRect(f), { x: 490, y: 265, width: 360, height: 360 });
     resizeFloating(f, 'nw', -4000, -4000);
-    assert.deepEqual(windowRect(f), { x: 24, y: 56, width: 838, height: 605 });
+    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 850, height: 625 });
     resizeFloating(f, 'se', 4000, 4000);
-    assert.deepEqual(windowRect(f), { x: 24, y: 56, width: 1552, height: 920 });
+    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 1600, height: 1000 });
     resizeFloating(f, 'se', -4000, -4000);
-    assert.deepEqual(windowRect(f), { x: 24, y: 56, width: 360, height: 360 });
+    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 360, height: 360 });
 });
 
 test('floating geometry survives layout switches, reload and temporary viewport shrink independently of split width', t => {
@@ -987,9 +1103,9 @@ test('floating geometry survives layout switches, reload and temporary viewport 
     restored.window.innerWidth = 375; restored.window.innerHeight = 600;
     restored.window.dispatchEvent(new restored.window.Event('resize'));
     const small = windowRect(restored);
-    assert.equal(small.x, 12);
-    assert.equal(small.width, 351);
-    assert.ok(small.y >= 44 && small.y + small.height <= 588);
+    assert.equal(small.x, 0);
+    assert.equal(small.width, 375);
+    assert.ok(small.y >= 0 && small.y + small.height <= 600);
     assert.equal(restored.window.localStorage.getItem(windowKey + ':window'), saved);
     restored.window.innerWidth = 1600; restored.window.innerHeight = 1000;
     restored.window.dispatchEvent(new restored.window.Event('resize'));
@@ -1022,16 +1138,16 @@ test('floating title and edge keyboard controls move and resize without intercep
     assert.equal(heading.tabIndex, 0);
     heading.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));
     heading.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
-    assert.deepEqual(windowRect(f), { x: 222, y: 151, width: 600, height: 500 });
+    assert.deepEqual(windowRect(f), { x: 210, y: 115, width: 600, height: 500 });
     f.$('[data-agent-resize="e"]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     f.$('[data-agent-resize="s"]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-    assert.deepEqual(windowRect(f), { x: 222, y: 151, width: 620, height: 520 });
+    assert.deepEqual(windowRect(f), { x: 210, y: 115, width: 620, height: 520 });
     const old = windowRect(f);
     f.$('[data-agent-new]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
     assert.deepEqual(windowRect(f), old);
     f.$('[data-agent-resize="n"]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
     assert.equal(windowRect(f).height, 360);
-    assert.equal(windowRect(f).y + windowRect(f).height, 671);
+    assert.equal(windowRect(f).y + windowRect(f).height, 635);
 });
 
 test('dragging during entrance finishes the animation before capture so its timeout cannot cancel the drag', async t => {
@@ -1104,7 +1220,7 @@ test('saved width and edge position adapt to narrow viewports without losing pre
     assert.equal(wrapper.style.left, '255px');
     assert.equal(wrapper.style.top, '294px');
     assert.equal(wrapper.dataset.agentEdge, 'right');
-    assert.equal(f.$('[data-agent-resize]').getAttribute('aria-valuenow'), '351');
+    assert.equal(f.$('[data-agent-resize]').getAttribute('aria-valuenow'), '375');
     assert.equal(f.window.localStorage.getItem(key + ':width'), '700');
     f.window.innerWidth = 1280;
     Object.defineProperty(f.window.document.documentElement, 'clientWidth', { get: () => f.window.innerWidth - 15 });

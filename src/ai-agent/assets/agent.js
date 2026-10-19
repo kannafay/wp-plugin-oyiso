@@ -34,6 +34,8 @@
     let version = '';
     let panelOpen = false;
     let cancelPanelMotion;
+    let fullscreen = false;
+    let fullscreenPreviousFloating = false;
 
     function store(key, value) {
         try { localStorage.setItem(storageKey + key, value); } catch { /* Storage is optional. */ }
@@ -137,6 +139,7 @@
     }
 
     function setLayout(floating) {
+        if (fullscreen) setFullscreen(false);
         if (cancelPanelMotion) finishPanelMotion();
         document.body.classList.toggle('oyiso-agent-floating', floating);
         store(':layout', floating ? 'floating' : 'docked');
@@ -145,9 +148,28 @@
     }
 
     function setSide(left) {
+        if (fullscreen) setFullscreen(false);
         if (cancelPanelMotion) finishPanelMotion();
         document.body.classList.toggle('oyiso-agent-dock-left', left);
         store(':side', left ? 'left' : 'right');
+        updateLayoutControls();
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    function setFullscreen(open) {
+        if (open === fullscreen || (open && !config.enabled)) return;
+        if (cancelPanelMotion) finishPanelMotion();
+        if (open) fullscreenPreviousFloating = document.body.classList.contains('oyiso-agent-floating');
+        fullscreen = open;
+        document.body.classList.toggle('oyiso-agent-floating', open || fullscreenPreviousFloating);
+        panel.toggleAttribute('data-agent-fullscreen', open);
+        const button = $('[data-agent-fullscreen-toggle]');
+        button.setAttribute('aria-pressed', String(open));
+        button.title = open ? '退出全屏' : '全屏';
+        button.setAttribute('aria-label', button.title);
+        $('[data-agent-fullscreen-icon="enter"]').hidden = open;
+        $('[data-agent-fullscreen-icon="exit"]').hidden = !open;
+        store(':fullscreen', open ? '1' : '0');
         updateLayoutControls();
         window.dispatchEvent(new Event('resize'));
     }
@@ -542,6 +564,7 @@
     panel.addEventListener('oyiso-agent-history-layout', syncHistory);
     panel.addEventListener('oyiso-agent-geometry-start', () => { if (cancelPanelMotion) finishPanelMotion(); });
     $('[data-agent-close]').addEventListener('click', () => setPanel(false));
+    $('[data-agent-fullscreen-toggle]').addEventListener('click', () => { setLayoutMenu(false, false); setFullscreen(!fullscreen); });
     $('[data-agent-layout]').addEventListener('click', () => setLayoutMenu(layoutMenu.hidden));
     layoutMenu.querySelectorAll('[data-agent-layout-choice]').forEach(button => button.addEventListener('click', () => {
         const choice = button.dataset.agentLayoutChoice;
@@ -568,9 +591,10 @@
             setLayoutMenu(false);
             return;
         }
-        if (event.key === 'Escape' && panelOpen && (panel.contains(event.target) || event.target === document.body || event.target === launcher)) {
+        if (event.key === 'Escape' && panelOpen && (fullscreen || panel.contains(event.target) || event.target === document.body || event.target === launcher)) {
             event.preventDefault();
-            if (!panelHistory.hidden) setHistory(false);
+            if (!panelHistory.hidden && (!fullscreen || panel.dataset.historyLayout !== 'sidebar')) setHistory(false);
+            else if (fullscreen) setFullscreen(false);
             else setPanel(false);
         }
     });
@@ -649,6 +673,7 @@
         prompt.value = draftFor(runId);
         setSide(localStorage.getItem(storageKey + ':side') === 'left');
         setLayout(localStorage.getItem(storageKey + ':layout') === 'floating');
+        if (localStorage.getItem(storageKey + ':fullscreen') === '1') setFullscreen(true);
         if (localStorage.getItem(storageKey + ':history-open') === '1') setHistory(true, false);
         if (localStorage.getItem(storageKey + ':open') === '1') setPanel(true, false, false);
     } catch { /* Storage is optional. */ }

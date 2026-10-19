@@ -52,28 +52,26 @@
     }
 
     function windowBounds() {
-        const { w, h, top, gap } = viewport();
-        const padX = Math.min(gap, Math.max(0, (w - 1) / 2));
-        const padY = Math.min(gap, Math.max(0, (h - top - 1) / 2));
-        const maxWidth = w - padX * 2;
-        const maxHeight = h - top - padY * 2;
-        return { left: padX, right: w - padX, top: top + padY, bottom: h - padY, maxWidth, maxHeight, minWidth: Math.min(360, maxWidth), minHeight: Math.min(360, maxHeight) };
+        const { w, h } = viewport();
+        return { left: 0, right: w, top: 0, bottom: h, maxWidth: w, maxHeight: h, minWidth: Math.min(360, w), minHeight: Math.min(360, h) };
     }
 
     function applyGeometry() {
         const floating = !docked();
         const bounds = floating ? windowBounds() : widthBounds();
         const view = viewport();
-        const value = Math.round(floating ? clamp(windowState?.width ?? width ?? 480, bounds.minWidth, bounds.maxWidth) : clamp(width ?? bounds.defaultWidth, bounds.min, bounds.max));
-        const height = floating ? Math.round(clamp(windowState?.height ?? 720, bounds.minHeight, bounds.maxHeight)) : view.h;
-        const rect = { width: value, height, x: floating ? Math.round(bounds.left + (windowState?.x ?? 1) * (bounds.maxWidth - value)) : leftDock() ? 0 : view.w - value, y: floating ? Math.round(bounds.top + (windowState?.y ?? 1) * (bounds.maxHeight - height)) : 0 };
+        const fullscreen = panel.hasAttribute('data-agent-fullscreen');
+        const value = fullscreen ? view.w : Math.round(floating ? clamp(windowState?.width ?? width ?? 480, bounds.minWidth, bounds.maxWidth) : clamp(width ?? bounds.defaultWidth, bounds.min, bounds.max));
+        const height = fullscreen ? view.h : floating ? Math.round(clamp(windowState?.height ?? 720, bounds.minHeight, bounds.maxHeight)) : view.h;
+        const rect = { width: value, height, x: fullscreen ? 0 : floating ? Math.round(bounds.left + (windowState?.x ?? 1) * (bounds.maxWidth - value)) : leftDock() ? 0 : view.w - value, y: floating && !fullscreen ? Math.round(bounds.top + (windowState?.y ?? 1) * (bounds.maxHeight - height)) : 0 };
         document.body.style.setProperty('--oyiso-agent-panel-width', `${value}px`);
         panel.toggleAttribute('data-agent-window', floating);
         if (floating) delete panel.dataset.agentDock;
         else panel.dataset.agentDock = leftDock() ? 'left' : 'right';
-        heading.tabIndex = floating ? 0 : -1;
+        heading.tabIndex = floating && !fullscreen ? 0 : -1;
         if (floating) {
-            heading.setAttribute('aria-label', '移动助手窗口，也可使用方向键');
+            if (fullscreen) heading.removeAttribute('aria-label');
+            else heading.setAttribute('aria-label', '移动助手窗口，也可使用方向键');
             Object.assign(panel.style, { left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.width}px`, height: `${rect.height}px`, right: 'auto', bottom: 'auto' });
         } else {
             heading.removeAttribute('aria-label');
@@ -82,6 +80,7 @@
         for (const handle of resizers) {
             const edge = handle.dataset.agentResize;
             if (edge.length !== 1) continue;
+            handle.tabIndex = fullscreen ? -1 : 0;
             const horizontal = edge === 'w' || edge === 'e';
             const max = !floating ? (horizontal ? bounds.max : height) : ({ w: rect.x + value - bounds.left, e: bounds.right - rect.x, n: rect.y + height - bounds.top, s: bounds.bottom - rect.y })[edge];
             handle.setAttribute('aria-valuemin', String(floating ? (horizontal ? bounds.minWidth : bounds.minHeight) : (horizontal ? bounds.min : height)));
@@ -157,6 +156,7 @@
 
     function start(event, type, edge = '') {
         if (!config.enabled || gesture || event.button !== 0 || event.isPrimary === false || (type === 'window' && docked()) || (type === 'resize' && docked() && edge !== dockEdge())) return;
+        if (type !== 'launcher' && panel.hasAttribute('data-agent-fullscreen')) return;
         if (type === 'launcher' && launcher.getAttribute('aria-expanded') === 'true') return;
         panel.dispatchEvent(new Event('oyiso-agent-geometry-start'));
         clearTimeout(clickTimer);
@@ -252,6 +252,7 @@
         save(':position', JSON.stringify(position));
     });
     resizers.forEach(handle => handle.addEventListener('keydown', event => {
+        if (panel.hasAttribute('data-agent-fullscreen')) return;
         const edge = handle.dataset.agentResize;
         const horizontal = edge === 'w' || edge === 'e';
         const arrows = horizontal ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown'];
@@ -278,7 +279,7 @@
     }));
     heading.addEventListener('keydown', event => {
         const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
-        if (!delta || event.target !== heading || docked() || event.ctrlKey || event.metaKey || event.altKey) return;
+        if (!delta || event.target !== heading || docked() || panel.hasAttribute('data-agent-fullscreen') || event.ctrlKey || event.metaKey || event.altKey) return;
         event.preventDefault();
         panel.dispatchEvent(new Event('oyiso-agent-geometry-start'));
         const step = event.shiftKey ? 40 : 10;
