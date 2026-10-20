@@ -80,7 +80,9 @@
 .oyiso-agent-model-dialog [data-model-manual] { display: block; width: 100%; min-height: 160px; margin: 0; padding: 10px 12px; border: 1px solid #949494; border-radius: 4px; box-sizing: border-box; font: inherit; line-height: 1.6; resize: vertical; }
 .oyiso-agent-model-preview { margin: 14px 0 0; padding: 12px; border: 1px dashed #dcdcde; border-radius: 4px; background: #fafafa; color: #646970; font-size: 13px; }
 .oyiso-agent-model-dialog .oyiso-agent-provider-dialog-footer { flex-wrap: wrap; }
-.oyiso-agent-model-manual-link { margin-right: auto !important; }
+.oyiso-agent-model-footer-status, .oyiso-agent-model-footer-actions { display: flex; align-items: center; gap: 8px; }
+.oyiso-agent-model-footer-status { margin-inline-end: auto; }
+.oyiso-agent-model-footer-actions { margin-inline-start: auto; }
 .oyiso-agent-model-selection-count { color: #646970; font-size: 12px; white-space: nowrap; }
 .oyiso-agent-provider-dialog-notice { margin: 16px 0 0; color: #b32d2e; overflow-wrap: anywhere; }
 .oyiso-agent-provider-dialog-notice:empty { display: none; }

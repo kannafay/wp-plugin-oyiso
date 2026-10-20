@@ -389,20 +389,20 @@ test('model list errors offer manual entry without clearing provider fields or s
     f.$('[data-provider-add]').click(); f.field('key').value = 'fixture-unsaved-key'; f.field('name').value = '未保存的连接';
     f.$('[data-model-fetch]').click(); await settle();
     assert.match(f.$('[data-model-notice]').textContent, /未提供模型列表/); assert.equal(f.$('[data-model-notice] img'), null);
-    assert.equal(f.$('[data-model-retry]').disabled, false); f.$('[data-model-manual-switch]').click();
+    assert.equal(f.$('[data-model-retry]').disabled, false); f.$('[data-model-close]').click(); f.$('[data-model-add]').click();
     assert.equal(f.$('[data-model-manual-view]').hidden, false); assert.equal(f.$('[data-model-catalog-view]').hidden, true);
     manualInput(f, 'manual-model'); f.$('[data-model-apply]').click();
     assert.equal(f.field('name').value, '未保存的连接'); assert.equal(f.field('key').value, 'fixture-unsaved-key'); assert.equal(f.field('models').value, 'manual-model');
     assert.equal(f.calls.length, 1); assert.equal(f.$('[data-provider-dialog]').open, true);
 });
 
-test('switching from checked catalog models to manual entry keeps both parts of the unsaved selection', async t => {
+test('adding models manually after catalog selection keeps both parts of the unsaved provider', async t => {
     const f = fixture(t, [row('first', { models: ['manual-old', 'server-a'] })], () => ({ models: [{ id: 'server-a', name: 'A' }, { id: 'server-b', name: 'B' }] }));
     f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click(); f.$('[data-model-fetch]').click(); await settle();
     modelCheckbox(f, 'server-a', false); modelCheckbox(f, 'server-b', true);
-    f.$('[data-model-manual-switch]').click(); manualInput(f, 'manual-new,server-b');
+    f.$('[data-model-apply]').click(); f.$('[data-model-add]').click(); manualInput(f, 'manual-new,server-b');
     assert.match(f.$('[data-model-preview]').textContent, /新增 1 个模型，1 个已添加/);
-    assert.equal(f.field('models').value, 'manual-old\nserver-a');
+    assert.equal(f.field('models').value, 'manual-old\nserver-b');
     f.$('[data-model-apply]').click(); assert.equal(f.field('models').value, 'manual-old\nserver-b\nmanual-new');
     assert.equal(f.calls.length, 1);
 });
@@ -415,7 +415,7 @@ test('closing, reopening or switching to manual entry aborts and ignores earlier
     f.$('[data-model-fetch]').click();
     finishes[0]({ models: [{ id: 'stale-model', name: 'Stale' }] }); await settle();
     assert.equal(f.$('[data-model-catalog]').textContent, ''); assert.equal(f.$('[data-model-retry]').disabled, true);
-    f.$('[data-model-manual-switch]').click(); assert.equal(f.calls[1].options.signal.aborted, true);
+    f.$('[data-model-close]').click(); f.$('[data-model-add]').click(); assert.equal(f.calls[1].options.signal.aborted, true);
     finishes[1]({ models: [{ id: 'another-stale-model', name: 'Stale' }] }); await settle();
     assert.equal(f.$('[data-model-manual-view]').hidden, false); assert.equal(f.field('models').value, '');
     manualInput(f, 'manual-kept'); f.$('[data-model-apply]').click();

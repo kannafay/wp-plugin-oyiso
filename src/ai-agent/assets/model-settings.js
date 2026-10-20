@@ -145,15 +145,14 @@
     }
     function openModelDialog(mode, target) {
         if (busy || !dialog.open || dialog.classList.contains('is-closing')) return;
-        const base = modelDialog.open && modelMode === 'catalog' && catalogLoaded ? Array.from(modelSelection) : getModels();
         abortModelRequest(); modelMode = mode; modelOpener = target;
         $('[data-model-catalog-view]').hidden = mode !== 'catalog'; $('[data-model-manual-view]').hidden = mode !== 'manual';
-        $('[data-model-retry]').hidden = mode !== 'catalog'; $('[data-model-manual-switch]').hidden = mode !== 'catalog'; $('[data-model-selection-count]').hidden = mode !== 'catalog';
+        $('[data-model-catalog-actions]').hidden = mode !== 'catalog';
         $('#oyiso-model-dialog-title').textContent = mode === 'catalog' ? '获取模型列表' : '手动添加模型';
-        $('[data-model-apply]').textContent = mode === 'catalog' ? '使用所选模型' : '添加模型';
+        $('[data-model-apply]').textContent = mode === 'catalog' ? '添加所选模型' : '添加模型';
         $('[data-model-notice]').textContent = ''; showDialog(modelDialog);
         if (mode === 'catalog') { $('[data-model-search]').value = ''; modelSelection = new Set(getModels()); fetchModels(); $('[data-model-close]').focus(); }
-        else { manualBaseModels = base; $('[data-model-manual]').value = ''; renderManualPreview(); $('[data-model-manual]').focus(); }
+        else { manualBaseModels = getModels(); $('[data-model-manual]').value = ''; renderManualPreview(); $('[data-model-manual]').focus(); }
     }
     function applyModels() {
         if (!modelDialog.open || modelDialog.classList.contains('is-closing') || $('[data-model-apply]').disabled) return;
@@ -283,7 +282,6 @@
     fields.clear_key.addEventListener('change', () => { if (fields.clear_key.checked) fields.key.value = ''; fields.key.disabled = fields.clear_key.checked; setKeyVisible(); });
     $('[data-model-fetch]').addEventListener('click', event => openModelDialog('catalog', event.currentTarget));
     $('[data-model-add]').addEventListener('click', event => openModelDialog('manual', event.currentTarget));
-    $('[data-model-manual-switch]').addEventListener('click', () => openModelDialog('manual', $('[data-model-add]')));
     $('[data-model-retry]').addEventListener('click', fetchModels);
     $('[data-model-search]').addEventListener('input', renderCatalog);
     $('[data-model-manual]').addEventListener('input', renderManualPreview);
