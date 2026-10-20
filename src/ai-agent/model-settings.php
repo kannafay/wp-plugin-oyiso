@@ -70,7 +70,7 @@ final class Oyiso_Agent_Model_Settings
         <div class="oyiso-agent-settings" data-agent-settings data-state="<?php echo esc_attr((string) wp_json_encode($data)); ?>">
             <div class="oyiso-agent-settings-heading"><div><h3>模型提供商</h3><p class="description">每个连接独立保存密钥，同一家提供商可以添加多次。</p></div><button type="button" class="button button-primary" data-provider-add>添加提供商</button></div>
             <p data-provider-notice role="status" aria-live="polite" hidden></p>
-            <div class="oyiso-agent-provider-table"><table class="widefat"><thead><tr><th>连接名称</th><th>接口</th><th>模型</th><th>密钥</th><th>操作</th></tr></thead><tbody data-provider-rows></tbody></table></div>
+            <div class="oyiso-agent-provider-table"><table class="widefat"><thead><tr><th>连接名称</th><th>接口协议</th><th>模型</th><th>密钥</th><th>操作</th></tr></thead><tbody data-provider-rows></tbody></table></div>
             <p class="description">提供商在弹窗内单独保存。默认模型和下方偏好使用页面顶部的「保存配置」。<a href="<?php echo esc_url(admin_url('options-connectors.php')); ?>">管理 WordPress 连接器</a></p>
             <dialog class="oyiso-agent-provider-dialog" aria-labelledby="oyiso-provider-dialog-title" data-provider-dialog>
                 <div class="oyiso-agent-provider-dialog-heading"><h2 id="oyiso-provider-dialog-title">添加提供商</h2><button type="button" class="oyiso-agent-provider-close" data-provider-close aria-label="关闭">×</button></div>
@@ -79,7 +79,7 @@ final class Oyiso_Agent_Model_Settings
                         <label>提供商预设<select data-provider-field="preset"><option value="openai">OpenAI</option><option value="deepseek">DeepSeek</option><option value="gemini">Gemini</option><option value="agnes">Agnes AI</option><option value="custom">自定义</option></select></label>
                         <label>连接名称<input type="text" maxlength="80" data-provider-field="name" placeholder="例如：DeepSeek 主账号"></label>
                         <label class="oyiso-agent-provider-wide">Base URL<input type="url" maxlength="1000" spellcheck="false" data-provider-field="url" placeholder="https://api.example.com/v1"></label>
-                        <label class="oyiso-agent-provider-wide">接口类型<select data-provider-field="protocol"><?php foreach (Oyiso_Agent_Connectors::protocols() as $id => $protocol): ?><option value="<?php echo esc_attr($id); ?>"><?php echo esc_html($protocol['name']); ?></option><?php endforeach; ?></select><span class="description">按服务商文档选择接口类型。Base URL 保留版本路径，无需填写具体端点。</span></label>
+                        <label class="oyiso-agent-provider-wide">接口协议<select data-provider-field="protocol"><?php foreach (Oyiso_Agent_Connectors::protocols() as $id => $protocol): ?><option value="<?php echo esc_attr($id); ?>"><?php echo esc_html($protocol['name']); ?></option><?php endforeach; ?></select><span class="description">按服务商文档选择接口协议。Base URL 保留版本路径，无需填写具体端点。</span></label>
                         <label class="oyiso-agent-provider-wide">API Key<input type="password" maxlength="4096" autocomplete="new-password" data-provider-field="key" placeholder="填写 API Key"><span class="description">加密保存，已有密钥留空保持。</span></label>
                         <label class="oyiso-agent-provider-clear"><input type="checkbox" data-provider-field="clear_key">清除已保存的密钥</label>
                         <section class="oyiso-agent-provider-wide oyiso-agent-models" aria-labelledby="oyiso-provider-models-title">

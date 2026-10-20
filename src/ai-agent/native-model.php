@@ -45,7 +45,7 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
         $anthropic = $connection->protocol === 'anthropic_messages';
         $responses = $connection->protocol === 'openai_responses';
         if (!$anthropic && !$responses && $connection->protocol !== 'gemini') {
-            throw new InvalidArgumentException('此连接的接口类型已更改，请重新发送任务。');
+            throw new InvalidArgumentException('此连接的接口协议已更改，请重新发送任务。');
         }
         $key = Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($connection->id));
         $headers = ['Content-Type' => 'application/json'];
@@ -150,18 +150,18 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
                         $text .= match ($block['type'] ?? '') {
                             'output_text' => self::text($block['text'] ?? null),
                             'refusal' => self::text($block['refusal'] ?? null),
-                            default => throw new RuntimeException('模型返回了不支持的内容，请检查接口类型和模型。'),
+                            default => throw new RuntimeException('模型返回了不支持的内容，请检查接口协议和模型。'),
                         };
                     }
                     $visible = $visible || $text !== '';
                     $parts[] = new MessagePart($text, null, $signature);
                     break;
                 default:
-                    throw new RuntimeException('模型返回了不支持的内容，请检查接口类型和模型。');
+                    throw new RuntimeException('模型返回了不支持的内容，请检查接口协议和模型。');
             }
         }
         if (!$visible && $calls === []) {
-            throw new RuntimeException('模型未返回可用文本或工具调用，请检查接口类型和模型。');
+            throw new RuntimeException('模型未返回可用文本或工具调用，请检查接口协议和模型。');
         }
         $usage = self::object($data['usage'] ?? []);
         $details = self::object($usage['output_tokens_details'] ?? []);
@@ -279,7 +279,7 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
             $parts[] = $part;
         }
         if ($parts === []) {
-            throw new RuntimeException('模型未返回可用文本或工具调用，请检查接口类型和模型。');
+            throw new RuntimeException('模型未返回可用文本或工具调用，请检查接口协议和模型。');
         }
         $reason = $candidate[$anthropic ? 'stop_reason' : 'finishReason'] ?? '';
         $finish = match ($reason) {
@@ -320,7 +320,7 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
             }
             return new MessagePart(new FunctionCall($id, $name, self::object($call[$anthropic ? 'input' : 'args'] ?? [])), null, $signature);
         }
-        throw new RuntimeException('模型返回了不支持的内容，请检查接口类型和模型。');
+        throw new RuntimeException('模型返回了不支持的内容，请检查接口协议和模型。');
     }
 
     /** @return array<string, mixed> */
@@ -337,12 +337,12 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
     private static function object(mixed $value): array
     {
         if (!is_array($value) || ($value !== [] && array_is_list($value))) {
-            throw new RuntimeException('模型返回的响应格式无效，请检查接口类型和模型。');
+            throw new RuntimeException('模型返回的响应格式无效，请检查接口协议和模型。');
         }
         $result = [];
         foreach ($value as $key => $item) {
             if (!is_string($key)) {
-                throw new RuntimeException('模型返回的响应格式无效，请检查接口类型和模型。');
+                throw new RuntimeException('模型返回的响应格式无效，请检查接口协议和模型。');
             }
             $result[$key] = $item;
         }
@@ -353,7 +353,7 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
     private static function objects(mixed $value): array
     {
         if (!is_array($value) || !array_is_list($value)) {
-            throw new RuntimeException('模型返回的响应格式无效，请检查接口类型和模型。');
+            throw new RuntimeException('模型返回的响应格式无效，请检查接口协议和模型。');
         }
         return array_map(self::object(...), $value);
     }
@@ -361,7 +361,7 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
     private static function text(mixed $value): string
     {
         if (!is_string($value)) {
-            throw new RuntimeException('模型返回的响应格式无效，请检查接口类型和模型。');
+            throw new RuntimeException('模型返回的响应格式无效，请检查接口协议和模型。');
         }
         return $value;
     }

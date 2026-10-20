@@ -175,8 +175,8 @@ test('legacy Gemini edits keep their compatible API and native protocol saves pe
     const legacy = row('legacy', { preset: 'gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai' });
     const native = row('native', { preset: 'gemini', protocol: 'gemini', url: 'https://generativelanguage.googleapis.com/v1beta' });
     const f = fixture(t, [legacy, native], (route, options) => ({ connections: [legacy, row('native', JSON.parse(options.body))] }));
-    assert.match(f.$('[data-provider-id="legacy"] td:nth-child(2)').textContent, /OpenAI Chat Completions/);
-    assert.match(f.$('[data-provider-id="native"] td:nth-child(2)').textContent, /Gemini GenerateContent/);
+    assert.equal(f.$('[data-provider-id="legacy"] td:nth-child(2)').textContent, 'OpenAI Compatible');
+    assert.equal(f.$('[data-provider-id="native"] td:nth-child(2)').textContent, 'Google Generative AI');
     f.$('[data-provider-id="legacy"] .oyiso-agent-provider-actions button:nth-child(2)').click();
     assert.equal(f.field('protocol').value, 'openai_chat');
     assert.equal(f.field('url').value, legacy.url);
@@ -191,7 +191,7 @@ test('legacy Gemini edits keep their compatible API and native protocol saves pe
     assert.equal(payload.url, native.url);
     assert.equal(payload.key, '');
     assert.equal(f.calls[0].route, 'providers/native');
-    assert.equal(f.$('[data-provider-id="native"] td:nth-child(2)').textContent, 'Anthropic Messages');
+    assert.equal(f.$('[data-provider-id="native"] td:nth-child(2)').textContent, 'Anthropic');
     f.$('[data-provider-id="native"] .oyiso-agent-provider-actions button:nth-child(2)').click();
     assert.equal(f.field('protocol').value, 'anthropic_messages');
 });

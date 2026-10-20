@@ -27,9 +27,9 @@ final class Oyiso_Agent_Connectors
     {
         return [
             'openai_responses' => ['name' => 'OpenAI Responses', 'url' => 'https://api.openai.com/v1'],
-            'openai_chat' => ['name' => 'OpenAI Chat Completions（兼容）', 'url' => 'https://api.openai.com/v1'],
-            'anthropic_messages' => ['name' => 'Anthropic Messages', 'url' => 'https://api.anthropic.com/v1'],
-            'gemini' => ['name' => 'Gemini GenerateContent（原生）', 'url' => 'https://generativelanguage.googleapis.com/v1beta'],
+            'openai_chat' => ['name' => 'OpenAI Compatible', 'url' => 'https://api.openai.com/v1'],
+            'anthropic_messages' => ['name' => 'Anthropic', 'url' => 'https://api.anthropic.com/v1'],
+            'gemini' => ['name' => 'Google Generative AI', 'url' => 'https://generativelanguage.googleapis.com/v1beta'],
         ];
     }
 

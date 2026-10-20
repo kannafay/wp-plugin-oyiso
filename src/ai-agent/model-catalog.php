@@ -17,7 +17,7 @@ final class Oyiso_Agent_Model_Catalog
         $key = $input['key'] ?? '';
         $clear = $input['clear_key'] ?? false;
         if ($url === '' || Oyiso_Agent_Connectors::validateUrl($url) !== null || !is_string($protocol) || !isset(Oyiso_Agent_Connectors::protocols()[$protocol]) || !is_string($id) || ($id !== '' && !preg_match('/^[a-z0-9-]{1,50}$/', $id)) || !is_bool($clear) || !is_string($key) || Oyiso_Agent_Connectors::validateKey($key) !== null) {
-            return self::error('请检查 Base URL、接口类型和 API Key。', 400);
+            return self::error('请检查 Base URL、接口协议和 API Key。', 400);
         }
         if ($id !== '') {
             $connection = null;

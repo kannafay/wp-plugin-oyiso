@@ -141,7 +141,7 @@ final class Oyiso_Agent_Connections
             $key = $input['key'] ?? '';
             $protocol = $input['protocol'] ?? '';
             if ($name === '' || mb_strlen($name) > 80 || $url === '' || Oyiso_Agent_Connectors::validateUrl($url) !== null || !in_array($preset, [...array_keys(Oyiso_Agent_Connectors::connectionPresets()), 'custom'], true) || !is_string($protocol) || !isset(Oyiso_Agent_Connectors::protocols()[$protocol]) || !is_string($key) || Oyiso_Agent_Connectors::validateKey($key) !== null || $models === [] || count($models) > 30) {
-                return new WP_Error('agent_connection_invalid', '请检查连接名称、公开 HTTPS 地址、接口类型、API Key 和模型列表。', ['status' => 400]);
+                return new WP_Error('agent_connection_invalid', '请检查连接名称、公开 HTTPS 地址、接口协议、API Key 和模型列表。', ['status' => 400]);
             }
             $clean = [];
             foreach ($models as $model) {
