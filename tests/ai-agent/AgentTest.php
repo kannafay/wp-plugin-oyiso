@@ -642,8 +642,33 @@ final class AgentTest extends TestCase
         self::assertArrayNotHasKey('search_configured', $state);
         self::assertArrayNotHasKey('keywords_configured', $state);
         $run = $this->task(); $run['status'] = 'completed'; Oyiso_Agent_Store::save($run);
-        self::assertSame(201, $this->request('POST', 'runs', ['message' => 'Follow-up', 'run_id' => $run['id']])->get_status());
+        $missing = $this->request('POST', 'runs', ['message' => 'Follow-up', 'run_id' => $run['id']]);
+        self::assertSame(400, $missing->get_status());
+        self::assertSame('agent_model_selection', $missing->get_data()['code']);
+        self::assertSame([], Oyiso_Agent_Store::get($run['id'])['conversation']);
+        $connection = Oyiso_Agent_Connections::save(['name' => '旧对话重试', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_responses', 'models' => ['fixture-model'], 'key' => 'fixture-retry-key']);
+        self::assertIsArray($connection);
+        self::assertSame(201, $this->request('POST', 'runs', ['message' => 'Follow-up', 'run_id' => $run['id'], 'selection' => $connection['id'] . '|fixture-model'])->get_status());
+        self::assertSame($connection['id'] . '|fixture-model', Oyiso_Agent_Store::get($run['id'])['selection']);
         self::assertSame(200, $this->request('GET', 'runs/' . $run['id'])->get_status());
+    }
+
+    public function testEachReplyKeepsItsActualModelAcrossFollowUpsAndHistoryReads(): void
+    {
+        $run = $this->task();
+        $runner = new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([
+            new Oyiso_Agent_Turn(new ModelMessage([new MessagePart('First reply')]), 2, 'first-model'),
+            new Oyiso_Agent_Turn(new ModelMessage([new MessagePart('Second reply')]), 2, 'second-model'),
+        ]));
+        Oyiso_Agent_Runner::message($run, 'Hello'); $runner->step($run['id']);
+        $run = Oyiso_Agent_Store::get($run['id']);
+        Oyiso_Agent_Runner::message($run, 'Follow-up'); $runner->step($run['id']);
+        self::assertSame([
+            ['role' => 'user', 'text' => 'Hello'],
+            ['role' => 'assistant', 'text' => 'First reply', 'model' => 'first-model'],
+            ['role' => 'user', 'text' => 'Follow-up'],
+            ['role' => 'assistant', 'text' => 'Second reply', 'model' => 'second-model'],
+        ], $this->request('GET', 'runs/' . $run['id'])->get_data()['conversation']);
     }
 
     public function testCancellationSeesUpdatesOutsideCurrentMetadataCache(): void

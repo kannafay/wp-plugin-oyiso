@@ -101,7 +101,7 @@ final class Oyiso_Agent_Runner
             $run['tokens'] += $turn->tokens;
             $run['messages'][] = $turn->message->toArray();
             if (trim($text) !== '') {
-                $run['conversation'][] = ['role' => 'assistant', 'text' => $text];
+                $run['conversation'][] = ['role' => 'assistant', 'text' => $text, 'model' => $turn->model];
             }
             Oyiso_Agent_Store::event($run, 'info', '模型已响应', $turn->model);
             $tools = new Oyiso_Agent_Tools($run);
@@ -150,7 +150,7 @@ final class Oyiso_Agent_Runner
             $pending = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0;
             if (count($run['changes']) > $proposalsBefore) {
                 $run['status'] = 'waiting';
-                $run['conversation'][] = ['role' => 'assistant', 'text' => '修改方案已生成。请查看前后对照，再选择是否应用。'];
+                $run['conversation'][] = ['role' => 'assistant', 'text' => '修改方案已生成。请查看前后对照，再选择是否应用。', 'model' => $turn->model];
             } elseif ($calls === []) {
                 $run['status'] = $pending ? 'waiting' : 'completed';
                 if (trim($text) === '') {

@@ -8,7 +8,7 @@ defined('ABSPATH') || exit;
  * @phpstan-type Fields array<string, string>
  * @phpstan-type Change array{id:string, product_id:int, name:string, before:Fields, after:Fields, status:string}
  * @phpstan-type RunEvent array{time:string, type:string, label:string, detail:string}
- * @phpstan-type Run array{id:int, selection?:string, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
+ * @phpstan-type Run array{id:int, selection?:string, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
  */
 final class Oyiso_Agent_Store
 {

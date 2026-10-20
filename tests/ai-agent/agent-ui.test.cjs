@@ -184,6 +184,37 @@ test('model text and field previews never execute HTML', async t => {
     assert.equal(f.$('[data-agent-messages] a').rel, 'noopener noreferrer');
 });
 
+test('chat bubbles label me and each responding model without relabeling history when the picker changes', async t => {
+    const f = fixture(t, route => route === 'runs/12' ? task({
+        selection: 'fixture|model-a',
+        conversation: [{ role: 'user', text: 'Hello' }, { role: 'assistant', text: 'First answer', model: 'model-a' }, { role: 'assistant', text: 'Second answer', model: '<img src=x> / model-b' }],
+    }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const labels = () => Array.from(f.window.document.querySelectorAll('.oyiso-agent-message-role'), label => label.textContent);
+    assert.deepEqual(labels(), ['我', 'model-a', '<img src=x> / model-b']);
+    assert.equal(f.$('.oyiso-agent-message-role img'), null);
+    assert.equal(f.$('.oyiso-agent-message').classList.contains('is-user'), true);
+    assert.equal(f.$('.oyiso-agent-message:nth-child(2)').classList.contains('is-assistant'), true);
+    f.$('[data-agent-model]').value = 'second|model-b';
+    f.$('[data-agent-model]').dispatchEvent(new f.window.Event('change', { bubbles: true }));
+    f.$('[data-agent-close]').click(); f.$('#oyiso-agent-launcher').click(); await settle();
+    assert.deepEqual(labels(), ['我', 'model-a', '<img src=x> / model-b']);
+});
+
+test('old model errors explain how to retry and known legacy replies keep their recorded model name', async t => {
+    const f = fixture(t, route => route === 'runs/12' ? task({
+        status: 'failed', error: '尚无可用的工具调用模型。请在「模型配置」中保存预设连接，或配置 WordPress 连接器。',
+        conversation: [{ role: 'user', text: '你好' }, { role: 'assistant', text: '已保存的回复' }],
+        events: [{ label: '模型已响应', detail: 'legacy-model', type: 'info' }],
+    }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.match(f.$('[data-agent-notice]').textContent, /在下方选择已添加的模型后重新发送/);
+    assert.equal(f.$('.is-assistant .oyiso-agent-message-role').textContent, 'legacy-model');
+    assert.equal(f.$('[data-agent-send]').disabled, false);
+    f.$('[data-agent-new]').click();
+    assert.equal(f.$('[data-agent-notice]').hidden, true);
+});
+
 test('history opens the correct task in the global panel outside settings forms', async t => {
     const f = fixture(t, route => route === 'runs?page=1' ? { items: [{ id: 12, title: '历史任务', status: 'waiting', updated: '2026-10-18 12:00:00' }], pages: 1 } : route === 'runs/12' ? task({ status: 'waiting', changes: [proposal()] }) : undefined, {}, undefined, { closed: true });
     await settle();

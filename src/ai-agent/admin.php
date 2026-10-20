@@ -66,10 +66,9 @@ final class Oyiso_Agent_Admin
                 return new WP_Error('agent_chat_limit', '本次对话已达上限，请新建对话。', ['status' => 400]);
             }
             $selection = is_string($selection) ? $selection : ($run['selection'] ?? null);
-            if ($selection !== null) {
-                if (!isset(Oyiso_Agent_Connections::choices()[$selection])) return new WP_Error('agent_model_selection', '所选模型已不可用，请重新选择模型。', ['status' => 400]);
-                $run['selection'] = $selection;
-            }
+            if ($selection === null) return new WP_Error('agent_model_selection', '此对话尚未选择模型，请在 AI 助手中选择模型后重新发送。', ['status' => 400]);
+            if (!isset(Oyiso_Agent_Connections::choices()[$selection])) return new WP_Error('agent_model_selection', '所选模型已不可用，请重新选择模型。', ['status' => 400]);
+            $run['selection'] = $selection;
             Oyiso_Agent_Runner::message($run, $message);
         } finally {
             Oyiso_Agent_Store::unlock('run_' . $id);

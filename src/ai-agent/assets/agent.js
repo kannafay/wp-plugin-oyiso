@@ -372,7 +372,7 @@
         if ((!run || sending) && typeof next.selection === 'string') populateModels(config.models, next.selection);
         run = next;
         controls();
-        if (next.error) showNotice(next.error, true);
+        if (next.error) showNotice(!next.selection && next.error.startsWith('尚无可用的工具调用模型') ? '此对话尚未选择模型。请在下方选择已添加的模型后重新发送。' : next.error, true);
         else if (next.status === 'cancelled') showNotice('任务已取消，后续步骤和待审核修改已停止。可新建对话继续。');
         else showNotice('');
         const signature = JSON.stringify([next.conversation, next.events, next.changes]);
@@ -380,9 +380,12 @@
         version = signature;
         const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
         messages.replaceChildren();
+        const legacyModels = [...new Set(next.events.filter(event => event.label === '模型已响应' && event.detail).map(event => event.detail))];
         for (const entry of next.conversation) {
-            const item = node('article', `oyiso-agent-message is-${entry.role}`);
-            item.append(node('strong', 'oyiso-agent-message-role', entry.role === 'user' ? '你' : '助手'));
+            const isUser = entry.role === 'user';
+            const item = node('article', `oyiso-agent-message is-${isUser ? 'user' : 'assistant'}`);
+            const model = entry.model || (legacyModels.length === 1 ? legacyModels[0] : 'AI');
+            item.append(node('strong', 'oyiso-agent-message-role', isUser ? '我' : model));
             const content = node('div', 'oyiso-agent-message-content');
             messageText(content, entry.text);
             item.append(content);
