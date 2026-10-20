@@ -146,10 +146,6 @@
     });
     fields.protocol.addEventListener('change', () => {
         const protocol = protocols[fields.protocol.value];
-        const url = fields.url.value.trim().replace(/\/+$/, '');
-        const known = [...Object.values(protocols), ...Object.values(presets)].map(preset => preset.url);
-        known.push('https://generativelanguage.googleapis.com/v1beta/openai');
-        if (!url || known.includes(url)) fields.url.value = protocol.url;
         fields.url.placeholder = protocol.url;
     });
     fields.clear_key.addEventListener('change', () => { if (fields.clear_key.checked) fields.key.value = ''; fields.key.disabled = fields.clear_key.checked; });

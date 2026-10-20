@@ -8,8 +8,12 @@ if (!in_array(PHP_SAPI, ['cli', 'phpdbg'], true)) {
 }
 
 use PHPUnit\Framework\TestCase;
+use WordPress\AiClient\Messages\DTO\Message;
 use WordPress\AiClient\Messages\DTO\MessagePart;
+use WordPress\AiClient\Messages\DTO\ModelMessage;
 use WordPress\AiClient\Messages\DTO\UserMessage;
+use WordPress\AiClient\Messages\Enums\MessagePartChannelEnum;
+use WordPress\AiClient\Tools\DTO\FunctionCall;
 use WordPress\AiClient\Tools\DTO\FunctionDeclaration;
 use WordPress\AiClient\Tools\DTO\FunctionResponse;
 
@@ -278,14 +282,25 @@ final class ManagedConnectionsTest extends TestCase
 
     private static function nativeResponse(string $protocol, array $parts, string $reason = ''): array
     {
+        if ($protocol === 'openai_responses') return self::responsesResponse($parts);
         return $protocol === 'anthropic_messages'
             ? ['id' => 'native-result', 'type' => 'message', 'role' => 'assistant', 'content' => $parts, 'stop_reason' => $reason ?: 'end_turn', 'usage' => ['input_tokens' => 2, 'output_tokens' => 3, 'cache_read_input_tokens' => 5]]
             : ['responseId' => 'native-result', 'candidates' => [['content' => ['role' => 'model', 'parts' => $parts], 'finishReason' => $reason ?: 'STOP']], 'usageMetadata' => ['promptTokenCount' => 2, 'candidatesTokenCount' => 3, 'thoughtsTokenCount' => 5, 'totalTokenCount' => 10]];
     }
 
-    public function testAllThreeProtocolsPersistAndNewGeminiDefaultsDoNotChangeLegacyConnections(): void
+    private static function responsesResponse(array $output, string $status = 'completed'): array
     {
-        self::assertSame(['openai_chat', 'anthropic_messages', 'gemini'], array_keys(Oyiso_Agent_Connectors::protocols()));
+        return ['id' => 'resp_fixture', 'status' => $status, 'output' => $output, 'usage' => ['input_tokens' => 2, 'output_tokens' => 8, 'total_tokens' => 10, 'output_tokens_details' => ['reasoning_tokens' => 5]]];
+    }
+
+    private static function responsesMessage(string $text): array
+    {
+        return ['id' => 'msg_fixture', 'type' => 'message', 'role' => 'assistant', 'status' => 'completed', 'content' => [['type' => 'output_text', 'text' => $text, 'annotations' => []]]];
+    }
+
+    public function testAllProtocolsPersistAndNewGeminiDefaultsDoNotChangeLegacyConnections(): void
+    {
+        self::assertSame(['openai_responses', 'openai_chat', 'anthropic_messages', 'gemini'], array_keys(Oyiso_Agent_Connectors::protocols()));
         foreach (Oyiso_Agent_Connectors::protocols() as $protocol => $defaults) {
             $row = $this->create(['preset' => 'custom', 'protocol' => $protocol, 'url' => $defaults['url'], 'key' => 'fixture-' . $protocol . '-key']);
             $connection = Oyiso_Agent_Connections::load($row['id'], 'fixture-model');
@@ -374,19 +389,21 @@ final class ManagedConnectionsTest extends TestCase
 
     public function testNativeAgentUsesSystemInstructionsAbilitiesExactConnectionAndTokenUsage(): void
     {
-        foreach (['anthropic_messages', 'gemini'] as $protocol) {
+        foreach (['anthropic_messages', 'gemini', 'openai_responses'] as $protocol) {
             $anthropic = $protocol === 'anthropic_messages';
-            $row = $this->create(['preset' => 'custom', 'protocol' => $protocol, 'url' => 'https://' . ($anthropic ? 'claude' : 'gemini') . '.example.com', 'models' => [$anthropic ? 'claude-fixture' : 'models/gemini-fixture'], 'key' => 'fixture-' . $protocol . '-key']);
+            $responses = $protocol === 'openai_responses';
+            $host = $anthropic ? 'claude' : ($responses ? 'openai' : 'gemini');
+            $row = $this->create(['preset' => 'custom', 'protocol' => $protocol, 'url' => 'https://' . $host . '.example.com', 'models' => [$anthropic ? 'claude-fixture' : ($responses ? 'gpt-fixture' : 'models/gemini-fixture')], 'key' => 'fixture-' . $protocol . '-key']);
             $model = $row['models'][0];
             update_option('oyiso', ['agent_selection' => $row['id'] . '|' . $model, 'agent_model' => 'other-model'], false);
-            $this->mockHttp(static function ($pre, $args, $url) use ($anthropic, $protocol) {
-                self::assertSame($anthropic ? 'https://claude.example.com/v1/messages' : 'https://gemini.example.com/v1beta/models/gemini-fixture:generateContent', $url);
-                self::assertSame('fixture-' . $protocol . '-key', $args['headers'][$anthropic ? 'x-api-key' : 'x-goog-api-key']);
+            $this->mockHttp(static function ($pre, $args, $url) use ($anthropic, $responses, $protocol) {
+                self::assertSame($anthropic ? 'https://claude.example.com/v1/messages' : ($responses ? 'https://openai.example.com/v1/responses' : 'https://gemini.example.com/v1beta/models/gemini-fixture:generateContent'), $url);
+                self::assertSame(($responses ? 'Bearer ' : '') . 'fixture-' . $protocol . '-key', $args['headers'][$anthropic ? 'x-api-key' : ($responses ? 'Authorization' : 'x-goog-api-key')]);
                 $body = json_decode($args['body'], true);
-                self::assertStringContainsString('当前 WordPress 商店后台', $anthropic ? $body['system'] : $body['systemInstruction']['parts'][0]['text']);
+                self::assertStringContainsString('当前 WordPress 商店后台', $anthropic ? $body['system'] : ($responses ? $body['instructions'] : $body['systemInstruction']['parts'][0]['text']));
                 self::assertNotEmpty($body['tools']);
-                self::assertSame(4096, $anthropic ? $body['max_tokens'] : $body['generationConfig']['maxOutputTokens']);
-                return self::response(self::nativeResponse($protocol, [$anthropic ? ['type' => 'text', 'text' => '已读取。'] : ['text' => '已读取。']]));
+                self::assertSame(4096, $anthropic ? $body['max_tokens'] : ($responses ? $body['max_output_tokens'] : $body['generationConfig']['maxOutputTokens']));
+                return self::response(self::nativeResponse($protocol, [$anthropic ? ['type' => 'text', 'text' => '已读取。'] : ($responses ? self::responsesMessage('已读取。') : ['text' => '已读取。'])]));
             });
             $turn = (new Oyiso_Agent_Model())->generate([(new UserMessage([new MessagePart('读取商品')]))->toArray()], ['oyiso/get-product']);
             self::assertInstanceOf(Oyiso_Agent_Turn::class, $turn, $turn instanceof WP_Error ? $turn->get_error_message() : '');
@@ -450,6 +467,96 @@ final class ManagedConnectionsTest extends TestCase
                 self::assertSame(400, $result->get_status(), wp_json_encode($result->get_data()));
                 self::assertStringNotContainsString('fixture-first-key', wp_json_encode($result->get_data()));
             }
+        }
+    }
+
+    public function testResponsesCompletesStatelessToolRoundTripWithExactReasoningAndCallIds(): void
+    {
+        $row = $this->create(['preset' => 'custom', 'protocol' => 'openai_responses', 'url' => 'https://openai.example.com/v1']);
+        $reasoning = ['type' => 'reasoning', 'id' => 'rs_fixture', 'summary' => [['type' => 'summary_text', 'text' => 'fixture-private-thought']], 'encrypted_content' => 'opaque-encrypted-reasoning'];
+        $call = ['type' => 'function_call', 'id' => 'fc_fixture', 'call_id' => 'call_fixture', 'name' => 'oyiso_connection_probe', 'arguments' => '{ "value": "ok" }', 'status' => 'completed'];
+        $seen = 0;
+        $this->mockHttp(static function ($pre, $args, $url) use (&$seen, $reasoning, $call) {
+            self::assertSame('https://openai.example.com/v1/responses', $url);
+            self::assertSame('Bearer fixture-first-key', $args['headers']['Authorization']);
+            self::assertArrayNotHasKey('x-api-key', $args['headers']); self::assertArrayNotHasKey('x-goog-api-key', $args['headers']);
+            self::assertSame(0, $args['redirection']); self::assertTrue($args['reject_unsafe_urls']);
+            $body = json_decode($args['body'], true);
+            self::assertSame('fixture-model', $body['model']); self::assertSame(2048, $body['max_output_tokens']);
+            self::assertFalse($body['store']); self::assertContains('reasoning.encrypted_content', $body['include']);
+            self::assertArrayNotHasKey('messages', $body); self::assertArrayNotHasKey('previous_response_id', $body);
+            self::assertSame('function', $body['tools'][0]['type']); self::assertSame('oyiso_connection_probe', $body['tools'][0]['name']);
+            self::assertSame('object', $body['tools'][0]['parameters']['type']); self::assertFalse($body['tools'][0]['strict']);
+            if (++$seen === 1) return self::response(self::responsesResponse([$reasoning, $call]));
+            self::assertCount(4, $body['input']);
+            self::assertSame($reasoning, $body['input'][1]); self::assertSame($call, $body['input'][2]);
+            self::assertSame(['type' => 'function_call_output', 'call_id' => 'call_fixture', 'output' => '{"value":"ok"}'], $body['input'][3]);
+            return self::response(self::responsesResponse([self::responsesMessage('OK')]));
+        });
+        $result = $this->request('POST', 'providers/' . $row['id'] . '/test', ['model' => 'fixture-model']);
+        self::assertSame(200, $result->get_status(), wp_json_encode($result->get_data())); self::assertSame(2, $seen);
+    }
+
+    public function testResponsesReplaysParallelOutputItemsUnchangedAcrossSerializedHistory(): void
+    {
+        $row = $this->create(['preset' => 'custom', 'protocol' => 'openai_responses']);
+        $output = [
+            ['type' => 'reasoning', 'id' => 'rs_fixture', 'summary' => [], 'encrypted_content' => 'encrypted-fixture'],
+            ['type' => 'function_call', 'id' => 'fc_first', 'call_id' => 'first', 'name' => 'fixture_tool', 'arguments' => '{"filter":{}}'],
+            self::responsesMessage('Checking.'),
+            ['type' => 'function_call', 'id' => 'fc_second', 'call_id' => 'second', 'name' => 'fixture_tool', 'arguments' => '{}'],
+        ];
+        $seen = 0;
+        $this->mockHttp(static function ($pre, $args) use (&$seen, $output) {
+            if (++$seen === 1) return self::response(self::responsesResponse($output));
+            $body = json_decode($args['body'], true);
+            self::assertCount(7, $body['input']); self::assertSame($output, array_slice($body['input'], 1, 4));
+            self::assertSame(['type' => 'function_call_output', 'call_id' => 'first', 'output' => 'true'], $body['input'][5]);
+            self::assertSame(['type' => 'function_call_output', 'call_id' => 'second', 'output' => '[1,2]'], $body['input'][6]);
+            return self::response(self::responsesResponse([self::responsesMessage('Done')]));
+        });
+        $generate = static fn(array $messages) => wp_ai_client_prompt($messages)->using_model(Oyiso_Agent_Connections::model($row['id'], 'fixture-model'))->using_function_declarations(new FunctionDeclaration('fixture_tool', 'Fixture tool.'))->generate_text_result();
+        $history = [new UserMessage([new MessagePart('Use both tools.')])];
+        $first = $generate($history);
+        self::assertNotInstanceOf(WP_Error::class, $first, $first instanceof WP_Error ? $first->get_error_message() : '');
+        $history[] = Message::fromArray(json_decode(wp_json_encode($first->getCandidates()[0]->getMessage()->toArray()), true));
+        $history[] = new UserMessage([new MessagePart(new FunctionResponse('first', 'fixture_tool', true))]);
+        $history[] = new UserMessage([new MessagePart(new FunctionResponse('second', 'fixture_tool', [1, 2]))]);
+        self::assertNotInstanceOf(WP_Error::class, $generate($history)); self::assertSame(2, $seen);
+    }
+
+    public function testResponsesCanContinueExistingMessagesWithoutResponsesMetadata(): void
+    {
+        $row = $this->create(['preset' => 'custom', 'protocol' => 'openai_responses']);
+        $history = [new UserMessage([new MessagePart('Read.')]), new ModelMessage([new MessagePart('Legacy answer.'), new MessagePart('Private legacy thought.', MessagePartChannelEnum::thought()), new MessagePart(new FunctionCall('legacy-call', 'fixture_tool', ['id' => 1]))]), new UserMessage([new MessagePart(new FunctionResponse('legacy-call', 'fixture_tool', ['ok' => true]))]), new UserMessage([new MessagePart(''), new MessagePart('Continue.')])];
+        $this->mockHttp(static function ($pre, $args) {
+            $body = json_decode($args['body'], true);
+            self::assertCount(5, $body['input']);
+            self::assertSame(['role' => 'assistant', 'content' => 'Legacy answer.'], $body['input'][1]);
+            self::assertSame(['type' => 'function_call', 'call_id' => 'legacy-call', 'name' => 'fixture_tool', 'arguments' => '{"id":1}'], $body['input'][2]);
+            self::assertSame('function_call_output', $body['input'][3]['type']);
+            self::assertSame(['role' => 'user', 'content' => 'Continue.'], $body['input'][4]);
+            self::assertStringNotContainsString('Private legacy thought.', $args['body']);
+            $message = self::responsesMessage('Unused'); $message['content'] = [['type' => 'refusal', 'refusal' => 'Unable to help.']];
+            return self::response(self::responsesResponse([$message]));
+        });
+        $result = wp_ai_client_prompt($history)->using_model(Oyiso_Agent_Connections::model($row['id'], 'fixture-model'))->generate_text_result();
+        self::assertNotInstanceOf(WP_Error::class, $result, $result instanceof WP_Error ? $result->get_error_message() : '');
+        self::assertSame('Unable to help.', $result->getCandidates()[0]->getMessage()->getParts()[0]->getText());
+    }
+
+    public function testResponsesRejectsErrorsIncompleteAndMalformedCallsWithoutExposingCredentials(): void
+    {
+        $row = $this->create(['preset' => 'custom', 'protocol' => 'openai_responses']);
+        $call = ['type' => 'function_call', 'call_id' => 'call', 'name' => 'oyiso_connection_probe', 'arguments' => '{"value":"ok"}'];
+        $partial = $call; $partial['status'] = 'incomplete';
+        $badJson = $call; $badJson['arguments'] = '{bad json';
+        $missingId = $call; unset($missingId['call_id']);
+        foreach ([new WP_Error('offline', 'fixture-first-key'), self::response(['error' => ['message' => 'fixture-first-key']], 401), self::response('not-json'), self::response(self::responsesResponse([], 'failed')), self::response(self::responsesResponse([$call], 'incomplete')), self::response(self::responsesResponse([])), self::response(self::responsesResponse([['type' => 'reasoning', 'summary' => []]])), self::response(self::responsesResponse([$partial])), self::response(self::responsesResponse([$badJson])), self::response(self::responsesResponse([$missingId])), self::response(self::responsesResponse([$call, $call])), self::response(self::responsesResponse([['type' => 'web_search_call']]))] as $response) {
+            $this->mockHttp(static fn() => $response);
+            $result = $this->request('POST', 'providers/' . $row['id'] . '/test', ['model' => 'fixture-model']);
+            self::assertSame(400, $result->get_status(), wp_json_encode($result->get_data()));
+            self::assertStringNotContainsString('fixture-first-key', wp_json_encode($result->get_data()));
         }
     }
 }

@@ -121,25 +121,34 @@ test('provider presets prefill independent forms and cancel clears credentials w
     assert.equal(f.field('models').value, '');
     assert.equal(new f.window.FormData(document.querySelector('form')).has('key'), false);
 });
-test('three API protocols prefill official endpoints while preserving custom URLs and credentials', t => {
+test('API protocol changes preserve official, custom and empty URLs while presets fill their own defaults', t => {
     const f = fixture(t);
     f.$('[data-provider-add]').click();
-    assert.deepEqual(Array.from(f.field('protocol').options, option => option.value), ['openai_chat', 'anthropic_messages', 'gemini']);
+    assert.deepEqual(Array.from(f.field('protocol').options, option => option.value), ['openai_responses', 'openai_chat', 'anthropic_messages', 'gemini']);
     const change = (field, value) => { f.field(field).value = value; f.field(field).dispatchEvent(new f.window.Event('change', { bubbles: true })); };
     change('preset', 'gemini');
     assert.equal(f.field('protocol').value, 'gemini');
     assert.equal(f.field('url').value, 'https://generativelanguage.googleapis.com/v1beta');
     f.field('key').value = 'fixture-kept-key';
     change('protocol', 'anthropic_messages');
-    assert.equal(f.field('url').value, 'https://api.anthropic.com/v1');
+    assert.equal(f.field('url').value, 'https://generativelanguage.googleapis.com/v1beta');
     assert.equal(f.field('key').value, 'fixture-kept-key');
     change('protocol', 'openai_chat');
-    assert.equal(f.field('url').value, 'https://api.openai.com/v1');
+    assert.equal(f.field('url').value, 'https://generativelanguage.googleapis.com/v1beta');
+    change('protocol', 'openai_responses');
+    assert.equal(f.field('url').value, 'https://generativelanguage.googleapis.com/v1beta');
+    assert.equal(f.field('url').placeholder, 'https://api.openai.com/v1');
     f.field('url').value = 'https://gateway.example.com/custom/v2';
     change('protocol', 'gemini');
     assert.equal(f.field('url').value, 'https://gateway.example.com/custom/v2');
     assert.equal(f.field('url').placeholder, 'https://generativelanguage.googleapis.com/v1beta');
     assert.equal(f.field('key').value, 'fixture-kept-key');
+    f.field('url').value = '';
+    change('protocol', 'openai_responses');
+    assert.equal(f.field('url').value, '');
+    change('preset', 'deepseek');
+    assert.equal(f.field('url').value, 'https://api.deepseek.com');
+    assert.equal(f.field('protocol').value, 'openai_chat');
 });
 
 test('legacy Gemini edits keep their compatible API and native protocol saves persist and render correctly', async t => {
@@ -159,7 +168,7 @@ test('legacy Gemini edits keep their compatible API and native protocol saves pe
     f.$('[data-provider-save]').click(); await settle();
     const payload = JSON.parse(f.calls[0].options.body);
     assert.equal(payload.protocol, 'anthropic_messages');
-    assert.equal(payload.url, 'https://api.anthropic.com/v1');
+    assert.equal(payload.url, native.url);
     assert.equal(payload.key, '');
     assert.equal(f.calls[0].route, 'providers/native');
     assert.equal(f.$('[data-provider-id="native"] td:nth-child(2)').textContent, 'Anthropic Messages');

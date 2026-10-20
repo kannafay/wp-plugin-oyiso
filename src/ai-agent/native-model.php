@@ -29,6 +29,7 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
 {
     private const LOCAL_CALL = 'oyiso-gemini-local-';
     private const REDACTED_THOUGHT = 'oyiso-anthropic-redacted:';
+    private const RESPONSES_ITEM = 'oyiso-openai-item:';
 
     public function __construct(ModelMetadata $metadata, ProviderMetadata $provider, private readonly string $connectionId)
     {
@@ -42,25 +43,131 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
             throw new InvalidArgumentException($connection->get_error_message());
         }
         $anthropic = $connection->protocol === 'anthropic_messages';
-        if (!$anthropic && $connection->protocol !== 'gemini') {
+        $responses = $connection->protocol === 'openai_responses';
+        if (!$anthropic && !$responses && $connection->protocol !== 'gemini') {
             throw new InvalidArgumentException('此连接的接口类型已更改，请重新发送任务。');
         }
         $key = Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($connection->id));
         $headers = ['Content-Type' => 'application/json'];
-        $headers += $anthropic ? ['x-api-key' => $key, 'anthropic-version' => '2023-06-01'] : ['x-goog-api-key' => $key];
+        $headers += match ($connection->protocol) {
+            'anthropic_messages' => ['x-api-key' => $key, 'anthropic-version' => '2023-06-01'],
+            'openai_responses' => ['Authorization' => 'Bearer ' . $key],
+            default => ['x-goog-api-key' => $key],
+        };
         $base = rtrim($connection->url, '/');
         if (empty(wp_parse_url($base, PHP_URL_PATH))) {
-            $base .= $anthropic ? '/v1' : '/v1beta';
+            $base .= $connection->protocol === 'gemini' ? '/v1beta' : '/v1';
         }
-        $path = $anthropic ? '/messages' : '/models/' . rawurlencode(preg_replace('/^models\//', '', $connection->model) ?? $connection->model) . ':generateContent';
+        $path = $responses ? '/responses' : ($anthropic ? '/messages' : '/models/' . rawurlencode(preg_replace('/^models\//', '', $connection->model) ?? $connection->model) . ':generateContent');
         $configured = $this->getRequestOptions();
         $options = $configured !== null ? clone $configured : new RequestOptions();
         $options->setTimeout($options->getTimeout() ?? 45.0);
         $options->setMaxRedirects(0);
-        $body = $this->parameters($prompt, $connection->model, $anthropic);
+        $body = $responses ? $this->responsesParameters($prompt, $connection->model) : $this->parameters($prompt, $connection->model, $anthropic);
         $response = $this->getHttpTransporter()->send(new Request(HttpMethodEnum::POST(), $base . $path, $headers, $body, $options));
         ResponseUtil::throwIfNotSuccessful($response);
-        return $this->result(self::object($response->getData()), $anthropic);
+        $data = self::object($response->getData());
+        return $responses ? $this->responsesResult($data) : $this->result($data, $anthropic);
+    }
+
+    /** @param list<Message> $prompt
+     * @return array<string, mixed>
+     */
+    private function responsesParameters(array $prompt, string $model): array
+    {
+        $input = [];
+        foreach ($prompt as $message) {
+            foreach ($message->getParts() as $part) {
+                $signature = $part->getThoughtSignature();
+                if ($message->getRole()->isModel() && $signature !== null && str_starts_with($signature, self::RESPONSES_ITEM)) {
+                    // Replay complete output items, including opaque reasoning and the original argument JSON.
+                    $input[] = self::object(json_decode(substr($signature, strlen(self::RESPONSES_ITEM)), true, 512, JSON_THROW_ON_ERROR));
+                } elseif (($call = $part->getFunctionCall()) !== null) {
+                    $input[] = ['type' => 'function_call', 'call_id' => $call->getId(), 'name' => $call->getName(), 'arguments' => json_encode((object) self::object($call->getArgs() ?? []), JSON_THROW_ON_ERROR)];
+                } elseif (($reply = $part->getFunctionResponse()) !== null) {
+                    $input[] = ['type' => 'function_call_output', 'call_id' => $reply->getId(), 'output' => json_encode($reply->getResponse(), JSON_THROW_ON_ERROR)];
+                } elseif ($part->getType()->isText()) {
+                    $text = $part->getText() ?? '';
+                    if (!$part->getChannel()->isThought() && $text !== '') {
+                        $input[] = ['role' => $message->getRole()->isModel() ? 'assistant' : 'user', 'content' => $text];
+                    }
+                } else {
+                    throw new InvalidArgumentException('Oyiso 模型预设当前仅支持文本和工具调用。');
+                }
+            }
+        }
+        $config = $this->getConfig();
+        $params = ['model' => $model, 'input' => $input, 'max_output_tokens' => $config->getMaxTokens() ?? 4096, 'store' => false, 'include' => ['reasoning.encrypted_content']];
+        if (($system = $config->getSystemInstruction()) !== null && $system !== '') {
+            $params['instructions'] = $system;
+        }
+        $tools = [];
+        foreach ($config->getFunctionDeclarations() ?? [] as $declaration) {
+            // Abilities have optional fields; keep their existing non-strict JSON schema semantics.
+            $tools[] = ['type' => 'function', 'name' => $declaration->getName(), 'description' => $declaration->getDescription(), 'parameters' => self::schema($declaration), 'strict' => false];
+        }
+        if ($tools !== []) {
+            $params['tools'] = $tools;
+        }
+        return $params;
+    }
+
+    /** @param array<string, mixed> $data */
+    private function responsesResult(array $data): GenerativeAiResult
+    {
+        if (($data['status'] ?? null) !== 'completed' || !empty($data['error'])) {
+            throw new RuntimeException('模型响应未完整结束，请重试或更换模型。');
+        }
+        $parts = [];
+        $calls = [];
+        $visible = false;
+        foreach (self::objects($data['output'] ?? null) as $item) {
+            $signature = self::RESPONSES_ITEM . json_encode($item, JSON_THROW_ON_ERROR);
+            if (($item['status'] ?? 'completed') !== 'completed') {
+                throw new RuntimeException('模型响应未完整结束，请重试或更换模型。');
+            }
+            switch ($item['type'] ?? '') {
+                case 'reasoning':
+                    $summary = '';
+                    foreach (self::objects($item['summary'] ?? []) as $block) {
+                        $summary .= self::text($block['text'] ?? null);
+                    }
+                    $parts[] = new MessagePart($summary, MessagePartChannelEnum::thought(), $signature);
+                    break;
+                case 'function_call':
+                    $id = self::text($item['call_id'] ?? null);
+                    $name = self::text($item['name'] ?? null);
+                    $args = self::object(json_decode(self::text($item['arguments'] ?? null), true, 512, JSON_THROW_ON_ERROR));
+                    if ($id === '' || $name === '' || isset($calls[$id])) {
+                        throw new RuntimeException('模型返回的工具调用缺少 ID 或名称。');
+                    }
+                    $calls[$id] = true;
+                    $parts[] = new MessagePart(new FunctionCall($id, $name, $args), null, $signature);
+                    break;
+                case 'message':
+                    $text = '';
+                    foreach (self::objects($item['content'] ?? null) as $block) {
+                        $text .= match ($block['type'] ?? '') {
+                            'output_text' => self::text($block['text'] ?? null),
+                            'refusal' => self::text($block['refusal'] ?? null),
+                            default => throw new RuntimeException('模型返回了不支持的内容，请检查接口类型和模型。'),
+                        };
+                    }
+                    $visible = $visible || $text !== '';
+                    $parts[] = new MessagePart($text, null, $signature);
+                    break;
+                default:
+                    throw new RuntimeException('模型返回了不支持的内容，请检查接口类型和模型。');
+            }
+        }
+        if (!$visible && $calls === []) {
+            throw new RuntimeException('模型未返回可用文本或工具调用，请检查接口类型和模型。');
+        }
+        $usage = self::object($data['usage'] ?? []);
+        $details = self::object($usage['output_tokens_details'] ?? []);
+        $input = self::count($usage, 'input_tokens');
+        $output = self::count($usage, 'output_tokens');
+        return new GenerativeAiResult(is_string($data['id'] ?? null) ? $data['id'] : '', [new Candidate(new ModelMessage($parts), $calls !== [] ? FinishReasonEnum::toolCalls() : FinishReasonEnum::stop())], new TokenUsage($input, $output, self::count($usage, 'total_tokens') ?: $input + $output, self::count($details, 'reasoning_tokens')), $this->providerMetadata(), $this->metadata());
     }
 
     /** @param list<Message> $prompt
