@@ -31,7 +31,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     window.addEventListener('error', event => errors.push(event.error));
     window.HTMLElement.prototype.scrollIntoView = () => {};
     window.matchMedia = query => ({ matches: !view.motion, media: query });
-    window.oyisoAgent = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce', user: 1, enabled: true, supported: true, ...settings };
+    window.oyisoAgent = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce', user: 1, enabled: true, supported: true, models: { 'fixture|model-a': '测试连接 / model-a', 'second|model-b': '备用连接 / model-b' }, ...settings };
     window.fetch = async (url, options) => {
         const route = url.replace(window.oyisoAgent.url, '');
         calls.push({ route, options });
@@ -110,6 +110,54 @@ test('prompt changes do not mark plugin settings dirty', async t => {
     f.window.jQuery('.csf-content').on('change keypress', ':input', () => changed++);
     for (const type of ['change', 'keypress']) f.$('#oyiso-agent-prompt').dispatchEvent(new f.window.Event(type, { bubbles: true }));
     assert.equal(changed, 0);
+});
+
+test('conversation model selection is submitted and retained when an idle conversation is polled again', async t => {
+    let selection = 'fixture|model-a';
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs' && options.method === 'POST') { selection = JSON.parse(options.body).selection; return task({ selection }); }
+        if (route === 'runs/12') return task({ selection });
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const select = f.$('[data-agent-model]');
+    assert.equal(select.value, 'fixture|model-a');
+    select.value = 'second|model-b'; select.dispatchEvent(new f.window.Event('change', { bubbles: true }));
+    f.$('[data-agent-close]').click(); f.$('#oyiso-agent-launcher').click(); await settle();
+    assert.equal(select.value, 'second|model-b');
+    f.$('#oyiso-agent-prompt').value = 'Use the selected connection'; f.$('[data-agent-send]').click(); await settle();
+    const sent = f.calls.find(call => call.route === 'runs' && call.options.method === 'POST');
+    assert.equal(JSON.parse(sent.options.body).selection, 'second|model-b');
+    assert.equal(select.value, 'second|model-b');
+    assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:model'), 'second|model-b');
+});
+
+test('history restores its own model and active tasks lock model switching', async t => {
+    const f = fixture(t, route => route === 'runs/12' || route === 'runs/12/step' ? task({ status: 'running', selection: 'fixture|model-a' }) : undefined, {}, window => {
+        const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+        window.localStorage.setItem(key, '12'); window.localStorage.setItem(key + ':model', 'second|model-b');
+    });
+    await settle();
+    assert.equal(f.$('[data-agent-model]').value, 'fixture|model-a');
+    assert.equal(f.$('[data-agent-model]').disabled, true);
+    f.$('[data-agent-new]').click();
+    assert.equal(f.$('[data-agent-model]').disabled, false);
+    assert.equal(f.$('[data-agent-model]').value, 'second|model-b');
+});
+
+test('newly saved models update an empty picker and removed models cannot silently switch connections', async t => {
+    const f = fixture(t, undefined, { models: {} });
+    const select = f.$('[data-agent-model]');
+    assert.equal(f.$('[data-agent-send]').disabled, true);
+    assert.equal(f.$('#oyiso-agent-prompt').disabled, false);
+    assert.match(f.$('[data-agent-notice]').textContent, /暂无可用模型/);
+    f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-models-updated', { detail: { 'new|model': '<img src=x> / model' } }));
+    assert.equal(select.value, 'new|model'); assert.equal(select.querySelector('img'), null);
+    assert.equal(f.$('[data-agent-send]').disabled, false);
+    f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-models-updated', { detail: { 'other|model': 'Other / model' } }));
+    assert.equal(select.value, 'new|model'); assert.equal(select.selectedOptions[0].disabled, true);
+    assert.equal(f.$('[data-agent-send]').disabled, true);
+    select.value = 'other|model'; select.dispatchEvent(new f.window.Event('change', { bubbles: true }));
+    assert.equal(f.$('[data-agent-send]').disabled, false);
 });
 
 test('request failures preserve prompt and restore send control', async t => {
@@ -774,7 +822,7 @@ test('fullscreen tracks viewport changes and restores saved geometry after tempo
     f.window.dispatchEvent(new f.window.Event('resize'));
     assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 375, height: 600 });
     f.$('[data-agent-fullscreen-toggle]').click();
-    assert.deepEqual(windowRect(f), { x: 0, y: 25, width: 375, height: 500 });
+    assert.deepEqual(windowRect(f), { x: 5, y: 25, width: 365, height: 500 });
     assert.equal(f.window.localStorage.getItem(windowKey + ':window'), saved);
     f.window.innerWidth = 1600; f.window.innerHeight = 1000;
     f.window.dispatchEvent(new f.window.Event('resize'));
@@ -830,7 +878,7 @@ test('resetting a fullscreen panel restores default geometry and preserves the f
     assert.equal(f.window.localStorage.getItem(windowKey + ':fullscreen'), '0');
     assert.equal(f.window.localStorage.getItem(windowKey + ':layout'), 'floating');
     assert.equal(f.window.localStorage.getItem(windowKey + ':window'), null);
-    assert.deepEqual(windowRect(f), { x: 1120, y: 280, width: 480, height: 720 });
+    assert.deepEqual(windowRect(f), { x: 1115, y: 275, width: 480, height: 720 });
     assert.equal(f.$('#oyiso-agent-prompt').value, '恢复全屏布局时保留');
 });
 
@@ -978,7 +1026,7 @@ test('reset restores default panel geometry and right split while preserving mod
     inputDraft(f, '恢复布局时保留这段草稿');
     resizeFloating(f, 'se', 80, 40);
     f.$('[data-agent-reset]').click();
-    assert.deepEqual(windowRect(f), { x: 1120, y: 280, width: 480, height: 720 });
+    assert.deepEqual(windowRect(f), { x: 1115, y: 275, width: 480, height: 720 });
     assert.equal(f.window.localStorage.getItem(windowKey + ':layout'), 'floating');
     assert.equal(f.window.localStorage.getItem(windowKey + ':width'), null);
     assert.equal(f.window.localStorage.getItem(windowKey + ':window'), null);
@@ -1055,10 +1103,10 @@ test('title-bar dragging is bounded and ignores action buttons and links', t => 
     const title = f.$('#oyiso-agent-title');
     pointer(f, title, 'pointerdown', 280, 180);
     pointer(f, f.window.document, 'pointermove', -800, -900);
-    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 600, height: 500 });
+    assert.deepEqual(windowRect(f), { x: 5, y: 5, width: 600, height: 500 });
     pointer(f, f.window.document, 'pointermove', 4000, 4000);
     pointer(f, f.window.document, 'pointerup', 4000, 4000);
-    assert.deepEqual(windowRect(f), { x: 1000, y: 500, width: 600, height: 500 });
+    assert.deepEqual(windowRect(f), { x: 995, y: 495, width: 600, height: 500 });
     assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), false);
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
 });
@@ -1068,11 +1116,11 @@ test('window minimum size and available viewport constrain all resize directions
     resizeFloating(f, 'nw', 4000, 4000);
     assert.deepEqual(windowRect(f), { x: 490, y: 265, width: 360, height: 360 });
     resizeFloating(f, 'nw', -4000, -4000);
-    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 850, height: 625 });
+    assert.deepEqual(windowRect(f), { x: 5, y: 5, width: 845, height: 620 });
     resizeFloating(f, 'se', 4000, 4000);
-    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 1600, height: 1000 });
+    assert.deepEqual(windowRect(f), { x: 5, y: 5, width: 1590, height: 990 });
     resizeFloating(f, 'se', -4000, -4000);
-    assert.deepEqual(windowRect(f), { x: 0, y: 0, width: 360, height: 360 });
+    assert.deepEqual(windowRect(f), { x: 5, y: 5, width: 360, height: 360 });
 });
 
 test('floating geometry survives layout switches, reload and temporary viewport shrink independently of split width', t => {
@@ -1103,9 +1151,9 @@ test('floating geometry survives layout switches, reload and temporary viewport 
     restored.window.innerWidth = 375; restored.window.innerHeight = 600;
     restored.window.dispatchEvent(new restored.window.Event('resize'));
     const small = windowRect(restored);
-    assert.equal(small.x, 0);
-    assert.equal(small.width, 375);
-    assert.ok(small.y >= 0 && small.y + small.height <= 600);
+    assert.equal(small.x, 5);
+    assert.equal(small.width, 365);
+    assert.ok(small.y >= 5 && small.y + small.height <= 595);
     assert.equal(restored.window.localStorage.getItem(windowKey + ':window'), saved);
     restored.window.innerWidth = 1600; restored.window.innerHeight = 1000;
     restored.window.dispatchEvent(new restored.window.Event('resize'));
@@ -1220,7 +1268,7 @@ test('saved width and edge position adapt to narrow viewports without losing pre
     assert.equal(wrapper.style.left, '255px');
     assert.equal(wrapper.style.top, '294px');
     assert.equal(wrapper.dataset.agentEdge, 'right');
-    assert.equal(f.$('[data-agent-resize]').getAttribute('aria-valuenow'), '375');
+    assert.equal(f.$('[data-agent-resize]').getAttribute('aria-valuenow'), '365');
     assert.equal(f.window.localStorage.getItem(key + ':width'), '700');
     f.window.innerWidth = 1280;
     Object.defineProperty(f.window.document.documentElement, 'clientWidth', { get: () => f.window.innerWidth - 15 });

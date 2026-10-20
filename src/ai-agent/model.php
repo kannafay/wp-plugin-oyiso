@@ -19,7 +19,7 @@ interface Oyiso_Agent_Model_Gateway
     /** @param list<array<string, mixed>> $history
      * @param list<string> $abilities
      */
-    public function generate(array $history, array $abilities): Oyiso_Agent_Turn|WP_Error;
+    public function generate(array $history, array $abilities, ?string $selection = null): Oyiso_Agent_Turn|WP_Error;
 }
 
 /** @phpstan-import-type MessageArrayShape from Message */
@@ -30,7 +30,7 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
     {
     }
 
-    public function generate(array $history, array $abilities): Oyiso_Agent_Turn|WP_Error
+    public function generate(array $history, array $abilities, ?string $selection = null): Oyiso_Agent_Turn|WP_Error
     {
         if (!Oyiso_Agent_Config::supported()) {
             return new WP_Error('agent_wp_version', 'AI Agent 需要 WordPress 7.0 或以上版本。');
@@ -55,7 +55,7 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
                 ->using_request_options($requestOptions);
             $provider = Oyiso_Agent_Config::text('provider');
             $model = Oyiso_Agent_Config::text('model');
-            $selection = Oyiso_Agent_Config::text('selection');
+            $selection ??= Oyiso_Agent_Config::text('selection');
             if (str_contains($selection, '|')) {
                 [$connectionId, $modelId] = explode('|', $selection, 2);
                 $selectedModel = Oyiso_Agent_Connections::model($connectionId, $modelId);

@@ -182,7 +182,7 @@ final class ManagedConnectionsTest extends TestCase
         self::assertSame('fixture-legacy-key', Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName('legacy-deepseek')));
     }
 
-    public function testEditsPreserveBlankKeyProtectDefaultModelAndDeleteOnlyOneConnection(): void
+    public function testEditsPreserveBlankKeyAndRetiredDefaultDoesNotBlockConnectionChanges(): void
     {
         $first = $this->create(); $second = $this->create(['name' => '备用', 'key' => 'fixture-second-key']);
         $updated = $this->request('PUT', 'providers/' . $first['id'], $this->input(['id' => $second['id'], 'name' => '改名', 'key' => '']));
@@ -191,11 +191,8 @@ final class ManagedConnectionsTest extends TestCase
         self::assertSame('fixture-first-key', Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($first['id'])));
         self::assertSame('备用', Oyiso_Agent_Connections::all()[1]['name']);
         update_option('oyiso', ['agent_selection' => $first['id'] . '|fixture-model'], false);
-        self::assertSame(409, $this->request('DELETE', 'providers/' . $first['id'])->get_status());
-        self::assertSame(409, $this->request('PUT', 'providers/' . $first['id'], $this->input(['models' => ['other-model']]))->get_status());
-        self::assertSame(409, $this->request('PUT', 'providers/' . $first['id'], $this->input(['models' => []]))->get_status());
-        self::assertSame(409, $this->request('PUT', 'providers/' . $first['id'], $this->input(['clear_key' => true]))->get_status());
-        update_option('oyiso', ['agent_selection' => ''], false);
+        self::assertSame(200, $this->request('PUT', 'providers/' . $first['id'], $this->input(['models' => ['other-model']]))->get_status());
+        self::assertSame(200, $this->request('PUT', 'providers/' . $first['id'], $this->input(['models' => []]))->get_status());
         self::assertSame(200, $this->request('PUT', 'providers/' . $first['id'], $this->input(['clear_key' => true]))->get_status());
         self::assertFalse(Oyiso_Agent_Connections::view()[0]['configured']);
         self::assertNotNull(Oyiso_Agent_Connections::validateSelection($first['id'] . '|fixture-model'));
@@ -287,7 +284,24 @@ final class ManagedConnectionsTest extends TestCase
         self::assertStringContainsString('原默认模型已移除', $html);
     }
 
-    public function testNativeCsfSavePersistsDefaultAndAdvancedFieldsWithoutTouchingProviderKeys(): void
+    public function testConversationChoiceOverridesTheRetiredGlobalDefaultAndUsesItsOwnKey(): void
+    {
+        $first = $this->create();
+        $second = $this->create(['name' => '对话专用', 'url' => 'https://second.example.com/v1', 'models' => ['second-model'], 'key' => 'fixture-second-key']);
+        update_option('oyiso', ['agent_enabled' => true, 'agent_selection' => $first['id'] . '|fixture-model'], false);
+        $seen = [];
+        $this->mockHttp(static function ($pre, $args, $url) use (&$seen) {
+            $body = json_decode($args['body'], true); $seen[] = [$url, $args['headers']['Authorization'], $body['model']];
+            return self::response(['id' => 'chosen-model', 'choices' => [['message' => ['role' => 'assistant', 'content' => 'Selected model response'], 'finish_reason' => 'stop']], 'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2]]);
+        });
+        $turn = (new Oyiso_Agent_Model())->generate([(new UserMessage([new MessagePart('Read product')]))->toArray()], [], $second['id'] . '|second-model');
+        self::assertInstanceOf(Oyiso_Agent_Turn::class, $turn);
+        self::assertSame('second-model', $turn->model);
+        self::assertSame([['https://second.example.com/v1/chat/completions', 'Bearer fixture-second-key', 'second-model']], $seen);
+        self::assertSame($first['id'] . '|fixture-model', Oyiso_Agent_Config::text('selection'));
+    }
+
+    public function testNativeCsfSavePersistsPersonalizationAndAdvancedFieldsWithoutADefaultModel(): void
     {
         $row = $this->create();
         $sections = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
@@ -301,18 +315,13 @@ final class ManagedConnectionsTest extends TestCase
             $_POST = ['data' => wp_slash(wp_json_encode($payload))];
             self::assertTrue($form->set_options(true));
             self::assertSame([], $form->errors);
-            self::assertSame($row['id'] . '|fixture-model', Oyiso_Agent_Config::text('selection'));
+            self::assertSame('', Oyiso_Agent_Config::text('selection'));
             self::assertSame(11, Oyiso_Agent_Config::maxSteps());
             self::assertSame('cs_CZ', Oyiso_Agent_Config::text('language'));
             self::assertSame('品牌写作要求', Oyiso_Agent_Config::text('instructions'));
             self::assertSame('先说明结论。', Oyiso_Agent_Config::text('custom_instructions'));
             self::assertSame('fixture-first-key', Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($row['id'])));
-            $payload['oyiso']['agent_selection'] = 'missing|model';
-            $_POST = ['data' => wp_slash(wp_json_encode($payload))];
-            self::assertTrue($form->set_options(true));
-            self::assertArrayHasKey('agent_selection', $form->errors);
-            self::assertSame($row['id'] . '|fixture-model', Oyiso_Agent_Config::text('selection'));
-            $payload['oyiso']['agent_selection'] = $row['id'] . '|fixture-model';
+            self::assertNotContains('agent_selection', array_column($form->pre_fields, 'id'));
             $payload['oyiso']['agent_language'] = 'misspelled-language'; $form->errors = [];
             $_POST = ['data' => wp_slash(wp_json_encode($payload))];
             self::assertTrue($form->set_options(true));

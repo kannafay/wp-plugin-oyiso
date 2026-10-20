@@ -74,7 +74,7 @@ final class Oyiso_Agent_Runner
             Oyiso_Agent_Store::save($run);
             $checkpoint = $run;
             $allowed = Oyiso_Agent_Abilities::allowed();
-            $turn = $this->model->generate($run['messages'], $allowed);
+            $turn = $this->model->generate($run['messages'], $allowed, $run['selection'] ?? null);
             if (Oyiso_Agent_Store::cancelled($id)) {
                 Oyiso_Agent_Store::save($run);
                 return;

@@ -10,6 +10,7 @@
 
     const $ = (selector, root = panel) => root?.querySelector(selector);
     const prompt = $('#oyiso-agent-prompt');
+    const modelSelect = $('[data-agent-model]');
     const messages = $('[data-agent-messages]');
     const scroll = $('.oyiso-agent-scroll');
     const empty = messages.firstElementChild.cloneNode(true);
@@ -39,6 +40,17 @@
 
     function store(key, value) {
         try { localStorage.setItem(storageKey + key, value); } catch { /* Storage is optional. */ }
+    }
+
+    function populateModels(choices = config.models || {}, selected = modelSelect.value) {
+        config.models = Object.fromEntries(Object.entries(choices).filter(([id, name]) => id.includes('|') && typeof name === 'string'));
+        modelSelect.replaceChildren();
+        for (const [id, name] of Object.entries(config.models)) modelSelect.add(new Option(name, id));
+        if (selected && !Object.hasOwn(config.models, selected)) {
+            const missing = new Option('原模型已不可用，请重新选择', selected); missing.disabled = true; modelSelect.add(missing);
+        }
+        if (!modelSelect.options.length) modelSelect.add(new Option('暂无可用模型，请先添加', ''));
+        if (selected) modelSelect.value = selected;
     }
 
     function rememberDraft() {
@@ -263,7 +275,8 @@
     function controls() {
         const active = run && ['queued', 'running'].includes(run.status);
         const ready = config.enabled && config.supported;
-        $('[data-agent-send]').disabled = !ready || loading || sending || changing.size > 0 || active || run?.status === 'cancelled';
+        $('[data-agent-send]').disabled = !ready || !Object.hasOwn(config.models || {}, modelSelect.value) || loading || sending || changing.size > 0 || active || run?.status === 'cancelled';
+        modelSelect.disabled = !ready || loading || sending || changing.size > 0 || active;
         prompt.disabled = !ready || loading || sending || active || run?.status === 'cancelled';
         $('[data-agent-new]').disabled = sending || changing.size > 0;
         $('[data-agent-cancel]').hidden = !run || !['queued', 'running', 'waiting'].includes(run.status);
@@ -356,6 +369,7 @@
 
     function render(next) {
         if (next.id !== runId) return;
+        if ((!run || sending) && typeof next.selection === 'string') populateModels(config.models, next.selection);
         run = next;
         controls();
         if (next.error) showNotice(next.error, true);
@@ -430,7 +444,7 @@
         sending = true;
         controls();
         try {
-            const next = await api('runs', { method: 'POST', body: JSON.stringify({ message, run_id: runId }) });
+            const next = await api('runs', { method: 'POST', body: JSON.stringify({ message, run_id: runId, selection: modelSelect.value }) });
             forgetDraft(runId);
             runId = next.id;
             remember(runId);
@@ -605,6 +619,13 @@
     prompt.addEventListener('change', event => event.stopPropagation());
     prompt.addEventListener('keypress', event => event.stopPropagation());
     prompt.addEventListener('input', rememberDraft);
+    modelSelect.addEventListener('change', event => { event.stopPropagation(); store(':model', modelSelect.value); controls(); });
+    modelSelect.addEventListener('keypress', event => event.stopPropagation());
+    document.addEventListener('oyiso-agent-models-updated', event => { populateModels(event.detail); controls(); initialNotice(); });
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden || !panelOpen) return;
+        api('status').then(state => { if (state.models) { populateModels(state.models); controls(); initialNotice(); } }).catch(() => {});
+    });
     chat.addEventListener('click', event => {
         const example = event.target.closest('[data-agent-example]');
         if (example && !prompt.disabled) { prompt.value = example.dataset.agentExample; rememberDraft(); prompt.focus(); }
@@ -615,6 +636,9 @@
         if (runId === 0) forgetDraft(0);
         if (panel.dataset.historyLayout !== 'sidebar') setHistory(false, false);
         clearTimeout(timer); pollRevision++; loading = false; runId = 0; run = null; version = ''; remember(0);
+        let preferred;
+        try { preferred = localStorage.getItem(storageKey + ':model'); } catch { /* Storage is optional. */ }
+        populateModels(config.models, Object.hasOwn(config.models || {}, preferred) ? preferred : '');
         messages.replaceChildren(empty.cloneNode(true));
         $('[data-agent-events]').replaceChildren(node('li', 'description', '发送任务后，这里会显示查询和处理进度。'));
         $('[data-agent-changes]').replaceChildren();
@@ -638,6 +662,7 @@
     function initialNotice() {
         if (!config.supported) showNotice('AI Agent 需要 WordPress 7.0 或以上版本。', true);
         else if (!config.enabled) showNotice('请先在「模型配置」中启用 AI Agent，并配置模型连接。');
+        else if (!Object.keys(config.models || {}).length) showNotice('暂无可用模型，请先在「模型配置」中保存提供商密钥并添加模型。');
         else showNotice('');
     }
     if (window.jQuery) {
@@ -649,6 +674,7 @@
             api('status').then(state => {
                 config.enabled = state.enabled;
                 config.supported = state.supported;
+                if (state.models) populateModels(state.models);
                 if (!config.enabled) setPanel(false, false, false);
                 for (const [name, configured] of Object.entries(state.secrets || {})) {
                     if (errors[`agent_${name}`]) continue;
@@ -666,6 +692,9 @@
             }).catch(error => showNotice(error.message, true));
         });
     }
+    let preferredModel;
+    try { preferredModel = localStorage.getItem(storageKey + ':model'); } catch { /* Storage is optional. */ }
+    populateModels(config.models, Object.hasOwn(config.models || {}, preferredModel) ? preferredModel : '');
     controls(); initialNotice(); loadLists();
     try {
         const saved = Number(localStorage.getItem(storageKey));

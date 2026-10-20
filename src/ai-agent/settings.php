@@ -14,7 +14,6 @@ CSF::createSection('oyiso', [
     'fields' => [
         ['type' => 'heading', 'content' => '模型配置'],
         ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询数据并准备商品修改。', 'default' => false, 'desc' => '启用后保存配置并刷新页面，即可加载助手。'],
-        ['id' => 'agent_selection', 'type' => 'callback', 'title' => '默认模型', 'class' => 'oyiso-agent-model-field', 'sanitize' => 'Oyiso_Agent_Config::credential', 'validate' => [Oyiso_Agent_Connections::class, 'validateSelection'], 'function' => [Oyiso_Agent_Model_Settings::class, 'selection']],
         ['type' => 'callback', 'class' => 'oyiso-agent-model-providers', 'function' => [Oyiso_Agent_Model_Settings::class, 'render']],
     ],
 ]);
@@ -33,7 +32,7 @@ CSF::createSection('oyiso', [
         ['type' => 'heading', 'content' => '高级设置'],
         ['id' => 'agent_advanced', 'type' => 'fieldset', 'class' => 'oyiso-agent-model-advanced', 'default' => ['max_steps' => Oyiso_Agent_Config::text('max_steps', '8'), 'model' => Oyiso_Agent_Config::text('model')], 'fields' => [
             ['id' => 'max_steps', 'type' => 'number', 'title' => '每次任务最多轮次', 'default' => '8', 'attributes' => ['min' => '2', 'max' => '15', 'step' => '1'], 'desc' => '范围 2–15。一次模型响应计为一轮，每轮最多调用 4 个工具。'],
-            ['id' => 'model', 'type' => 'text', 'title' => 'WordPress 模型 ID', 'desc' => '仅在默认模型使用 WordPress 来源时生效；留空由 WordPress 选择。'],
+            ['id' => 'model', 'type' => 'text', 'title' => 'WordPress 模型 ID', 'desc' => 'WordPress 连接器的模型偏好；使用已添加的模型时不生效。'],
         ]],
     ],
 ]);

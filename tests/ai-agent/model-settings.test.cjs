@@ -6,7 +6,7 @@ const { execFileSync } = require('node:child_process');
 const { JSDOM } = require('jsdom');
 const repo = path.resolve(__dirname, '../..');
 const quote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
-const markup = execFileSync('php', ['-r', `define('ABSPATH', '/'); function wp_json_encode($v){return json_encode($v);} function esc_attr($v){return htmlspecialchars($v, ENT_QUOTES);} function esc_html($v){return esc_attr($v);} function esc_url($v){return esc_attr($v);} function admin_url($v){return 'https://vape.local/wp-admin/'.$v;} function get_option($name,$default=[]){return $name==='oyiso_agent_connections'?[]:($name==='oyiso'?['agent_selection'=>'']:$default);} require ${quote(path.join(repo, 'src/ai-agent/config.php'))}; require ${quote(path.join(repo, 'src/ai-agent/connections.php'))}; require ${quote(path.join(repo, 'src/ai-agent/managed-connections.php'))}; require ${quote(path.join(repo, 'src/ai-agent/model-settings.php'))}; Oyiso_Agent_Model_Settings::selection(); Oyiso_Agent_Model_Settings::render();`], { encoding: 'utf8' });
+const markup = execFileSync('php', ['-r', `define('ABSPATH', '/'); function wp_json_encode($v){return json_encode($v);} function esc_attr($v){return htmlspecialchars($v, ENT_QUOTES);} function esc_html($v){return esc_attr($v);} function esc_url($v){return esc_attr($v);} function admin_url($v){return 'https://vape.local/wp-admin/'.$v;} function get_option($name,$default=[]){return $name==='oyiso_agent_connections'?[]:($name==='oyiso'?['agent_selection'=>'']:$default);} require ${quote(path.join(repo, 'src/ai-agent/config.php'))}; require ${quote(path.join(repo, 'src/ai-agent/connections.php'))}; require ${quote(path.join(repo, 'src/ai-agent/managed-connections.php'))}; require ${quote(path.join(repo, 'src/ai-agent/model-settings.php'))}; Oyiso_Agent_Model_Settings::render();`], { encoding: 'utf8' });
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/model-settings.js'), 'utf8');
 const settle = async () => { for (let i = 0; i < 6; i++) await new Promise(resolve => setImmediate(resolve)); };
 const row = (id = 'first', extra = {}) => ({ id, name: 'DeepSeek 主账号', preset: 'deepseek', protocol: 'openai_chat', url: 'https://api.example.com/v1', models: ['model-a', 'model-b'], configured: true, ...extra });
@@ -14,7 +14,8 @@ function fixture(t, rows = [], router = () => ({ connections: rows }), { reduced
     const dom = new JSDOM(`<form class="csf-content">${markup}</form>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only' });
     const { window } = dom; const document = window.document; const root = document.querySelector('[data-agent-settings]');
     const state = JSON.parse(root.dataset.state); state.connections = rows; root.dataset.state = JSON.stringify(state);
-    const errors = []; const calls = [];
+    const errors = []; const calls = []; const modelUpdates = [];
+    document.addEventListener('oyiso-agent-models-updated', event => modelUpdates.push(event.detail));
     window.addEventListener('error', event => errors.push(event.error));
     window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
     window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new window.Event('close')); };
@@ -25,7 +26,7 @@ function fixture(t, rows = [], router = () => ({ connections: rows }), { reduced
     window.eval(script);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
     const $ = selector => document.querySelector(selector);
-    return { window, $, calls, field: name => $(`[data-provider-field="${name}"]`) };
+    return { window, $, calls, modelUpdates, field: name => $(`[data-provider-field="${name}"]`) };
 }
 function transitionEnd(f, target = f.$('dialog'), propertyName = 'transform') {
     const event = new f.window.Event('transitionend', { bubbles: true });
@@ -227,7 +228,8 @@ test('a key-only connection saves without models and becomes usable after editin
     assert.equal(f.$('dialog').open, false); assert.equal(f.field('key').value, '');
     assert.match(f.$('[data-provider-id="draft"] td:nth-child(3)').textContent, /未添加模型，暂不可用/);
     assert.equal(f.$('[data-provider-id="draft"] .oyiso-agent-provider-actions button').disabled, true);
-    assert.equal(f.$('[data-provider-default] optgroup'), null);
+    assert.equal(f.$('[data-provider-default]'), null);
+    assert.deepEqual(Object.keys(f.modelUpdates.at(-1)), []);
     assert.match(f.$('[data-provider-notice]').textContent, /已保存.*稍后编辑/);
     const edit = () => f.$('[data-provider-id="draft"] .oyiso-agent-provider-actions button:nth-child(2)').click();
     edit(); assert.equal(f.field('models').value, ''); assert.match(f.field('key').placeholder, /已配置/);
@@ -237,7 +239,7 @@ test('a key-only connection saves without models and becomes usable after editin
     f.$('[data-provider-save]').click(); await settle();
     assert.deepEqual(JSON.parse(f.calls[2].options.body).models, ['completed-model']);
     assert.equal(f.$('[data-provider-id="draft"] .oyiso-agent-provider-actions button').disabled, false);
-    assert.ok(Array.from(f.$('[data-provider-default]').options).some(option => option.value === 'draft|completed-model'));
+    assert.ok(f.modelUpdates.at(-1)['draft|completed-model']);
 });
 
 test('missing provider fields report only the field that needs completing', t => {
@@ -264,20 +266,19 @@ test('adding a duplicate preset saves through nonce protected REST once and upda
     finish({ connections: [...rows, row('second', { name: 'DeepSeek 备用', protocol: 'openai_responses', models: ['second-model', 'reasoner'] })] }); await settle();
     assert.equal(f.$('dialog').open, false); assert.equal(f.field('key').value, '');
     assert.equal(f.$('[data-provider-rows]').children.length, 2);
-    assert.ok(Array.from(f.$('[data-provider-default]').options).some(option => option.value === 'second|reasoner'));
+    assert.equal(f.modelUpdates.at(-1)['second|reasoner'], 'DeepSeek 备用 / reasoner');
     assert.doesNotMatch(f.$('[data-agent-settings]').textContent, /fixture-second-key/);
 });
-test('edit keeps blank key, preserves default selection and safely renders names and API errors', async t => {
+test('edit keeps blank key, publishes model choices and safely renders names and API errors', async t => {
     const rows = [row('first', { name: '<img src=x onerror=alert(1)>' })];
     const f = fixture(t, rows, () => ({ connections: [row('first', { name: '新名称' })] }));
     assert.equal(f.$('[data-provider-rows] img'), null);
-    f.$('[data-provider-default]').value = 'first|model-b';
     f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click();
     assert.equal(f.field('key').value, ''); assert.match(f.field('key').placeholder, /已配置/);
     f.field('name').value = '新名称'; f.$('[data-provider-save]').click(); await settle();
     assert.equal(f.calls[0].options.method, 'PUT'); assert.equal(f.calls[0].route, 'providers/first');
     assert.equal(JSON.parse(f.calls[0].options.body).key, '');
-    assert.equal(f.$('[data-provider-default]').value, 'first|model-b');
+    assert.equal(f.modelUpdates.at(-1)['first|model-b'], '新名称 / model-b');
 });
 test('failed saves retain entered credentials for retry and reopening resets clear-key state', async t => {
     const f = fixture(t, [row()], () => ({ ok: false, status: 400, body: { message: '<script>invalid</script>' } }));
@@ -310,17 +311,15 @@ test('test model selector, duplicate protection and stale results remain correct
     assert.match(f.$('[data-provider-notice]').textContent, /重新测试/);
     assert.equal(f.$('[data-provider-rows] button').disabled, false);
 });
-test('delete errors preserve rows and successful deletion removes model choices without silently selecting another', async t => {
+test('delete errors preserve rows and successful deletion publishes the remaining model choices', async t => {
     let fail = true;
-    const f = fixture(t, [row()], () => fail ? { ok: false, status: 409, body: { message: '请先更换默认模型' } } : { connections: [] });
-    f.$('[data-provider-default]').value = 'first|model-a';
+    const f = fixture(t, [row()], () => fail ? { ok: false, status: 409, body: { message: '配置正在保存' } } : { connections: [] });
     f.$('.oyiso-agent-provider-delete').click(); await settle();
-    assert.match(f.$('[data-provider-notice]').textContent, /更换默认模型/);
+    assert.match(f.$('[data-provider-notice]').textContent, /正在保存/);
     assert.equal(f.$('[data-provider-rows]').children.length, 1);
     fail = false; f.$('.oyiso-agent-provider-delete').click(); await settle();
     assert.match(f.$('[data-provider-rows]').textContent, /还没有/);
-    assert.equal(f.$('[data-provider-default]').value, 'first|model-a');
-    assert.match(f.$('[data-provider-default]').selectedOptions[0].textContent, /已移除/);
+    assert.deepEqual(Object.keys(f.modelUpdates.at(-1)), []);
     assert.equal(f.calls[1].options.method, 'DELETE');
 });
 

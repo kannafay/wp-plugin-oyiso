@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
-/** @phpstan-type AgentRequest array{id?:int|string, run_id?:int, message?:string, page?:int, action?:string, proposal?:string} */
+/** @phpstan-type AgentRequest array{id?:int|string, run_id?:int, message?:string, selection?:string, page?:int, action?:string, proposal?:string} */
 final class Oyiso_Agent_Admin
 {
     public static function routes(): void
@@ -12,14 +12,14 @@ final class Oyiso_Agent_Admin
         Oyiso_Agent_Model_Settings::routes();
         $permission = static fn(): bool => current_user_can('manage_options');
         $root = 'oyiso-agent/v1';
-        register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'secrets' => Oyiso_Agent_Config::secretStatus()])]);
+        register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'secrets' => Oyiso_Agent_Config::secretStatus(), 'models' => Oyiso_Agent_Connections::choices()])]);
         register_rest_route($root, '/connections/(?P<preset>deepseek|gemini|agnes)/test', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
             $result = Oyiso_Agent_Connectors::test((string) $request->get_param('preset'));
             return is_wp_error($result) ? $result : new WP_REST_Response($result);
         }]);
         register_rest_route($root, '/runs', [
             ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response => new WP_REST_Response(Oyiso_Agent_Store::recent(max(1, (int) $request->get_param('page')))), 'args' => ['page' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]]],
-            ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'send'], 'args' => ['message' => ['type' => 'string', 'required' => true, 'minLength' => 1, 'maxLength' => 4000], 'run_id' => ['type' => 'integer', 'minimum' => 0, 'default' => 0]]],
+            ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'send'], 'args' => ['message' => ['type' => 'string', 'required' => true, 'minLength' => 1, 'maxLength' => 4000], 'selection' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 251], 'run_id' => ['type' => 'integer', 'minimum' => 0, 'default' => 0]]],
         ]);
         register_rest_route($root, '/runs/(?P<id>\d+)', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => [self::class, 'read']]);
         foreach (['step', 'cancel'] as $action) {
@@ -42,7 +42,11 @@ final class Oyiso_Agent_Admin
         if ($id > 0 && !Oyiso_Agent_Store::owned($id)) {
             return self::missing();
         }
-        $run = $id > 0 ? Oyiso_Agent_Store::get($id) : Oyiso_Agent_Store::create($message);
+        $selection = $request->get_param('selection');
+        if ($id === 0 && (!is_string($selection) || !isset(Oyiso_Agent_Connections::choices()[$selection]))) {
+            return new WP_Error('agent_model_selection', '请先在 AI 助手中选择已添加且可用的模型。', ['status' => 400]);
+        }
+        $run = $id > 0 ? Oyiso_Agent_Store::get($id) : Oyiso_Agent_Store::create($message, is_string($selection) ? $selection : null);
         if (is_wp_error($run)) {
             return $run;
         }
@@ -60,6 +64,11 @@ final class Oyiso_Agent_Admin
             }
             if (count($run['conversation']) >= 60) {
                 return new WP_Error('agent_chat_limit', '本次对话已达上限，请新建对话。', ['status' => 400]);
+            }
+            $selection = is_string($selection) ? $selection : ($run['selection'] ?? null);
+            if ($selection !== null) {
+                if (!isset(Oyiso_Agent_Connections::choices()[$selection])) return new WP_Error('agent_model_selection', '所选模型已不可用，请重新选择模型。', ['status' => 400]);
+                $run['selection'] = $selection;
             }
             Oyiso_Agent_Runner::message($run, $message);
         } finally {
@@ -155,7 +164,7 @@ final class Oyiso_Agent_Admin
         wp_enqueue_style('oyiso-agent', plugins_url('assets/agent.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/agent.css'));
         wp_enqueue_script('oyiso-agent-panel', plugins_url('assets/panel.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/panel.js'), true);
         wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
-        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported()]);
+        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices()]);
     }
 
     private static function available(): bool
@@ -218,7 +227,7 @@ final class Oyiso_Agent_Admin
                 <div data-agent-changes class="oyiso-agent-changes"></div>
             </div>
             <details class="oyiso-agent-progress"><summary>执行过程 <span data-agent-status>尚未开始</span></summary><div class="oyiso-agent-progress-body"><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></div></details>
-            <div class="oyiso-agent-composer"><label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label><textarea id="oyiso-agent-prompt" rows="3" maxlength="4000" placeholder="例如：读取商品 123，完善长短描述和 SEO 信息，先给我预览。"></textarea><div class="oyiso-agent-composer-actions"><span class="description">Ctrl / ⌘ + Enter 发送</span><div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送任务</button></div></div></div>
+            <div class="oyiso-agent-composer"><div class="oyiso-agent-model-picker"><label for="oyiso-agent-model">模型</label><select id="oyiso-agent-model" data-agent-model aria-label="对话模型"><option value="">暂无可用模型</option></select></div><label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label><textarea id="oyiso-agent-prompt" rows="3" maxlength="4000" placeholder="例如：读取商品 123，完善长短描述和 SEO 信息，先给我预览。"></textarea><div class="oyiso-agent-composer-actions"><span class="description">Ctrl / ⌘ + Enter 发送</span><div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送任务</button></div></div></div>
         </div>
         <?php
     }

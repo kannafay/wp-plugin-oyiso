@@ -22,14 +22,16 @@ final class OyisoAgentScriptedModel implements Oyiso_Agent_Model_Gateway
 {
     public int $calls = 0;
     public array $allowed = [];
+    public array $selections = [];
 
     public function __construct(private array $turns)
     {
     }
 
-    public function generate(array $history, array $abilities): Oyiso_Agent_Turn|WP_Error
+    public function generate(array $history, array $abilities, ?string $selection = null): Oyiso_Agent_Turn|WP_Error
     {
         $this->calls++;
+        $this->selections[] = $selection;
         $this->allowed = $abilities;
         $turn = array_shift($this->turns);
         return $turn instanceof Closure ? $turn() : $turn;
@@ -249,7 +251,9 @@ final class AgentTest extends TestCase
 
     public function testRestCreatesPrivateTaskAndCancellationPersists(): void
     {
-        $response = $this->request('POST', 'runs', ['message' => 'Read a product']);
+        $connection = Oyiso_Agent_Connections::save(['name' => '任务连接', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_responses', 'models' => ['fixture-model'], 'key' => 'fixture-task-key']);
+        self::assertIsArray($connection);
+        $response = $this->request('POST', 'runs', ['message' => 'Read a product', 'selection' => $connection['id'] . '|fixture-model']);
         self::assertSame(201, $response->get_status());
         $id = $response->get_data()['id']; $this->tasks[] = $id;
         self::assertSame('private', get_post_status($id));
@@ -260,6 +264,43 @@ final class AgentTest extends TestCase
         self::assertSame(409, $this->request('POST', 'runs', ['message' => 'Continue cancelled', 'run_id' => $id])->get_status());
         $list = $this->request('GET', 'runs')->get_data();
         self::assertContains($id, array_column($list['items'], 'id'));
+    }
+
+    public function testConversationModelsAreValidatedStoredAndPassedToTheWorkerIndependently(): void
+    {
+        $input = ['name' => '对话模型', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_responses', 'models' => ['first-model', 'second-model'], 'key' => 'fixture-conversation-key'];
+        $connection = Oyiso_Agent_Connections::save($input); self::assertIsArray($connection);
+        self::assertIsArray(Oyiso_Agent_Connections::save(array_replace($input, ['name' => '没有密钥', 'key' => ''])));
+        self::assertIsArray(Oyiso_Agent_Connections::save(array_replace($input, ['name' => '没有模型', 'models' => []])));
+        $first = $connection['id'] . '|first-model'; $second = $connection['id'] . '|second-model';
+        $models = $this->request('GET', 'status')->get_data()['models'];
+        self::assertSame([$first, $second], array_keys($models));
+        self::assertStringNotContainsString('fixture-conversation-key', wp_json_encode($models));
+        $before = $this->request('GET', 'runs')->get_data();
+        foreach ([null, 'wp:external', 'missing|model', $connection['id'] . '|unlisted'] as $selection) {
+            $payload = ['message' => 'Invalid selection']; if ($selection !== null) $payload['selection'] = $selection;
+            self::assertSame(400, $this->request('POST', 'runs', $payload)->get_status());
+        }
+        self::assertSame($before, $this->request('GET', 'runs')->get_data());
+        $options = Oyiso_Agent_Config::options(); $options['agent_selection'] = 'obsolete|global-default'; update_option('oyiso', $options, false);
+        $created = $this->request('POST', 'runs', ['message' => 'First conversation', 'selection' => $first]);
+        self::assertSame(201, $created->get_status()); $id = $created->get_data()['id']; $this->tasks[] = $id;
+        self::assertSame($first, $created->get_data()['selection']);
+        $other = $this->request('POST', 'runs', ['message' => 'Other conversation', 'selection' => $second]);
+        self::assertSame(201, $other->get_status()); $otherId = $other->get_data()['id']; $this->tasks[] = $otherId;
+        self::assertSame(409, $this->request('POST', 'runs', ['message' => 'Cannot change while queued', 'run_id' => $id, 'selection' => $second])->get_status());
+        self::assertSame($first, Oyiso_Agent_Store::get($id)['selection']);
+        $model = new OyisoAgentScriptedModel([$this->turn('First answer'), $this->turn('Second answer')]);
+        $runner = new Oyiso_Agent_Runner($model); $runner->step($id); $runner->step($otherId);
+        self::assertSame([$first, $second], $model->selections);
+        self::assertSame($first, $this->request('GET', 'runs/' . $id)->get_data()['selection']);
+        self::assertSame(201, $this->request('POST', 'runs', ['message' => 'Switch for follow-up', 'run_id' => $id, 'selection' => $second])->get_status());
+        self::assertSame($second, Oyiso_Agent_Store::get($id)['selection']);
+        self::assertSame('obsolete|global-default', Oyiso_Agent_Config::text('selection'));
+        $next = Oyiso_Agent_Store::get($id); $next['status'] = 'completed'; Oyiso_Agent_Store::save($next);
+        self::assertSame(400, $this->request('POST', 'runs', ['message' => 'Invalid follow-up', 'run_id' => $id, 'selection' => 'missing|model'])->get_status());
+        self::assertSame($second, Oyiso_Agent_Store::get($id)['selection']);
+        self::assertCount(3, Oyiso_Agent_Store::get($id)['conversation']);
     }
 
     public function testRestAppliesAndRevertsOnlyAfterTaskStops(): void
@@ -464,10 +505,11 @@ final class AgentTest extends TestCase
             $sections = CSF::$args['sections']['oyiso'];
             self::assertCount(6, $sections);
             self::assertSame('ai-agent', $sections[0]['id']);
-            $provider = array_values(array_filter($sections[1]['fields'], static fn(array $field): bool => ($field['id'] ?? '') === 'agent_selection'))[0];
-            ob_start(); CSF::field($provider, '', 'oyiso'); $select = ob_get_clean();
-            self::assertStringContainsString('自动选择', $select);
-            self::assertStringNotContainsString('value="0"', $select);
+            self::assertNotContains('agent_selection', array_column($sections[1]['fields'], 'id'));
+            $provider = array_values(array_filter($sections[1]['fields'], static fn(array $field): bool => ($field['class'] ?? '') === 'oyiso-agent-model-providers'))[0];
+            ob_start(); CSF::field($provider, '', 'oyiso'); $html = ob_get_clean();
+            self::assertStringContainsString('data-agent-settings', $html);
+            self::assertStringNotContainsString('data-provider-default', $html);
         } finally { CSF::$args['sections'] = $oldSections; CSF::$fields = $oldFields; }
     }
 

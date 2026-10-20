@@ -11,8 +11,6 @@
     const initial = JSON.parse(root.dataset.state);
     const presets = initial.presets;
     const protocols = initial.protocols;
-    const defaults = document.querySelector('[data-provider-default]');
-    const external = Array.from(defaults.options).filter(option => option.value === '' || option.value.startsWith('wp:')).map(option => [option.value, option.textContent]);
     let rows = initial.connections;
     let editing = '';
     let busy = false;
@@ -162,18 +160,9 @@
         if (next.length > 30) { $('[data-model-notice]').textContent = '最多选择 30 个模型，请减少选择后重试。'; return; }
         setModels(next); closeModelDialog();
     }
-    function updateDefaults() {
-        const selected = defaults.value;
-        defaults.replaceChildren();
-        for (const [value, label] of external) defaults.add(new Option(label, value));
-        for (const row of rows) {
-            if (!row.models.length) continue;
-            const group = make('optgroup'); group.label = row.name;
-            for (const model of row.models) group.append(new Option(`${row.name} / ${model}`, `${row.id}|${model}`));
-            defaults.append(group);
-        }
-        if (selected && !Array.from(defaults.options).some(option => option.value === selected)) defaults.add(new Option('原默认模型已移除，请重新选择', selected));
-        defaults.value = selected;
+    function announceModels() {
+        const models = Object.fromEntries(rows.filter(row => row.configured).flatMap(row => row.models.map(model => [`${row.id}|${model}`, `${row.name} / ${model}`])));
+        document.dispatchEvent(new CustomEvent('oyiso-agent-models-updated', { detail: models }));
     }
     function action(label, callback, className = '') {
         const button = make('button', label, `button button-small ${className}`);
@@ -189,7 +178,6 @@
             const url = make('span', row.url, 'oyiso-agent-provider-url'); url.title = row.url; name.append(url);
             const models = make('td'); const select = make('select'); select.setAttribute('aria-label', `${row.name} 的测试模型`);
             for (const model of row.models) select.add(new Option(model, model));
-            const current = defaults.value.split('|'); if (current[0] === row.id && row.models.includes(current[1])) select.value = current[1];
             if (row.models.length) models.append(select);
             else models.textContent = '未添加模型，暂不可用';
             const controls = make('td'); const actions = make('div', undefined, 'oyiso-agent-provider-actions');
@@ -233,15 +221,15 @@
         let saved = false;
         try {
             const result = await api(`providers${editing ? '/' + editing : ''}`, editing ? 'PUT' : 'POST', data);
-            rows = result.connections; revision++; updateDefaults(); fields.key.value = ''; saved = true;
-            notify(data.models.length ? '提供商已保存。选择默认模型后，请点击页面顶部的「保存配置」。' : '提供商已保存。尚未添加模型，暂不可用，可稍后编辑补充。');
+            rows = result.connections; revision++; announceModels(); fields.key.value = ''; saved = true;
+            notify(data.models.length ? '提供商已保存，可在 AI 助手中选择模型。' : '提供商已保存。尚未添加模型，暂不可用，可稍后编辑补充。');
         } catch (error) { $('[data-provider-dialog-notice]').textContent = error.message; }
         finally { busy = false; $('[data-provider-save]').disabled = false; render(); if (saved) close(); }
     }
     async function remove(row) {
         if (busy || !window.confirm(`删除「${row.name}」及其已保存的密钥？`)) return;
         busy = true; render();
-        try { const result = await api(`providers/${row.id}`, 'DELETE'); rows = result.connections; revision++; updateDefaults(); notify('提供商已删除。'); }
+        try { const result = await api(`providers/${row.id}`, 'DELETE'); rows = result.connections; revision++; announceModels(); notify('提供商已删除。'); }
         catch (error) { notify(error.message, true); }
         finally { busy = false; render(); }
     }
@@ -304,5 +292,5 @@
         const action = typeof settings.data === 'string' ? new URLSearchParams(settings.data).get('action') : settings.data?.action;
         if (action === 'csf_oyiso_ajax_save' && xhr.responseJSON?.success !== false) render();
     });
-    updateDefaults(); render();
+    render();
 })();

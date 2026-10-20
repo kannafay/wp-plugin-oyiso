@@ -58,6 +58,17 @@ final class Oyiso_Agent_Connections
         return array_map(static fn(array $row): array => array_intersect_key($row, array_flip(['id', 'name', 'preset', 'url', 'protocol', 'models'])) + ['configured' => Oyiso_Agent_Config::hasSecret(self::secretName($row['id']))], self::all());
     }
 
+    /** @return array<string, string> */
+    public static function choices(): array
+    {
+        $choices = [];
+        foreach (self::all() as $row) {
+            if (!Oyiso_Agent_Config::hasSecret(self::secretName($row['id'])) || Oyiso_Agent_Connectors::validateUrl($row['url']) !== null || !isset(Oyiso_Agent_Connectors::protocols()[$row['protocol']])) continue;
+            foreach ($row['models'] as $model) $choices[$row['id'] . '|' . $model] = $row['name'] . ' / ' . $model;
+        }
+        return $choices;
+    }
+
     public static function selection(): string
     {
         $rows = self::all();
@@ -102,7 +113,7 @@ final class Oyiso_Agent_Connections
             }
             return new Oyiso_Agent_Connection($id, $row['name'], $row['url'], $model, true, $row['protocol']);
         }
-        return new WP_Error('agent_connection_missing', '模型连接不存在，请重新选择默认模型。', ['status' => 404]);
+        return new WP_Error('agent_connection_missing', '模型连接不存在，请在 AI 助手中重新选择模型。', ['status' => 404]);
     }
 
     public static function model(string $id, string $model): \WordPress\AiClient\Providers\Models\Contracts\ModelInterface|WP_Error
@@ -151,10 +162,6 @@ final class Oyiso_Agent_Connections
                 $clean[] = $model;
             }
             $models = array_values(array_unique($clean));
-            [$selectedId, $selectedModel] = array_pad(explode('|', self::selection(), 2), 2, '');
-            if ($id !== '' && $selectedId === $id && (!in_array($selectedModel, $models, true) || !empty($input['clear_key']))) {
-                return new WP_Error('agent_connection_default', '请先更换默认模型并保存配置，再移除此模型或清除密钥。', ['status' => 409]);
-            }
             $id = $id !== '' ? $id : wp_generate_uuid4();
             if (($key !== '' || !empty($input['clear_key'])) && !Oyiso_Agent_Config::setSecret(self::secretName($id), !empty($input['clear_key']) ? '' : $key)) {
                 return new WP_Error('agent_connection_encrypt', 'API Key 加密保存失败，请重试。', ['status' => 500]);
@@ -178,9 +185,6 @@ final class Oyiso_Agent_Connections
             return new WP_Error('agent_connection_busy', '配置正在保存，请稍后重试。', ['status' => 409]);
         }
         try {
-            if (str_starts_with(self::selection(), $id . '|')) {
-                return new WP_Error('agent_connection_default', '请先更换默认模型并保存配置，再删除此提供商。', ['status' => 409]);
-            }
             $rows = self::all();
             $remaining = array_values(array_filter($rows, static fn(array $row): bool => $row['id'] !== $id));
             if (count($remaining) === count($rows)) {

@@ -53,7 +53,9 @@
 
     function windowBounds() {
         const { w, h } = viewport();
-        return { left: 0, right: w, top: 0, bottom: h, maxWidth: w, maxHeight: h, minWidth: Math.min(360, w), minHeight: Math.min(360, h) };
+        const gap = Math.min(5, Math.max(0, (w - 1) / 2), Math.max(0, (h - 1) / 2));
+        const maxWidth = Math.max(1, w - gap * 2), maxHeight = Math.max(1, h - gap * 2);
+        return { left: gap, right: w - gap, top: gap, bottom: h - gap, maxWidth, maxHeight, minWidth: Math.min(360, maxWidth), minHeight: Math.min(360, maxHeight) };
     }
 
     function applyGeometry() {
@@ -63,7 +65,7 @@
         const fullscreen = panel.hasAttribute('data-agent-fullscreen');
         const value = fullscreen ? view.w : Math.round(floating ? clamp(windowState?.width ?? width ?? 480, bounds.minWidth, bounds.maxWidth) : clamp(width ?? bounds.defaultWidth, bounds.min, bounds.max));
         const height = fullscreen ? view.h : floating ? Math.round(clamp(windowState?.height ?? 720, bounds.minHeight, bounds.maxHeight)) : view.h;
-        const rect = { width: value, height, x: fullscreen ? 0 : floating ? Math.round(bounds.left + (windowState?.x ?? 1) * (bounds.maxWidth - value)) : leftDock() ? 0 : view.w - value, y: floating && !fullscreen ? Math.round(bounds.top + (windowState?.y ?? 1) * (bounds.maxHeight - height)) : 0 };
+        const rect = { width: value, height, x: fullscreen ? 0 : floating ? clamp(Math.round((windowState?.x ?? 1) * (view.w - value)), bounds.left, bounds.right - value) : leftDock() ? 0 : view.w - value, y: floating && !fullscreen ? clamp(Math.round((windowState?.y ?? 1) * (view.h - height)), bounds.top, bounds.bottom - height) : 0 };
         document.body.style.setProperty('--oyiso-agent-panel-width', `${value}px`);
         panel.toggleAttribute('data-agent-window', floating);
         if (floating) delete panel.dataset.agentDock;
@@ -97,10 +99,10 @@
     }
 
     function setWindowRect(rect) {
-        const bounds = windowBounds();
-        const roomX = bounds.maxWidth - rect.width;
-        const roomY = bounds.maxHeight - rect.height;
-        windowState = { width: rect.width, height: rect.height, x: roomX > 0 ? clamp((rect.x - bounds.left) / roomX, 0, 1) : 0, y: roomY > 0 ? clamp((rect.y - bounds.top) / roomY, 0, 1) : 0 };
+        const view = viewport();
+        const roomX = view.w - rect.width;
+        const roomY = view.h - rect.height;
+        windowState = { width: rect.width, height: rect.height, x: roomX > 0 ? clamp(rect.x / roomX, 0, 1) : 0, y: roomY > 0 ? clamp(rect.y / roomY, 0, 1) : 0 };
         applyGeometry();
     }
 
