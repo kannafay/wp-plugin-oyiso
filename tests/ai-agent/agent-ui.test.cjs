@@ -10,6 +10,8 @@ const phpQuote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\
 const markup = JSON.parse(execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } function esc_html($value) { return esc_attr($value); } function esc_url($value) { return esc_attr($value); } function admin_url($value) { return 'https://vape.local/wp-admin/' . $value; } function current_user_can($value) { return true; } function is_network_admin() { return false; } function is_user_admin() { return false; } function get_option($name, $default = []) { return $name === 'oyiso' ? ['agent_enabled' => true] : $default; } require ${phpQuote(path.join(repo, 'src/ai-agent/config.php'))}; require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; $parts = []; foreach (['panel', 'history'] as $method) { ob_start(); Oyiso_Agent_Admin::$method(); $parts[$method] = ob_get_clean(); } ob_start(); Oyiso_Agent_Admin::connectionTest('deepseek'); $parts['connection'] = ob_get_clean(); echo json_encode($parts);`], { encoding: 'utf8' }));
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.js'), 'utf8');
 const panelScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/panel.js'), 'utf8');
+const markdownVendor = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/lib/markdown-it.min.js'), 'utf8');
+const markdownScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/markdown.js'), 'utf8');
 const csfScript = fs.readFileSync(path.join(repo, 'assets/js/main.min.js'), 'utf8');
 const nativeNavigation = Array.from(fs.readFileSync(path.join(repo, 'src/_init.php'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g), match => match[1]).find(source => source.includes('function switchToSection(tabId)'));
 const wpRoot = process.env.OYISO_WORDPRESS_ROOT || path.resolve(repo, '../../..');
@@ -44,6 +46,8 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     before(window);
     if (!view.closed && window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open') === null) window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:open', '1');
     window.eval(panelScript);
+    window.eval(markdownVendor);
+    window.eval(markdownScript);
     view.afterGeometry?.(window);
     window.eval(script);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
@@ -167,6 +171,24 @@ test('settings popover contains icon and text actions with keyboard dismissal an
     await settle();
 });
 
+test('settings menu opens upwards within the viewport when the header is at the bottom', t => {
+    const f = fixture(t, undefined, {}, window => {
+        geometry(window);
+        const toggle = window.document.querySelector('[data-agent-settings-toggle]');
+        toggle.getBoundingClientRect = () => ({ top: 940, bottom: 972, left: 8, right: 40, width: 32, height: 32 });
+        Object.defineProperties(window.document.querySelector('[data-agent-settings-menu]'), { scrollHeight: { get: () => 190 }, offsetWidth: { get: () => 196 } });
+    });
+    f.$('[data-agent-settings-toggle]').click();
+    const menu = f.$('[data-agent-settings-menu]');
+    assert.equal(menu.style.top, 'auto');
+    assert.equal(menu.style.bottom, 'calc(100% + 8px)');
+    assert.equal(menu.style.maxHeight, '928px');
+    assert.equal(menu.style.transform, 'translateX(161px)');
+    assert.equal(f.$('#oyiso-agent-panel').hasAttribute('data-agent-menu-open'), true);
+    f.$('[data-agent-settings-toggle]').click();
+    assert.equal(f.$('#oyiso-agent-panel').hasAttribute('data-agent-menu-open'), false);
+});
+
 test('refresh reloads only the current conversation and preserves draft model choice and geometry', async t => {
     let reads = 0; let resolve;
     const f = fixture(t, route => route === 'runs/12' ? (++reads === 1 ? task({ selection: 'fixture|model-a', conversation: [{ role: 'assistant', text: 'Old' }] }) : new Promise(done => { resolve = done; })) : undefined, {}, window => {
@@ -216,6 +238,72 @@ test('streamed text updates the same bubble and is replaced once by the final re
     assert.equal(f.window.document.querySelectorAll('.is-assistant').length, 1);
     assert.equal(f.$('[data-agent-messages]').getAttribute('aria-busy'), 'false');
     assert.equal(f.calls.some(call => call.route.endsWith('/step')), false);
+});
+
+test('assistant Markdown renders structure with bounded type while user input stays plain text', async t => {
+    const text = '# 大标题\n\n## 小标题\n\n正文 **加粗** 和 `inline`。\n\n- 项目一\n- 项目二\n\n> 引用\n\n```js\nconst x = "<tag>";\n```\n\n| 名称 | 值 |\n| --- | --- |\n| 模型 | model-a |';
+    const f = fixture(t, route => route === 'runs/12' ? task({ conversation: [{ role: 'user', text: '**我的原文**' }, { role: 'assistant', text }] }) : undefined, {}, window => {
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+        const style = window.document.createElement('style'); style.textContent = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.css'), 'utf8'); window.document.head.append(style);
+    });
+    await settle();
+    const assistant = f.$('.is-assistant .oyiso-agent-message-content');
+    assert.equal(assistant.querySelector('h1').textContent, '大标题');
+    assert.equal(assistant.querySelector('strong').textContent, '加粗');
+    assert.equal(assistant.querySelectorAll('ul > li').length, 2);
+    assert.equal(assistant.querySelector('blockquote').textContent.trim(), '引用');
+    assert.match(assistant.querySelector('pre code').textContent, /<tag>/);
+    assert.equal(assistant.querySelectorAll('table td').length, 2);
+    assert.equal(assistant.querySelector('.oyiso-agent-markdown-table').tabIndex, 0);
+    assert.equal(f.window.getComputedStyle(assistant).fontSize, '13px');
+    assert.equal(f.window.getComputedStyle(assistant.querySelector('h1')).fontSize, '17px');
+    assert.equal(f.window.getComputedStyle(assistant.querySelector('pre')).whiteSpace, 'pre');
+    assert.equal(f.$('.is-user .oyiso-agent-message-content').textContent, '**我的原文**');
+    assert.equal(f.$('.is-user .oyiso-agent-message-content strong'), null);
+});
+
+test('Markdown blocks raw HTML unsafe links and automatic external image loads including in partial replies', async t => {
+    let state = task({ status: 'running', partial: { model: 'model-a', text: '**安全**\n\n<img src=x onerror=alert(1)>\n\n<script>alert(1)</script>\n\n[bad](javascript:alert(1)) [entity](jav&#x61;script:alert(1)) [file](file:///secret)\n\n![图片](https://example.com/a.png) [来源](https://example.com) [邮件](mailto:hello@example.com)' } });
+    const f = fixture(t, route => route === 'runs/12' ? state : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const content = f.$('[data-agent-partial] .oyiso-agent-message-content');
+    assert.equal(content.querySelector('strong').textContent, '安全');
+    assert.equal(content.querySelector('img,script,iframe,style'), null);
+    assert.equal(content.querySelectorAll('a').length, 3);
+    for (const link of content.querySelectorAll('a')) {
+        assert.match(link.href, /^(https?:|mailto:)/);
+        assert.equal(link.rel, 'noopener noreferrer');
+    }
+    const strong = content.querySelector('strong');
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(content.querySelector('strong'), strong, 'unchanged streaming text preserves rendered nodes');
+    state = { ...state, partial: { model: 'model-a', text: '**完整加粗**\n\n- 新项目' } };
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-partial] .oyiso-agent-message-content'), content);
+    assert.equal(content.querySelector('li').textContent, '新项目');
+});
+
+test('MCP review cards show escaped arguments and require an explicit action without duplicate execution', async t => {
+    const action = { id: '12345678-1234-1234-1234-123456789abc', name: 'woodmart/update-theme-setting', label: '更新主题设置', input_json: '{"id":"primary-color","value":"<script>bad</script>"}', status: 'pending', result: '' };
+    let state = task({ status: 'waiting', mcp_actions: [action] }); let finish;
+    const f = fixture(t, route => route === 'runs/12' ? state : route.includes('/mcp/') ? new Promise(resolve => { finish = () => { state = task({ mcp_actions: [{ ...action, status: 'completed', result: '<script>Result</script>' }] }); resolve({ ...state, status: 'queued' }); }; }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(f.$('[data-agent-changes] script'), null);
+    assert.match(f.$('[data-agent-changes] pre').textContent, /<script>bad<\/script>/);
+    assert.equal(f.calls.some(call => call.route.includes('/mcp/')), false);
+    const approve = [...f.window.document.querySelectorAll('[data-agent-changes] button')].find(button => button.textContent === '确认执行');
+    approve.click(); approve.click(); await settle();
+    const calls = f.calls.filter(call => call.route.includes('/mcp/'));
+    assert.equal(calls.length, 1);
+    assert.equal(JSON.parse(calls[0].options.body).action, 'execute');
+    assert.equal(f.$('[data-agent-changes] button').disabled, true);
+    finish(); await settle();
+    assert.equal(f.$('[data-agent-changes] button'), null);
+    assert.match(f.$('[data-agent-changes]').textContent, /已执行/);
+    assert.equal(f.$('[data-agent-changes] script'), null);
+    assert.ok(f.calls.filter(call => call.route === 'runs/12').length >= 2, 'successful confirmation reconnects to the resumed assistant');
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.calls.filter(call => call.route.includes('/mcp/')).length, 1);
 });
 
 test('refresh and page restoration reconnect to running work without duplicate steps or stale response rollback', async t => {
@@ -1267,7 +1355,9 @@ test('title-bar dragging is bounded and ignores action buttons and links', t => 
     assert.deepEqual(windowRect(f), { x: 5, y: 5, width: 600, height: 500 });
     pointer(f, f.window.document, 'pointermove', 4000, 4000);
     pointer(f, f.window.document, 'pointerup', 4000, 4000);
-    assert.deepEqual(windowRect(f), { x: 995, y: 495, width: 600, height: 500 });
+    assert.deepEqual(windowRect(f), { x: 995, y: 919, width: 600, height: 500 });
+    assert.ok(windowRect(f).y + 76 <= f.window.innerHeight - 5);
+    assert.ok(windowRect(f).y + windowRect(f).height > f.window.innerHeight);
     assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), false);
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
 });
@@ -1282,6 +1372,34 @@ test('window minimum size and available viewport constrain all resize directions
     assert.deepEqual(windowRect(f), { x: 5, y: 5, width: 1590, height: 990 });
     resizeFloating(f, 'se', -4000, -4000);
     assert.deepEqual(windowRect(f), { x: 5, y: 5, width: 360, height: 360 });
+});
+
+test('overflow geometry restores and adapts to a taller wrapped header without trapping the drag handle', t => {
+    let headerHeight = 96;
+    const before = window => Object.defineProperty(window.document.querySelector('[data-agent-drag]'), 'offsetHeight', { get: () => headerHeight });
+    const f = floatingWindow(t, before);
+    const heading = f.$('[data-agent-drag]');
+    pointer(f, heading, 'pointerdown', 280, 145);
+    pointer(f, f.window.document, 'pointermove', 280, 4000);
+    pointer(f, f.window.document, 'pointerup', 280, 4000);
+    assert.equal(windowRect(f).y, 899);
+    assert.ok(windowRect(f).y + windowRect(f).height > 1000);
+    const saved = f.window.localStorage.getItem(windowKey + ':window');
+    const restored = floatingWindow(t, window => { before(window); window.localStorage.setItem(windowKey + ':window', saved); });
+    assert.deepEqual(windowRect(restored), windowRect(f));
+    resizeFloating(restored, 's', 0, 1000);
+    assert.equal(windowRect(restored).y, 899);
+    assert.equal(windowRect(restored).height, 990);
+    headerHeight = 140;
+    restored.window.innerWidth = 375; restored.window.innerHeight = 600;
+    restored.window.dispatchEvent(new restored.window.Event('resize'));
+    assert.equal(windowRect(restored).x, 5);
+    assert.equal(windowRect(restored).y, 455);
+    assert.equal(windowRect(restored).y + headerHeight, 595);
+    for (let i = 0; i < 20; i++) restored.$('[data-agent-drag]').dispatchEvent(new restored.window.KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, bubbles: true }));
+    assert.equal(windowRect(restored).y, 5);
+    restored.$('[data-agent-reset]').click();
+    assert.ok(windowRect(restored).y + windowRect(restored).height <= 595);
 });
 
 test('floating geometry survives layout switches, reload and temporary viewport shrink independently of split width', t => {

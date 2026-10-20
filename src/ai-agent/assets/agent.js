@@ -203,15 +203,31 @@
         if (open && settingsMenu.hidden) setSettingsMenu(true, false);
         layoutMenu.hidden = !open;
         $('[data-agent-layout]').setAttribute('aria-expanded', String(open));
+        if (!settingsMenu.hidden) placeSettingsMenu();
         if (focus) (open ? $('[aria-checked="true"]', layoutMenu) : $('[data-agent-layout]')).focus({ preventScroll: true });
     }
 
     function setSettingsMenu(open, focus = true) {
         settingsMenu.hidden = !open;
+        panel.toggleAttribute('data-agent-menu-open', open);
         settingsToggle.setAttribute('aria-expanded', String(open));
         if (!open) setLayoutMenu(false, false);
-        if (open) settingsMenu.style.maxHeight = `${Math.max(100, panel.getBoundingClientRect().bottom - settingsToggle.getBoundingClientRect().bottom - 16)}px`;
+        if (open) placeSettingsMenu();
         if (focus) (open ? menuItems()[0] : settingsToggle)?.focus({ preventScroll: true });
+    }
+
+    function placeSettingsMenu() {
+        const trigger = settingsToggle.getBoundingClientRect();
+        const below = window.innerHeight - trigger.bottom - 12;
+        const above = trigger.top - 12;
+        // The header can sit at the bottom while the body is outside the viewport.
+        const up = below < Math.min(settingsMenu.scrollHeight, 240) && above > below;
+        settingsMenu.style.top = up ? 'auto' : 'calc(100% + 8px)';
+        settingsMenu.style.bottom = up ? 'calc(100% + 8px)' : 'auto';
+        settingsMenu.style.maxHeight = `${Math.max(32, up ? above : below)}px`;
+        const left = trigger.right - settingsMenu.offsetWidth;
+        const desired = Math.max(5, Math.min(left, (document.documentElement.clientWidth || window.innerWidth) - settingsMenu.offsetWidth - 5));
+        settingsMenu.style.transform = `translateX(${desired - left}px)`;
     }
 
     const menuItems = () => Array.from(settingsMenu.querySelectorAll('button, a')).filter(button => !button.closest('[hidden]') && getComputedStyle(button).display !== 'none');
@@ -333,8 +349,7 @@
         const container = $('[data-agent-changes]');
         container.replaceChildren();
         const visible = changes.filter(change => !['superseded', 'cancelled'].includes(change.status));
-        if (!visible.length) return;
-        container.append(node('h3', '', '商品修改'));
+        if (visible.length) container.append(node('h3', '', '商品修改'));
         for (const change of visible) {
             const section = node('section', 'oyiso-agent-change');
             const heading = node('div', 'oyiso-agent-change-heading');
@@ -382,6 +397,38 @@
             }
             container.append(section);
         }
+        const actions = (run?.mcp_actions || []).filter(action => action.status !== 'cancelled');
+        if (actions.length) container.append(node('h3', '', 'MCP 操作'));
+        for (const action of actions) {
+            const section = node('section', 'oyiso-agent-change');
+            const heading = node('div', 'oyiso-agent-change-heading');
+            const states = { pending: '等待确认', executing: '已提交执行，请核对实际结果', completed: '已执行', dismissed: '已取消', failed: '执行失败，请先核对实际结果' };
+            heading.append(node('h4', '', action.label), node('span', 'description', states[action.status] || action.status));
+            section.append(heading, node('p', 'description', action.name));
+            const detail = node('details', 'oyiso-agent-field-diff');
+            detail.open = action.status === 'pending';
+            detail.append(node('summary', '', '操作参数'));
+            let parameters = action.input_json;
+            try { parameters = JSON.stringify(JSON.parse(parameters), null, 2); } catch { /* Show stored text if an old record is malformed. */ }
+            detail.append(node('pre', 'oyiso-agent-mcp-result', parameters));
+            section.append(detail);
+            if (action.result) {
+                const result = node('details', 'oyiso-agent-field-diff');
+                result.append(node('summary', '', '执行结果'), node('pre', 'oyiso-agent-mcp-result', action.result));
+                section.append(result);
+            }
+            if (action.status === 'pending') {
+                section.append(node('p', 'description', '确认后将调用此工具修改站点。'));
+                for (const [decision, label] of [['dismiss', '取消'], ['execute', '确认执行']]) {
+                    const button = node('button', `button${decision === 'execute' ? ' button-primary' : ''}`, changing.has(action.id) ? '处理中…' : label);
+                    button.type = 'button';
+                    button.disabled = !config.enabled || ['queued', 'running', 'cancelled'].includes(run.status) || changing.has(action.id);
+                    button.addEventListener('click', () => applyChange(action.id, decision, 'mcp'));
+                    section.append(button);
+                }
+            }
+            container.append(section);
+        }
     }
 
     function render(next) {
@@ -392,7 +439,7 @@
         if (next.error) showNotice(!next.selection && next.error.startsWith('尚无可用的工具调用模型') ? '此对话尚未选择模型。请在下方选择已添加的模型后重新发送。' : next.error, true);
         else if (next.status === 'cancelled') showNotice('任务已取消，后续步骤和待审核修改已停止。可新建对话继续。');
         else showNotice('');
-        const signature = JSON.stringify([next.conversation, next.events, next.changes]);
+        const signature = JSON.stringify([next.conversation, next.events, next.changes, next.mcp_actions]);
         const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
         if (signature !== version) {
             version = signature;
@@ -404,7 +451,8 @@
                 const model = entry.model || (legacyModels.length === 1 ? legacyModels[0] : 'AI');
                 item.append(node('strong', 'oyiso-agent-message-role', isUser ? '我' : model));
                 const content = node('div', 'oyiso-agent-message-content');
-                messageText(content, entry.text);
+                if (!isUser && window.oyisoAgentMarkdown) window.oyisoAgentMarkdown(content, entry.text);
+                else messageText(content, entry.text);
                 item.append(content);
                 messages.append(item);
             }
@@ -432,7 +480,9 @@
                 messages.append(partial);
             }
             $('.oyiso-agent-message-role', partial).textContent = next.partial.model || 'AI';
-            $('.oyiso-agent-message-content', partial).textContent = next.partial.text;
+            const partialContent = $('.oyiso-agent-message-content', partial);
+            if (window.oyisoAgentMarkdown) window.oyisoAgentMarkdown(partialContent, next.partial.text);
+            else partialContent.textContent = next.partial.text;
             partial.classList.toggle('is-streaming', ['queued', 'running'].includes(next.status));
         } else partial?.remove();
         messages.setAttribute('aria-busy', String(!!next.partial?.text && ['queued', 'running'].includes(next.status)));
@@ -502,15 +552,15 @@
         finally { sending = false; controls(); }
     }
 
-    async function applyChange(proposal, action) {
+    async function applyChange(proposal, action, kind = 'changes') {
         if (changing.has(proposal)) return;
         const id = runId;
         changing.add(proposal);
         controls();
         renderChanges(run.changes);
         try {
-            const next = await api(`runs/${id}/changes/${proposal}`, { method: 'POST', body: JSON.stringify({ action }) });
-            if (id === runId) { version = ''; render(next); }
+            const next = await api(`runs/${id}/${kind}/${proposal}`, { method: 'POST', body: JSON.stringify({ action }) });
+            if (id === runId) { version = ''; render(next); if (kind === 'mcp' && next.status === 'queued') poll(); }
             loadLists();
         } catch (error) { if (id === runId) showNotice(error.message, true); }
         finally { changing.delete(proposal); controls(); if (runId === id && run) renderChanges(run.changes); }
@@ -619,7 +669,7 @@
     $('[data-agent-history-back]').addEventListener('click', () => setHistory(false));
     historyDismiss.addEventListener('click', () => setHistory(false));
     panel.addEventListener('oyiso-agent-history-layout', syncHistory);
-    panel.addEventListener('oyiso-agent-geometry-start', () => { if (cancelPanelMotion) finishPanelMotion(); });
+    panel.addEventListener('oyiso-agent-geometry-start', () => { if (cancelPanelMotion) finishPanelMotion(); setSettingsMenu(false, false); });
     $('[data-agent-close]').addEventListener('click', () => setPanel(false));
     $('[data-agent-fullscreen-toggle]').addEventListener('click', () => { setSettingsMenu(false, false); setFullscreen(!fullscreen); });
     settingsToggle.addEventListener('click', () => setSettingsMenu(settingsMenu.hidden));

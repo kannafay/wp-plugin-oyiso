@@ -40,6 +40,7 @@ final class Oyiso_Agent_Tools
             'prepare-product-update' => $this->prepare($input),
             'apply-product-update' => $this->change(self::text($input, 'proposal_id'), false),
             'revert-product-update' => $this->change(self::text($input, 'proposal_id'), true),
+            'mcp-list-tools', 'mcp-describe-tool', 'mcp-call-tool' => Oyiso_Agent_MCP::call($name, $input, $this->run),
             default => new WP_Error('agent_unknown_tool', '工具不存在。'),
         };
     }

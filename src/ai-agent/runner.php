@@ -119,6 +119,7 @@ final class Oyiso_Agent_Runner
             Oyiso_Agent_Abilities::bind($tools);
             $responses = [];
             $proposalsBefore = count($run['changes']);
+            $mcpBefore = count($run['mcp_actions'] ?? []);
             foreach ($calls as $call) {
                 if (Oyiso_Agent_Store::cancelled($id)) {
                     break;
@@ -158,10 +159,10 @@ final class Oyiso_Agent_Runner
             if ($responses !== []) {
                 $run['messages'][] = (new UserMessage($responses))->toArray();
             }
-            $pending = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0;
-            if (count($run['changes']) > $proposalsBefore) {
+            $pending = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0 || Oyiso_Agent_MCP::pending($run);
+            if (count($run['changes']) > $proposalsBefore || count($run['mcp_actions'] ?? []) > $mcpBefore) {
                 $run['status'] = 'waiting';
-                $run['conversation'][] = ['role' => 'assistant', 'text' => '修改方案已生成。请查看前后对照，再选择是否应用。', 'model' => $turn->model];
+                $run['conversation'][] = ['role' => 'assistant', 'text' => count($run['mcp_actions'] ?? []) > $mcpBefore ? 'MCP 操作尚未执行。请查看工具和参数，再选择是否执行。' : '修改方案已生成。请查看前后对照，再选择是否应用。', 'model' => $turn->model];
             } elseif ($calls === []) {
                 $run['status'] = $pending ? 'waiting' : 'completed';
                 if (trim($text) === '') {

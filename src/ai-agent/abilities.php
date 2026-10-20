@@ -15,7 +15,7 @@ final class Oyiso_Agent_Abilities
 
     public static function categories(): void
     {
-        wp_register_ability_category('oyiso-agent', ['label' => 'Oyiso AI Agent', 'description' => '商品内容编辑和站内数据查询。']);
+        wp_register_ability_category('oyiso-agent', ['label' => 'Oyiso AI Agent', 'description' => '商品内容、站内数据和已启用的 MCP 工具。']);
     }
 
     public static function register(): void
@@ -33,6 +33,9 @@ final class Oyiso_Agent_Abilities
             'prepare-product-update' => ['准备商品修改', '生成商品长短描述和 SEO 字段的修改预览，返回待审核方案，不保存商品。仅提交需要修改的字段；SEO 字段需 SEOPress 已启用。', ['product_id' => $id, 'fields' => ['type' => 'object', 'properties' => $fields, 'minProperties' => 1, 'additionalProperties' => false]], ['product_id', 'fields']],
             'apply-product-update' => ['应用商品修改', '应用用户在后台明确批准的修改方案。仅供后台操作入口调用。', ['proposal_id' => $text], ['proposal_id']],
             'revert-product-update' => ['撤回商品修改', '将已保存的商品字段恢复到此前值，并检查是否存在后续修改。仅供后台操作入口调用。', ['proposal_id' => $text], ['proposal_id']],
+            'mcp-list-tools' => ['查找 MCP 工具', '查找已启用的 WoodMart 和其他插件 MCP 工具。先查找工具，再读取详细参数；每页 15 个。', ['search' => ['type' => 'string', 'maxLength' => 200], 'page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1000]], []],
+            'mcp-describe-tool' => ['读取 MCP 工具说明', '读取指定 MCP 工具的用途、完整输入 schema 和读写属性。调用前必须先读取。', ['name' => $text], ['name']],
+            'mcp-call-tool' => ['调用 MCP 工具', '调用已启用的 MCP 工具。input_json 为遵守工具 schema 的 JSON 对象字符串（无参数时为 {}）。只读工具立即执行；修改类仅生成待确认卡片，尚未保存。', ['name' => $text, 'input_json' => ['type' => 'string', 'maxLength' => 50000]], ['name', 'input_json']],
         ];
         foreach ($definitions as $name => [$label, $description, $properties, $required]) {
             wp_register_ability('oyiso/' . $name, [
@@ -54,7 +57,7 @@ final class Oyiso_Agent_Abilities
                 'execute_callback' => static function (array $input) use ($name): array|WP_Error {
                     return self::$context?->execute($name, $input) ?? new WP_Error('agent_context_missing', '请从 AI Agent 对话或修改预览中调用此能力。');
                 },
-                'meta' => ['show_in_rest' => false, 'annotations' => ['readonly' => !in_array($name, ['prepare-product-update', 'apply-product-update', 'revert-product-update'], true), 'destructive' => in_array($name, ['apply-product-update', 'revert-product-update'], true), 'idempotent' => $name !== 'prepare-product-update']],
+                'meta' => ['show_in_rest' => false, 'annotations' => ['readonly' => !in_array($name, ['prepare-product-update', 'apply-product-update', 'revert-product-update', 'mcp-call-tool'], true), 'destructive' => in_array($name, ['apply-product-update', 'revert-product-update'], true), 'idempotent' => !in_array($name, ['prepare-product-update', 'mcp-call-tool'], true)]],
             ]);
         }
     }
@@ -70,6 +73,9 @@ final class Oyiso_Agent_Abilities
         }
         if (function_exists('wc_get_orders') && current_user_can('manage_woocommerce')) {
             $names[] = 'oyiso/order-summary';
+        }
+        if (current_user_can('manage_options') && Oyiso_Agent_MCP::selected() !== []) {
+            $names = array_merge($names, ['oyiso/mcp-list-tools', 'oyiso/mcp-describe-tool', 'oyiso/mcp-call-tool']);
         }
         return $names;
     }

@@ -8,6 +8,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/personalization.php';
 require_once __DIR__ . '/connections.php';
 require_once __DIR__ . '/store.php';
+require_once __DIR__ . '/mcp.php';
 require_once __DIR__ . '/managed-connections.php';
 require_once __DIR__ . '/model-catalog.php';
 require_once __DIR__ . '/model-settings.php';

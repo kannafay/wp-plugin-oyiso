@@ -26,7 +26,7 @@
     try {
         const saved = JSON.parse(read(':window'));
         if (saved && ['x', 'y', 'width', 'height'].every(name => Number.isFinite(saved[name])) && saved.width > 0 && saved.height > 0) {
-            windowState = { x: clamp(saved.x, 0, 1), y: clamp(saved.y, 0, 1), width: saved.width, height: saved.height };
+            windowState = { x: clamp(saved.x, 0, 1), y: clamp(saved.y, 0, 1), width: saved.width, height: saved.height, anchor: saved.anchor === 'header' ? 'header' : 'window' };
         }
     } catch { /* Ignore invalid or unavailable window geometry. */ }
     let launcherWidth = 120;
@@ -55,17 +55,24 @@
         const { w, h } = viewport();
         const gap = Math.min(5, Math.max(0, (w - 1) / 2), Math.max(0, (h - 1) / 2));
         const maxWidth = Math.max(1, w - gap * 2), maxHeight = Math.max(1, h - gap * 2);
-        return { left: gap, right: w - gap, top: gap, bottom: h - gap, maxWidth, maxHeight, minWidth: Math.min(360, maxWidth), minHeight: Math.min(360, maxHeight) };
+        // The whole header stays reachable; the body may extend below the viewport.
+        const headerHeight = Math.min(maxHeight, heading.offsetHeight || 76);
+        return { left: gap, right: w - gap, top: gap, bottom: h - gap, headerBottom: Math.max(gap, h - gap - headerHeight), maxWidth, maxHeight, minWidth: Math.min(360, maxWidth), minHeight: Math.min(360, maxHeight) };
     }
 
     function applyGeometry() {
         const floating = !docked();
-        const bounds = floating ? windowBounds() : widthBounds();
+        let bounds = floating ? windowBounds() : widthBounds();
         const view = viewport();
         const fullscreen = panel.hasAttribute('data-agent-fullscreen');
         const value = fullscreen ? view.w : Math.round(floating ? clamp(windowState?.width ?? width ?? 480, bounds.minWidth, bounds.maxWidth) : clamp(width ?? bounds.defaultWidth, bounds.min, bounds.max));
+        if (floating) {
+            panel.style.width = `${value}px`;
+            bounds = windowBounds();
+        }
         const height = fullscreen ? view.h : floating ? Math.round(clamp(windowState?.height ?? 720, bounds.minHeight, bounds.maxHeight)) : view.h;
-        const rect = { width: value, height, x: fullscreen ? 0 : floating ? clamp(Math.round((windowState?.x ?? 1) * (view.w - value)), bounds.left, bounds.right - value) : leftDock() ? 0 : view.w - value, y: floating && !fullscreen ? clamp(Math.round((windowState?.y ?? 1) * (view.h - height)), bounds.top, bounds.bottom - height) : 0 };
+        const top = windowState?.anchor === 'header' ? bounds.top + windowState.y * (bounds.headerBottom - bounds.top) : windowState ? windowState.y * (view.h - height) : bounds.bottom - height;
+        const rect = { width: value, height, x: fullscreen ? 0 : floating ? clamp(Math.round((windowState?.x ?? 1) * (view.w - value)), bounds.left, bounds.right - value) : leftDock() ? 0 : view.w - value, y: floating && !fullscreen ? clamp(Math.round(top), bounds.top, bounds.headerBottom) : 0 };
         document.body.style.setProperty('--oyiso-agent-panel-width', `${value}px`);
         panel.toggleAttribute('data-agent-window', floating);
         if (floating) delete panel.dataset.agentDock;
@@ -84,8 +91,8 @@
             if (edge.length !== 1) continue;
             handle.tabIndex = fullscreen ? -1 : 0;
             const horizontal = edge === 'w' || edge === 'e';
-            const max = !floating ? (horizontal ? bounds.max : height) : ({ w: rect.x + value - bounds.left, e: bounds.right - rect.x, n: rect.y + height - bounds.top, s: bounds.bottom - rect.y })[edge];
-            handle.setAttribute('aria-valuemin', String(floating ? (horizontal ? bounds.minWidth : bounds.minHeight) : (horizontal ? bounds.min : height)));
+            const max = !floating ? (horizontal ? bounds.max : height) : ({ w: rect.x + value - bounds.left, e: bounds.right - rect.x, n: Math.min(bounds.maxHeight, rect.y + height - bounds.top), s: bounds.maxHeight })[edge];
+            handle.setAttribute('aria-valuemin', String(floating ? (horizontal ? bounds.minWidth : edge === 'n' ? Math.max(bounds.minHeight, rect.y + height - bounds.headerBottom) : bounds.minHeight) : (horizontal ? bounds.min : height)));
             handle.setAttribute('aria-valuemax', String(max));
             handle.setAttribute('aria-valuenow', String(horizontal ? value : height));
             handle.setAttribute('aria-valuetext', `${horizontal ? value : height} 像素`);
@@ -101,14 +108,15 @@
     function setWindowRect(rect) {
         const view = viewport();
         const roomX = view.w - rect.width;
-        const roomY = view.h - rect.height;
-        windowState = { width: rect.width, height: rect.height, x: roomX > 0 ? clamp(rect.x / roomX, 0, 1) : 0, y: roomY > 0 ? clamp(rect.y / roomY, 0, 1) : 0 };
+        const bounds = windowBounds();
+        const roomY = bounds.headerBottom - bounds.top;
+        windowState = { width: rect.width, height: rect.height, x: roomX > 0 ? clamp(rect.x / roomX, 0, 1) : 0, y: roomY > 0 ? clamp((rect.y - bounds.top) / roomY, 0, 1) : 0, anchor: 'header' };
         applyGeometry();
     }
 
     function moveWindow(rect, dx, dy) {
         const bounds = windowBounds();
-        setWindowRect({ ...rect, x: clamp(rect.x + dx, bounds.left, bounds.right - rect.width), y: clamp(rect.y + dy, bounds.top, bounds.bottom - rect.height) });
+        setWindowRect({ ...rect, x: clamp(rect.x + dx, bounds.left, bounds.right - rect.width), y: clamp(rect.y + dy, bounds.top, bounds.headerBottom) });
     }
 
     function resizeWindow(rect, edge, dx, dy) {
@@ -116,8 +124,8 @@
         const next = { ...rect };
         if (edge.includes('w')) { next.x = clamp(rect.x + dx, bounds.left, rect.x + rect.width - bounds.minWidth); next.width = rect.x + rect.width - next.x; }
         if (edge.includes('e')) next.width = clamp(rect.width + dx, bounds.minWidth, bounds.right - rect.x);
-        if (edge.includes('n')) { next.y = clamp(rect.y + dy, bounds.top, rect.y + rect.height - bounds.minHeight); next.height = rect.y + rect.height - next.y; }
-        if (edge.includes('s')) next.height = clamp(rect.height + dy, bounds.minHeight, bounds.bottom - rect.y);
+        if (edge.includes('n')) { next.y = clamp(rect.y + dy, Math.max(bounds.top, rect.y + rect.height - bounds.maxHeight), Math.min(bounds.headerBottom, rect.y + rect.height - bounds.minHeight)); next.height = rect.y + rect.height - next.y; }
+        if (edge.includes('s')) next.height = clamp(rect.height + dy, bounds.minHeight, bounds.maxHeight);
         setWindowRect(next);
     }
 
@@ -304,6 +312,7 @@
         placeLauncher();
     }
     window.addEventListener('resize', sync);
+    if (window.ResizeObserver) new ResizeObserver(() => { if (!gesture && !panel.hidden) applyGeometry(); }).observe(heading);
     panel.addEventListener('oyiso-agent-reset-geometry', () => {
         if (gesture) finish(null, true);
         width = null;

@@ -26,6 +26,7 @@ final class Oyiso_Agent_Admin
             register_rest_route($root, '/runs/(?P<id>\d+)/' . $action, ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response|WP_Error => self::control($request, $action)]);
         }
         register_rest_route($root, '/runs/(?P<id>\d+)/changes/(?P<proposal>[a-f0-9-]{36})', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'change'], 'args' => ['action' => ['type' => 'string', 'enum' => ['apply', 'revert'], 'required' => true]]]);
+        register_rest_route($root, '/runs/(?P<id>\d+)/mcp/(?P<proposal>[a-f0-9-]{36})', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'mcp'], 'args' => ['action' => ['type' => 'string', 'enum' => ['execute', 'dismiss'], 'required' => true]]]);
     }
 
     /** @param WP_REST_Request<AgentRequest> $request */
@@ -144,13 +145,41 @@ final class Oyiso_Agent_Admin
             if ($result === null) {
                 return new WP_Error('agent_ability_missing', '商品修改能力尚未注册。', ['status' => 400]);
             }
-            $run['status'] = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0 ? 'waiting' : 'completed';
+            $run['status'] = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0 || Oyiso_Agent_MCP::pending($run) ? 'waiting' : 'completed';
             $run['error'] = '';
             Oyiso_Agent_Store::save($run);
             return new WP_REST_Response(Oyiso_Agent_Store::view($run));
         } finally {
             Oyiso_Agent_Abilities::bind(null);
             Oyiso_Agent_Store::unlock('run_' . $id);
+        }
+    }
+
+    /** @param WP_REST_Request<AgentRequest> $request */
+    public static function mcp(WP_REST_Request $request): WP_REST_Response|WP_Error
+    {
+        $id = (int) $request->get_param('id');
+        if (!Oyiso_Agent_Store::owned($id)) return self::missing();
+        if (!Oyiso_Agent_Store::lock('run_' . $id)) return self::busy();
+        $enqueue = false;
+        try {
+            $run = Oyiso_Agent_Store::get($id);
+            if (is_wp_error($run)) return $run;
+            if (in_array($run['status'], ['queued', 'running'], true)) return self::busy();
+            $proposal = (string) $request->get_param('proposal');
+            $decision = (string) $request->get_param('action');
+            $result = Oyiso_Agent_MCP::approve($run, $proposal, $decision);
+            if (is_wp_error($result)) return $result;
+            $pending = Oyiso_Agent_MCP::pending($run) || count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0;
+            $executed = count(array_filter($run['mcp_actions'] ?? [], static fn(array $action): bool => $action['id'] === $proposal && $action['status'] === 'completed')) > 0;
+            $run['status'] = $pending ? 'waiting' : ($decision === 'execute' && $executed ? 'queued' : 'completed');
+            if ($run['status'] === 'queued') $run['step'] = 0;
+            Oyiso_Agent_Store::save($run);
+            $enqueue = $run['status'] === 'queued';
+            return new WP_REST_Response(Oyiso_Agent_Store::view($run));
+        } finally {
+            Oyiso_Agent_Store::unlock('run_' . $id);
+            if ($enqueue) Oyiso_Agent_Runner::enqueue($id);
         }
     }
 
@@ -162,7 +191,9 @@ final class Oyiso_Agent_Admin
         }
         wp_enqueue_style('oyiso-agent', plugins_url('assets/agent.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/agent.css'));
         wp_enqueue_script('oyiso-agent-panel', plugins_url('assets/panel.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/panel.js'), true);
-        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
+        wp_enqueue_script('oyiso-agent-markdown-it', plugins_url('assets/lib/markdown-it.min.js', __FILE__), [], '15.0.3', true);
+        wp_enqueue_script('oyiso-agent-markdown', plugins_url('assets/markdown.js', __FILE__), ['oyiso-agent-markdown-it'], (string) filemtime(__DIR__ . '/assets/markdown.js'), true);
+        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
         wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices()]);
     }
 

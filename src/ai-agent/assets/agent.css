@@ -43,6 +43,7 @@ body.oyiso-agent-transitioning #oyiso-agent-launcher-wrap { transition: transfor
 #oyiso-agent-launcher-wrap:is(.is-dragging, [data-agent-initializing]) #oyiso-agent-launcher::after { transition: none; }
 #oyiso-agent-panel { position: fixed; z-index: 9990; right: 24px; bottom: 24px; display: flex; flex-direction: column; width: var(--oyiso-agent-panel-width, 480px); max-width: calc(100vw - 48px); height: min(720px, calc(100dvh - var(--oyiso-agent-bar-height) - 48px)); box-sizing: border-box; overflow: hidden; border: 1px solid #c3c4c7; border-radius: 8px; background: #fff; box-shadow: 0 8px 36px #0003; text-align: left; opacity: 0; transform: translateY(24px); pointer-events: none; }
 #oyiso-agent-panel[data-agent-window] { z-index: 100000; max-width: 100vw; border: 0; color: #1e1e1e; box-shadow: 0 4px 20px rgba(0, 0, 0, .15), 0 1px 3px rgba(0, 0, 0, .08); transform: scale(.9); }
+#oyiso-agent-panel[data-agent-menu-open] { overflow: visible; }
 #oyiso-agent-panel[data-agent-fullscreen] { border-radius: 0; box-shadow: none; }
 body.oyiso-agent-open #oyiso-agent-panel { opacity: 1; transform: translateY(0); pointer-events: auto; }
 body.oyiso-agent-open #oyiso-agent-panel[data-agent-window] { transform: scale(1); }
@@ -85,7 +86,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-icon-button:hover { background: #f0f0f1; color: #1d2327; }
 .oyiso-agent-icon-button svg, .oyiso-agent-settings-menu svg { display: block; flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .oyiso-agent-settings-wrap { position: relative; display: flex; }
-.oyiso-agent-settings-menu { position: absolute; z-index: 6; top: calc(100% + 8px); right: 0; width: 196px; padding: 4px; overflow-y: auto; border: 1px solid #c3c4c7; border-radius: 4px; background: #fff; box-shadow: 0 4px 16px #0002; }
+.oyiso-agent-settings-menu { position: absolute; z-index: 6; top: calc(100% + 8px); right: 0; width: 196px; padding: 4px; box-sizing: border-box; overflow-y: auto; border: 1px solid #c3c4c7; border-radius: 4px; background: #fff; box-shadow: 0 4px 16px #0002; }
 .oyiso-agent-settings-menu :is(button, a) { display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 0; border-radius: 2px; background: transparent; color: #1d2327; font: inherit; font-size: 13px; line-height: 1.4; text-align: left; text-decoration: none; cursor: pointer; }
 .oyiso-agent-settings-menu :is(button, a):hover, [data-agent-settings-toggle][aria-expanded="true"] { background: #f0f0f1; }
 .oyiso-agent-settings-menu .oyiso-agent-settings-link { border-top: 1px solid #e5e5e5; border-radius: 0; margin-top: 4px; }
@@ -119,6 +120,30 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-message-content { max-width: min(85%, 720px); padding: 10px 14px; box-sizing: border-box; border: 1px solid #e5e5e5; border-radius: 12px 12px 12px 3px; background: #f6f7f7; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 13px; }
 .oyiso-agent-message.is-user .oyiso-agent-message-content { border-color: transparent; border-radius: 12px 12px 3px 12px; background: var(--oyiso-color-primary, #bf5316); color: #fff; }
 .oyiso-agent-message.is-user .oyiso-agent-message-content a { color: inherit; text-decoration: underline; }
+.oyiso-agent-message.is-assistant .oyiso-agent-message-content { min-width: 0; white-space: normal; font-size: 13px; line-height: 1.75; }
+.oyiso-agent-message-content :is(p, ul, ol, blockquote, pre, .oyiso-agent-markdown-table) { margin: 0 0 10px; font-size: inherit; line-height: inherit; }
+.oyiso-agent-message-content > :last-child { margin-bottom: 0; }
+.oyiso-agent-message-content :is(h1, h2, h3, h4, h5, h6) { margin: 16px 0 8px; padding: 0; border: 0; color: inherit; font-size: 14px; font-weight: 600; line-height: 1.5; }
+.oyiso-agent-message-content h1 { font-size: 17px; }
+.oyiso-agent-message-content h2 { font-size: 16px; }
+.oyiso-agent-message-content h3 { font-size: 15px; }
+.oyiso-agent-message-content > :first-child { margin-top: 0; }
+.oyiso-agent-message-content :is(ul, ol) { padding-left: 22px; list-style-position: outside; }
+.oyiso-agent-message-content ul { list-style-type: disc; }
+.oyiso-agent-message-content ol { list-style-type: decimal; }
+.oyiso-agent-message-content li { margin: 4px 0; padding: 0; }
+.oyiso-agent-message-content li > :is(ul, ol, p) { margin-bottom: 4px; }
+.oyiso-agent-message-content blockquote { padding: 2px 0 2px 12px; border-left: 3px solid #c3c4c7; color: #646970; }
+.oyiso-agent-message-content blockquote > :last-child { margin-bottom: 0; }
+.oyiso-agent-message-content :is(code, pre) { font-family: Consolas, Monaco, monospace; font-size: 12px; }
+.oyiso-agent-message-content code { padding: 2px 4px; border-radius: 3px; background: #0000000a; white-space: pre-wrap; }
+.oyiso-agent-message-content pre { max-width: 100%; padding: 10px 12px; overflow: auto; border: 1px solid #dcdcde; border-radius: 4px; background: #fff; white-space: pre; overflow-wrap: normal; }
+.oyiso-agent-message-content pre code { padding: 0; background: transparent; white-space: inherit; overflow-wrap: normal; }
+.oyiso-agent-markdown-table { max-width: 100%; overflow: auto; }
+.oyiso-agent-message-content table { width: 100%; border-collapse: collapse; font-size: inherit; }
+.oyiso-agent-message-content :is(th, td) { padding: 6px 10px; border: 1px solid #dcdcde; text-align: left; vertical-align: top; }
+.oyiso-agent-message-content th { background: #00000006; font-weight: 600; }
+.oyiso-agent-message-content hr { margin: 12px 0; border: 0; border-top: 1px solid #dcdcde; }
 .oyiso-agent-message.is-streaming .oyiso-agent-message-content::after { content: ''; display: inline-block; width: 2px; height: 1em; margin-left: 3px; background: currentColor; vertical-align: -.1em; }
 .oyiso-agent-composer { flex: none; padding: 14px 16px 16px; border-top: 1px solid #dcdcde; }
 .oyiso-agent-composer textarea { display: block; width: 100%; max-width: none; min-height: 80px; max-height: 180px; resize: vertical; box-sizing: border-box; font: inherit; font-size: 13px; line-height: 1.6; }
@@ -156,6 +181,8 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-diff-columns > div { min-width: 0; }
 .oyiso-agent-diff-columns .description { margin: 6px 0; }
 .oyiso-agent-diff-columns pre { margin: 0; padding: 12px; background: #f6f7f7; max-height: 260px; min-height: 50px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 12px; line-height: 1.8; }
+.oyiso-agent-mcp-result { max-height: 260px; margin: 0; padding: 12px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #f6f7f7; font: 12px/1.7 Consolas, Monaco, monospace; }
+.oyiso-agent-mcp-table :is(th, td):last-child { min-width: 120px; white-space: nowrap; }
 .oyiso-agent-table-wrap { overflow-x: auto; }
 .oyiso-agent-table-wrap th { white-space: nowrap; }
 .oyiso-agent-table-wrap td { vertical-align: top; }

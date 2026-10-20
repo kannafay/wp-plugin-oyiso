@@ -8,7 +8,8 @@ defined('ABSPATH') || exit;
  * @phpstan-type Fields array<string, string>
  * @phpstan-type Change array{id:string, product_id:int, name:string, before:Fields, after:Fields, status:string}
  * @phpstan-type RunEvent array{time:string, type:string, label:string, detail:string}
- * @phpstan-type Run array{id:int, selection?:string, partial?:array{text:string,model:string}, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
+ * @phpstan-type MCPAction array{id:string,name:string,label:string,input_json:string,status:string,result:string}
+ * @phpstan-type Run array{id:int, selection?:string, partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
  */
 final class Oyiso_Agent_Store
 {
@@ -64,6 +65,9 @@ final class Oyiso_Agent_Store
                 }
             }
             unset($change);
+            foreach ($run['mcp_actions'] ?? [] as $index => $action) {
+                if ($action['status'] === 'pending') $run['mcp_actions'][$index]['status'] = 'cancelled';
+            }
         }
         update_post_meta($run['id'], self::META, wp_slash($run));
     }
@@ -152,7 +156,7 @@ final class Oyiso_Agent_Store
      */
     public static function view(array $run): array
     {
-        $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'status', 'step', 'tokens', 'conversation', 'events', 'changes', 'error']));
+        $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'changes', 'error']));
         if (self::cancelled($run['id'])) {
             $view['status'] = 'cancelled';
         }
