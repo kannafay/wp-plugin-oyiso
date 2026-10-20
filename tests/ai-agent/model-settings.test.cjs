@@ -44,9 +44,11 @@ test('modal closes after its own exit transition, clears the key immediately and
     add.click();
     assert.equal(dialog.open, true); assert.equal(dialog.classList.contains('is-open'), true);
     f.field('key').value = 'fixture-animation-key';
+    f.$('[data-provider-key-toggle]').click(); assert.equal(f.field('key').type, 'text');
     f.$('[data-provider-close]').click();
     assert.equal(dialog.open, true); assert.equal(dialog.classList.contains('is-open'), false);
     assert.equal(dialog.inert, true); assert.equal(f.field('key').value, '');
+    f.$('[data-provider-key-toggle]').click(); assert.equal(f.field('key').type, 'password');
     // Ignore transitions from the contents or the faster backdrop fade.
     transitionEnd(f, f.field('models')); transitionEnd(f, dialog, 'opacity');
     assert.equal(dialog.open, true);
@@ -73,7 +75,8 @@ test('successful saves animate the exit and pending requests prevent cancellatio
     let finish;
     const f = fixture(t, [row()], () => new Promise(resolve => { finish = resolve; }), { reducedMotion: false });
     f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click();
-    f.field('key').value = 'fixture-save-key'; f.$('[data-provider-save]').click();
+    f.field('key').value = 'fixture-save-key'; f.$('[data-provider-key-toggle]').click(); f.$('[data-provider-save]').click();
+    assert.equal(f.$('[data-provider-key-toggle]').disabled, true);
     f.$('[data-provider-close]').click();
     f.$('dialog').dispatchEvent(new f.window.Event('cancel', { cancelable: true }));
     assert.equal(f.$('dialog').classList.contains('is-open'), true);
@@ -81,6 +84,7 @@ test('successful saves animate the exit and pending requests prevent cancellatio
     finish({ connections: [row()] }); await settle();
     assert.equal(f.$('dialog').open, true); assert.equal(f.$('dialog').classList.contains('is-closing'), true);
     assert.equal(f.field('key').value, '');
+    assert.equal(f.field('key').type, 'password');
     transitionEnd(f); assert.equal(f.$('dialog').open, false);
     // Rendering updated rows detaches the old edit button.
     assert.equal(f.window.document.activeElement, f.$('[data-provider-add]'));
@@ -125,10 +129,21 @@ test('provider presets prefill independent forms and cancel clears credentials w
     assert.equal(f.field('name').value, 'Gemini');
     assert.match(f.field('url').value, /generativelanguage/);
     assert.equal(changed, 0);
-    f.field('key').value = 'fixture-key'; f.$('[data-provider-close]').click();
+    const toggle = f.$('[data-provider-key-toggle]');
+    assert.equal(f.field('key').type, 'password'); assert.equal(toggle.getAttribute('aria-pressed'), 'false');
+    f.field('key').value = 'fixture-key'; toggle.click();
+    assert.equal(f.field('key').type, 'text'); assert.equal(f.field('key').value, 'fixture-key');
+    assert.equal(toggle.getAttribute('aria-pressed'), 'true'); assert.equal(toggle.getAttribute('aria-label'), '隐藏 API Key');
+    assert.equal(f.$('[data-key-show]').hasAttribute('hidden'), true); assert.equal(f.$('[data-key-hide]').hasAttribute('hidden'), false);
+    toggle.click(); assert.equal(f.field('key').type, 'password'); assert.equal(f.field('key').value, 'fixture-key');
+    assert.equal(toggle.getAttribute('aria-label'), '显示 API Key');
+    assert.equal(f.$('[data-key-show]').hasAttribute('hidden'), false); assert.equal(f.$('[data-key-hide]').hasAttribute('hidden'), true);
+    assert.equal(changed, 0); assert.equal(f.calls.length, 0);
+    toggle.click(); f.$('[data-provider-close]').click();
     assert.equal(f.field('key').value, '');
     assert.equal(f.$('dialog').open, false);
     f.$('[data-provider-add]').click(); f.field('preset').value = 'custom'; f.field('preset').dispatchEvent(new f.window.Event('change'));
+    assert.equal(f.field('key').type, 'password'); assert.equal(toggle.getAttribute('aria-pressed'), 'false');
     assert.equal(f.field('url').value, '');
     assert.equal(f.field('models').value, '');
     assert.equal(f.field('protocol').value, 'openai_responses');
@@ -228,14 +243,21 @@ test('edit keeps blank key, preserves default selection and safely renders names
 test('failed saves retain entered credentials for retry and reopening resets clear-key state', async t => {
     const f = fixture(t, [row()], () => ({ ok: false, status: 400, body: { message: '<script>invalid</script>' } }));
     f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click();
-    f.field('key').value = 'fixture-retry-key'; f.$('[data-provider-save]').click(); await settle();
+    const toggle = f.$('[data-provider-key-toggle]');
+    f.field('key').value = 'fixture-retry-key'; toggle.click(); f.$('[data-provider-save]').click(); await settle();
     assert.equal(f.$('dialog').open, true); assert.equal(f.field('key').value, 'fixture-retry-key');
     assert.equal(f.$('[data-provider-dialog-notice] script'), null);
     assert.equal(f.$('[data-provider-save]').disabled, false);
+    assert.equal(toggle.disabled, false); assert.equal(f.field('key').type, 'text');
     f.field('clear_key').checked = true; f.field('clear_key').dispatchEvent(new f.window.Event('change'));
     assert.equal(f.field('key').disabled, true);
+    assert.equal(f.field('key').value, ''); assert.equal(f.field('key').type, 'password'); assert.equal(toggle.disabled, true);
+    f.field('clear_key').checked = false; f.field('clear_key').dispatchEvent(new f.window.Event('change'));
+    assert.equal(toggle.disabled, false); assert.equal(toggle.getAttribute('aria-pressed'), 'false');
+    f.field('clear_key').checked = true; f.field('clear_key').dispatchEvent(new f.window.Event('change'));
     f.$('[data-provider-close]').click(); f.$('[data-provider-add]').click();
     assert.equal(f.field('key').disabled, false); assert.equal(f.field('clear_key').checked, false);
+    assert.equal(f.field('key').type, 'password'); assert.equal(toggle.disabled, false);
 });
 test('test model selector, duplicate protection and stale results remain correct after connection edits', async t => {
     let finish;

@@ -7,6 +7,7 @@
     const dialog = $('[data-provider-dialog]');
     const modelDialog = $('[data-model-dialog]');
     const fields = Object.fromEntries(Array.from(dialog.querySelectorAll('[data-provider-field]'), input => [input.dataset.providerField, input]));
+    const keyToggle = $('[data-provider-key-toggle]');
     const initial = JSON.parse(root.dataset.state);
     const presets = initial.presets;
     const protocols = initial.protocols;
@@ -30,6 +31,13 @@
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     const make = (tag, text, className = '') => { const element = document.createElement(tag); if (text !== undefined) element.textContent = text; element.className = className; return element; };
     const notify = (text, error = false) => { const notice = $('[data-provider-notice]'); notice.textContent = text; notice.hidden = !text; notice.classList.toggle('is-error', error); };
+    function setKeyVisible(visible = false) {
+        fields.key.type = visible ? 'text' : 'password';
+        const label = visible ? '隐藏 API Key' : '显示 API Key';
+        keyToggle.setAttribute('aria-pressed', String(visible)); keyToggle.setAttribute('aria-label', label); keyToggle.title = label;
+        $('[data-key-show]').toggleAttribute('hidden', visible); $('[data-key-hide]').toggleAttribute('hidden', !visible);
+        keyToggle.disabled = busy || fields.key.disabled;
+    }
     async function api(route, method = 'GET', data, signal) {
         const response = await fetch(config.url + route, { method, credentials: 'same-origin', headers: { 'X-WP-Nonce': config.nonce, 'Content-Type': 'application/json' }, ...(data === undefined ? {} : { body: JSON.stringify(data) }), ...(signal ? { signal } : {}) });
         const result = await response.json();
@@ -173,6 +181,7 @@
     }
     function render() {
         renderSelectedModels();
+        keyToggle.disabled = busy || fields.key.disabled;
         const body = $('[data-provider-rows]'); body.replaceChildren();
         for (const row of rows) {
             const tr = make('tr'); tr.dataset.providerId = row.id;
@@ -203,6 +212,7 @@
         fields.url.placeholder = protocols[fields.protocol.value].url;
         setModels(row ? row.models : []);
         fields.key.value = ''; fields.key.disabled = false; fields.key.placeholder = row?.configured ? '已配置，留空保持' : '填写 API Key';
+        setKeyVisible();
         fields.clear_key.checked = false; fields.clear_key.disabled = !row?.configured;
         $('#oyiso-provider-dialog-title').textContent = row ? '编辑提供商' : '添加提供商';
         $('[data-provider-dialog-notice]').textContent = '';
@@ -210,7 +220,7 @@
     }
     function close() {
         if (busy || modelDialog.open || !dialog.open || dialog.classList.contains('is-closing')) return;
-        fields.key.value = ''; abortModelRequest();
+        fields.key.value = ''; setKeyVisible(); abortModelRequest();
         hideDialog(dialog, () => (opener?.isConnected && !opener.disabled ? opener : $('[data-provider-add]')).focus());
     }
     async function save() {
@@ -251,7 +261,7 @@
     dialog.addEventListener('close', () => {
         if (dialog.open) return;
         closeMotions.get(dialog)?.(); closeMotions.delete(dialog); abortModelRequest();
-        dialog.inert = false; dialog.classList.remove('is-open', 'is-closing'); fields.key.value = '';
+        dialog.inert = false; dialog.classList.remove('is-open', 'is-closing'); fields.key.value = ''; setKeyVisible();
     });
     fields.preset.addEventListener('change', () => {
         const preset = presets[fields.preset.value];
@@ -263,7 +273,11 @@
         const protocol = protocols[fields.protocol.value];
         fields.url.placeholder = protocol.url;
     });
-    fields.clear_key.addEventListener('change', () => { if (fields.clear_key.checked) fields.key.value = ''; fields.key.disabled = fields.clear_key.checked; });
+    keyToggle.addEventListener('click', () => {
+        if (busy || fields.key.disabled || modelDialog.open || !dialog.open || dialog.classList.contains('is-closing')) return;
+        setKeyVisible(fields.key.type === 'password');
+    });
+    fields.clear_key.addEventListener('change', () => { if (fields.clear_key.checked) fields.key.value = ''; fields.key.disabled = fields.clear_key.checked; setKeyVisible(); });
     $('[data-model-fetch]').addEventListener('click', event => openModelDialog('catalog', event.currentTarget));
     $('[data-model-add]').addEventListener('click', event => openModelDialog('manual', event.currentTarget));
     $('[data-model-manual-switch]').addEventListener('click', () => openModelDialog('manual', $('[data-model-add]')));

@@ -41,6 +41,15 @@
 .oyiso-agent-provider-fields .description { font-weight: 400; }
 .oyiso-agent-provider-wide, .oyiso-agent-provider-clear { grid-column: 1 / -1; }
 .oyiso-agent-provider-fields .oyiso-agent-provider-clear { display: block; font-weight: 400; }
+.oyiso-agent-provider-key { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.oyiso-agent-provider-key > label { font-weight: 600; }
+.oyiso-agent-key-control { position: relative; }
+.oyiso-agent-provider-fields .oyiso-agent-key-control input { padding-inline-end: 42px; }
+.oyiso-agent-key-control input::-ms-reveal { display: none; }
+.oyiso-agent-key-toggle { position: absolute; inset-inline-end: 4px; top: 50%; display: grid; place-items: center; width: 32px; height: 28px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: #646970; cursor: pointer; transform: translateY(-50%); }
+.oyiso-agent-key-toggle svg { width: 20px; height: 20px; }
+.oyiso-agent-key-toggle:hover:not(:disabled) { background: #f6f7f7; color: #1d2327; }
+.oyiso-agent-key-toggle:disabled { opacity: .4; cursor: default; }
 .oyiso-agent-models-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
 .oyiso-agent-models-heading h3 { margin: 0; font-size: 13px; font-weight: 600; }
 .oyiso-agent-models-heading h3 span { margin-left: 6px; color: #646970; font-size: 12px; font-weight: 400; white-space: nowrap; }

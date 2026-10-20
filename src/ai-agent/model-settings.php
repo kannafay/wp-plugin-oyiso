@@ -80,7 +80,17 @@ final class Oyiso_Agent_Model_Settings
                         <label>连接名称<input type="text" maxlength="80" data-provider-field="name" placeholder="例如：DeepSeek 主账号"></label>
                         <label class="oyiso-agent-provider-wide">Base URL<input type="url" maxlength="1000" spellcheck="false" data-provider-field="url" placeholder="https://api.example.com/v1"></label>
                         <label class="oyiso-agent-provider-wide">接口协议<select data-provider-field="protocol"><?php foreach (Oyiso_Agent_Connectors::protocols() as $id => $protocol): ?><option value="<?php echo esc_attr($id); ?>"><?php echo esc_html($protocol['name']); ?></option><?php endforeach; ?></select><span class="description">按服务商文档选择接口协议。Base URL 保留版本路径，无需填写具体端点。</span></label>
-                        <label class="oyiso-agent-provider-wide">API Key<input type="password" maxlength="4096" autocomplete="new-password" data-provider-field="key" placeholder="填写 API Key"><span class="description">加密保存，已有密钥留空保持。</span></label>
+                        <div class="oyiso-agent-provider-wide oyiso-agent-provider-key">
+                            <label for="oyiso-provider-key">API Key</label>
+                            <div class="oyiso-agent-key-control">
+                                <input id="oyiso-provider-key" type="password" maxlength="4096" autocomplete="new-password" data-provider-field="key" placeholder="填写 API Key">
+                                <button type="button" class="oyiso-agent-key-toggle" data-provider-key-toggle aria-controls="oyiso-provider-key" aria-label="显示 API Key" title="显示 API Key" aria-pressed="false">
+                                    <svg data-key-show aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    <svg data-key-hide hidden aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18M10.6 5.1A12.2 12.2 0 0 1 12 5c6.5 0 10 7 10 7a20.7 20.7 0 0 1-3 3.7M6.4 6.4A20.5 20.5 0 0 0 2 12s3.5 7 10 7a11.4 11.4 0 0 0 5.6-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                                </button>
+                            </div>
+                            <span class="description">加密保存，已有密钥留空保持。</span>
+                        </div>
                         <label class="oyiso-agent-provider-clear"><input type="checkbox" data-provider-field="clear_key">清除已保存的密钥</label>
                         <section class="oyiso-agent-provider-wide oyiso-agent-models" aria-labelledby="oyiso-provider-models-title">
                             <div class="oyiso-agent-models-heading"><h3 id="oyiso-provider-models-title">可用模型 <span data-model-count></span></h3><div class="oyiso-agent-models-actions"><button type="button" class="button" data-model-fetch>获取模型列表</button><button type="button" class="button" data-model-add>手动添加</button></div></div>
