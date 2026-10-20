@@ -211,6 +211,45 @@ test('legacy Gemini edits keep their compatible API and native protocol saves pe
     assert.equal(f.field('protocol').value, 'anthropic_messages');
 });
 
+test('a key-only connection saves without models and becomes usable after editing its model list', async t => {
+    let saved;
+    const f = fixture(t, [], (route, options) => {
+        assert.ok(route === 'providers' || route === 'providers/draft');
+        const input = JSON.parse(options.body);
+        saved = row('draft', { ...input, configured: !!input.key || !!saved?.configured });
+        return { connections: [saved] };
+    });
+    f.$('[data-provider-add]').click();
+    f.field('preset').value = 'deepseek'; f.field('preset').dispatchEvent(new f.window.Event('change'));
+    f.field('key').value = 'fixture-draft-key';
+    f.$('[data-provider-save]').click(); await settle();
+    assert.equal(f.calls.length, 1); assert.deepEqual(JSON.parse(f.calls[0].options.body).models, []);
+    assert.equal(f.$('dialog').open, false); assert.equal(f.field('key').value, '');
+    assert.match(f.$('[data-provider-id="draft"] td:nth-child(3)').textContent, /未添加模型，暂不可用/);
+    assert.equal(f.$('[data-provider-id="draft"] .oyiso-agent-provider-actions button').disabled, true);
+    assert.equal(f.$('[data-provider-default] optgroup'), null);
+    assert.match(f.$('[data-provider-notice]').textContent, /已保存.*稍后编辑/);
+    const edit = () => f.$('[data-provider-id="draft"] .oyiso-agent-provider-actions button:nth-child(2)').click();
+    edit(); assert.equal(f.field('models').value, ''); assert.match(f.field('key').placeholder, /已配置/);
+    f.$('[data-provider-save]').click(); await settle();
+    assert.equal(f.calls[1].options.method, 'PUT'); assert.equal(JSON.parse(f.calls[1].options.body).key, '');
+    edit(); f.$('[data-model-add]').click(); manualInput(f, 'completed-model'); f.$('[data-model-apply]').click();
+    f.$('[data-provider-save]').click(); await settle();
+    assert.deepEqual(JSON.parse(f.calls[2].options.body).models, ['completed-model']);
+    assert.equal(f.$('[data-provider-id="draft"] .oyiso-agent-provider-actions button').disabled, false);
+    assert.ok(Array.from(f.$('[data-provider-default]').options).some(option => option.value === 'draft|completed-model'));
+});
+
+test('missing provider fields report only the field that needs completing', t => {
+    const f = fixture(t); f.$('[data-provider-add]').click();
+    f.field('key').value = 'fixture-draft-key'; f.field('name').value = '';
+    f.$('[data-provider-save]').click();
+    assert.equal(f.$('[data-provider-dialog-notice]').textContent, '请填写连接名称。');
+    f.field('name').value = 'Custom'; f.field('url').value = ''; f.$('[data-provider-save]').click();
+    assert.equal(f.$('[data-provider-dialog-notice]').textContent, '请填写 Base URL。');
+    assert.equal(f.calls.length, 0);
+});
+
 test('adding a duplicate preset saves through nonce protected REST once and updates model choices', async t => {
     let finish;
     const rows = [row()];

@@ -87,11 +87,11 @@ final class Oyiso_Agent_Connectors
             $connectionId = $matching[0]['id'];
             $name = $matching[0]['name'];
             $url = $matching[0]['url'];
-            $model = $matching[0]['models'][0];
+            $model = $matching[0]['models'][0] ?? '';
             $secret = Oyiso_Agent_Connections::secretName($connectionId);
             $protocol = $matching[0]['protocol'];
         }
-        if (self::validateUrl($url) !== null || preg_match('/[\x00-\x20\x7f]/', $model) || strlen($model) > 200 || !isset(self::protocols()[$protocol])) {
+        if (self::validateUrl($url) !== null || $model === '' || preg_match('/[\x00-\x20\x7f]/', $model) || strlen($model) > 200 || !isset(self::protocols()[$protocol])) {
             return new WP_Error('agent_connector_invalid', '请检查模型预设的 HTTPS API 地址和模型 ID。', ['status' => 400]);
         }
         if ($requireKey && Oyiso_Agent_Config::secret($secret) === '') {

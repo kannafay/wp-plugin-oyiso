@@ -37,7 +37,7 @@ final class Oyiso_Agent_Connections
         if (!array_key_exists('agent_selection', $options)) {
             $provider = Oyiso_Agent_Config::text('provider');
             foreach ($saved as $row) {
-                if (($provider === 'oyiso-' . $row['preset'] || ($provider === '' && Oyiso_Agent_Config::hasSecret(self::secretName($row['id']))))) {
+                if (isset($row['models'][0]) && ($provider === 'oyiso-' . $row['preset'] || ($provider === '' && Oyiso_Agent_Config::hasSecret(self::secretName($row['id']))))) {
                     $options['agent_selection'] = $row['id'] . '|' . $row['models'][0];
                     update_option('oyiso', $options, false);
                     break;
@@ -68,7 +68,7 @@ final class Oyiso_Agent_Connections
         $provider = Oyiso_Agent_Config::text('provider');
         $preset = Oyiso_Agent_Connectors::preset($provider);
         foreach ($rows as $row) {
-            if ($row['preset'] === $preset && $preset !== '') {
+            if ($row['preset'] === $preset && $preset !== '' && isset($row['models'][0])) {
                 return $row['id'] . '|' . $row['models'][0];
             }
         }
@@ -137,10 +137,10 @@ final class Oyiso_Agent_Connections
             $name = is_string($input['name'] ?? null) ? trim(wp_strip_all_tags($input['name'])) : '';
             $url = is_string($input['url'] ?? null) ? rtrim(trim($input['url']), '/') : '';
             $preset = is_string($input['preset'] ?? null) ? $input['preset'] : '';
-            $models = is_array($input['models'] ?? null) ? $input['models'] : [];
+            $models = $input['models'] ?? [];
             $key = $input['key'] ?? '';
             $protocol = $input['protocol'] ?? '';
-            if ($name === '' || mb_strlen($name) > 80 || $url === '' || Oyiso_Agent_Connectors::validateUrl($url) !== null || !in_array($preset, [...array_keys(Oyiso_Agent_Connectors::connectionPresets()), 'custom'], true) || !is_string($protocol) || !isset(Oyiso_Agent_Connectors::protocols()[$protocol]) || !is_string($key) || Oyiso_Agent_Connectors::validateKey($key) !== null || $models === [] || count($models) > 30) {
+            if ($name === '' || mb_strlen($name) > 80 || $url === '' || Oyiso_Agent_Connectors::validateUrl($url) !== null || !in_array($preset, [...array_keys(Oyiso_Agent_Connectors::connectionPresets()), 'custom'], true) || !is_string($protocol) || !isset(Oyiso_Agent_Connectors::protocols()[$protocol]) || !is_string($key) || Oyiso_Agent_Connectors::validateKey($key) !== null || !is_array($models) || count($models) > 30) {
                 return new WP_Error('agent_connection_invalid', '请检查连接名称、公开 HTTPS 地址、接口协议、API Key 和模型列表。', ['status' => 400]);
             }
             $clean = [];

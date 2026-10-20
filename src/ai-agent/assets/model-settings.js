@@ -77,7 +77,7 @@
             remove.addEventListener('click', () => { if (!busy) setModels(getModels().filter(model => model !== id)); });
             item.append(make('span', id), remove); list.append(item);
         }
-        if (!selected.length) list.append(make('p', '先获取模型列表并勾选，或手动添加模型。', 'oyiso-agent-model-empty'));
+        if (!selected.length) list.append(make('p', '暂未添加模型，可先保存，稍后编辑补充。', 'oyiso-agent-model-empty'));
     }
     function abortModelRequest() { modelRequest++; modelController?.abort(); modelController = undefined; }
     function closeModelDialog() {
@@ -168,6 +168,7 @@
         defaults.replaceChildren();
         for (const [value, label] of external) defaults.add(new Option(label, value));
         for (const row of rows) {
+            if (!row.models.length) continue;
             const group = make('optgroup'); group.label = row.name;
             for (const model of row.models) group.append(new Option(`${row.name} / ${model}`, `${row.id}|${model}`));
             defaults.append(group);
@@ -190,9 +191,10 @@
             const models = make('td'); const select = make('select'); select.setAttribute('aria-label', `${row.name} 的测试模型`);
             for (const model of row.models) select.add(new Option(model, model));
             const current = defaults.value.split('|'); if (current[0] === row.id && row.models.includes(current[1])) select.value = current[1];
-            models.append(select);
+            if (row.models.length) models.append(select);
+            else models.textContent = '未添加模型，暂不可用';
             const controls = make('td'); const actions = make('div', undefined, 'oyiso-agent-provider-actions');
-            const test = action('测试', () => testConnection(row, select.value, test)); test.disabled = busy || !row.configured || testing.has(row.id);
+            const test = action('测试', () => testConnection(row, select.value, test)); test.disabled = busy || !row.configured || !row.models.length || testing.has(row.id);
             actions.append(test, action('编辑', event => open(row, event.currentTarget)), action('删除', () => remove(row), 'oyiso-agent-provider-delete')); controls.append(actions);
             tr.append(name, make('td', protocols[row.protocol]?.name || row.protocol), models, make('td', row.configured ? '已配置' : '未配置'), controls); body.append(tr);
         }
@@ -226,13 +228,14 @@
     async function save() {
         if (busy || modelDialog.open || !dialog.open || dialog.classList.contains('is-closing')) return;
         const data = { preset: fields.preset.value, name: fields.name.value.trim(), url: fields.url.value.trim(), protocol: fields.protocol.value, models: getModels(), key: fields.key.value, clear_key: fields.clear_key.checked };
-        if (!data.name || !data.url || !data.models.length) { $('[data-provider-dialog-notice]').textContent = '请填写连接名称、Base URL 和可用模型。'; return; }
+        if (!data.name) { $('[data-provider-dialog-notice]').textContent = '请填写连接名称。'; return; }
+        if (!data.url) { $('[data-provider-dialog-notice]').textContent = '请填写 Base URL。'; return; }
         busy = true; $('[data-provider-save]').disabled = true; render();
         let saved = false;
         try {
             const result = await api(`providers${editing ? '/' + editing : ''}`, editing ? 'PUT' : 'POST', data);
             rows = result.connections; revision++; updateDefaults(); fields.key.value = ''; saved = true;
-            notify('提供商已保存。选择默认模型后，请点击页面顶部的「保存配置」。');
+            notify(data.models.length ? '提供商已保存。选择默认模型后，请点击页面顶部的「保存配置」。' : '提供商已保存。尚未添加模型，暂不可用，可稍后编辑补充。');
         } catch (error) { $('[data-provider-dialog-notice]').textContent = error.message; }
         finally { busy = false; $('[data-provider-save]').disabled = false; render(); if (saved) close(); }
     }

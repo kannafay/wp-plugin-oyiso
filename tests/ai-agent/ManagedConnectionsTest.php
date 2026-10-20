@@ -137,6 +137,51 @@ final class ManagedConnectionsTest extends TestCase
         self::assertSame('fixture-legacy-key', Oyiso_Agent_Config::secret('deepseek_key'));
     }
 
+    public function testConnectionWithoutModelsCanSaveItsKeyAndBeCompletedLater(): void
+    {
+        $this->mockHttp(static function () { self::fail('An incomplete connection must not call its API.'); });
+        $created = $this->request('POST', 'providers', $this->input(['models' => []]));
+        self::assertSame(201, $created->get_status());
+        $row = $created->get_data()['connections'][0];
+        self::assertSame([], $row['models']); self::assertTrue($row['configured']);
+        self::assertArrayNotHasKey('key', $row);
+        self::assertSame('fixture-first-key', Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($row['id'])));
+        self::assertStringNotContainsString('fixture-first-key', wp_json_encode($created->get_data()));
+        self::assertStringNotContainsString('fixture-first-key', wp_json_encode(get_option('oyiso_agent_secrets')));
+        foreach (['', 'fixture-model'] as $model) {
+            self::assertInstanceOf(WP_Error::class, Oyiso_Agent_Connections::load($row['id'], $model));
+            self::assertNotNull(Oyiso_Agent_Connections::validateSelection($row['id'] . '|' . $model));
+        }
+        self::assertSame(400, $this->request('POST', 'providers/' . $row['id'] . '/test', ['model' => 'fixture-model'])->get_status());
+        ob_start(); Oyiso_Agent_Model_Settings::selection(); $html = ob_get_clean();
+        self::assertStringNotContainsString($row['id'] . '|', $html);
+        self::assertSame(200, $this->request('PUT', 'providers/' . $row['id'], $this->input(['models' => [], 'key' => '']))->get_status());
+        $completed = $this->request('PUT', 'providers/' . $row['id'], $this->input(['models' => ['fixture-model'], 'key' => '']));
+        self::assertSame(200, $completed->get_status());
+        self::assertCount(1, $completed->get_data()['connections']);
+        self::assertSame(['fixture-model'], $completed->get_data()['connections'][0]['models']);
+        self::assertNull(Oyiso_Agent_Connections::validateSelection($row['id'] . '|fixture-model'));
+        self::assertInstanceOf(Oyiso_Agent_Connection::class, Oyiso_Agent_Connections::load($row['id'], 'fixture-model'));
+        self::assertSame('fixture-first-key', Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($row['id'])));
+        $withoutModels = $this->input(); unset($withoutModels['models']);
+        self::assertSame(201, $this->request('POST', 'providers', $withoutModels)->get_status());
+        self::assertSame([], Oyiso_Agent_Connections::all()[1]['models']);
+    }
+
+    public function testLegacyConnectionWithoutModelsStaysUnavailableAndCannotBeAutoSelected(): void
+    {
+        update_option('oyiso', Oyiso_Agent_Config::saveOptions(['agent_provider' => 'oyiso-deepseek', 'agent_deepseek_key' => 'fixture-legacy-key']), false);
+        Oyiso_Agent_Connections::all();
+        update_option('oyiso', ['agent_selection' => ''], false);
+        self::assertIsArray(Oyiso_Agent_Connections::save($this->input(['models' => [], 'key' => '']), 'legacy-deepseek'));
+        update_option('oyiso', ['agent_provider' => 'oyiso-deepseek'], false);
+        self::assertSame('', Oyiso_Agent_Connections::selection());
+        self::assertInstanceOf(WP_Error::class, Oyiso_Agent_Connectors::load('deepseek', false));
+        self::assertFalse(Oyiso_Agent_DeepSeek_Provider::availability()->isConfigured());
+        self::assertSame([], (new Oyiso_Agent_Model_Directory('deepseek'))->listModelMetadata());
+        self::assertSame('fixture-legacy-key', Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName('legacy-deepseek')));
+    }
+
     public function testEditsPreserveBlankKeyProtectDefaultModelAndDeleteOnlyOneConnection(): void
     {
         $first = $this->create(); $second = $this->create(['name' => '备用', 'key' => 'fixture-second-key']);
@@ -148,6 +193,7 @@ final class ManagedConnectionsTest extends TestCase
         update_option('oyiso', ['agent_selection' => $first['id'] . '|fixture-model'], false);
         self::assertSame(409, $this->request('DELETE', 'providers/' . $first['id'])->get_status());
         self::assertSame(409, $this->request('PUT', 'providers/' . $first['id'], $this->input(['models' => ['other-model']]))->get_status());
+        self::assertSame(409, $this->request('PUT', 'providers/' . $first['id'], $this->input(['models' => []]))->get_status());
         self::assertSame(409, $this->request('PUT', 'providers/' . $first['id'], $this->input(['clear_key' => true]))->get_status());
         update_option('oyiso', ['agent_selection' => ''], false);
         self::assertSame(200, $this->request('PUT', 'providers/' . $first['id'], $this->input(['clear_key' => true]))->get_status());
@@ -163,7 +209,7 @@ final class ManagedConnectionsTest extends TestCase
 
     public function testValidationAndLocksPreventInvalidWrites(): void
     {
-        foreach ([['name' => ''], ['name' => str_repeat('x', 81)], ['url' => 'http://localhost'], ['url' => ''], ['preset' => 'unknown'], ['protocol' => 'unsupported'], ['key' => "key\ninjection"], ['models' => []], ['models' => array_fill(0, 31, 'model')], ['models' => [5]], ['models' => ['bad model']], ['models' => ['bad|model']], ['models' => [str_repeat('x', 201)]]] as $invalid) {
+        foreach ([['name' => ''], ['name' => str_repeat('x', 81)], ['url' => 'http://localhost'], ['url' => ''], ['preset' => 'unknown'], ['protocol' => 'unsupported'], ['key' => "key\ninjection"], ['models' => 'not-an-array'], ['models' => array_fill(0, 31, 'model')], ['models' => [5]], ['models' => ['bad model']], ['models' => ['bad|model']], ['models' => [str_repeat('x', 201)]]] as $invalid) {
             self::assertSame(400, $this->request('POST', 'providers', $this->input($invalid))->get_status());
         }
         self::assertSame(400, $this->request('POST', 'providers', 'invalid')->get_status());
