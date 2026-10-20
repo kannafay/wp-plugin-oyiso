@@ -284,13 +284,18 @@ final class Oyiso_Agent_Admin
             </div>
             <details class="oyiso-agent-progress"><summary>执行过程 <span data-agent-status>尚未开始</span></summary><div class="oyiso-agent-progress-body"><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></div></details>
             <div class="oyiso-agent-composer">
-                <label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label>
-                <div class="oyiso-agent-attachments" data-agent-attachments hidden></div>
-                <textarea id="oyiso-agent-prompt" rows="1" maxlength="4000" placeholder="发送消息，或粘贴图片和文件…"></textarea>
-                <div class="oyiso-agent-composer-actions">
-                    <button type="button" class="oyiso-agent-icon-button" data-agent-attach aria-label="添加附件" title="添加附件"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11-8 8a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button><input type="file" data-agent-file multiple accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.yaml,.yml,.css,.js,.ts,.php,.sql" hidden>
-                    <select id="oyiso-agent-model" class="oyiso-agent-model-picker" data-agent-model aria-label="对话模型"><option value="">暂无可用模型</option></select>
-                    <div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送</button></div>
+                <div class="oyiso-agent-composer-surface">
+                    <label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label>
+                    <div class="oyiso-agent-attachments" data-agent-attachments hidden></div>
+                    <textarea id="oyiso-agent-prompt" rows="1" maxlength="4000" placeholder="发送消息，或粘贴图片和文件…"></textarea>
+                    <div class="oyiso-agent-composer-actions">
+                        <button type="button" class="oyiso-agent-icon-button" data-agent-attach aria-label="添加附件" title="添加附件"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><input type="file" data-agent-file multiple accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.yaml,.yml,.css,.js,.ts,.php,.sql" hidden>
+                        <select id="oyiso-agent-model" class="oyiso-agent-model-picker" data-agent-model aria-label="对话模型"><option value="">暂无可用模型</option></select>
+                        <div>
+                            <button type="button" class="button oyiso-agent-composer-control" data-agent-cancel aria-label="取消任务" title="取消任务" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>
+                            <button type="button" class="button button-primary oyiso-agent-composer-control" data-agent-send aria-label="发送" title="发送"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

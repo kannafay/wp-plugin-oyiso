@@ -149,17 +149,23 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-message-content hr { margin: 12px 0; border: 0; border-top: 1px solid #dcdcde; }
 .oyiso-agent-message.is-streaming .oyiso-agent-message-content::after { content: ''; display: inline-block; width: 2px; height: 1em; margin-left: 3px; background: currentColor; vertical-align: -.1em; }
 .oyiso-agent-composer { flex: none; padding: 14px 16px 16px; border-top: 1px solid #dcdcde; }
-.oyiso-agent-composer textarea { display: block; width: 100%; max-width: none; min-height: 42px; max-height: 160px; padding: 8px 10px; resize: none; overflow-y: hidden; box-sizing: border-box; font: inherit; font-size: 13px; line-height: 1.5; }
-.oyiso-agent-composer-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
-.oyiso-agent-composer-actions > div { display: flex; flex: none; gap: 8px; }
-.oyiso-agent-composer-actions .oyiso-agent-model-picker { flex: 1; min-width: 0; max-width: 360px; width: 0; margin: 0; font-size: 12px; text-overflow: ellipsis; }
+.oyiso-agent-composer-surface { padding: 10px; border: 1px solid #dcdcde; border-radius: 12px; background: #fff; box-shadow: 0 1px 3px #00000008; transition: border-color .15s, box-shadow .15s; }
+.oyiso-agent-composer-surface:focus-within { border-color: var(--oyiso-color-primary, #bf5316); box-shadow: 0 0 0 1px var(--oyiso-color-primary, #bf5316); }
+.oyiso-agent-composer textarea { display: block; width: 100%; max-width: none; min-height: 42px; max-height: 160px; margin: 0; padding: 6px 8px; border: 0; border-radius: 0; background: transparent; color: #1e1e1e; box-shadow: none; resize: none; overflow-y: hidden; box-sizing: border-box; font: inherit; font-size: 14px; line-height: 1.5; }
+.oyiso-agent-composer textarea:is(:focus, :focus-visible) { border: 0; outline: none; box-shadow: none; }
+.oyiso-agent-composer-actions { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.oyiso-agent-composer-actions > div { display: flex; flex: none; gap: 6px; margin-left: auto; }
+.oyiso-agent-composer-actions > .oyiso-agent-icon-button { flex: none; width: 32px; height: 34px; border-radius: 6px; }
+.oyiso-agent-composer-actions .oyiso-agent-model-picker { flex: 0 1 auto; min-width: 0; max-width: 360px; width: auto; height: 34px; min-height: 34px; margin: 0; padding: 0 26px 0 8px; border: 1px solid transparent; border-radius: 6px; background-color: transparent; color: #50575e; box-shadow: none; font-size: 13px; text-overflow: ellipsis; cursor: pointer; }
+.oyiso-agent-composer-actions .oyiso-agent-model-picker:hover:not(:disabled) { background-color: #f6f7f7; }
+.oyiso-agent-composer-actions .oyiso-agent-model-picker:focus-visible { outline: 2px solid var(--oyiso-color-primary, #bf5316); outline-offset: 1px; }
+.oyiso-agent-composer-actions .oyiso-agent-composer-control { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; min-height: 34px; margin: 0; padding: 0; border-radius: 8px; line-height: 1; }
+.oyiso-agent-composer-control svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-messages { padding: 20px 24px; }
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-notice { margin: 20px 24px 0; }
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-empty { padding: 0; }
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-changes { padding-right: 24px; padding-left: 24px; }
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-composer { padding: 16px 24px 12px; border-top-color: #e5e5e5; background: #fff; }
-#oyiso-agent-panel[data-agent-window] .oyiso-agent-composer textarea { padding: 8px 10px; border: 1px solid #949494; border-radius: 4px; color: #1e1e1e; font-size: 14px; transition: border-color .15s, box-shadow .15s; }
-#oyiso-agent-panel[data-agent-window] .oyiso-agent-composer textarea:focus { border-color: var(--oyiso-color-primary, #bf5316); box-shadow: 0 0 0 1px var(--oyiso-color-primary, #bf5316); outline: none; }
 .oyiso-agent-progress { flex: none; min-height: 0; background: #f9f9f9; border-top: 1px solid #dcdcde; }
 .oyiso-agent-progress summary { padding: 10px 16px; cursor: pointer; font-size: 12px; }
 .oyiso-agent-progress summary span { float: right; color: #646970; }
