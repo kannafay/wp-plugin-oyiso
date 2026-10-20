@@ -10,6 +10,7 @@ final class Oyiso_Agent_Admin
     public static function routes(): void
     {
         Oyiso_Agent_Model_Settings::routes();
+        Oyiso_Agent_File_Manager::routes();
         $permission = static fn(): bool => current_user_can('manage_options');
         $root = 'oyiso-agent/v1';
         register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'secrets' => Oyiso_Agent_Config::secretStatus(), 'models' => Oyiso_Agent_Connections::choices()])]);
@@ -202,6 +203,7 @@ final class Oyiso_Agent_Admin
     public static function assets(string $hook): void
     {
         Oyiso_Agent_Model_Settings::assets($hook);
+        Oyiso_Agent_File_Manager::assets($hook);
         if (!self::available()) {
             return;
         }
@@ -213,7 +215,7 @@ final class Oyiso_Agent_Admin
         wp_enqueue_script('oyiso-agent-composer', plugins_url('assets/composer.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/composer.js'), true);
         wp_enqueue_script('oyiso-agent-live', plugins_url('assets/live.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/live.js'), true);
         wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer', 'oyiso-agent-live'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
-        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536))]);
+        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxImage' => min(Oyiso_Agent_Attachments::MAX_IMAGE_UPLOAD, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_UPLOAD_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536))]);
     }
 
     private static function available(): bool

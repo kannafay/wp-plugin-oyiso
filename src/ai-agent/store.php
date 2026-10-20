@@ -69,6 +69,8 @@ final class Oyiso_Agent_Store
         $valid = array_values(array_unique($valid));
         foreach ($valid as $id) {
             self::cancel($id);
+            $files = Oyiso_Agent_Attachments::eraseRun($id);
+            if (is_wp_error($files)) return $files;
             // Keep records recoverable even on sites with EMPTY_TRASH_DAYS set to zero.
             update_post_meta($id, '_wp_trash_meta_status', 'private');
             update_post_meta($id, '_wp_trash_meta_time', time());
@@ -180,6 +182,11 @@ final class Oyiso_Agent_Store
      */
     public static function view(array $run): array
     {
+        foreach ($run['conversation'] as &$entry) {
+            if (isset($entry['attachments'])) foreach ($entry['attachments'] as &$file) $file = Oyiso_Agent_Attachments::metadata($file['id']) ?? ($file + ['deleted' => true]);
+            unset($file);
+        }
+        unset($entry);
         $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'changes', 'error']));
         if (self::cancelled($run['id'])) {
             $view['status'] = 'cancelled';

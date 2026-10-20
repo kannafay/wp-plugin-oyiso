@@ -731,6 +731,11 @@
     modelSelect.addEventListener('change', event => { event.stopPropagation(); store(':model', modelSelect.value); controls(); });
     modelSelect.addEventListener('keypress', event => event.stopPropagation());
     document.addEventListener('oyiso-agent-models-updated', event => { populateModels(event.detail); controls(); initialNotice(); });
+    document.addEventListener('oyiso-agent-files-deleted', event => {
+        if (!run || !Array.isArray(event.detail)) return;
+        for (const entry of run.conversation) for (const file of entry.attachments || []) if (event.detail.includes(file.id)) file.deleted = true;
+        render(run);
+    });
     document.addEventListener('visibilitychange', () => {
         if (document.hidden || !panelOpen) return;
         api('status').then(state => { if (state.models) { populateModels(state.models); controls(); initialNotice(); } }).catch(() => {});

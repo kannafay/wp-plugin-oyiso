@@ -93,7 +93,7 @@
         function confirmDelete(ids, trigger) {
             if (!ids.length || busy || !canDelete()) return;
             pending = [...ids]; returnFocus = trigger;
-            find(dialog, '[data-agent-delete-description]').textContent = `确定删除${ids.length === 1 ? '这条' : `所选 ${ids.length} 条`}对话？正在执行的任务也会停止。`;
+            find(dialog, '[data-agent-delete-description]').textContent = `确定删除${ids.length === 1 ? '这条' : `所选 ${ids.length} 条`}对话及其附件？附件删除后无法恢复，正在执行的任务也会停止。`;
             find(dialog, '[data-agent-delete-error]').hidden = true;
             if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open', '');
             find(dialog, '[data-agent-delete-cancel]').focus();

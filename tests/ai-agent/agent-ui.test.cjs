@@ -543,6 +543,24 @@ test('attachment drafts survive conversation switches and refresh without leakin
     f.$('[data-agent-attachments] button').click(); assert.equal(f.$('[data-agent-attachments]').hidden, true);
 });
 
+test('file manager deletion updates open conversation attachments without deleting messages', async t => {
+    const f = fixture(t, route => route === 'runs/12' ? task({ conversation: [{ role: 'user', text: '查看文件', attachments: [{ id: 41, name: 'source.md', mime: 'text/plain', size: 20 }] }] }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-files-deleted', { detail: [41] }));
+    assert.match(f.$('.oyiso-agent-message-attachments').textContent, /已删除/);
+    assert.equal(f.$('.oyiso-agent-message-attachments button').disabled, true);
+    assert.match(f.$('[data-agent-messages]').textContent, /查看文件/);
+});
+
+test('large image drafts use the image upload limit while documents keep the smaller limit', t => {
+    const f = fixture(t, undefined, { attachmentMaxImage: 20 * 1048576, attachmentMaxTotal: 32 * 1048576 });
+    pasteFiles(f, [new f.window.File(['x'.repeat(5 * 1048576)], 'large.png', { type: 'image/png' })]);
+    assert.match(f.$('[data-agent-attachments]').textContent, /large.png/);
+    pasteFiles(f, [new f.window.File(['x'.repeat(5 * 1048576)], 'large.pdf', { type: 'application/pdf' })]);
+    assert.doesNotMatch(f.$('[data-agent-attachments]').textContent, /large.pdf/);
+    assert.match(f.$('[data-agent-notice]').textContent, /大小限制/);
+});
+
 test('invalid or oversized files are rejected and failed sending preserves the draft files', async t => {
     const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? { ok: false, status: 400, body: { message: '所选模型不支持此图片' } } : undefined);
     pasteFiles(f, [new f.window.File(['x'], 'bad.exe'), new f.window.File(['x'.repeat(80001)], 'large.txt')]);

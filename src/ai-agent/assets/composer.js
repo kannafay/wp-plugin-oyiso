@@ -9,6 +9,7 @@
         const allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'pdf', ...textExtensions];
         const node = (tag, text) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; return el; };
         const maxFile = window.oyisoAgent.attachmentMaxFile || 4194304;
+        const maxImage = window.oyisoAgent.attachmentMaxImage || maxFile;
         const maxTotal = window.oyisoAgent.attachmentMaxTotal || 8388608;
         const size = bytes => bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
         const db = window.indexedDB ? new Promise(resolve => {
@@ -54,7 +55,8 @@
             for (const file of incoming) {
                 const extension = file.name.split('.').pop().toLowerCase();
                 if (!allowed.includes(extension)) { message = '支持图片、PDF 和常见文本文件。'; continue; }
-                if (!file.size || file.size > maxFile || (textExtensions.includes(extension) && file.size > 80000)) { message = `${file.name} 超过大小限制，图片/PDF 每个最多 ${size(maxFile)}，文本最多 80 KB。`; continue; }
+                const limit = ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(extension) ? maxImage : maxFile;
+                if (!file.size || file.size > limit || (textExtensions.includes(extension) && file.size > 80000)) { message = `${file.name} 超过大小限制，图片最多 ${size(maxImage)}，其他文件最多 ${size(maxFile)}，文本最多 80 KB。`; continue; }
                 if (items.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) continue;
                 if (items.length >= 5 || items.reduce((sum, item) => sum + item.size, file.size) > maxTotal) { message = `每次最多 5 个附件，总大小不超过 ${size(maxTotal)}。`; break; }
                 items.push(file);
@@ -76,7 +78,7 @@
             if (!attachments?.length) return;
             const list = node('div'); list.className = 'oyiso-agent-message-attachments';
             for (const file of attachments) {
-                const button = node('button', `${file.name} · ${size(file.size)}`); button.type = 'button'; button.title = `下载附件：${file.name}`;
+                const button = node('button', `${file.name} · ${file.deleted ? '已删除' : size(file.size)}`); button.type = 'button'; button.title = file.deleted ? '附件已删除' : `下载附件：${file.name}`; button.disabled = !!file.deleted;
                 button.addEventListener('click', async () => {
                     button.disabled = true;
                     try {
