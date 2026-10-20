@@ -23,6 +23,14 @@ final class Oyiso_Agent_Model_Settings
             ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['connections' => Oyiso_Agent_Connections::view()])],
             ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'save']],
         ]);
+        register_rest_route('oyiso-agent/v1', '/providers/models', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
+            $input = json_decode($request->get_body(), true);
+            if (!is_array($input)) return new WP_Error('agent_connection_input', '请提交有效的连接配置。', ['status' => 400]);
+            $payload = [];
+            foreach (['id', 'url', 'protocol', 'key', 'clear_key'] as $field) if (array_key_exists($field, $input)) $payload[$field] = $input[$field];
+            $result = Oyiso_Agent_Model_Catalog::fetch($payload);
+            return is_wp_error($result) ? $result : new WP_REST_Response($result);
+        }]);
         register_rest_route('oyiso-agent/v1', '/providers/(?P<id>[a-z0-9-]{1,50})', [
             ['methods' => 'PUT', 'permission_callback' => $permission, 'callback' => [self::class, 'save']],
             ['methods' => 'DELETE', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -74,11 +82,35 @@ final class Oyiso_Agent_Model_Settings
                         <label class="oyiso-agent-provider-wide">接口类型<select data-provider-field="protocol"><?php foreach (Oyiso_Agent_Connectors::protocols() as $id => $protocol): ?><option value="<?php echo esc_attr($id); ?>"><?php echo esc_html($protocol['name']); ?></option><?php endforeach; ?></select><span class="description">按服务商文档选择接口类型。Base URL 保留版本路径，无需填写具体端点。</span></label>
                         <label class="oyiso-agent-provider-wide">API Key<input type="password" maxlength="4096" autocomplete="new-password" data-provider-field="key" placeholder="填写 API Key"><span class="description">加密保存，已有密钥留空保持。</span></label>
                         <label class="oyiso-agent-provider-clear"><input type="checkbox" data-provider-field="clear_key">清除已保存的密钥</label>
-                        <label class="oyiso-agent-provider-wide">可用模型<textarea rows="4" spellcheck="false" data-provider-field="models" placeholder="每行填写一个模型 ID"></textarea><span class="description">每行一个模型 ID，最多 30 个。用于 Agent 的模型须支持工具调用。</span></label>
+                        <section class="oyiso-agent-provider-wide oyiso-agent-models" aria-labelledby="oyiso-provider-models-title">
+                            <div class="oyiso-agent-models-heading"><h3 id="oyiso-provider-models-title">可用模型 <span data-model-count></span></h3><div class="oyiso-agent-models-actions"><button type="button" class="button" data-model-fetch>获取模型列表</button><button type="button" class="button" data-model-add>手动添加</button></div></div>
+                            <input type="hidden" hidden data-provider-field="models">
+                            <div class="oyiso-agent-selected-models" data-model-selected></div>
+                            <p class="description">最多选择 30 个模型。用于 Agent 的模型须支持工具调用。</p>
+                        </section>
                     </div>
                     <p class="oyiso-agent-provider-dialog-notice" data-provider-dialog-notice role="status" aria-live="polite"></p>
                 </div>
                 <div class="oyiso-agent-provider-dialog-footer"><button type="button" class="button" data-provider-close>取消</button><button type="button" class="button button-primary" data-provider-save>保存提供商</button></div>
+            </dialog>
+            <dialog class="oyiso-agent-provider-dialog oyiso-agent-model-dialog" aria-labelledby="oyiso-model-dialog-title" data-model-dialog>
+                <div class="oyiso-agent-provider-dialog-heading"><h2 id="oyiso-model-dialog-title">获取模型列表</h2><button type="button" class="oyiso-agent-provider-close" data-model-close aria-label="关闭">×</button></div>
+                <div class="oyiso-agent-provider-dialog-body">
+                    <div data-model-catalog-view>
+                        <p class="description">勾选要使用的模型，确认后加入当前提供商。</p>
+                        <label class="screen-reader-text" for="oyiso-model-search">搜索模型</label><input id="oyiso-model-search" type="search" placeholder="搜索模型名称或 ID" data-model-search>
+                        <p class="oyiso-agent-model-status" role="status" aria-live="polite" data-model-status></p>
+                        <div class="oyiso-agent-model-catalog" data-model-catalog></div>
+                    </div>
+                    <div data-model-manual-view hidden>
+                        <label class="oyiso-agent-model-manual-label" for="oyiso-model-manual">模型 ID</label>
+                        <p class="description">每行一个模型 ID，也支持中英文逗号分隔。</p>
+                        <textarea id="oyiso-model-manual" rows="5" spellcheck="false" placeholder="例如：&#10;model-id-1&#10;model-id-2" data-model-manual></textarea>
+                        <p class="oyiso-agent-model-preview" role="status" aria-live="polite" data-model-preview>输入后将显示新增的模型数量。</p>
+                    </div>
+                    <p class="oyiso-agent-provider-dialog-notice" role="status" aria-live="polite" data-model-notice></p>
+                </div>
+                <div class="oyiso-agent-provider-dialog-footer"><button type="button" class="button oyiso-agent-model-manual-link" data-model-manual-switch>手动添加</button><span class="oyiso-agent-model-selection-count" data-model-selection-count></span><button type="button" class="button" data-model-retry>重新获取</button><button type="button" class="button" data-model-close>取消</button><button type="button" class="button button-primary" data-model-apply>使用所选模型</button></div>
             </dialog>
         </div>
         <?php

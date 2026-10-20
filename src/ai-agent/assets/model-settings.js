@@ -5,6 +5,7 @@
     if (!root || !config) return;
     const $ = selector => root.querySelector(selector);
     const dialog = $('[data-provider-dialog]');
+    const modelDialog = $('[data-model-dialog]');
     const fields = Object.fromEntries(Array.from(dialog.querySelectorAll('[data-provider-field]'), input => [input.dataset.providerField, input]));
     const initial = JSON.parse(root.dataset.state);
     const presets = initial.presets;
@@ -17,7 +18,15 @@
     let revision = 0;
     const testing = new Set();
     let opener;
-    let cancelCloseMotion;
+    const closeMotions = new WeakMap();
+    let modelMode = '';
+    let modelOpener;
+    let catalog = [];
+    let catalogLoaded = false;
+    let modelSelection = new Set();
+    let manualBaseModels = [];
+    let modelRequest = 0;
+    let modelController;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     const make = (tag, text, className = '') => { const element = document.createElement(tag); if (text !== undefined) element.textContent = text; element.className = className; return element; };
     const notify = (text, error = false) => { const notice = $('[data-provider-notice]'); notice.textContent = text; notice.hidden = !text; notice.classList.toggle('is-error', error); };
@@ -26,6 +35,125 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || `请求失败（HTTP ${response.status}）。`);
         return result;
+    }
+    function showDialog(element) {
+        closeMotions.get(element)?.(); closeMotions.delete(element);
+        element.inert = false; element.classList.remove('is-closing');
+        if (!element.open) element.showModal();
+        void element.offsetHeight;
+        element.classList.add('is-open');
+    }
+    function hideDialog(element, afterClose) {
+        element.classList.remove('is-open');
+        const finish = () => { closeMotions.get(element)?.(); closeMotions.delete(element); element.close(); afterClose(); };
+        if (reducedMotion?.matches) { finish(); return; }
+        element.inert = true; element.classList.add('is-closing');
+        const ended = event => { if (event.target === element && event.propertyName === 'transform') finish(); };
+        element.addEventListener('transitionend', ended);
+        const timeout = setTimeout(finish, 250);
+        closeMotions.set(element, () => { clearTimeout(timeout); element.removeEventListener('transitionend', ended); });
+    }
+    const modelKey = id => fields.protocol.value === 'gemini' ? id.replace(/^models\//, '') : id;
+    const uniqueModels = values => { const seen = new Set(); return values.filter(id => { const key = modelKey(id); if (seen.has(key)) return false; seen.add(key); return true; }); };
+    const getModels = () => uniqueModels(fields.models.value.split(/\r?\n/).filter(Boolean));
+    const validModel = id => new Blob([id]).size <= 200 && !/[\s\x00-\x1f\x7f|]/u.test(id);
+    function setModels(values) { fields.models.value = uniqueModels(values).join('\n'); renderSelectedModels(); }
+    function renderSelectedModels() {
+        const selected = getModels(); const list = $('[data-model-selected]'); list.replaceChildren();
+        $('[data-model-count]').textContent = `${selected.length} / 30`;
+        $('[data-model-fetch]').disabled = busy; $('[data-model-add]').disabled = busy;
+        for (const id of selected) {
+            const item = make('div', undefined, 'oyiso-agent-selected-model');
+            const remove = make('button', '×', 'oyiso-agent-model-remove'); remove.type = 'button'; remove.disabled = busy;
+            remove.setAttribute('aria-label', `移除模型 ${id}`);
+            remove.addEventListener('click', () => { if (!busy) setModels(getModels().filter(model => model !== id)); });
+            item.append(make('span', id), remove); list.append(item);
+        }
+        if (!selected.length) list.append(make('p', '先获取模型列表并勾选，或手动添加模型。', 'oyiso-agent-model-empty'));
+    }
+    function abortModelRequest() { modelRequest++; modelController?.abort(); modelController = undefined; }
+    function closeModelDialog() {
+        if (!modelDialog.open || modelDialog.classList.contains('is-closing')) return;
+        abortModelRequest();
+        hideDialog(modelDialog, () => { if (dialog.open) (modelOpener?.isConnected && !modelOpener.disabled ? modelOpener : $('[data-model-fetch]')).focus(); });
+    }
+    function updateModelSelection() {
+        $('[data-model-selection-count]').textContent = `已选 ${modelSelection.size} / 30`;
+        $('[data-model-apply]').disabled = !catalogLoaded || modelSelection.size === 0;
+    }
+    function renderCatalog() {
+        const list = $('[data-model-catalog]'); list.replaceChildren();
+        const search = $('[data-model-search]'); search.disabled = !catalogLoaded; updateModelSelection();
+        if (!catalogLoaded) return;
+        const existing = new Map(getModels().map(id => [modelKey(id), id]));
+        const entries = new Map(catalog.map(item => { const id = existing.get(modelKey(item.id)) || item.id; return [modelKey(id), { ...item, id }]; }));
+        for (const id of getModels()) if (!entries.has(modelKey(id))) entries.set(modelKey(id), { id, name: '已添加，未出现在本次列表中' });
+        const query = search.value.trim().toLocaleLowerCase();
+        for (const { id, name } of entries.values()) {
+            if (query && !`${id} ${name}`.toLocaleLowerCase().includes(query)) continue;
+            const label = make('label', undefined, 'oyiso-agent-model-option'); const checkbox = make('input');
+            checkbox.type = 'checkbox'; checkbox.value = id; checkbox.checked = modelSelection.has(id);
+            const text = make('span'); text.append(make('span', id, 'oyiso-agent-model-id'));
+            if (name && name !== id) text.append(make('small', name));
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked && modelSelection.size >= 30) { checkbox.checked = false; $('[data-model-notice]').textContent = '最多选择 30 个模型。'; return; }
+                if (checkbox.checked) modelSelection.add(id); else modelSelection.delete(id);
+                $('[data-model-notice]').textContent = ''; updateModelSelection();
+            });
+            label.append(checkbox, text); list.append(label);
+        }
+        if (!list.children.length) list.append(make('p', query ? '没有匹配的模型。' : '没有可选模型，可以手动添加。', 'oyiso-agent-model-empty'));
+    }
+    const manualModels = () => uniqueModels($('[data-model-manual]').value.split(/[\r\n,，]+/).map(id => id.trim()).filter(Boolean));
+    function renderManualPreview() {
+        const entered = manualModels(); const existing = new Set(manualBaseModels.map(modelKey));
+        const added = entered.filter(id => !existing.has(modelKey(id))).length;
+        $('[data-model-preview]').textContent = !entered.length ? '输入后将显示新增的模型数量。' : entered.some(id => !validModel(id)) ? '模型 ID 不能包含空白或竖线，且最长为 200 个字符。' : `将新增 ${added} 个模型${entered.length > added ? `，${entered.length - added} 个已添加` : ''}。`;
+        $('[data-model-apply]').disabled = entered.length === 0;
+    }
+    async function fetchModels() {
+        abortModelRequest(); const request = modelRequest;
+        const data = { id: editing, url: fields.url.value.trim(), protocol: fields.protocol.value, key: fields.key.value, clear_key: fields.clear_key.checked };
+        const unchanged = () => data.id === editing && data.url === fields.url.value.trim() && data.protocol === fields.protocol.value && data.key === fields.key.value && data.clear_key === fields.clear_key.checked;
+        catalog = []; catalogLoaded = false; $('[data-model-notice]').textContent = '';
+        $('[data-model-status]').textContent = '正在获取模型列表…'; $('[data-model-retry]').disabled = true; renderCatalog();
+        modelController = new AbortController(); const controller = modelController;
+        const timeout = setTimeout(() => controller.abort(), 25000);
+        try {
+            const result = await api('providers/models', 'POST', data, controller.signal);
+            if (request !== modelRequest || !modelDialog.open || modelMode !== 'catalog') return;
+            if (!unchanged()) { $('[data-model-status]').textContent = '连接配置已变更，请重新获取模型列表。'; return; }
+            if (!Array.isArray(result.models)) throw new Error('模型列表格式无法识别，请手动添加模型。');
+            catalog = result.models.filter(item => typeof item.id === 'string' && item.id && validModel(item.id)).map(item => ({ id: item.id, name: typeof item.name === 'string' ? item.name : item.id }));
+            catalogLoaded = true;
+            $('[data-model-status]').textContent = result.truncated ? `已获取 ${catalog.length} 个模型，列表未完整返回；其他模型可手动添加。` : catalog.length ? `已获取 ${catalog.length} 个模型。` : '接口未返回可选模型，可以手动添加。';
+            renderCatalog();
+        } catch (error) {
+            if (request === modelRequest && modelDialog.open && modelMode === 'catalog' && unchanged()) {
+                $('[data-model-status]').textContent = '';
+                $('[data-model-notice]').textContent = error.name === 'AbortError' ? '获取模型列表超时，请重试或手动添加模型。' : error.message;
+            }
+        } finally { clearTimeout(timeout); if (request === modelRequest) { modelController = undefined; $('[data-model-retry]').disabled = false; } }
+    }
+    function openModelDialog(mode, target) {
+        if (busy || !dialog.open || dialog.classList.contains('is-closing')) return;
+        const base = modelDialog.open && modelMode === 'catalog' && catalogLoaded ? Array.from(modelSelection) : getModels();
+        abortModelRequest(); modelMode = mode; modelOpener = target;
+        $('[data-model-catalog-view]').hidden = mode !== 'catalog'; $('[data-model-manual-view]').hidden = mode !== 'manual';
+        $('[data-model-retry]').hidden = mode !== 'catalog'; $('[data-model-manual-switch]').hidden = mode !== 'catalog'; $('[data-model-selection-count]').hidden = mode !== 'catalog';
+        $('#oyiso-model-dialog-title').textContent = mode === 'catalog' ? '获取模型列表' : '手动添加模型';
+        $('[data-model-apply]').textContent = mode === 'catalog' ? '使用所选模型' : '添加模型';
+        $('[data-model-notice]').textContent = ''; showDialog(modelDialog);
+        if (mode === 'catalog') { $('[data-model-search]').value = ''; modelSelection = new Set(getModels()); fetchModels(); $('[data-model-close]').focus(); }
+        else { manualBaseModels = base; $('[data-model-manual]').value = ''; renderManualPreview(); $('[data-model-manual]').focus(); }
+    }
+    function applyModels() {
+        if (!modelDialog.open || modelDialog.classList.contains('is-closing') || $('[data-model-apply]').disabled) return;
+        const entered = modelMode === 'manual' ? manualModels() : Array.from(modelSelection);
+        if (entered.some(id => !validModel(id))) { $('[data-model-notice]').textContent = '模型 ID 不能包含空白或竖线，且最长为 200 个字符。'; return; }
+        const next = modelMode === 'manual' ? uniqueModels([...manualBaseModels, ...entered]) : entered;
+        if (next.length > 30) { $('[data-model-notice]').textContent = '最多选择 30 个模型，请减少选择后重试。'; return; }
+        setModels(next); closeModelDialog();
     }
     function updateDefaults() {
         const selected = defaults.value;
@@ -44,6 +172,7 @@
         button.type = 'button'; button.disabled = busy; button.addEventListener('click', callback); return button;
     }
     function render() {
+        renderSelectedModels();
         const body = $('[data-provider-rows]'); body.replaceChildren();
         for (const row of rows) {
             const tr = make('tr'); tr.dataset.providerId = row.id;
@@ -63,8 +192,8 @@
     }
     function open(row, target) {
         if (busy) return;
-        cancelCloseMotion?.(); cancelCloseMotion = undefined;
-        dialog.inert = false; dialog.classList.remove('is-closing');
+        abortModelRequest();
+        if (modelDialog.open) { closeMotions.get(modelDialog)?.(); modelDialog.close(); }
         opener = target; editing = row?.id || '';
         fields.preset.value = row?.preset || 'openai';
         const preset = presets[fields.preset.value];
@@ -72,35 +201,21 @@
         fields.url.value = row?.url || preset?.url || '';
         fields.protocol.value = row?.protocol || preset?.protocol || 'openai_responses';
         fields.url.placeholder = protocols[fields.protocol.value].url;
-        fields.models.value = row ? row.models.join('\n') : preset?.model || '';
+        setModels(row ? row.models : []);
         fields.key.value = ''; fields.key.disabled = false; fields.key.placeholder = row?.configured ? '已配置，留空保持' : '填写 API Key';
         fields.clear_key.checked = false; fields.clear_key.disabled = !row?.configured;
         $('#oyiso-provider-dialog-title').textContent = row ? '编辑提供商' : '添加提供商';
         $('[data-provider-dialog-notice]').textContent = '';
-        if (!dialog.open) dialog.showModal();
-        // Establish the initial scale before starting the shared modal transition.
-        void dialog.offsetHeight;
-        dialog.classList.add('is-open'); fields.name.focus();
-    }
-    function finishClose() {
-        cancelCloseMotion?.(); cancelCloseMotion = undefined;
-        dialog.close();
-        (opener?.isConnected && !opener.disabled ? opener : $('[data-provider-add]')).focus();
+        showDialog(dialog); fields.name.focus();
     }
     function close() {
-        if (busy || !dialog.open || dialog.classList.contains('is-closing')) return;
-        fields.key.value = ''; dialog.classList.remove('is-open');
-        if (reducedMotion?.matches) { finishClose(); return; }
-        dialog.inert = true; dialog.classList.add('is-closing');
-        const ended = event => { if (event.target === dialog && event.propertyName === 'transform') finishClose(); };
-        dialog.addEventListener('transitionend', ended);
-        // Interrupted transitions and hidden tabs may not emit transitionend.
-        const timeout = setTimeout(finishClose, 250);
-        cancelCloseMotion = () => { clearTimeout(timeout); dialog.removeEventListener('transitionend', ended); };
+        if (busy || modelDialog.open || !dialog.open || dialog.classList.contains('is-closing')) return;
+        fields.key.value = ''; abortModelRequest();
+        hideDialog(dialog, () => (opener?.isConnected && !opener.disabled ? opener : $('[data-provider-add]')).focus());
     }
     async function save() {
-        if (busy || !dialog.open || dialog.classList.contains('is-closing')) return;
-        const data = { preset: fields.preset.value, name: fields.name.value.trim(), url: fields.url.value.trim(), protocol: fields.protocol.value, models: fields.models.value.split(/\r?\n/).map(value => value.trim()).filter(Boolean), key: fields.key.value, clear_key: fields.clear_key.checked };
+        if (busy || modelDialog.open || !dialog.open || dialog.classList.contains('is-closing')) return;
+        const data = { preset: fields.preset.value, name: fields.name.value.trim(), url: fields.url.value.trim(), protocol: fields.protocol.value, models: getModels(), key: fields.key.value, clear_key: fields.clear_key.checked };
         if (!data.name || !data.url || !data.models.length) { $('[data-provider-dialog-notice]').textContent = '请填写连接名称、Base URL 和可用模型。'; return; }
         busy = true; $('[data-provider-save]').disabled = true; render();
         let saved = false;
@@ -135,12 +250,12 @@
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     dialog.addEventListener('close', () => {
         if (dialog.open) return;
-        cancelCloseMotion?.(); cancelCloseMotion = undefined;
+        closeMotions.get(dialog)?.(); closeMotions.delete(dialog); abortModelRequest();
         dialog.inert = false; dialog.classList.remove('is-open', 'is-closing'); fields.key.value = '';
     });
     fields.preset.addEventListener('change', () => {
         const preset = presets[fields.preset.value];
-        fields.name.value = preset?.name || ''; fields.url.value = preset?.url || ''; fields.models.value = preset?.model || '';
+        fields.name.value = preset?.name || ''; fields.url.value = preset?.url || ''; setModels([]);
         fields.protocol.value = preset?.protocol || 'openai_responses';
         fields.url.placeholder = protocols[fields.protocol.value].url;
     });
@@ -149,9 +264,27 @@
         fields.url.placeholder = protocol.url;
     });
     fields.clear_key.addEventListener('change', () => { if (fields.clear_key.checked) fields.key.value = ''; fields.key.disabled = fields.clear_key.checked; });
+    $('[data-model-fetch]').addEventListener('click', event => openModelDialog('catalog', event.currentTarget));
+    $('[data-model-add]').addEventListener('click', event => openModelDialog('manual', event.currentTarget));
+    $('[data-model-manual-switch]').addEventListener('click', () => openModelDialog('manual', $('[data-model-add]')));
+    $('[data-model-retry]').addEventListener('click', fetchModels);
+    $('[data-model-search]').addEventListener('input', renderCatalog);
+    $('[data-model-manual]').addEventListener('input', renderManualPreview);
+    $('[data-model-apply]').addEventListener('click', applyModels);
+    modelDialog.querySelectorAll('[data-model-close]').forEach(button => button.addEventListener('click', closeModelDialog));
+    modelDialog.addEventListener('cancel', event => { event.preventDefault(); closeModelDialog(); });
+    modelDialog.addEventListener('close', () => {
+        if (modelDialog.open) return;
+        closeMotions.get(modelDialog)?.(); closeMotions.delete(modelDialog); abortModelRequest();
+        modelDialog.inert = false; modelDialog.classList.remove('is-open', 'is-closing'); modelMode = ''; $('[data-model-manual]').value = '';
+    });
+    modelDialog.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); applyModels(); }
+        else if (event.key === 'Enter' && event.target.matches('input')) event.preventDefault();
+    });
     dialog.addEventListener('keydown', event => { if (event.key === 'Enter' && event.target.matches('input, select')) { event.preventDefault(); save(); } });
     // Provider edits save independently from the surrounding CSF form.
-    for (const type of ['change', 'input', 'keypress']) dialog.addEventListener(type, event => event.stopPropagation());
+    for (const element of [dialog, modelDialog]) for (const type of ['change', 'input', 'keypress']) element.addEventListener(type, event => event.stopPropagation());
     if (window.jQuery) window.jQuery(document).on('ajaxSuccess.oyisoProviders', (event, xhr, settings) => {
         const action = typeof settings.data === 'string' ? new URLSearchParams(settings.data).get('action') : settings.data?.action;
         if (action === 'csf_oyiso_ajax_save' && xhr.responseJSON?.success !== false) render();

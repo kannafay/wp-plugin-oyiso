@@ -32,6 +32,11 @@ function transitionEnd(f, target = f.$('dialog'), propertyName = 'transform') {
     Object.defineProperty(event, 'propertyName', { value: propertyName });
     target.dispatchEvent(event);
 }
+function manualInput(f, value) { const input = f.$('[data-model-manual]'); input.value = value; input.dispatchEvent(new f.window.Event('input', { bubbles: true })); }
+function modelCheckbox(f, id, checked) {
+    const input = Array.from(f.window.document.querySelectorAll('[data-model-catalog] input')).find(input => input.value === id);
+    assert.ok(input, `missing model ${id}`); input.checked = checked; input.dispatchEvent(new f.window.Event('change', { bubbles: true })); return input;
+}
 
 test('modal closes after its own exit transition, clears the key immediately and restores focus', t => {
     const f = fixture(t, [], undefined, { reducedMotion: false });
@@ -256,4 +261,128 @@ test('delete errors preserve rows and successful deletion removes model choices 
     assert.equal(f.$('[data-provider-default]').value, 'first|model-a');
     assert.match(f.$('[data-provider-default]').selectedOptions[0].textContent, /已移除/);
     assert.equal(f.calls[1].options.method, 'DELETE');
+});
+
+test('manual model dialog batches and deduplicates IDs, animates independently and saves only with its provider', async t => {
+    const f = fixture(t, [], (route, options) => ({ connections: [row('new', JSON.parse(options.body))] }), { reducedMotion: false });
+    let changed = 0; f.window.document.querySelector('form').addEventListener('input', () => changed++);
+    f.$('[data-provider-add]').click(); f.field('key').value = 'fixture-parent-key';
+    assert.equal(f.field('models').type, 'hidden'); assert.equal(f.$('[data-provider-dialog] textarea'), null);
+    f.$('[data-model-add]').click();
+    const child = f.$('[data-model-dialog]'); assert.equal(child.open, true); assert.equal(child.classList.contains('is-open'), true);
+    manualInput(f, 'model-a，model-a\nmodel-b, model-b');
+    assert.match(f.$('[data-model-preview]').textContent, /新增 2/); assert.equal(changed, 0);
+    f.$('[data-model-apply]').click();
+    assert.equal(child.open, true); assert.equal(child.inert, true); assert.equal(f.$('[data-provider-dialog]').open, true);
+    assert.equal(f.field('key').value, 'fixture-parent-key'); assert.equal(f.calls.length, 0);
+    transitionEnd(f, child, 'opacity'); assert.equal(child.open, true);
+    transitionEnd(f, child); assert.equal(child.open, false); assert.equal(child.inert, false);
+    assert.equal(f.window.document.activeElement, f.$('[data-model-add]'));
+    assert.equal(f.field('models').value, 'model-a\nmodel-b'); assert.equal(f.$('[data-model-count]').textContent, '2 / 30');
+    f.$('[data-provider-save]').click(); await settle();
+    assert.deepEqual(JSON.parse(f.calls[0].options.body).models, ['model-a', 'model-b']);
+    transitionEnd(f); assert.equal(f.$('[data-provider-dialog]').open, false);
+});
+
+test('manual validation and limits keep previous models and Gemini aliases keep their saved ID', t => {
+    const ids = Array.from({ length: 30 }, (_, i) => `model-${i}`);
+    const f = fixture(t, [row('first', { models: ids })]);
+    f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click(); f.$('[data-model-add]').click();
+    for (const value of ['bad model', 'bad|model', 'x'.repeat(201), '模'.repeat(100)]) {
+        manualInput(f, value); f.$('[data-model-apply]').click(); assert.match(f.$('[data-model-notice]').textContent, /模型 ID/); assert.equal(f.$('[data-model-dialog]').open, true);
+    }
+    manualInput(f, 'one-more'); f.$('[data-model-apply]').click(); assert.match(f.$('[data-model-notice]').textContent, /30/);
+    assert.equal(f.field('models').value, ids.join('\n')); f.$('[data-model-close]').click();
+    f.$('[data-model-selected] button').click(); assert.match(f.$('[data-model-count]').textContent, /29/);
+    f.$('[data-model-add]').click(); manualInput(f, 'one-more'); f.$('[data-model-apply]').click(); assert.match(f.$('[data-model-count]').textContent, /30/);
+    const g = fixture(t, [row('gemini', { preset: 'gemini', protocol: 'gemini', models: ['models/gemini-fixture'] })]);
+    g.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click(); g.$('[data-model-add]').click();
+    manualInput(g, 'gemini-fixture\nmodels/gemini-fixture'); g.$('[data-model-apply]').click(); assert.equal(g.field('models').value, 'models/gemini-fixture');
+});
+
+test('fetched models support search and draft checkbox selection while retaining unlisted manual models', async t => {
+    let finish;
+    const saved = row('first', { models: ['manual-model', 'server-a'] });
+    const f = fixture(t, [saved], route => route === 'providers/models' ? new Promise(resolve => { finish = resolve; }) : { connections: [saved] });
+    let changed = 0; f.window.document.querySelector('form').addEventListener('change', () => changed++);
+    f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click(); f.$('[data-model-fetch]').click();
+    assert.equal(f.$('[data-model-apply]').disabled, true); assert.equal(f.$('[data-model-retry]').disabled, true);
+    assert.match(f.$('[data-model-status]').textContent, /正在获取/);
+    const call = f.calls[0]; const payload = JSON.parse(call.options.body);
+    assert.equal(call.route, 'providers/models'); assert.equal(call.options.headers['X-WP-Nonce'], 'fixture-nonce');
+    assert.deepEqual(payload, { id: 'first', url: saved.url, protocol: saved.protocol, key: '', clear_key: false });
+    f.$('[data-provider-save]').click(); assert.equal(f.calls.length, 1);
+    finish({ models: [{ id: 'server-a', name: 'Server A' }, { id: 'server-b', name: '<img src=x onerror=alert(1)>' }], truncated: false }); await settle();
+    assert.match(f.$('[data-model-status]').textContent, /获取 2/); assert.equal(f.$('[data-model-catalog] img'), null);
+    assert.equal(Array.from(f.window.document.querySelectorAll('[data-model-catalog] input')).find(input => input.value === 'manual-model').checked, true);
+    modelCheckbox(f, 'server-a', false); modelCheckbox(f, 'server-b', true);
+    assert.equal(changed, 0); assert.equal(f.field('models').value, 'manual-model\nserver-a');
+    f.$('[data-model-search]').value = 'server-b'; f.$('[data-model-search]').dispatchEvent(new f.window.Event('input', { bubbles: true }));
+    assert.equal(f.window.document.querySelectorAll('[data-model-catalog] input').length, 1);
+    f.$('[data-model-apply]').click(); assert.equal(f.$('[data-model-dialog]').open, false);
+    assert.equal(f.field('models').value, 'manual-model\nserver-b'); assert.equal(f.calls.length, 1);
+});
+
+test('model list errors offer manual entry without clearing provider fields or saving a partial connection', async t => {
+    const f = fixture(t, [], () => ({ ok: false, status: 502, body: { message: '<img src=x> 此接口未提供模型列表' } }));
+    f.$('[data-provider-add]').click(); f.field('key').value = 'fixture-unsaved-key'; f.field('name').value = '未保存的连接';
+    f.$('[data-model-fetch]').click(); await settle();
+    assert.match(f.$('[data-model-notice]').textContent, /未提供模型列表/); assert.equal(f.$('[data-model-notice] img'), null);
+    assert.equal(f.$('[data-model-retry]').disabled, false); f.$('[data-model-manual-switch]').click();
+    assert.equal(f.$('[data-model-manual-view]').hidden, false); assert.equal(f.$('[data-model-catalog-view]').hidden, true);
+    manualInput(f, 'manual-model'); f.$('[data-model-apply]').click();
+    assert.equal(f.field('name').value, '未保存的连接'); assert.equal(f.field('key').value, 'fixture-unsaved-key'); assert.equal(f.field('models').value, 'manual-model');
+    assert.equal(f.calls.length, 1); assert.equal(f.$('[data-provider-dialog]').open, true);
+});
+
+test('switching from checked catalog models to manual entry keeps both parts of the unsaved selection', async t => {
+    const f = fixture(t, [row('first', { models: ['manual-old', 'server-a'] })], () => ({ models: [{ id: 'server-a', name: 'A' }, { id: 'server-b', name: 'B' }] }));
+    f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click(); f.$('[data-model-fetch]').click(); await settle();
+    modelCheckbox(f, 'server-a', false); modelCheckbox(f, 'server-b', true);
+    f.$('[data-model-manual-switch]').click(); manualInput(f, 'manual-new,server-b');
+    assert.match(f.$('[data-model-preview]').textContent, /新增 1 个模型，1 个已添加/);
+    assert.equal(f.field('models').value, 'manual-old\nserver-a');
+    f.$('[data-model-apply]').click(); assert.equal(f.field('models').value, 'manual-old\nserver-b\nmanual-new');
+    assert.equal(f.calls.length, 1);
+});
+
+test('closing, reopening or switching to manual entry aborts and ignores earlier model-list responses', async t => {
+    const finishes = [];
+    const f = fixture(t, [], () => new Promise(resolve => finishes.push(resolve)));
+    f.$('[data-provider-add]').click(); f.$('[data-model-fetch]').click();
+    f.$('[data-model-close]').click(); assert.equal(f.calls[0].options.signal.aborted, true);
+    f.$('[data-model-fetch]').click();
+    finishes[0]({ models: [{ id: 'stale-model', name: 'Stale' }] }); await settle();
+    assert.equal(f.$('[data-model-catalog]').textContent, ''); assert.equal(f.$('[data-model-retry]').disabled, true);
+    f.$('[data-model-manual-switch]').click(); assert.equal(f.calls[1].options.signal.aborted, true);
+    finishes[1]({ models: [{ id: 'another-stale-model', name: 'Stale' }] }); await settle();
+    assert.equal(f.$('[data-model-manual-view]').hidden, false); assert.equal(f.field('models').value, '');
+    manualInput(f, 'manual-kept'); f.$('[data-model-apply]').click();
+    assert.equal(f.field('models').value, 'manual-kept'); assert.equal(f.$('[data-model-dialog]').open, false);
+});
+
+test('checkbox limit feedback preserves focus and list scroll while allowing a different model', async t => {
+    const ids = Array.from({ length: 31 }, (_, i) => `model-${i}`);
+    const f = fixture(t, [row('first', { models: ids.slice(0, 30) })], () => ({ models: ids.map(id => ({ id, name: id })) }));
+    f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click(); f.$('[data-model-fetch]').click(); await settle();
+    assert.equal(modelCheckbox(f, 'model-30', true).checked, false); assert.match(f.$('[data-model-notice]').textContent, /30/);
+    const input = Array.from(f.window.document.querySelectorAll('[data-model-catalog] input')).find(item => item.value === 'model-0');
+    const list = f.$('[data-model-catalog]'); list.scrollTop = 110; input.focus(); modelCheckbox(f, 'model-0', false);
+    assert.equal(list.scrollTop, 110); assert.equal(f.window.document.activeElement, input);
+    modelCheckbox(f, 'model-30', true); f.$('[data-model-apply]').click();
+    assert.equal(f.field('models').value.split('\n').length, 30); assert.equal(f.field('models').value.split('\n').includes('model-0'), false);
+    assert.equal(f.field('models').value.split('\n').includes('model-30'), true);
+});
+
+test('retry, empty and partial lists remain usable and Escape cancels only the model dialog', async t => {
+    let count = 0;
+    const f = fixture(t, [row('first', { models: ['kept-model'] })], () => ++count === 1 ? { ok: false, status: 502, body: { message: '暂时不可用' } } : count === 2 ? { models: [], truncated: false } : { models: [{ id: 'new-model', name: 'New' }], truncated: true });
+    f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click(); f.field('key').value = 'fixture-kept-key';
+    f.$('[data-model-fetch]').click(); await settle(); f.$('[data-model-retry]').click(); await settle();
+    assert.match(f.$('[data-model-status]').textContent, /未返回可选模型/);
+    f.$('[data-model-retry]').click(); await settle(); assert.match(f.$('[data-model-status]').textContent, /未完整返回/);
+    modelCheckbox(f, 'new-model', true);
+    const event = new f.window.Event('cancel', { cancelable: true }); f.$('[data-model-dialog]').dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true); assert.equal(f.$('[data-model-dialog]').open, false);
+    assert.equal(f.$('[data-provider-dialog]').open, true); assert.equal(f.field('key').value, 'fixture-kept-key'); assert.equal(f.field('models').value, 'kept-model');
 });
