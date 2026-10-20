@@ -8,6 +8,7 @@ const repo = path.resolve(__dirname, '../..');
 const quote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
 const markup = execFileSync('php', ['-r', `define('ABSPATH', '/'); function wp_json_encode($v){return json_encode($v);} function esc_attr($v){return htmlspecialchars($v, ENT_QUOTES);} function esc_html($v){return esc_attr($v);} function esc_url($v){return esc_attr($v);} function admin_url($v){return 'https://vape.local/wp-admin/'.$v;} function get_option($name,$default=[]){return $name==='oyiso_agent_connections'?[]:($name==='oyiso'?['agent_selection'=>'']:$default);} require ${quote(path.join(repo, 'src/ai-agent/config.php'))}; require ${quote(path.join(repo, 'src/ai-agent/connections.php'))}; require ${quote(path.join(repo, 'src/ai-agent/managed-connections.php'))}; require ${quote(path.join(repo, 'src/ai-agent/model-settings.php'))}; Oyiso_Agent_Model_Settings::render();`], { encoding: 'utf8' });
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/model-settings.js'), 'utf8');
+const modalScript = fs.readFileSync(path.join(repo, 'src/admin/assets/modal-motion.js'), 'utf8');
 const settle = async () => { for (let i = 0; i < 6; i++) await new Promise(resolve => setImmediate(resolve)); };
 const row = (id = 'first', extra = {}) => ({ id, name: 'DeepSeek 主账号', preset: 'deepseek', protocol: 'openai_chat', url: 'https://api.example.com/v1', models: ['model-a', 'model-b'], configured: true, ...extra });
 function fixture(t, rows = [], router = () => ({ connections: rows }), { reducedMotion = true } = {}) {
@@ -23,7 +24,7 @@ function fixture(t, rows = [], router = () => ({ connections: rows }), { reduced
     window.matchMedia = () => ({ matches: reducedMotion });
     window.oyisoModelSettings = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce' };
     window.fetch = async (url, options) => { const route = url.replace(window.oyisoModelSettings.url, ''); calls.push({ route, options }); const result = await router(route, options); return { ok: result.ok !== false, status: result.status || 200, json: async () => result.body || result }; };
-    window.eval(script);
+    window.eval(modalScript); window.eval(script);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
     const $ = selector => document.querySelector(selector);
     return { window, $, calls, modelUpdates, field: name => $(`[data-provider-field="${name}"]`) };

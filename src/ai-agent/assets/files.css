@@ -32,17 +32,4 @@
 .oyiso-agent-files [data-files-notice]:empty { display: none; }
 .oyiso-agent-files [data-files-notice] { color: #b32d2e; }
 .oyiso-agent-files [data-files-migration] { padding: 10px 12px; background: color-mix(in srgb, var(--oyiso-color-primary, #bf5316) 6%, #fff); }
-.oyiso-agent-files-confirm { position: fixed; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 0; border-radius: 8px; background: #fff; color: #1e1e1e; box-sizing: border-box; overflow: hidden; box-shadow: 0 4px 20px #00000026, 0 1px 3px #00000014; }
-.oyiso-agent-files-confirm[open] { display: flex; flex-direction: column; }
-.oyiso-agent-files-confirm::backdrop { background: rgba(0, 0, 0, .5); }
-.oyiso-agent-files-confirm-heading { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px 16px; }
-.oyiso-agent-files-confirm-heading h2 { margin: 0; color: #1e1e1e; font-size: 16px; font-weight: 600; line-height: 1.3; }
-.oyiso-agent-files-confirm-close { padding: 0 4px; border: 0; background: none; color: #757575; font-size: 24px; line-height: 1; cursor: pointer; }
-.oyiso-agent-files-confirm-close:hover:not(:disabled) { color: #1e1e1e; }
-.oyiso-agent-files-confirm-close:disabled { opacity: .4; cursor: default; }
-.oyiso-agent-files-confirm-close:focus-visible { outline: 2px solid var(--oyiso-color-primary, #bf5316); outline-offset: 2px; }
-.oyiso-agent-files-confirm-body { min-height: 0; padding: 0 24px 20px; overflow-y: auto; }
-.oyiso-agent-files-confirm-body p { margin: 0; font-size: 13px; line-height: 1.7; }
-.oyiso-agent-files-confirm-body [data-files-delete-error] { margin-top: 12px; color: #b32d2e; }
-.oyiso-agent-files-confirm-footer { display: flex; flex: none; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 24px; border-top: 1px solid #e5e5e5; background: #fff; }
 @media (max-width: 600px) { .oyiso-agent-files-filters input[type="search"] { flex: 1; width: 160px; } .oyiso-agent-files-filters [data-files-summary] { margin-left: 0; } }

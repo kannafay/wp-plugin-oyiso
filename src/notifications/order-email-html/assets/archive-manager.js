@@ -475,7 +475,7 @@
 
         function openModal() {
             lastFocused = document.activeElement;
-            $modal.prop('hidden', false).attr('aria-hidden', 'false');
+            window.oyisoModalMotion.show($modal[0], $dialog[0]);
             $('body').addClass('oyiso-archive-modal-open');
             setCleanupStatus(retryMessage);
             refreshCleanupButton();
@@ -486,16 +486,15 @@
         }
 
         function closeModal() {
+            if ($modal.prop('hidden') || $modal.hasClass('is-closing')) return;
             requestSequence += 1;
-            $image.off('.oyisoArchive').removeAttr('src');
-            $htmlFrame.off('.oyisoArchive').removeAttr('src');
-            setFullscreen(false);
-            $modal.prop('hidden', true).attr('aria-hidden', 'true');
-            $('body').removeClass('oyiso-archive-modal-open');
-
-            if (lastFocused && typeof lastFocused.focus === 'function') {
-                lastFocused.focus();
-            }
+            window.oyisoModalMotion.hide($modal[0], function () {
+                $image.off('.oyisoArchive').removeAttr('src');
+                $htmlFrame.off('.oyisoArchive').removeAttr('src');
+                setFullscreen(false);
+                $('body').removeClass('oyiso-archive-modal-open');
+                if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+            }, $dialog[0]);
         }
 
         function trapFocus(event) {

@@ -14,6 +14,7 @@ const panelScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/panel.j
 const markdownVendor = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/lib/markdown-it.min.js'), 'utf8');
 const markdownScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/markdown.js'), 'utf8');
 const historyScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/history.js'), 'utf8');
+const modalScript = fs.readFileSync(path.join(repo, 'src/admin/assets/modal-motion.js'), 'utf8');
 const composerScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/composer.js'), 'utf8');
 const previewScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/file-preview.js'), 'utf8');
 const liveScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/live.js'), 'utf8');
@@ -54,7 +55,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     window.eval(panelScript);
     window.eval(markdownVendor);
     window.eval(markdownScript);
-    window.eval(historyScript);
+    window.eval(modalScript); window.eval(historyScript);
     window.eval(previewScript); window.eval(composerScript);
     window.eval(liveScript);
     view.afterGeometry?.(window);
@@ -459,9 +460,13 @@ test('single deletion needs a modal confirmation and safely clears the active co
     assert.equal(f.calls.some(call => call.options.method === 'DELETE'), false);
     dialog.querySelector('[data-agent-delete-cancel]').click(); assert.equal(dialog.open, false);
     f.$('#oyiso-agent-history [data-agent-history-remove="12"]').click();
+    dialog.querySelector('[data-agent-delete-close]').click(); assert.equal(dialog.open, false);
+    assert.equal(f.window.document.activeElement, f.$('#oyiso-agent-history [data-agent-history-remove="12"]'));
+    f.$('#oyiso-agent-history [data-agent-history-remove="12"]').click();
     dialog.querySelector('[data-agent-delete-confirm]').click(); dialog.querySelector('[data-agent-delete-confirm]').click(); await settle();
     assert.equal(f.calls.filter(call => call.options.method === 'DELETE').length, 1);
     assert.equal(dialog.querySelector('[data-agent-delete-confirm]').disabled, true);
+    assert.equal(dialog.querySelector('[data-agent-delete-close]').disabled, true);
     finish(); await settle();
     assert.equal(dialog.open, false); assert.equal(f.$('#oyiso-agent-history [data-agent-run="12"]'), null);
     assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/'), null);
@@ -490,6 +495,22 @@ test('batch selection survives a rejected deletion and submits only the confirme
     assert.equal(root.querySelector('[data-agent-history-count]').textContent, '已选 2');
     reject = false; dialog.querySelector('[data-agent-delete-confirm]').click(); await settle();
     assert.equal(dialog.open, false); assert.equal(root.querySelector('[data-agent-history-count]').textContent, '已选 0');
+});
+
+test('conversation delete dismissals wait for the exit animation and cannot submit during it', async t => {
+    const f = fixture(t, route => route === 'runs?page=1' ? { items: [{ id: 12, title: '保留的对话', status: 'completed', updated: '2026-10-20 16:15:49' }], pages: 1 } : undefined, {}, undefined, { motion: true });
+    await settle(); const trigger = f.$('#oyiso-agent-history [data-agent-history-remove="12"]'); const dialog = f.$('[data-agent-delete-dialog]');
+    for (const dismiss of [
+        () => dialog.querySelector('[data-agent-delete-close]').click(),
+        () => dialog.dispatchEvent(new f.window.Event('cancel', { cancelable: true })),
+        () => dialog.click(),
+    ]) {
+        trigger.click(); dismiss();
+        assert.equal(dialog.open, true); assert.equal(dialog.inert, true);
+        dialog.querySelector('[data-agent-delete-confirm]').click();
+        assert.equal(f.calls.some(call => call.options.method === 'DELETE'), false);
+        transitionEnd(f, dialog); assert.equal(dialog.open, false); assert.equal(f.window.document.activeElement, trigger);
+    }
 });
 
 test('composer grows from one line to a bounded height and shrinks when cleared', t => {

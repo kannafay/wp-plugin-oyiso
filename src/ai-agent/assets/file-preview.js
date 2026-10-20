@@ -15,11 +15,10 @@
     }
 
     function close() {
-        if (!dialog?.open) return;
-        ++sequence; release();
-        if (dialog.close) dialog.close(); else dialog.removeAttribute('open');
+        if (!dialog?.open || dialog.classList.contains('is-closing')) return;
+        ++sequence; controller?.abort(); body.querySelector('video')?.pause();
         const trigger = current?.trigger; current = null;
-        if (trigger?.isConnected && !trigger.disabled) trigger.focus({ preventScroll: true });
+        window.oyisoModalMotion.hide(dialog, () => { release(); if (trigger?.isConnected && !trigger.disabled) trigger.focus({ preventScroll: true }); });
     }
 
     function create() {
@@ -80,7 +79,7 @@
         open(file, api, trigger) {
             if (!file || file.deleted || !supported(file.mime)) return;
             create(); current = { file, api, trigger }; title.textContent = file.name; title.title = file.name; detail.textContent = size(file.size);
-            if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open', ''); }
+            window.oyisoModalMotion.show(dialog);
             load();
         },
         close,

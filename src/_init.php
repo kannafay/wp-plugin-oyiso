@@ -321,8 +321,9 @@ if (!function_exists('oyiso_render_admin_bar_update_check_modal')) {
             }
 
             function setOpen(open) {
-                modal.classList.toggle('is-open', open);
-                modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+                var surface = modal.querySelector('.oyiso-admin-update-modal');
+                if (open) window.oyisoModalMotion.show(modal, surface);
+                else window.oyisoModalMotion.hide(modal, function () {}, surface);
             }
 
             function setLoading(loading) {

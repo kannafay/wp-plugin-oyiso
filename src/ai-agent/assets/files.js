@@ -122,13 +122,13 @@
         pending = [...ids]; returnFocus = trigger;
         $('[data-files-delete-description]').textContent = `确定删除${ids.length === 1 ? '这个' : `所选 ${ids.length} 个`}附件？文件删除后无法恢复，所属对话会保留并标记附件已删除。`;
         $('[data-files-delete-error]').hidden = true;
-        if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open', '');
+        window.oyisoModalMotion.show(dialog);
         $('[data-files-delete-cancel]').focus();
     }
     function close() {
-        if (deleting) return;
-        if (dialog.close) dialog.close(); else dialog.removeAttribute('open');
-        pending = []; if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+        if (deleting || !dialog.open || dialog.classList.contains('is-closing')) return;
+        pending = []; const trigger = returnFocus;
+        window.oyisoModalMotion.hide(dialog, () => { if (trigger?.isConnected) trigger.focus({ preventScroll: true }); });
     }
     $('[data-files-delete-confirm]').addEventListener('click', async () => {
         if (deleting || !pending.length) return;

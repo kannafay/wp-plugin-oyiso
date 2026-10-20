@@ -208,11 +208,11 @@ final class Oyiso_Agent_Admin
             return;
         }
         Oyiso_Agent_File_Manager::previewAssets();
-        wp_enqueue_style('oyiso-agent', plugins_url('assets/agent.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/agent.css'));
+        wp_enqueue_style('oyiso-agent', plugins_url('assets/agent.css', __FILE__), ['oyiso-modals'], (string) filemtime(__DIR__ . '/assets/agent.css'));
         wp_enqueue_script('oyiso-agent-panel', plugins_url('assets/panel.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/panel.js'), true);
         wp_enqueue_script('oyiso-agent-markdown-it', plugins_url('assets/lib/markdown-it.min.js', __FILE__), [], '15.0.3', true);
         wp_enqueue_script('oyiso-agent-markdown', plugins_url('assets/markdown.js', __FILE__), ['oyiso-agent-markdown-it'], (string) filemtime(__DIR__ . '/assets/markdown.js'), true);
-        wp_enqueue_script('oyiso-agent-history', plugins_url('assets/history.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/history.js'), true);
+        wp_enqueue_script('oyiso-agent-history', plugins_url('assets/history.js', __FILE__), ['oyiso-modal-motion'], (string) filemtime(__DIR__ . '/assets/history.js'), true);
         wp_enqueue_script('oyiso-agent-composer', plugins_url('assets/composer.js', __FILE__), ['oyiso-agent-file-preview'], (string) filemtime(__DIR__ . '/assets/composer.js'), true);
         wp_enqueue_script('oyiso-agent-live', plugins_url('assets/live.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/live.js'), true);
         wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer', 'oyiso-agent-live'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
@@ -272,7 +272,11 @@ final class Oyiso_Agent_Admin
                 <?php self::chat(); ?>
             </div>
         </aside>
-        <dialog class="oyiso-agent-confirm" data-agent-delete-dialog aria-labelledby="oyiso-agent-delete-title"><h3 id="oyiso-agent-delete-title">删除对话</h3><p data-agent-delete-description></p><p class="oyiso-agent-confirm-error" data-agent-delete-error role="alert" hidden></p><div class="oyiso-agent-confirm-actions"><button type="button" class="button" data-agent-delete-cancel>取消</button><button type="button" class="button" data-agent-delete-confirm>删除</button></div></dialog>
+        <dialog class="oyiso-agent-confirm oyiso-confirm-dialog" data-agent-delete-dialog aria-labelledby="oyiso-agent-delete-title" aria-describedby="oyiso-agent-delete-description">
+            <div class="oyiso-confirm-dialog__heading"><h2 id="oyiso-agent-delete-title">删除对话</h2><button type="button" class="oyiso-confirm-dialog__close" data-agent-delete-close aria-label="关闭">×</button></div>
+            <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-delete-description" data-agent-delete-description></p><p class="oyiso-confirm-dialog__error" data-agent-delete-error role="alert" hidden></p></div>
+            <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-agent-delete-cancel>取消</button><button type="button" class="button button-primary" data-agent-delete-confirm>删除</button></div>
+        </dialog>
         <?php
     }
 

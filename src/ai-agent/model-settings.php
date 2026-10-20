@@ -12,7 +12,7 @@ final class Oyiso_Agent_Model_Settings
             return;
         }
         wp_enqueue_style('oyiso-model-settings', plugins_url('assets/model-settings.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/model-settings.css'));
-        wp_enqueue_script('oyiso-model-settings', plugins_url('assets/model-settings.js', __FILE__), ['jquery'], (string) filemtime(__DIR__ . '/assets/model-settings.js'), true);
+        wp_enqueue_script('oyiso-model-settings', plugins_url('assets/model-settings.js', __FILE__), ['jquery', 'oyiso-modal-motion'], (string) filemtime(__DIR__ . '/assets/model-settings.js'), true);
         wp_localize_script('oyiso-model-settings', 'oyisoModelSettings', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest')]);
     }
 

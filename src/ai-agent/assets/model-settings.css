@@ -22,11 +22,9 @@
 .oyiso-agent-provider-empty { padding: 28px 12px !important; color: #646970; text-align: center; }
 [data-provider-notice] { margin: 0 0 16px; padding: 10px 12px; border-left: 3px solid var(--wp-admin-theme-color, #2271b1); background: #f6f7f7; overflow-wrap: anywhere; }
 [data-provider-notice].is-error { border-color: #b32d2e; }
-.oyiso-agent-provider-dialog { position: fixed; width: 600px; max-width: 94vw; max-height: calc(100dvh - 48px); padding: 0; border: 0; border-radius: 8px; background: #fff; color: #1e1e1e; box-sizing: border-box; overflow: hidden; box-shadow: 0 4px 20px #00000026, 0 1px 3px #00000014; opacity: 0; transform: scale(.9); transition: opacity .15s ease-out, transform .2s cubic-bezier(.4, 0, .2, 1); }
+.oyiso-agent-provider-dialog { position: fixed; width: 600px; max-width: 94vw; max-height: calc(100dvh - 48px); padding: 0; border: 0; border-radius: 8px; background: #fff; color: #1e1e1e; box-sizing: border-box; overflow: hidden; box-shadow: 0 4px 20px #00000026, 0 1px 3px #00000014; }
 .oyiso-agent-provider-dialog[open] { display: flex; flex-direction: column; }
-.oyiso-agent-provider-dialog::backdrop { background: rgba(0, 0, 0, .5); opacity: 0; transition: opacity .15s ease-out; }
-.oyiso-agent-provider-dialog.is-open { opacity: 1; transform: scale(1); }
-.oyiso-agent-provider-dialog.is-open::backdrop { opacity: 1; }
+.oyiso-agent-provider-dialog::backdrop { background: rgba(0, 0, 0, .5); }
 .oyiso-agent-provider-dialog-heading { display: flex; flex: none; align-items: center; justify-content: space-between; padding: 20px 24px 16px; }
 .oyiso-agent-provider-dialog-heading h2 { margin: 0; font-size: 16px; font-weight: 600; color: #1e1e1e; line-height: 1.3; }
 .oyiso-agent-provider-close { padding: 0 4px; border: 0; background: none; color: #757575; font-size: 24px; line-height: 1; cursor: pointer; transition: color .15s; }
@@ -93,7 +91,4 @@
     .oyiso-agent-settings-heading > button { flex: none; }
     .oyiso-agent-provider-fields { grid-template-columns: 1fr; }
     .oyiso-agent-provider-dialog { max-height: calc(100dvh - 32px); }
-}
-@media (prefers-reduced-motion: reduce) {
-    .oyiso-agent-provider-dialog, .oyiso-agent-provider-dialog::backdrop { transition: none; }
 }

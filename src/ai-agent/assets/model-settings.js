@@ -17,7 +17,6 @@
     let revision = 0;
     const testing = new Set();
     let opener;
-    const closeMotions = new WeakMap();
     let modelMode = '';
     let modelOpener;
     let catalog = [];
@@ -26,7 +25,6 @@
     let manualBaseModels = [];
     let modelRequest = 0;
     let modelController;
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     const make = (tag, text, className = '') => { const element = document.createElement(tag); if (text !== undefined) element.textContent = text; element.className = className; return element; };
     const notify = (text, error = false) => { const notice = $('[data-provider-notice]'); notice.textContent = text; notice.hidden = !text; notice.classList.toggle('is-error', error); };
     function setKeyVisible(visible = false) {
@@ -43,21 +41,10 @@
         return result;
     }
     function showDialog(element) {
-        closeMotions.get(element)?.(); closeMotions.delete(element);
-        element.inert = false; element.classList.remove('is-closing');
-        if (!element.open) element.showModal();
-        void element.offsetHeight;
-        element.classList.add('is-open');
+        window.oyisoModalMotion.show(element);
     }
     function hideDialog(element, afterClose) {
-        element.classList.remove('is-open');
-        const finish = () => { closeMotions.get(element)?.(); closeMotions.delete(element); element.close(); afterClose(); };
-        if (reducedMotion?.matches) { finish(); return; }
-        element.inert = true; element.classList.add('is-closing');
-        const ended = event => { if (event.target === element && event.propertyName === 'transform') finish(); };
-        element.addEventListener('transitionend', ended);
-        const timeout = setTimeout(finish, 250);
-        closeMotions.set(element, () => { clearTimeout(timeout); element.removeEventListener('transitionend', ended); });
+        window.oyisoModalMotion.hide(element, afterClose);
     }
     const modelKey = id => fields.protocol.value === 'gemini' ? id.replace(/^models\//, '') : id;
     const uniqueModels = values => { const seen = new Set(); return values.filter(id => { const key = modelKey(id); if (seen.has(key)) return false; seen.add(key); return true; }); };
@@ -191,7 +178,7 @@
     function open(row, target) {
         if (busy) return;
         abortModelRequest();
-        if (modelDialog.open) { closeMotions.get(modelDialog)?.(); modelDialog.close(); }
+        if (modelDialog.open) modelDialog.close();
         opener = target; editing = row?.id || '';
         fields.preset.value = row?.preset || 'openai';
         const preset = presets[fields.preset.value];
@@ -250,7 +237,7 @@
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     dialog.addEventListener('close', () => {
         if (dialog.open) return;
-        closeMotions.get(dialog)?.(); closeMotions.delete(dialog); abortModelRequest();
+        abortModelRequest();
         dialog.inert = false; dialog.classList.remove('is-open', 'is-closing'); fields.key.value = ''; setKeyVisible();
     });
     fields.preset.addEventListener('change', () => {
@@ -278,7 +265,7 @@
     modelDialog.addEventListener('cancel', event => { event.preventDefault(); closeModelDialog(); });
     modelDialog.addEventListener('close', () => {
         if (modelDialog.open) return;
-        closeMotions.get(modelDialog)?.(); closeMotions.delete(modelDialog); abortModelRequest();
+        abortModelRequest();
         modelDialog.inert = false; modelDialog.classList.remove('is-open', 'is-closing'); modelMode = ''; $('[data-model-manual]').value = '';
     });
     modelDialog.addEventListener('keydown', event => {

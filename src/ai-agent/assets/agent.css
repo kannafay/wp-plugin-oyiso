@@ -229,13 +229,6 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-history-selection input { margin: 0; }
 [data-agent-history-manage][aria-pressed="true"] { background: #f0f0f1; color: var(--oyiso-color-primary, #bf5316); }
 #oyiso-agent-history [data-agent-history-select-column] { width: 28px; min-width: 28px; padding-right: 0; }
-.oyiso-agent-confirm { width: min(400px, calc(100vw - 32px)); padding: 24px; border: 1px solid #dcdcde; border-radius: 8px; background: #fff; color: #1d2327; box-sizing: border-box; box-shadow: 0 12px 40px #0003; }
-.oyiso-agent-confirm::backdrop { background: #0006; }
-.oyiso-agent-confirm h3 { margin: 0 0 12px; font-size: 16px; }
-.oyiso-agent-confirm p { margin: 0 0 12px; font-size: 13px; line-height: 1.7; }
-.oyiso-agent-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-.oyiso-agent-confirm [data-agent-delete-confirm] { border-color: #b32d2e; background: #b32d2e; color: #fff; }
-.oyiso-agent-confirm-error { color: #b32d2e; }
 .oyiso-agent-attachments { display: flex; flex-wrap: wrap; gap: 6px; max-height: 104px; margin-bottom: 8px; overflow-y: auto; }
 .oyiso-agent-attachment { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 4px 6px; border: 1px solid #dcdcde; border-radius: 4px; background: #f6f7f7; font-size: 12px; }
 .oyiso-agent-attachment img { width: 32px; height: 32px; border-radius: 2px; object-fit: cover; }

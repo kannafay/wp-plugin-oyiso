@@ -1,0 +1,24 @@
+.oyiso-modal-motion { opacity: 0; transition: opacity .15s ease-out; }
+.oyiso-modal-motion.is-open { opacity: 1; }
+.oyiso-modal-native, .oyiso-modal-surface { transform: scale(.9); transition: opacity .15s ease-out, transform .2s cubic-bezier(.4, 0, .2, 1); }
+.oyiso-modal-native.is-open, .oyiso-modal-motion.is-open > .oyiso-modal-surface { transform: scale(1); }
+.oyiso-modal-native::backdrop { opacity: 0; transition: opacity .15s ease-out; }
+.oyiso-modal-native.is-open::backdrop { opacity: 1; }
+.oyiso-confirm-dialog { position: fixed; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 0; border-radius: 8px; background: #fff; color: #1e1e1e; box-sizing: border-box; overflow: hidden; box-shadow: 0 4px 20px #00000026, 0 1px 3px #00000014; }
+.oyiso-confirm-dialog[open] { display: flex; flex-direction: column; }
+.oyiso-confirm-dialog [hidden] { display: none !important; }
+.oyiso-confirm-dialog::backdrop { background: rgba(0, 0, 0, .5); }
+.oyiso-confirm-dialog__heading { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px 16px; }
+.oyiso-confirm-dialog__heading h2 { margin: 0; color: #1e1e1e; font-size: 16px; font-weight: 600; line-height: 1.3; }
+.oyiso-confirm-dialog__close { padding: 0 4px; border: 0; background: none; color: #757575; font-size: 24px; line-height: 1; cursor: pointer; }
+.oyiso-confirm-dialog__close:hover:not(:disabled) { color: #1e1e1e; }
+.oyiso-confirm-dialog__close:disabled { opacity: .4; cursor: default; }
+.oyiso-confirm-dialog__close:focus-visible { outline: 2px solid var(--oyiso-color-primary, #bf5316); outline-offset: 2px; }
+.oyiso-confirm-dialog__body { min-height: 0; padding: 0 24px 20px; overflow-y: auto; }
+.oyiso-confirm-dialog__body p { margin: 0; font-size: 13px; line-height: 1.7; }
+.oyiso-confirm-dialog__body .oyiso-confirm-dialog__error { margin-top: 12px; color: #b32d2e; }
+.oyiso-confirm-dialog__footer { display: flex; flex: none; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 24px; border-top: 1px solid #e5e5e5; background: #fff; }
+.oyiso-confirm-dialog .oyiso-confirm-dialog__footer .button { min-height: 40px; margin: 0; padding: 0 16px; font-size: 13px; line-height: 38px; }
+@media (prefers-reduced-motion: reduce) {
+    .oyiso-modal-motion, .oyiso-modal-native, .oyiso-modal-surface, .oyiso-modal-native::backdrop { transition: none; }
+}

@@ -8,15 +8,15 @@ final class Oyiso_Agent_File_Manager
 {
     public static function previewAssets(): void
     {
-        wp_enqueue_style('oyiso-agent-file-preview', plugins_url('assets/file-preview.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/file-preview.css'));
-        wp_enqueue_script('oyiso-agent-file-preview', plugins_url('assets/file-preview.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/file-preview.js'), true);
+        wp_enqueue_style('oyiso-agent-file-preview', plugins_url('assets/file-preview.css', __FILE__), ['oyiso-modals'], (string) filemtime(__DIR__ . '/assets/file-preview.css'));
+        wp_enqueue_script('oyiso-agent-file-preview', plugins_url('assets/file-preview.js', __FILE__), ['oyiso-modal-motion'], (string) filemtime(__DIR__ . '/assets/file-preview.js'), true);
     }
 
     public static function assets(string $hook): void
     {
         if ($hook !== 'plugins_page_oyiso' || !current_user_can('manage_options') || is_network_admin() || is_user_admin()) return;
         self::previewAssets();
-        wp_enqueue_style('oyiso-agent-files', plugins_url('assets/files.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/files.css'));
+        wp_enqueue_style('oyiso-agent-files', plugins_url('assets/files.css', __FILE__), ['oyiso-modals'], (string) filemtime(__DIR__ . '/assets/files.css'));
         wp_enqueue_script('oyiso-agent-files', plugins_url('assets/files.js', __FILE__), ['jquery', 'oyiso-agent-file-preview'], (string) filemtime(__DIR__ . '/assets/files.js'), true);
         wp_localize_script('oyiso-agent-files', 'oyisoAgentFiles', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest')]);
     }
@@ -67,10 +67,10 @@ final class Oyiso_Agent_File_Manager
             <p data-files-notice role="status" aria-live="polite"></p><p data-files-migration hidden><span></span> <button type="button" class="button button-small" data-files-migrate>迁移旧附件</button></p>
             <div class="oyiso-agent-files-table"><table class="widefat striped"><thead><tr><td class="check-column"><input type="checkbox" data-files-all aria-label="选择本页全部文件"></td><th>文件名</th><th>类型</th><th>大小</th><th>所属对话</th><th>上传时间</th><th>操作</th></tr></thead><tbody data-files-body><tr><td colspan="7">正在加载文件…</td></tr></tbody></table></div>
             <div class="oyiso-agent-files-footer"><p class="description" data-files-directory></p><div><button type="button" class="button" data-files-prev>上一页</button><span data-files-page>1 / 1</span><button type="button" class="button" data-files-next>下一页</button></div></div>
-            <dialog class="oyiso-agent-files-confirm" aria-labelledby="oyiso-agent-files-confirm-title" aria-describedby="oyiso-agent-files-confirm-description">
-                <div class="oyiso-agent-files-confirm-heading"><h2 id="oyiso-agent-files-confirm-title">删除附件</h2><button type="button" class="oyiso-agent-files-confirm-close" data-files-delete-close aria-label="关闭">×</button></div>
-                <div class="oyiso-agent-files-confirm-body"><p id="oyiso-agent-files-confirm-description" data-files-delete-description></p><p data-files-delete-error role="alert" hidden></p></div>
-                <div class="oyiso-agent-files-confirm-footer"><button type="button" class="button" data-files-delete-cancel>取消</button><button type="button" class="button button-primary" data-files-delete-confirm>删除</button></div>
+            <dialog class="oyiso-agent-files-confirm oyiso-confirm-dialog" aria-labelledby="oyiso-agent-files-confirm-title" aria-describedby="oyiso-agent-files-confirm-description">
+                <div class="oyiso-confirm-dialog__heading"><h2 id="oyiso-agent-files-confirm-title">删除附件</h2><button type="button" class="oyiso-confirm-dialog__close" data-files-delete-close aria-label="关闭">×</button></div>
+                <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-files-confirm-description" data-files-delete-description></p><p class="oyiso-confirm-dialog__error" data-files-delete-error role="alert" hidden></p></div>
+                <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-files-delete-cancel>取消</button><button type="button" class="button button-primary" data-files-delete-confirm>删除</button></div>
             </dialog>
         </div>
         <?php

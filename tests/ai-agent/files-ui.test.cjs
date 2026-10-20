@@ -7,6 +7,7 @@ const { JSDOM } = require('jsdom');
 const repo = path.resolve(__dirname, '../..');
 const source = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/files.js'), 'utf8');
 const previewSource = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/file-preview.js'), 'utf8');
+const modalSource = fs.readFileSync(path.join(repo, 'src/admin/assets/modal-motion.js'), 'utf8');
 const phpPath = path.join(repo, 'src/ai-agent/file-manager.php').replaceAll('\\', '/');
 const markup = execFileSync('php', ['-r', `define('ABSPATH', '/');function current_user_can($cap){return true;}require '${phpPath}';Oyiso_Agent_File_Manager::render();`], { encoding: 'utf8' });
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve)); };
@@ -16,6 +17,7 @@ const page = (items = [file(1), file(2, 'source.pdf')], extra = {}) => ({ items,
 function fixture(t, route = () => page()) {
     const dom = new JSDOM(`<form id="csf-form">${markup}</form>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only' });
     const { window } = dom;
+    window.matchMedia = () => ({ matches: true });
     window.oyisoAgentFiles = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce' };
     const calls = [], errors = [], objects = [], revoked = [], observers = [];
     window.IntersectionObserver = class {
@@ -32,7 +34,7 @@ function fixture(t, route = () => page()) {
     window.fetch = async (url, options) => { calls.push({ route: url.replace(window.oyisoAgentFiles.url, ''), options }); const result = await route(calls.at(-1).route, options); return { ok: result.ok !== false, status: result.status || 200, json: async () => result.body || result }; };
     window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
     window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
-    window.eval(previewSource); window.eval(source);
+    window.eval(modalSource); window.eval(previewSource); window.eval(source);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
     return { window, calls, objects, revoked, showThumbnails: () => observers.forEach(observer => observer.callback([...observer.targets].map(target => ({ target, isIntersecting: true })))), $: selector => window.document.querySelector(selector) };
 }
@@ -126,6 +128,22 @@ test('video preview provides native controls and stops playback when deleted or 
     f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-files-deleted', { detail: [6] }));
     assert.equal(f.$('.oyiso-agent-file-preview').open, false); assert.equal(player.dataset.paused, 'true'); assert.equal(player.dataset.released, 'true');
     assert.equal(player.getAttribute('src'), null); assert.equal(f.revoked.length, 1);
+});
+
+test('preview retains its image during exit and reopening cancels stale resource cleanup', async t => {
+    const photo = { ...file(5, 'photo.webp'), mime: 'image/webp' };
+    const f = fixture(t, route => route === 'files/5' ? { name: photo.name, mime: photo.mime, data: btoa('private image') } : page([photo]));
+    f.window.matchMedia = () => ({ matches: false });
+    await settle(); const trigger = f.$('[aria-label^="在线预览："]'); trigger.click(); await settle();
+    const dialog = f.$('.oyiso-agent-file-preview'); f.$('[aria-label="关闭预览"]').click();
+    assert.equal(dialog.open, true); assert.ok(dialog.querySelector('img')); assert.equal(f.revoked.length, 0);
+    trigger.click(); await settle();
+    assert.equal(dialog.open, true); assert.equal(dialog.inert, false); assert.equal(dialog.querySelector('img').src, 'blob:https://vape.local/preview-2');
+    assert.deepEqual(f.revoked, ['blob:https://vape.local/preview-1']);
+    f.$('[aria-label="关闭预览"]').click();
+    const event = new f.window.Event('transitionend'); Object.defineProperty(event, 'propertyName', { value: 'transform' }); dialog.dispatchEvent(event);
+    assert.equal(dialog.open, false); assert.equal(dialog.querySelector('img'), null);
+    assert.deepEqual(f.revoked, ['blob:https://vape.local/preview-1', 'blob:https://vape.local/preview-2']); assert.equal(f.window.document.activeElement, trigger);
 });
 
 test('preview rejects active file content and offers retry after access or network failure', async t => {

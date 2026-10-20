@@ -95,23 +95,24 @@
             pending = [...ids]; returnFocus = trigger;
             find(dialog, '[data-agent-delete-description]').textContent = `确定删除${ids.length === 1 ? '这条' : `所选 ${ids.length} 条`}对话及其附件？附件删除后无法恢复，正在执行的任务也会停止。`;
             find(dialog, '[data-agent-delete-error]').hidden = true;
-            if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open', '');
+            window.oyisoModalMotion.show(dialog);
             find(dialog, '[data-agent-delete-cancel]').focus();
         }
         function closeDialog() {
-            if (busy) return;
-            if (dialog.close) dialog.close(); else dialog.removeAttribute('open');
-            pending = []; if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+            if (busy || !dialog.open || dialog.classList.contains('is-closing')) return;
+            pending = []; const trigger = returnFocus;
+            window.oyisoModalMotion.hide(dialog, () => { if (trigger?.isConnected) trigger.focus({ preventScroll: true }); });
         }
         find(dialog, '[data-agent-delete-cancel]').addEventListener('click', closeDialog);
+        find(dialog, '[data-agent-delete-close]').addEventListener('click', closeDialog);
         dialog.addEventListener('cancel', event => { event.preventDefault(); closeDialog(); });
         dialog.addEventListener('keydown', event => { if (event.key === 'Escape' || event.key === 'Tab') event.stopPropagation(); });
         dialog.addEventListener('click', event => { if (event.target === dialog) closeDialog(); });
         find(dialog, '[data-agent-delete-confirm]').addEventListener('click', async () => {
             if (busy || !pending.length || !canDelete()) return;
             busy = true; deleting(true);
-            const submit = find(dialog, '[data-agent-delete-confirm]'); const cancel = find(dialog, '[data-agent-delete-cancel]');
-            submit.disabled = cancel.disabled = true;
+            const submit = find(dialog, '[data-agent-delete-confirm]'); const cancel = find(dialog, '[data-agent-delete-cancel]'); const dismiss = find(dialog, '[data-agent-delete-close]');
+            submit.disabled = cancel.disabled = dismiss.disabled = true;
             try {
                 const result = await api('runs', { method: 'DELETE', body: JSON.stringify({ ids: pending }) });
                 result.deleted.forEach(id => deletedIds.add(id));
@@ -121,7 +122,7 @@
                 }
                 removed(result.deleted); busy = false; closeDialog(); reload(true);
             } catch (error) { const note = find(dialog, '[data-agent-delete-error]'); note.textContent = error.message; note.hidden = false; }
-            finally { busy = false; submit.disabled = cancel.disabled = false; deleting(false); lists.forEach(syncSelection); }
+            finally { busy = false; submit.disabled = cancel.disabled = dismiss.disabled = false; deleting(false); lists.forEach(syncSelection); }
         });
         for (const list of lists) {
             for (const event of ['change', 'keypress']) list.root.addEventListener(event, event => event.stopPropagation());
