@@ -111,8 +111,9 @@ final class Oyiso_Agent_Attachments
         update_post_meta($id, '_oyiso_agent_file_path', $relative);
         update_post_meta($id, '_oyiso_agent_file_sha256', $checksum);
         update_post_meta($id, '_oyiso_agent_file_size', $upload['size']);
+        update_post_meta($id, '_oyiso_agent_file_storage', Oyiso_Agent_Private_Files::VERSION);
         $storedSize = get_post_meta($id, '_oyiso_agent_file_size', true);
-        if (get_post_meta($id, '_oyiso_agent_file_path', true) !== $relative || get_post_meta($id, '_oyiso_agent_file_sha256', true) !== $checksum || !is_numeric($storedSize) || (int) $storedSize !== $upload['size']) {
+        if (get_post_meta($id, '_oyiso_agent_file_path', true) !== $relative || get_post_meta($id, '_oyiso_agent_file_sha256', true) !== $checksum || get_post_meta($id, '_oyiso_agent_file_storage', true) !== Oyiso_Agent_Private_Files::VERSION || !is_numeric($storedSize) || (int) $storedSize !== $upload['size']) {
             Oyiso_Agent_Private_Files::remove($relative);
             delete_post_meta($id, '_oyiso_agent_file_path'); delete_post_meta($id, '_oyiso_agent_file_sha256');
             return new WP_Error('agent_file_metadata', '无法保存附件信息，原数据已保留。', ['status' => 500]);
@@ -127,13 +128,12 @@ final class Oyiso_Agent_Attachments
         try {
             $post = get_post($id);
             if (!$post instanceof WP_Post || $post->post_type !== self::TYPE) return new WP_Error('agent_file_missing', '附件不存在。', ['status' => 404]);
-            if ($post->post_content === '') return true;
             $relative = get_post_meta($id, '_oyiso_agent_file_path', true);
             $checksum = get_post_meta($id, '_oyiso_agent_file_sha256', true);
             if (is_string($relative) && $relative !== '' && is_string($checksum)) {
-                $verified = Oyiso_Agent_Private_Files::read($relative, $checksum);
+                $verified = Oyiso_Agent_Private_Files::relocate($relative, $checksum);
                 if (is_wp_error($verified)) return $verified;
-            } else {
+            } elseif ($post->post_content !== '') {
                 $content = base64_decode($post->post_content, true);
                 if ($content === false) return new WP_Error('agent_file_legacy', '旧附件内容无效，已保留原数据。', ['status' => 500]);
                 $upload = self::inspect($post->post_title, $content);
@@ -142,11 +142,18 @@ final class Oyiso_Agent_Attachments
                 if (is_wp_error($stored)) return $stored;
                 $updated = wp_update_post(['ID' => $id, 'post_title' => $upload['name'], 'post_mime_type' => $upload['mime']], true);
                 if (is_wp_error($updated)) return $updated;
+                $relative = get_post_meta($id, '_oyiso_agent_file_path', true);
+            } else return new WP_Error('agent_file_missing', '附件文件不存在。', ['status' => 404]);
+            if ($post->post_content !== '') {
+                $result = wp_update_post(['ID' => $id, 'post_content' => ''], true);
+                if (is_wp_error($result)) return $result;
             }
-            $result = wp_update_post(['ID' => $id, 'post_content' => ''], true);
-            if (is_wp_error($result)) return $result;
             $cleared = get_post($id);
-            return $cleared instanceof WP_Post && $cleared->post_content === '' ? true : new WP_Error('agent_file_migration_update', '旧附件内容尚未清理，已保留原数据供重试。', ['status' => 500]);
+            if (!$cleared instanceof WP_Post || $cleared->post_content !== '' || !is_string($relative)) return new WP_Error('agent_file_migration_update', '旧附件内容尚未清理，已保留原数据供重试。', ['status' => 500]);
+            $removed = Oyiso_Agent_Private_Files::removeLegacy($relative);
+            if (is_wp_error($removed)) return $removed;
+            update_post_meta($id, '_oyiso_agent_file_storage', Oyiso_Agent_Private_Files::VERSION);
+            return get_post_meta($id, '_oyiso_agent_file_storage', true) === Oyiso_Agent_Private_Files::VERSION ? true : new WP_Error('agent_file_migration_update', '附件迁移信息未保存，请重试。', ['status' => 500]);
         } finally { Oyiso_Agent_Store::unlock('file_' . $id); }
     }
 
@@ -167,9 +174,9 @@ final class Oyiso_Agent_Attachments
         $post = get_post($id);
         if (!current_user_can('manage_options') || !$post instanceof WP_Post || $post->post_type !== self::TYPE || $post->post_status !== 'private' || (int) $post->post_author !== get_current_user_id() || !Oyiso_Agent_Store::owned($post->post_parent)) return new WP_Error('agent_file_missing', '附件不存在或没有访问权限。', ['status' => 404]);
         if (get_post_meta($id, '_oyiso_agent_file_deleted', true)) return new WP_Error('agent_file_deleted', '附件已删除。', ['status' => 410]);
-        if ($post->post_content !== '') {
+        if ($post->post_content !== '' || get_post_meta($id, '_oyiso_agent_file_storage', true) !== Oyiso_Agent_Private_Files::VERSION) {
             $migrated = self::migrate($id);
-            if (is_wp_error($migrated)) return ['name' => $post->post_title, 'mime' => $post->post_mime_type, 'data' => $post->post_content];
+            if (is_wp_error($migrated) && $post->post_content !== '') return ['name' => $post->post_title, 'mime' => $post->post_mime_type, 'data' => $post->post_content];
             $post = get_post($id);
             if (!$post instanceof WP_Post) return new WP_Error('agent_file_missing', '附件不存在。', ['status' => 404]);
         }

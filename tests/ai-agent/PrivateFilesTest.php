@@ -11,6 +11,9 @@ final class PrivateFilesTest extends TestCase
     private string $directory;
     private string $initialDirectory;
     private Closure $filter;
+    private Closure $legacyFilter;
+    private string $legacyDirectory;
+    private array $extraDirectories = [];
     private array $runs = [];
     private array $users = [];
     private array $original = [];
@@ -20,6 +23,9 @@ final class PrivateFilesTest extends TestCase
         $this->directory = $this->initialDirectory = wp_normalize_path(sys_get_temp_dir()) . '/oyiso-private-test-' . wp_generate_uuid4();
         $this->filter = fn(): string => $this->directory;
         add_filter('oyiso_agent_private_directory', $this->filter);
+        $this->legacyDirectory = $this->initialDirectory . '-legacy';
+        $this->legacyFilter = fn(): string => $this->legacyDirectory;
+        add_filter('oyiso_agent_legacy_private_directory', $this->legacyFilter);
         wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
         foreach (['oyiso', 'oyiso_agent_connections'] as $key) $this->original[$key] = get_option($key, null);
         update_option('oyiso', ['agent_enabled' => true], false);
@@ -33,9 +39,11 @@ final class PrivateFilesTest extends TestCase
         foreach ($this->users as $id) wp_delete_user($id);
         foreach ($this->original as $key => $value) { if ($value === null) delete_option($key); else update_option($key, $value, false); }
         remove_filter('oyiso_agent_private_directory', $this->filter);
-        if (is_dir($this->initialDirectory)) {
-            foreach (glob($this->initialDirectory . '/*') ?: [] as $file) if (is_file($file) && dirname(wp_normalize_path($file)) === $this->initialDirectory) unlink($file);
-            rmdir($this->initialDirectory);
+        remove_filter('oyiso_agent_legacy_private_directory', $this->legacyFilter);
+        foreach ([$this->initialDirectory, $this->legacyDirectory, ...$this->extraDirectories] as $directory) {
+            if (!is_dir($directory)) continue;
+            foreach (new DirectoryIterator($directory) as $file) if (!$file->isDot() && ($file->isFile() || $file->isLink())) unlink($file->getPathname());
+            rmdir($directory);
         }
     }
 
@@ -63,7 +71,7 @@ final class PrivateFilesTest extends TestCase
         return rest_do_request($request);
     }
 
-    public function testFilesUseAnExternalPrivateDirectoryAndMetadataOnlyRecords(): void
+    public function testFilesAreEncryptedAndDatabaseContainsOnlyMetadata(): void
     {
         $run = $this->createRun();
         $files = Oyiso_Agent_Attachments::save($run['id'], [$this->upload('reference.php', '<?php echo "fixture";')]);
@@ -73,11 +81,94 @@ final class PrivateFilesTest extends TestCase
         self::assertMatchesRegularExpression('/^[a-f0-9-]{36}\.bin$/', $relative);
         $path = Oyiso_Agent_Private_Files::path($relative);
         self::assertFileExists($path); self::assertStringNotContainsString(wp_normalize_path(ABSPATH), $path);
-        self::assertSame('<?php echo "fixture";', file_get_contents($path));
+        self::assertStringStartsWith("OYISO-ENC-1\n", file_get_contents($path));
+        self::assertStringNotContainsString('<?php echo "fixture";', file_get_contents($path));
+        self::assertSame(Oyiso_Agent_Private_Files::VERSION, get_post_meta($id, '_oyiso_agent_file_storage', true));
         self::assertSame(base64_encode('<?php echo "fixture";'), Oyiso_Agent_Attachments::read($id)['data']);
         foreach (['../wp-config.php', ABSPATH . 'wp-config.php', 'php://filter/resource=wp-config.php', 'wrong.bin'] as $bad) self::assertInstanceOf(WP_Error::class, Oyiso_Agent_Private_Files::path($bad));
         file_put_contents($path, 'tampered');
         self::assertSame('agent_file_checksum', Oyiso_Agent_Attachments::read($id)->get_error_code());
+    }
+
+    public function testDefaultDirectoryIsPortableAndSitePrivateDirectoriesHaveProtectionFiles(): void
+    {
+        remove_filter('oyiso_agent_private_directory', $this->filter);
+        try {
+            self::assertSame(wp_normalize_path(WP_CONTENT_DIR) . '/oyiso-private/agent-files/site-' . get_current_blog_id(), Oyiso_Agent_Private_Files::directory());
+        } finally { add_filter('oyiso_agent_private_directory', $this->filter); }
+        $this->directory = wp_normalize_path(WP_CONTENT_DIR) . '/oyiso-private/agent-test-' . wp_generate_uuid4();
+        $this->extraDirectories[] = $this->directory;
+        self::assertSame($this->directory, Oyiso_Agent_Private_Files::directory());
+        self::assertStringContainsString('http_response_code(403)', file_get_contents($this->directory . '/index.php'));
+        self::assertStringContainsString('Require all denied', file_get_contents($this->directory . '/.htaccess'));
+        self::assertStringContainsString('<deny users="*"', file_get_contents($this->directory . '/web.config'));
+        $relative = Oyiso_Agent_Private_Files::write('site-private fixture');
+        self::assertSame('site-private fixture', Oyiso_Agent_Private_Files::read($relative, hash('sha256', 'site-private fixture')));
+        self::assertTrue(Oyiso_Agent_Private_Files::remove($relative));
+        file_put_contents($this->directory . '/.htaccess', 'changed protection');
+        self::assertIsString(Oyiso_Agent_Private_Files::directory());
+        self::assertStringContainsString('Require all denied', file_get_contents($this->directory . '/.htaccess'));
+        $this->directory = $this->initialDirectory;
+    }
+
+    private function externalFile(int $parent, string $content = 'Outside-site reference'): array
+    {
+        $id = $this->legacy($parent, 'external.txt', $content);
+        wp_update_post(['ID' => $id, 'post_content' => '']);
+        $relative = wp_generate_uuid4() . '.bin';
+        wp_mkdir_p($this->legacyDirectory);
+        file_put_contents($this->legacyDirectory . '/' . $relative, $content);
+        update_post_meta($id, '_oyiso_agent_file_path', $relative);
+        update_post_meta($id, '_oyiso_agent_file_sha256', hash('sha256', $content));
+        return [$id, $relative];
+    }
+
+    public function testExternalFilesMigrateWithoutChangingReferencesAndSurviveSiteMoves(): void
+    {
+        $run = $this->createRun(); [$id, $relative] = $this->externalFile($run['id']);
+        self::assertSame('Outside-site reference', Oyiso_Agent_Private_Files::read($relative, hash('sha256', 'Outside-site reference')));
+        self::assertSame(base64_encode('Outside-site reference'), Oyiso_Agent_Attachments::read($id)['data']);
+        self::assertSame($relative, get_post_meta($id, '_oyiso_agent_file_path', true));
+        self::assertSame('', get_post($id)->post_content);
+        self::assertSame(Oyiso_Agent_Private_Files::VERSION, get_post_meta($id, '_oyiso_agent_file_storage', true));
+        self::assertFileDoesNotExist($this->legacyDirectory . '/' . $relative);
+        $source = Oyiso_Agent_Private_Files::path($relative);
+        self::assertStringNotContainsString('Outside-site reference', file_get_contents($source));
+        self::assertTrue(Oyiso_Agent_Attachments::migrate($id));
+        $this->directory = $this->initialDirectory . '-restored'; $this->extraDirectories[] = $this->directory;
+        $destination = Oyiso_Agent_Private_Files::path($relative);
+        self::assertTrue(copy($source, $destination));
+        self::assertSame(base64_encode('Outside-site reference'), Oyiso_Agent_Attachments::read($id)['data']);
+        self::assertTrue(Oyiso_Agent_Private_Files::remove($relative));
+        $this->directory = $this->initialDirectory;
+    }
+
+    public function testFailedRelocationPreservesSourceAndCanBeRetried(): void
+    {
+        $run = $this->createRun(); [$id, $relative] = $this->externalFile($run['id']);
+        $source = $this->legacyDirectory . '/' . $relative;
+        file_put_contents($source, 'damaged');
+        self::assertSame('agent_file_checksum', Oyiso_Agent_Attachments::migrate($id)->get_error_code());
+        self::assertFileExists($source);
+        self::assertSame('', get_post_meta($id, '_oyiso_agent_file_storage', true));
+        file_put_contents($source, 'Outside-site reference');
+        $this->directory = ABSPATH . 'wp-content/private-files';
+        self::assertInstanceOf(WP_Error::class, Oyiso_Agent_Attachments::migrate($id));
+        self::assertFileExists($source);
+        $this->directory = $this->initialDirectory;
+        $destination = Oyiso_Agent_Private_Files::path($relative);
+        file_put_contents($destination, 'partial destination');
+        self::assertTrue(Oyiso_Agent_Attachments::migrate($id));
+        self::assertFileDoesNotExist($source);
+        self::assertSame(base64_encode('Outside-site reference'), Oyiso_Agent_Attachments::read($id)['data']);
+    }
+
+    public function testDeletionCleansExternalFilesBeforeTheirMigration(): void
+    {
+        $run = $this->createRun(); [$id, $relative] = $this->externalFile($run['id']);
+        self::assertSame([$id], Oyiso_Agent_Attachments::remove([$id]));
+        self::assertFileDoesNotExist($this->legacyDirectory . '/' . $relative);
+        self::assertSame(410, $this->request('GET', 'files/' . $id)->get_status());
     }
 
     public function testPublicUnwritableAndMalformedDirectoriesCannotBeUsed(): void
@@ -168,7 +259,8 @@ final class PrivateFilesTest extends TestCase
     public function testBatchMigrationKeepsFailuresAndCleansAttachmentsOfAlreadyDeletedRuns(): void
     {
         $run = $this->createRun(); $first = $this->legacy($run['id']); $second = $this->legacy($run['id']);
-        $ids = [$first, $second];
+        [$external, $relative] = $this->externalFile($run['id']);
+        $ids = [$first, $second, $external];
         $restrict = static function (string $sql) use (&$ids): string {
             return str_contains($sql, 'ORDER BY p.ID ASC LIMIT 10') ? str_replace('WHERE p.post_type', 'WHERE p.ID IN (' . implode(',', $ids) . ') AND p.post_type', $sql) : $sql;
         };
@@ -181,8 +273,10 @@ final class PrivateFilesTest extends TestCase
             self::assertNotSame('', get_post($first)->post_content);
             $this->directory = $this->initialDirectory;
             foreach ($ids as $id) delete_post_meta($id, '_oyiso_agent_file_migration_error');
-            self::assertSame(2, Oyiso_Agent_File_Migration::batch()['migrated']);
+            self::assertSame(3, Oyiso_Agent_File_Migration::batch()['migrated']);
             self::assertSame('', get_post($first)->post_content); self::assertSame('', get_post($second)->post_content);
+            self::assertSame(Oyiso_Agent_Private_Files::VERSION, get_post_meta($external, '_oyiso_agent_file_storage', true));
+            self::assertFileDoesNotExist($this->legacyDirectory . '/' . $relative);
             $deleted = $this->createRun(); $third = $this->legacy($deleted['id']); $ids = [$third];
             wp_update_post(['ID' => $deleted['id'], 'post_status' => 'trash']);
             self::assertSame(1, Oyiso_Agent_File_Migration::batch()['migrated']);

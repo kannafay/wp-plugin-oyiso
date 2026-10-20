@@ -71,7 +71,7 @@ final class Oyiso_Private_Files {
     }
 
     private static function hasEncryptedFiles(): bool {
-        foreach (['backups', 'order-email-html'] as $group) {
+        foreach (['backups', 'order-email-html', 'agent-files'] as $group) {
             $directory = trailingslashit(WP_CONTENT_DIR) . 'oyiso-private/' . $group . '/site-' . get_current_blog_id();
             if (!is_dir($directory)) {
                 continue;

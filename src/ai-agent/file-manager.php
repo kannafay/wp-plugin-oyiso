@@ -44,7 +44,7 @@ final class Oyiso_Agent_File_Manager
         $items = [];
         foreach ($rows as $row) {
             $file = Oyiso_Agent_Attachments::metadata((int) $row['ID']);
-            if ($file !== null) $items[] = $file + ['run_id' => (int) $row['post_parent'], 'run_title' => $row['run_title'], 'created' => $row['post_date'], 'legacy' => (bool) $row['legacy']];
+            if ($file !== null) $items[] = $file + ['run_id' => (int) $row['post_parent'], 'run_title' => $row['run_title'], 'created' => $row['post_date'], 'legacy' => (bool) $row['legacy'] || get_post_meta((int) $row['ID'], '_oyiso_agent_file_storage', true) !== Oyiso_Agent_Private_Files::VERSION];
         }
         $directory = Oyiso_Agent_Private_Files::directory();
         return ['items' => $items, 'pages' => (int) ceil($total / 20), 'total' => $total, 'bytes' => $bytes, 'migration' => Oyiso_Agent_File_Migration::status(), 'directory' => is_wp_error($directory) ? '' : $directory, 'error' => is_wp_error($directory) ? $directory->get_error_message() : ''];
