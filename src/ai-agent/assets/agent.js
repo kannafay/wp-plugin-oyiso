@@ -477,6 +477,7 @@
         const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
         if (signature !== version) {
             version = signature;
+            composer?.syncFiles(next.conversation.flatMap(entry => entry.attachments || []));
             messages.replaceChildren();
             const legacyModels = [...new Set(next.events.filter(event => event.label === '模型已响应' && event.detail).map(event => event.detail))];
             for (const entry of next.conversation) {

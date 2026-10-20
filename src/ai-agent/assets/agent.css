@@ -232,11 +232,18 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-attachments { display: flex; flex-wrap: wrap; gap: 6px; max-height: 104px; margin-bottom: 8px; overflow-y: auto; }
 .oyiso-agent-attachment { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 4px 6px; border: 1px solid #dcdcde; border-radius: 4px; background: #f6f7f7; font-size: 12px; }
 .oyiso-agent-attachment img { width: 32px; height: 32px; border-radius: 2px; object-fit: cover; }
-.oyiso-agent-attachment > span { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oyiso-agent-attachment-preview { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.oyiso-agent-attachment button.oyiso-agent-attachment-preview { padding: 0; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.oyiso-agent-attachment-preview > span { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oyiso-agent-attachment button.oyiso-agent-attachment-preview:focus-visible { outline: 2px solid var(--oyiso-color-primary, #bf5316); outline-offset: 2px; }
 .oyiso-agent-attachment small { flex: none; color: #646970; font-size: 10px; }
 .oyiso-agent-attachment .oyiso-agent-icon-button { width: 20px; height: 24px; }
 .oyiso-agent-message-attachments { display: flex; flex-wrap: wrap; justify-content: inherit; gap: 6px; max-width: 85%; }
-.oyiso-agent-message-attachments button { min-width: 0; max-width: 100%; padding: 6px 10px; overflow: hidden; border: 1px solid #dcdcde; border-radius: 4px; background: #fff; font: inherit; font-size: 12px; line-height: 1.5; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+.oyiso-agent-message-attachments button { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 6px 10px; overflow: hidden; border: 1px solid #dcdcde; border-radius: 4px; background: #fff; font: inherit; font-size: 12px; line-height: 1.5; cursor: pointer; }
+.oyiso-agent-message-file-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.oyiso-agent-message-thumb { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; overflow: hidden; border-radius: 2px; background: #f5f5f5; color: #787c82; }
+.oyiso-agent-message-thumb img { display: block; width: 40px; height: 40px; object-fit: cover; }
+.oyiso-agent-message-attachments button:focus-visible { outline: 2px solid var(--oyiso-color-primary, #bf5316); outline-offset: 2px; }
 .oyiso-agent-message.is-user .oyiso-agent-message-attachments { justify-content: flex-end; }
 @media (hover: none) { .oyiso-agent-history-item > .oyiso-agent-history-row-actions { position: static; opacity: 1; } }
 @media (min-width: 1280px) {

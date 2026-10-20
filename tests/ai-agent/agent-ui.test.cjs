@@ -588,6 +588,73 @@ test('conversation images open the shared private preview instead of downloading
     f.$('[aria-label="关闭预览"]').click(); assert.equal(f.$('#oyiso-agent-panel').hidden, false);
 });
 
+test('draft images preview locally without uploading and the separate remove button still works', async t => {
+    const objects = [], revoked = [];
+    const f = fixture(t, undefined, {}, window => {
+        window.URL.createObjectURL = blob => { objects.push(blob); return `blob:https://vape.local/draft-${objects.length}`; };
+        window.URL.revokeObjectURL = url => revoked.push(url);
+    });
+    const file = new f.window.File(['local bytes'], 'photo.png', { type: 'image/png' });
+    pasteFiles(f, [file]);
+    const preview = f.$('[aria-label="预览待发送附件：photo.png"]');
+    assert.ok(preview.querySelector('img')); preview.click(); await settle();
+    assert.equal(f.$('.oyiso-agent-file-preview').open, true);
+    assert.equal(f.$('.oyiso-agent-file-preview img').src, 'blob:https://vape.local/draft-2');
+    assert.equal(objects[1].type, 'image/png'); assert.equal(objects[1].size, file.size);
+    assert.equal(f.calls.some(call => call.route.startsWith('files/') || call.options.method === 'POST'), false);
+    f.$('[aria-label="关闭预览"]').click();
+    assert.equal(f.window.document.activeElement, preview); assert.deepEqual(revoked, ['blob:https://vape.local/draft-2']);
+    f.$('[aria-label="移除附件：photo.png"]').click();
+    assert.equal(f.$('[data-agent-attachments]').hidden, true); assert.ok(revoked.includes('blob:https://vape.local/draft-1'));
+});
+
+test('conversation thumbnails use authenticated bytes once, survive redraws and are cleared when deleted', async t => {
+    let reads = 0; const revoked = [], blobs = [];
+    const photo = { id: 41, name: '<img src=x>.webp', mime: 'image/webp', size: 13 };
+    const f = fixture(t, route => route === 'runs/12' ? task({ events: [{ type: 'info', label: `读取 ${++reads}` }], conversation: [{ role: 'user', text: '查看图片', attachments: [photo] }] }) : route === 'files/41' ? { name: photo.name, mime: photo.mime, data: btoa('private image') } : undefined, {}, window => {
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+        window.URL.createObjectURL = blob => { blobs.push(blob); return `blob:https://vape.local/image-${blobs.length}`; };
+        window.URL.revokeObjectURL = url => revoked.push(url);
+    });
+    await settle(); const image = f.$('.oyiso-agent-message-thumb img');
+    assert.equal(image.src, 'blob:https://vape.local/image-1'); image.dispatchEvent(new f.window.Event('load'));
+    assert.equal(image.hidden, false); assert.match(f.$('.oyiso-agent-message-file-label').textContent, /<img src=x>/);
+    const request = f.calls.find(call => call.route === 'files/41');
+    assert.equal(request.options.credentials, 'same-origin'); assert.equal(request.options.headers['X-WP-Nonce'], 'fixture-nonce');
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.calls.filter(call => call.route === 'files/41').length, 1);
+    assert.equal(f.$('.oyiso-agent-message-thumb img').src, 'blob:https://vape.local/image-1');
+    f.$('.oyiso-agent-message-attachments button').click(); await settle();
+    assert.equal(f.$('.oyiso-agent-file-preview img').src, 'blob:https://vape.local/image-2');
+    assert.equal(f.calls.filter(call => call.route === 'files/41').length, 1, 'the preview reuses the authenticated image blob');
+    f.$('[aria-label="关闭预览"]').click();
+    f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-files-deleted', { detail: [41] }));
+    assert.equal(f.$('.oyiso-agent-message-thumb'), null); assert.equal(f.$('.oyiso-agent-message-attachments button').disabled, true);
+    assert.ok(revoked.includes('blob:https://vape.local/image-1'));
+});
+
+test('switching conversations aborts pending thumbnails and rejects late bytes', async t => {
+    let finish; let requestSignal; const blobs = [];
+    const f = fixture(t, (route, options) => route === 'runs/12' ? task({ conversation: [{ role: 'user', text: '旧对话', attachments: [{ id: 41, name: 'old.png', mime: 'image/png', size: 10 }] }] }) : route === 'files/41' ? new Promise(resolve => { finish = resolve; requestSignal = options.signal; }) : undefined, {}, window => {
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+        window.URL.createObjectURL = blob => { blobs.push(blob); return 'blob:https://vape.local/stale'; }; window.URL.revokeObjectURL = () => {};
+    });
+    await settle(); assert.equal(requestSignal.aborted, false);
+    f.$('[data-agent-new]').click(); assert.equal(requestSignal.aborted, true);
+    finish({ name: 'old.png', mime: 'image/png', data: btoa('late image') }); await settle();
+    assert.equal(blobs.length, 0); assert.equal(f.$('.oyiso-agent-message-thumb'), null); assert.ok(f.$('.oyiso-agent-empty'));
+});
+
+test('unavailable thumbnails retain a usable preview button without showing a broken image', async t => {
+    const f = fixture(t, route => route === 'runs/12' ? task({ conversation: [{ role: 'user', text: '图片', attachments: [{ id: 41, name: 'photo.png', mime: 'image/png', size: 10 }] }] }) : route === 'files/41' ? { ok: false, status: 403, body: { message: '无权访问' } } : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(f.$('.oyiso-agent-message-thumb img').hidden, true);
+    assert.equal(f.$('.oyiso-agent-message-thumb img').getAttribute('src'), null);
+    assert.equal(f.$('.oyiso-agent-message-attachments button').disabled, false);
+    f.$('.oyiso-agent-message-attachments button').click(); await settle();
+    assert.match(f.$('.oyiso-agent-file-preview-status').textContent, /无权访问/);
+});
+
 test('video selection supports the server limit and clearly marks preview-only attachments', async t => {
     const f = fixture(t, undefined, { attachmentMaxVideo: 20 * 1048576, attachmentMaxTotal: 32 * 1048576 });
     const video = new f.window.File([new Uint8Array(5 * 1048576)], 'clip.mp4', { type: 'video/mp4' });

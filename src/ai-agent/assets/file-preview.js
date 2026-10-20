@@ -1,6 +1,7 @@
 (() => {
     'use strict';
     const supported = mime => /^(image\/(png|jpeg|webp|gif)|video\/(mp4|webm))$/.test(mime);
+    const localMime = file => supported(file?.type) ? file.type : ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', mp4: 'video/mp4', webm: 'video/webm' }[file?.name?.split('.').pop().toLowerCase()] || '');
     const node = (tag, text) => { const element = document.createElement(tag); if (text !== undefined) element.textContent = text; return element; };
     const size = bytes => bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
     let dialog, title, detail, body, status, save, retry, current, sequence = 0, url = '', controller;
@@ -54,15 +55,21 @@
         release(); controller = new AbortController(); save.disabled = true; retry.hidden = true;
         message('正在加载预览…', true);
         try {
-            const data = await entry.api(`files/${entry.file.id}`, { signal: controller.signal });
+            let blob = entry.blob; let name = entry.file.name; let mime = blob?.type;
+            if (!blob) {
+                const data = await entry.api(`files/${entry.file.id}`, { signal: controller.signal });
+                name = data.name; mime = data.mime;
+                if (!supported(mime)) throw new Error('此文件暂不支持在线预览，请下载后查看。');
+                const bytes = Uint8Array.from(atob(data.data), char => char.charCodeAt(0));
+                blob = new Blob([bytes], { type: mime });
+            }
             if (active !== sequence || !dialog.open) return;
-            if (!supported(data.mime)) throw new Error('此文件暂不支持在线预览，请下载后查看。');
-            const bytes = Uint8Array.from(atob(data.data), char => char.charCodeAt(0));
-            url = URL.createObjectURL(new Blob([bytes], { type: data.mime }));
-            current.file = { ...entry.file, name: data.name };
-            title.textContent = data.name; title.title = data.name; detail.textContent = `${data.mime.startsWith('video/') ? '视频' : '图片'} · ${size(bytes.length)}`;
-            const media = node(data.mime.startsWith('video/') ? 'video' : 'img');
-            if (media.tagName === 'IMG') media.alt = data.name;
+            if (!supported(mime)) throw new Error('此文件暂不支持在线预览，请下载后查看。');
+            url = URL.createObjectURL(blob);
+            current.file = { ...entry.file, name };
+            title.textContent = name; title.title = name; detail.textContent = `${mime.startsWith('video/') ? '视频' : '图片'} · ${size(blob.size)}`;
+            const media = node(mime.startsWith('video/') ? 'video' : 'img');
+            if (media.tagName === 'IMG') media.alt = name;
             else { media.controls = true; media.playsInline = true; media.preload = 'metadata'; }
             media.addEventListener(media.tagName === 'IMG' ? 'load' : 'loadedmetadata', () => { if (active === sequence) message(''); });
             media.addEventListener('error', () => { if (active === sequence) message('浏览器无法显示这个文件，可能是不支持的编码，请下载后查看。'); });
@@ -76,9 +83,15 @@
 
     window.oyisoAgentFilePreview = {
         can: file => !!file && !file.deleted && supported(file.mime),
-        open(file, api, trigger) {
+        canLocal: file => file instanceof Blob && supported(localMime(file)),
+        openLocal(file, trigger) {
+            const mime = localMime(file);
+            if (!(file instanceof Blob) || !supported(mime)) return;
+            this.open({ name: file.name, size: file.size, mime }, null, trigger, new Blob([file], { type: mime }));
+        },
+        open(file, api, trigger, blob) {
             if (!file || file.deleted || !supported(file.mime)) return;
-            create(); current = { file, api, trigger }; title.textContent = file.name; title.title = file.name; detail.textContent = size(file.size);
+            create(); current = { file, api, trigger, blob }; title.textContent = file.name; title.title = file.name; detail.textContent = size(file.size);
             window.oyisoModalMotion.show(dialog);
             load();
         },

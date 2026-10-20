@@ -5,6 +5,11 @@
         const trigger = panel.querySelector('[data-agent-attach]');
         const previews = panel.querySelector('[data-agent-attachments]');
         const drafts = new Map(); let current = 0, urls = [];
+        const thumbnails = new Map();
+        const imageMime = mime => /^image\/(png|jpeg|webp|gif)$/.test(mime);
+        const observer = window.IntersectionObserver ? new IntersectionObserver(entries => {
+            for (const entry of entries) if (entry.isIntersecting) { observer.unobserve(entry.target); entry.target.loadThumbnail(); }
+        }, { root: panel.querySelector('.oyiso-agent-scroll'), rootMargin: '80px' }) : null;
         const textExtensions = ['txt', 'md', 'csv', 'tsv', 'json', 'html', 'htm', 'xml', 'log', 'yaml', 'yml', 'css', 'js', 'ts', 'php', 'sql'];
         const videoExtensions = ['mp4', 'webm'];
         const allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'pdf', ...videoExtensions, ...textExtensions];
@@ -41,11 +46,17 @@
             previews.replaceChildren(); previews.hidden = !files().length;
             files().forEach((file, index) => {
                 const item = node('div'); item.className = 'oyiso-agent-attachment';
-                if (/^image\/(png|jpeg|webp|gif)$/.test(file.type) && URL.createObjectURL) {
-                    const image = node('img'); image.alt = ''; image.src = URL.createObjectURL(file); urls.push(image.src); item.append(image);
+                const preview = window.oyisoAgentFilePreview?.canLocal(file);
+                const content = node(preview ? 'button' : 'span'); content.className = 'oyiso-agent-attachment-preview';
+                if (preview) {
+                    content.type = 'button'; content.disabled = prompt.disabled; content.setAttribute('aria-label', `预览待发送附件：${file.name}`);
+                    content.addEventListener('click', () => window.oyisoAgentFilePreview.openLocal(file, content));
                 }
-                const label = node('span', file.name); label.title = file.name; item.append(label, node('small', size(file.size)));
-                if (videoExtensions.includes(file.name.split('.').pop().toLowerCase())) item.append(node('small', '视频 · 仅预览'));
+                if (/^image\/(png|jpeg|webp|gif)$/.test(file.type) && URL.createObjectURL) {
+                    const image = node('img'); image.alt = ''; image.src = URL.createObjectURL(file); urls.push(image.src); content.append(image);
+                }
+                const label = node('span', file.name); label.title = file.name; content.append(label, node('small', size(file.size))); item.append(content);
+                if (videoExtensions.includes(file.name.split('.').pop().toLowerCase())) content.append(node('small', '视频 · 仅预览'));
                 const remove = node('button', '×'); remove.type = 'button'; remove.className = 'oyiso-agent-icon-button'; remove.setAttribute('aria-label', `移除附件：${file.name}`);
                 remove.disabled = prompt.disabled;
                 remove.addEventListener('click', () => { drafts.set(current, files().filter((_, i) => i !== index)); persist(current); render(); }); item.append(remove); previews.append(item);
@@ -67,6 +78,7 @@
             drafts.set(current, items); persist(current); render(); notice(message || (items.some(file => videoExtensions.includes(file.name.split('.').pop().toLowerCase())) ? '视频支持保存和在线预览，暂不支持模型分析。' : ''), !!message);
         }
         async function switchTo(id) {
+            if (current !== id) syncFiles([]);
             current = id; render();
             if (drafts.has(id)) return;
             const database = await db;
@@ -77,15 +89,50 @@
             } catch { /* Storage is optional. */ }
         }
         function clear(id) { drafts.set(id, []); persist(id); if (id === current) render(); }
+        function syncFiles(attachments) {
+            observer?.disconnect();
+            const keep = new Set(attachments.filter(file => !file.deleted && imageMime(file.mime)).map(file => file.id));
+            for (const [id, entry] of thumbnails) if (!keep.has(id)) {
+                entry.controller.abort(); if (entry.url) URL.revokeObjectURL(entry.url); thumbnails.delete(id);
+            }
+        }
+        function thumbnail(file) {
+            const thumb = node('span'); thumb.className = 'oyiso-agent-message-thumb'; thumb.setAttribute('aria-hidden', 'true');
+            const icon = node('span'); icon.className = 'dashicons dashicons-format-image'; thumb.append(icon);
+            const image = node('img'); image.alt = ''; image.width = image.height = 40; image.hidden = true; image.decoding = 'async'; thumb.append(image);
+            if (!thumbnails.has(file.id)) thumbnails.set(file.id, { controller: new AbortController() });
+            const entry = thumbnails.get(file.id);
+            image.addEventListener('load', () => { image.hidden = false; icon.hidden = true; });
+            image.addEventListener('error', () => { image.hidden = true; icon.hidden = false; });
+            thumb.loadThumbnail = async () => {
+                if (!entry.promise) entry.promise = (async () => {
+                    try {
+                        const data = await api(`files/${file.id}`, { signal: entry.controller.signal });
+                        if (entry.controller.signal.aborted || thumbnails.get(file.id) !== entry || !imageMime(data.mime)) return;
+                        const bytes = Uint8Array.from(atob(data.data), char => char.charCodeAt(0));
+                        entry.blob = new Blob([bytes], { type: data.mime }); entry.url = URL.createObjectURL(entry.blob);
+                    } catch { /* Keep the file label and preview action when the thumbnail cannot load. */ }
+                })();
+                await entry.promise;
+                if (thumb.isConnected && thumbnails.get(file.id) === entry && entry.url) image.src = entry.url;
+            };
+            if (entry.url) image.src = entry.url;
+            else if (observer) observer.observe(thumb);
+            else Promise.resolve().then(() => { if (thumb.isConnected) thumb.loadThumbnail(); });
+            return thumb;
+        }
         function renderFiles(parent, attachments) {
             if (!attachments?.length) return;
             const list = node('div'); list.className = 'oyiso-agent-message-attachments';
             for (const file of attachments) {
                 const preview = window.oyisoAgentFilePreview?.can(file);
                 const label = `${file.name} · ${file.deleted ? '已删除' : size(file.size)}${!file.deleted && file.mime?.startsWith('video/') ? ' · 仅预览' : ''}`;
-                const button = node('button', label); button.type = 'button'; button.title = file.deleted ? '附件已删除' : `${preview ? '预览' : '下载'}附件：${file.name}`; button.disabled = !!file.deleted;
+                const button = node('button'); button.type = 'button'; button.title = file.deleted ? '附件已删除' : `${preview ? '预览' : '下载'}附件：${file.name}`; button.disabled = !!file.deleted;
+                button.setAttribute('aria-label', button.title);
+                if (!file.deleted && imageMime(file.mime)) button.append(thumbnail(file));
+                const text = node('span', label); text.className = 'oyiso-agent-message-file-label'; button.append(text);
                 button.addEventListener('click', async () => {
-                    if (preview) { window.oyisoAgentFilePreview.open(file, api, button); return; }
+                    if (preview) { window.oyisoAgentFilePreview.open(file, api, button, thumbnails.get(file.id)?.blob); return; }
                     button.disabled = true;
                     try {
                         const data = await api(`files/${file.id}`);
@@ -114,6 +161,7 @@
         prompt.addEventListener('input', resize);
         window.addEventListener('resize', resize);
         if (window.ResizeObserver) new ResizeObserver(resize).observe(area);
-        return { files, switchTo, clear, resize, renderFiles, size };
+        window.addEventListener('pagehide', event => { if (event.persisted) return; syncFiles([]); urls.forEach(url => URL.revokeObjectURL?.(url)); urls = []; });
+        return { files, switchTo, clear, resize, renderFiles, syncFiles, size };
     };
 })();
