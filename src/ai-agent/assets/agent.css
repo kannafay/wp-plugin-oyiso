@@ -86,12 +86,14 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-icon-button:hover { background: #f0f0f1; color: #1d2327; }
 .oyiso-agent-icon-button svg, .oyiso-agent-settings-menu svg { display: block; flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .oyiso-agent-settings-wrap { position: relative; display: flex; }
-.oyiso-agent-settings-menu { position: absolute; z-index: 6; top: calc(100% + 8px); right: 0; width: 232px; padding: 4px; box-sizing: border-box; overflow-y: auto; border: 1px solid #c3c4c7; border-radius: 4px; background: #fff; box-shadow: 0 4px 16px #0002; }
-.oyiso-agent-settings-menu :is(button, a) { display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 0; border-radius: 2px; background: transparent; color: #1d2327; font: inherit; font-size: 13px; line-height: 1.4; text-align: left; text-decoration: none; cursor: pointer; }
+.oyiso-agent-settings-menu { position: absolute; z-index: 6; top: calc(100% + 8px); right: 0; width: 200px; padding: 4px; box-sizing: border-box; overflow-y: auto; border: 1px solid #c3c4c7; border-radius: 4px; background: #fff; box-shadow: 0 4px 16px #0002; }
+.oyiso-agent-settings-menu :is(button, a) { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 8px 10px; border: 0; border-radius: 2px; background: transparent; color: #1d2327; font: inherit; font-size: 13px; line-height: 1.4; text-align: left; text-decoration: none; cursor: pointer; }
+.oyiso-agent-settings-menu svg { width: 16px; height: 16px; }
 .oyiso-agent-settings-menu :is(button, a):hover, [data-agent-settings-toggle][aria-expanded="true"] { background: #f0f0f1; }
-.oyiso-agent-settings-menu .oyiso-agent-settings-link { border-top: 1px solid #e5e5e5; border-radius: 0; margin-top: 4px; }
-.oyiso-agent-layout-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding-bottom: 5px; margin-bottom: 4px; border-bottom: 1px solid #e5e5e5; }
-.oyiso-agent-settings-menu .oyiso-agent-layout-grid button { flex-direction: column; justify-content: center; gap: 6px; padding: 9px 2px; font-size: 11px; text-align: center; }
+.oyiso-agent-settings-menu .oyiso-agent-settings-link { position: relative; margin-top: 9px; }
+.oyiso-agent-settings-link::before { position: absolute; top: -5px; right: 0; left: 0; border-top: 1px solid #e5e5e5; content: ''; pointer-events: none; }
+.oyiso-agent-layout-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding-bottom: 4px; margin-bottom: 4px; border-bottom: 1px solid #e5e5e5; }
+.oyiso-agent-settings-menu .oyiso-agent-layout-grid button { flex-direction: column; justify-content: center; gap: 4px; padding: 6px 2px; font-size: 11px; text-align: center; }
 .oyiso-agent-layout-grid button[aria-checked="true"] { background: #f0f0f1; color: var(--oyiso-color-primary, #bf5316); }
 [data-agent-history-toggle][aria-expanded="true"] { background: #f0f0f1; }
 [data-agent-fullscreen-toggle][aria-pressed="true"] { background: #f0f0f1; }
