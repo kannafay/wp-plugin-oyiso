@@ -29,6 +29,7 @@
     let runId = 0;
     let timer;
     let sending = false;
+    let composing = false;
     let stepping = false;
     let loading = false;
     let pollRevision = 0;
@@ -616,8 +617,19 @@
         }
     });
     $('[data-agent-send]').addEventListener('click', send);
+    prompt.addEventListener('compositionstart', () => { composing = true; });
+    prompt.addEventListener('compositionend', () => { composing = false; });
     prompt.addEventListener('keydown', event => {
-        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send(); }
+        if (event.key !== 'Enter' || event.isComposing || composing || event.keyCode === 229) return;
+        if (event.ctrlKey || event.metaKey || event.altKey) {
+            event.preventDefault();
+            if (prompt.disabled || prompt.readOnly || prompt.value.length - (prompt.selectionEnd - prompt.selectionStart) >= prompt.maxLength) return;
+            prompt.setRangeText('\n', prompt.selectionStart, prompt.selectionEnd, 'end');
+            prompt.dispatchEvent(new Event('input', { bubbles: true }));
+        } else if (!event.shiftKey) {
+            event.preventDefault();
+            send();
+        }
     });
     prompt.addEventListener('change', event => event.stopPropagation());
     prompt.addEventListener('keypress', event => event.stopPropagation());

@@ -94,7 +94,9 @@ test('example and keyboard submit use current prompt and CSRF-protected REST', a
     f.$('[data-agent-example]').click();
     assert.match(f.$('#oyiso-agent-prompt').value, /商品/);
     f.$('#oyiso-agent-prompt').value = '  检查商品  ';
-    f.$('#oyiso-agent-prompt').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+    const enter = new f.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    f.$('#oyiso-agent-prompt').dispatchEvent(enter);
+    assert.equal(enter.defaultPrevented, true);
     await settle();
     const send = f.calls.find(call => call.route === 'runs' && call.options.method === 'POST');
     assert.equal(JSON.parse(send.options.body).message, '检查商品');
@@ -102,6 +104,47 @@ test('example and keyboard submit use current prompt and CSRF-protected REST', a
     assert.equal(send.options.credentials, 'same-origin');
     assert.equal(f.$('#oyiso-agent-prompt').value, '');
     assert.match(f.$('[data-agent-messages]').textContent, /已读取商品/);
+});
+
+test('Shift Enter keeps native newline behavior without submitting', async t => {
+    const f = fixture(t);
+    f.$('#oyiso-agent-prompt').value = 'Keep writing';
+    const enter = new f.window.KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    f.$('#oyiso-agent-prompt').dispatchEvent(enter); await settle();
+    assert.equal(enter.defaultPrevented, false);
+    assert.equal(f.calls.some(call => call.route === 'runs' && call.options.method === 'POST'), false);
+});
+
+test('Ctrl Meta and Alt Enter insert a newline at the selection and preserve the draft and length limit', async t => {
+    for (const modifier of ['ctrlKey', 'metaKey', 'altKey']) {
+        const f = fixture(t);
+        const input = f.$('#oyiso-agent-prompt'); input.value = 'one two'; input.setSelectionRange(4, 7);
+        const enter = () => new f.window.KeyboardEvent('keydown', { key: 'Enter', [modifier]: true, bubbles: true, cancelable: true });
+        const event = enter(); input.dispatchEvent(event); await settle();
+        assert.equal(event.defaultPrevented, true);
+        assert.equal(input.value, 'one \n');
+        assert.equal(input.selectionStart, 5);
+        assert.equal(JSON.parse(f.window.sessionStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:draft')).text, 'one \n');
+        input.value = 'x'.repeat(input.maxLength); input.setSelectionRange(input.maxLength, input.maxLength);
+        input.dispatchEvent(enter());
+        assert.equal(input.value.length, input.maxLength);
+        assert.equal(f.calls.some(call => call.route === 'runs' && call.options.method === 'POST'), false);
+    }
+});
+
+test('Enter used to confirm IME composition never submits until composition has ended', async t => {
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? task() : undefined);
+    const input = f.$('#oyiso-agent-prompt'); input.value = '你好';
+    input.dispatchEvent(new f.window.CompositionEvent('compositionstart', { bubbles: true }));
+    input.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    input.dispatchEvent(new f.window.CompositionEvent('compositionend', { bubbles: true }));
+    input.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true }));
+    input.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Enter', keyCode: 229, bubbles: true }));
+    await settle();
+    assert.equal(f.calls.some(call => call.route === 'runs' && call.options.method === 'POST'), false);
+    assert.equal(input.value, '你好');
+    input.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await settle();
+    assert.equal(f.calls.filter(call => call.route === 'runs' && call.options.method === 'POST').length, 1);
 });
 
 test('prompt changes do not mark plugin settings dirty', async t => {

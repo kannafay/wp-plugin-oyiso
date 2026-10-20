@@ -226,7 +226,14 @@ final class Oyiso_Agent_Admin
                 <div data-agent-changes class="oyiso-agent-changes"></div>
             </div>
             <details class="oyiso-agent-progress"><summary>执行过程 <span data-agent-status>尚未开始</span></summary><div class="oyiso-agent-progress-body"><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></div></details>
-            <div class="oyiso-agent-composer"><div class="oyiso-agent-model-picker"><label for="oyiso-agent-model">模型</label><select id="oyiso-agent-model" data-agent-model aria-label="对话模型"><option value="">暂无可用模型</option></select></div><label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label><textarea id="oyiso-agent-prompt" rows="3" maxlength="4000" placeholder="例如：读取商品 123，完善长短描述和 SEO 信息，先给我预览。"></textarea><div class="oyiso-agent-composer-actions"><span class="description">Ctrl / ⌘ + Enter 发送</span><div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送</button></div></div></div>
+            <div class="oyiso-agent-composer">
+                <label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label>
+                <textarea id="oyiso-agent-prompt" rows="3" maxlength="4000" placeholder="例如：读取商品 123，完善长短描述和 SEO 信息，先给我预览。"></textarea>
+                <div class="oyiso-agent-composer-actions">
+                    <select id="oyiso-agent-model" class="oyiso-agent-model-picker" data-agent-model aria-label="对话模型"><option value="">暂无可用模型</option></select>
+                    <div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送</button></div>
+                </div>
+            </div>
         </div>
         <?php
     }
