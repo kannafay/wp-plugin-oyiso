@@ -19,6 +19,9 @@
 .oyiso-confirm-dialog__body .oyiso-confirm-dialog__error { margin-top: 12px; color: #b32d2e; }
 .oyiso-confirm-dialog__footer { display: flex; flex: none; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 24px; border-top: 1px solid #e5e5e5; background: #fff; }
 .oyiso-confirm-dialog .oyiso-confirm-dialog__footer .button { min-height: 40px; margin: 0; padding: 0 16px; font-size: 13px; line-height: 38px; }
+.oyiso-confirm-dialog .oyiso-button-danger:not(:disabled, .disabled) { border-color: #b32d2e; background: #b32d2e; color: #fff; }
+.oyiso-confirm-dialog .oyiso-button-danger:not(:disabled, .disabled):is(:hover, :focus-visible) { border-color: #8a2424; background: #8a2424; color: #fff; }
+.oyiso-confirm-dialog .oyiso-button-danger:not(:disabled, .disabled):focus-visible { outline: 2px solid #b32d2e; outline-offset: 2px; box-shadow: none; }
 @media (prefers-reduced-motion: reduce) {
     .oyiso-modal-motion, .oyiso-modal-native, .oyiso-modal-surface, .oyiso-modal-native::backdrop { transition: none; }
 }

@@ -70,7 +70,7 @@ final class Oyiso_Agent_File_Manager
             <dialog class="oyiso-agent-files-confirm oyiso-confirm-dialog" aria-labelledby="oyiso-agent-files-confirm-title" aria-describedby="oyiso-agent-files-confirm-description">
                 <div class="oyiso-confirm-dialog__heading"><h2 id="oyiso-agent-files-confirm-title">删除附件</h2><button type="button" class="oyiso-confirm-dialog__close" data-files-delete-close aria-label="关闭">×</button></div>
                 <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-files-confirm-description" data-files-delete-description></p><p class="oyiso-confirm-dialog__error" data-files-delete-error role="alert" hidden></p></div>
-                <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-files-delete-cancel>取消</button><button type="button" class="button button-primary" data-files-delete-confirm>删除</button></div>
+                <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-files-delete-cancel>取消</button><button type="button" class="button oyiso-button-danger" data-files-delete-confirm>删除</button></div>
             </dialog>
         </div>
         <?php

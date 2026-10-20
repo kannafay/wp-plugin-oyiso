@@ -275,7 +275,7 @@ final class Oyiso_Agent_Admin
         <dialog class="oyiso-agent-confirm oyiso-confirm-dialog" data-agent-delete-dialog aria-labelledby="oyiso-agent-delete-title" aria-describedby="oyiso-agent-delete-description">
             <div class="oyiso-confirm-dialog__heading"><h2 id="oyiso-agent-delete-title">删除对话</h2><button type="button" class="oyiso-confirm-dialog__close" data-agent-delete-close aria-label="关闭">×</button></div>
             <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-delete-description" data-agent-delete-description></p><p class="oyiso-confirm-dialog__error" data-agent-delete-error role="alert" hidden></p></div>
-            <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-agent-delete-cancel>取消</button><button type="button" class="button button-primary" data-agent-delete-confirm>删除</button></div>
+            <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-agent-delete-cancel>取消</button><button type="button" class="button oyiso-button-danger" data-agent-delete-confirm>删除</button></div>
         </dialog>
         <?php
     }
