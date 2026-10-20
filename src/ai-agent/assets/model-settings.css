@@ -69,7 +69,7 @@
 .oyiso-agent-model-status { margin: 12px 0; color: #646970; font-size: 12px; }
 .oyiso-agent-model-status:empty { display: none; }
 .oyiso-agent-model-catalog:not(:empty) { max-height: 340px; margin-top: 12px; overflow-y: auto; border: 1px solid #dcdcde; border-radius: 4px; }
-.oyiso-agent-model-option { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; cursor: pointer; }
+.oyiso-agent-model-dialog .oyiso-agent-model-option { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-width: 0; margin: 0; padding: 11px 12px; box-sizing: border-box; cursor: pointer; }
 .oyiso-agent-model-option + .oyiso-agent-model-option { border-top: 1px solid #f0f0f1; }
 .oyiso-agent-model-option:hover { background: #f6f7f7; }
 .oyiso-agent-model-option input[type="checkbox"] { flex: none; margin: 3px 0 0; }
