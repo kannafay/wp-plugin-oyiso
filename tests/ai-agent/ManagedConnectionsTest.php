@@ -318,6 +318,17 @@ final class ManagedConnectionsTest extends TestCase
             self::assertTrue($form->set_options(true));
             self::assertArrayHasKey('agent_language', $form->errors);
             self::assertSame('cs_CZ', Oyiso_Agent_Config::text('language'));
+            $payload['oyiso']['agent_language'] = ''; $form->errors = [];
+            $_POST = ['data' => wp_slash(wp_json_encode($payload))];
+            self::assertTrue($form->set_options(true));
+            self::assertSame([], $form->errors);
+            self::assertSame('', Oyiso_Agent_Personalization::language());
+            self::assertStringNotContainsString('默认内容语言：', Oyiso_Agent_Model::instructions());
+            $payload['oyiso']['agent_language'] = 'site-default';
+            $_POST = ['data' => wp_slash(wp_json_encode($payload))];
+            self::assertTrue($form->set_options(true));
+            self::assertSame('site-default', Oyiso_Agent_Config::text('language'));
+            self::assertSame(Oyiso_Agent_Personalization::siteLanguage(), Oyiso_Agent_Personalization::language());
         } finally {
             $_POST = $previousPost;
             remove_filter('pre_site_transient_available_translations', $languageCatalogue);

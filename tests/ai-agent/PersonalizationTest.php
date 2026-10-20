@@ -52,27 +52,32 @@ final class PersonalizationTest extends TestCase
             self::assertSame('pl_PL', Oyiso_Agent_Personalization::siteLanguage());
             $options = Oyiso_Agent_Personalization::languageOptions();
             self::assertSame('', array_key_first($options));
-            self::assertSame('推荐：Polski（pl_PL）', $options['']);
+            self::assertSame('自动判断（不指定语言）', $options['']);
+            self::assertSame('推荐：Polski（pl_PL）', $options['site-default']);
             self::assertSame('Čeština（cs_CZ）', $options['全部语言']['cs_CZ']);
             self::assertArrayHasKey('en_US', $options['全部语言']);
             self::assertSame('pl_PL', get_option('WPLANG'));
         } finally { $user->locale = $previous; }
     }
 
-    public function testRecommendationTracksSiteChangesWhileAnExplicitContentLanguageStaysFixed(): void
+    public function testAutomaticLanguageStaysUnsetWhileSiteRecommendationAndExplicitLanguageResolveIndependently(): void
     {
+        self::assertSame('', Oyiso_Agent_Personalization::language());
+        update_option('oyiso', ['agent_language' => 'site-default'], false);
         self::assertSame('pl_PL', Oyiso_Agent_Personalization::language());
         update_option('WPLANG', '');
         self::assertSame('en_US', Oyiso_Agent_Personalization::language());
-        self::assertStringContainsString('English (United States)', Oyiso_Agent_Personalization::languageOptions()['']);
+        self::assertStringContainsString('English (United States)', Oyiso_Agent_Personalization::languageOptions()['site-default']);
         update_option('oyiso', ['agent_language' => 'cs_CZ'], false);
         update_option('WPLANG', 'zh_CN');
         self::assertSame('cs_CZ', Oyiso_Agent_Personalization::language());
         update_option('oyiso', ['agent_language' => ''], false);
-        self::assertSame('zh_CN', Oyiso_Agent_Personalization::language());
+        self::assertSame('', Oyiso_Agent_Personalization::language());
+        update_option('WPLANG', 'pl_PL');
+        self::assertSame('', Oyiso_Agent_Personalization::language());
     }
 
-    public function testLanguageFieldRendersANativeSelectWithRecommendationBeforeAllLanguages(): void
+    public function testLanguageFieldOffersAutomaticAndRecommendedOptionsBeforeAllLanguages(): void
     {
         $section = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $section): bool => ($section['id'] ?? '') === 'agent-personalization'))[0];
         $field = array_values(array_filter($section['fields'], static fn(array $field): bool => ($field['id'] ?? '') === 'agent_language'))[0];
@@ -80,12 +85,15 @@ final class PersonalizationTest extends TestCase
         $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
         $xpath = new DOMXPath($dom);
         self::assertSame('select', $field['type']);
-        self::assertSame('推荐：Polski（pl_PL）', $xpath->evaluate('string(//select/option[1])'));
+        self::assertSame('自动判断（不指定语言）', $xpath->evaluate('string(//select/option[1])'));
         self::assertSame('', $xpath->evaluate('string(//select/option[1]/@value)'));
+        self::assertSame('推荐：Polski（pl_PL）', $xpath->evaluate('string(//select/option[2])'));
+        self::assertSame('site-default', $xpath->evaluate('string(//select/option[2]/@value)'));
         self::assertSame('oyiso[agent_language]', $xpath->evaluate('string(//select/@name)'));
         self::assertSame('cs_CZ', $xpath->evaluate('string(//option[@selected]/@value)'));
         self::assertSame(1, $xpath->query('//optgroup[@label="全部语言"]/option[@value="cs_CZ"]')->length);
         self::assertNull(Oyiso_Agent_Personalization::validateLanguage(''));
+        self::assertNull(Oyiso_Agent_Personalization::validateLanguage('site-default'));
         self::assertNull(Oyiso_Agent_Personalization::validateLanguage('cs_CZ'));
         self::assertNotNull(Oyiso_Agent_Personalization::validateLanguage('misspelled-language'));
         self::assertNotNull(Oyiso_Agent_Personalization::validateLanguage(['pl_PL']));
@@ -111,11 +119,14 @@ final class PersonalizationTest extends TestCase
     {
         update_option('oyiso', ['agent_language' => '', 'agent_instructions' => '保留商品参数。', 'agent_custom_instructions' => '先给结论，使用简短列表。'], false);
         $instructions = Oyiso_Agent_Model::instructions();
-        self::assertStringContainsString('默认内容语言：pl_PL。', $instructions);
+        self::assertStringContainsString('未指定时，根据任务要求和原文判断。', $instructions);
+        self::assertStringNotContainsString('默认内容语言：', $instructions);
         self::assertStringContainsString('管理员写作要求：保留商品参数。', $instructions);
         self::assertStringContainsString('管理员自定义指令：先给结论，使用简短列表。', $instructions);
         self::assertStringContainsString('只通过 prepare-product-update 准备修改', $instructions);
         update_option('oyiso', ['agent_custom_instructions' => ''], false);
         self::assertStringNotContainsString('管理员自定义指令：', Oyiso_Agent_Model::instructions());
+        update_option('oyiso', ['agent_language' => 'pl_PL'], false);
+        self::assertStringContainsString('默认内容语言：pl_PL。当前对话中明确指定的语言优先于此默认设置。', Oyiso_Agent_Model::instructions());
     }
 }

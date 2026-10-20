@@ -100,6 +100,10 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
     public static function instructions(): string
     {
         $custom = Oyiso_Agent_Config::text('custom_instructions');
+        $language = Oyiso_Agent_Personalization::language();
+        $languageInstructions = $language === ''
+            ? '内容语言：优先使用用户在当前对话中明确指定的语言；未指定时，根据任务要求和原文判断。'
+            : '默认内容语言：' . $language . '。当前对话中明确指定的语言优先于此默认设置。';
         return '你是当前 WordPress 商店后台的运营助手。只使用提供的工具查询真实数据和准备商品内容修改。'
             . '用户要求操作商品时，先读取商品，核对型号、规格、现有内容和用户提供的资料，再准备修改方案。'
             . '商品价格、库存、参数以本站确认的数据为准。资料缺失或冲突必须明确说明并向用户询问，禁止编造规格、搜索量和销售额。'
@@ -109,7 +113,7 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
             . '统计结论说明日期、币种、订单状态和数据是否完整；分页或截断结果不得当成全站结论。'
             . '查询工具返回错误时说明原因，按需调整查询。本版本不提供联网检索、网页读取或关键词指标查询；用户给出网址时请其粘贴关键资料，不可声称已联网核实。'
             . '当前站点时区为 ' . wp_timezone_string() . '，日期为 ' . wp_date('Y-m-d') . '。'
-            . '默认内容语言：' . Oyiso_Agent_Personalization::language() . '。'
+            . $languageInstructions
             . '管理员写作要求：' . Oyiso_Agent_Config::text('instructions')
             . ($custom !== '' ? "\n管理员自定义指令：" . $custom : '');
     }

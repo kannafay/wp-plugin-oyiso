@@ -14,7 +14,8 @@ final class Oyiso_Agent_Personalization
 
     public static function language(): string
     {
-        return Oyiso_Agent_Config::text('language') ?: self::siteLanguage();
+        $language = Oyiso_Agent_Config::text('language');
+        return $language === 'site-default' ? self::siteLanguage() : $language;
     }
 
     /** @return array<string, string|array<string, string>> */
@@ -41,12 +42,12 @@ final class Oyiso_Agent_Personalization
         foreach ($languages as $code => $name) {
             $languages[$code] = $name . '（' . $code . '）';
         }
-        return ['' => $recommended, '全部语言' => $languages];
+        return ['' => '自动判断（不指定语言）', 'site-default' => $recommended, '全部语言' => $languages];
     }
 
     public static function validateLanguage(mixed $value): ?string
     {
-        if ($value === '') {
+        if ($value === '' || $value === 'site-default') {
             return null;
         }
         $languages = self::languageOptions()['全部语言'];
