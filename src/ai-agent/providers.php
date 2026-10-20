@@ -24,6 +24,8 @@ use WordPress\AiClient\Providers\Models\Enums\CapabilityEnum;
 use WordPress\AiClient\Providers\Models\Enums\OptionEnum;
 use WordPress\AiClient\Providers\OpenAiCompatibleImplementation\AbstractOpenAiCompatibleTextGenerationModel;
 
+require_once __DIR__ . '/native-model.php';
+
 abstract class Oyiso_Agent_Provider extends AbstractProvider
 {
     protected const PRESET = '';
@@ -36,6 +38,10 @@ abstract class Oyiso_Agent_Provider extends AbstractProvider
 
     protected static function createModel(ModelMetadata $modelMetadata, ProviderMetadata $providerMetadata): ModelInterface
     {
+        $connection = Oyiso_Agent_Connectors::load(static::PRESET, false);
+        if (!is_wp_error($connection) && $connection->managed && $connection->protocol !== 'openai_chat') {
+            return new Oyiso_Agent_Native_Model($modelMetadata, $providerMetadata, $connection->id);
+        }
         return new Oyiso_Agent_Compatible_Model($modelMetadata, $providerMetadata);
     }
 

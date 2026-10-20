@@ -94,25 +94,27 @@ final class Oyiso_Agent_Connections
             if ($row['id'] !== $id) {
                 continue;
             }
-            if (!in_array($model, $row['models'], true) || Oyiso_Agent_Connectors::validateUrl($row['url']) !== null || $row['protocol'] !== 'openai_chat') {
+            if (!in_array($model, $row['models'], true) || Oyiso_Agent_Connectors::validateUrl($row['url']) !== null || !isset(Oyiso_Agent_Connectors::protocols()[$row['protocol']])) {
                 return new WP_Error('agent_connection_model', '此连接或模型不可用，请检查模型配置。', ['status' => 400]);
             }
             if (!Oyiso_Agent_Config::hasSecret(self::secretName($id))) {
                 return new WP_Error('agent_connection_key', '请先为此提供商保存 API Key。', ['status' => 400]);
             }
-            return new Oyiso_Agent_Connection($id, $row['name'], $row['url'], $model, true);
+            return new Oyiso_Agent_Connection($id, $row['name'], $row['url'], $model, true, $row['protocol']);
         }
         return new WP_Error('agent_connection_missing', '模型连接不存在，请重新选择默认模型。', ['status' => 404]);
     }
 
-    public static function model(string $id, string $model): Oyiso_Agent_Compatible_Model|WP_Error
+    public static function model(string $id, string $model): \WordPress\AiClient\Providers\Models\Contracts\ModelInterface|WP_Error
     {
         $connection = self::load($id, $model);
         if (is_wp_error($connection)) {
             return $connection;
         }
         Oyiso_Agent_Connectors::register();
-        return new Oyiso_Agent_Compatible_Model(Oyiso_Agent_Model_Directory::metadata($model), Oyiso_Agent_Custom_Provider::metadata(), $id);
+        $metadata = Oyiso_Agent_Model_Directory::metadata($model);
+        $provider = Oyiso_Agent_Custom_Provider::metadata();
+        return $connection->protocol === 'openai_chat' ? new Oyiso_Agent_Compatible_Model($metadata, $provider, $id) : new Oyiso_Agent_Native_Model($metadata, $provider, $id);
     }
 
     /** @param array<string, mixed> $input
@@ -137,7 +139,8 @@ final class Oyiso_Agent_Connections
             $preset = is_string($input['preset'] ?? null) ? $input['preset'] : '';
             $models = is_array($input['models'] ?? null) ? $input['models'] : [];
             $key = $input['key'] ?? '';
-            if ($name === '' || mb_strlen($name) > 80 || $url === '' || Oyiso_Agent_Connectors::validateUrl($url) !== null || !in_array($preset, [...array_keys(Oyiso_Agent_Connectors::presets()), 'custom'], true) || ($input['protocol'] ?? '') !== 'openai_chat' || !is_string($key) || Oyiso_Agent_Connectors::validateKey($key) !== null || $models === [] || count($models) > 30) {
+            $protocol = $input['protocol'] ?? '';
+            if ($name === '' || mb_strlen($name) > 80 || $url === '' || Oyiso_Agent_Connectors::validateUrl($url) !== null || !in_array($preset, [...array_keys(Oyiso_Agent_Connectors::presets()), 'custom'], true) || !is_string($protocol) || !isset(Oyiso_Agent_Connectors::protocols()[$protocol]) || !is_string($key) || Oyiso_Agent_Connectors::validateKey($key) !== null || $models === [] || count($models) > 30) {
                 return new WP_Error('agent_connection_invalid', '请检查连接名称、公开 HTTPS 地址、接口类型、API Key 和模型列表。', ['status' => 400]);
             }
             $clean = [];
@@ -156,7 +159,7 @@ final class Oyiso_Agent_Connections
             if (($key !== '' || !empty($input['clear_key'])) && !Oyiso_Agent_Config::setSecret(self::secretName($id), !empty($input['clear_key']) ? '' : $key)) {
                 return new WP_Error('agent_connection_encrypt', 'API Key 加密保存失败，请重试。', ['status' => 500]);
             }
-            $row = ['id' => $id, 'name' => $name, 'preset' => $preset, 'url' => $url, 'protocol' => 'openai_chat', 'models' => $models];
+            $row = ['id' => $id, 'name' => $name, 'preset' => $preset, 'url' => $url, 'protocol' => $protocol, 'models' => $models];
             if ($index === false) {
                 $rows[] = $row;
             } else {

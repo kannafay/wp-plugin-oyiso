@@ -8,6 +8,7 @@
     const fields = Object.fromEntries(Array.from(dialog.querySelectorAll('[data-provider-field]'), input => [input.dataset.providerField, input]));
     const initial = JSON.parse(root.dataset.state);
     const presets = initial.presets;
+    const protocols = initial.protocols;
     const defaults = document.querySelector('[data-provider-default]');
     const external = Array.from(defaults.options).filter(option => option.value === '' || option.value.startsWith('wp:')).map(option => [option.value, option.textContent]);
     let rows = initial.connections;
@@ -55,7 +56,7 @@
             const controls = make('td'); const actions = make('div', undefined, 'oyiso-agent-provider-actions');
             const test = action('测试', () => testConnection(row, select.value, test)); test.disabled = busy || !row.configured || testing.has(row.id);
             actions.append(test, action('编辑', event => open(row, event.currentTarget)), action('删除', () => remove(row), 'oyiso-agent-provider-delete')); controls.append(actions);
-            tr.append(name, make('td', 'Chat Completions'), models, make('td', row.configured ? '已配置' : '未配置'), controls); body.append(tr);
+            tr.append(name, make('td', protocols[row.protocol]?.name || row.protocol), models, make('td', row.configured ? '已配置' : '未配置'), controls); body.append(tr);
         }
         if (!rows.length) { const tr = make('tr'); const td = make('td', '还没有模型连接，点击「添加提供商」开始配置。', 'oyiso-agent-provider-empty'); td.colSpan = 5; tr.append(td); body.append(tr); }
         $('[data-provider-add]').disabled = busy;
@@ -69,7 +70,8 @@
         const preset = presets[fields.preset.value];
         fields.name.value = row?.name || preset?.name || '';
         fields.url.value = row?.url || preset?.url || '';
-        fields.protocol.value = row?.protocol || 'openai_chat';
+        fields.protocol.value = row?.protocol || preset?.protocol || 'openai_chat';
+        fields.url.placeholder = protocols[fields.protocol.value].url;
         fields.models.value = row ? row.models.join('\n') : preset?.model || '';
         fields.key.value = ''; fields.key.disabled = false; fields.key.placeholder = row?.configured ? '已配置，留空保持' : '填写 API Key';
         fields.clear_key.checked = false; fields.clear_key.disabled = !row?.configured;
@@ -136,7 +138,20 @@
         cancelCloseMotion?.(); cancelCloseMotion = undefined;
         dialog.inert = false; dialog.classList.remove('is-open', 'is-closing'); fields.key.value = '';
     });
-    fields.preset.addEventListener('change', () => { const preset = presets[fields.preset.value]; fields.name.value = preset?.name || ''; fields.url.value = preset?.url || ''; fields.models.value = preset?.model || ''; });
+    fields.preset.addEventListener('change', () => {
+        const preset = presets[fields.preset.value];
+        fields.name.value = preset?.name || ''; fields.url.value = preset?.url || ''; fields.models.value = preset?.model || '';
+        fields.protocol.value = preset?.protocol || fields.protocol.value;
+        fields.url.placeholder = protocols[fields.protocol.value].url;
+    });
+    fields.protocol.addEventListener('change', () => {
+        const protocol = protocols[fields.protocol.value];
+        const url = fields.url.value.trim().replace(/\/+$/, '');
+        const known = [...Object.values(protocols), ...Object.values(presets)].map(preset => preset.url);
+        known.push('https://generativelanguage.googleapis.com/v1beta/openai');
+        if (!url || known.includes(url)) fields.url.value = protocol.url;
+        fields.url.placeholder = protocol.url;
+    });
     fields.clear_key.addEventListener('change', () => { if (fields.clear_key.checked) fields.key.value = ''; fields.key.disabled = fields.clear_key.checked; });
     dialog.addEventListener('keydown', event => { if (event.key === 'Enter' && event.target.matches('input, select')) { event.preventDefault(); save(); } });
     // Provider edits save independently from the surrounding CSF form.

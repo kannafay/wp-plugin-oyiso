@@ -15,13 +15,40 @@ use WordPress\AiClient\Tools\DTO\FunctionResponse;
 
 final readonly class Oyiso_Agent_Connection
 {
-    public function __construct(public string $id, public string $name, public string $url, public string $model, public bool $managed = false)
+    public function __construct(public string $id, public string $name, public string $url, public string $model, public bool $managed = false, public string $protocol = 'openai_chat')
     {
     }
 }
 
 final class Oyiso_Agent_Connectors
 {
+    /** @return array<string, array{name:string, url:string}> */
+    public static function protocols(): array
+    {
+        return [
+            'openai_chat' => ['name' => 'OpenAI Chat Completions（兼容）', 'url' => 'https://api.openai.com/v1'],
+            'anthropic_messages' => ['name' => 'Anthropic Messages', 'url' => 'https://api.anthropic.com/v1'],
+            'gemini' => ['name' => 'Gemini GenerateContent（原生）', 'url' => 'https://generativelanguage.googleapis.com/v1beta'],
+        ];
+    }
+
+    /** @return array<string, array{name:string, url:string, model:string, docs:string, protocol:string}> */
+    public static function connectionPresets(): array
+    {
+        $presets = [];
+        foreach (self::presets() as $id => $preset) {
+            $row = $preset + ['protocol' => 'openai_chat'];
+            // Only new connections use the native Gemini API; legacy endpoints keep their protocol.
+            if ($id === 'gemini') {
+                $row['url'] = self::protocols()['gemini']['url'];
+                $row['protocol'] = 'gemini';
+                $row['docs'] = 'https://ai.google.dev/gemini-api/docs';
+            }
+            $presets[$id] = $row;
+        }
+        return $presets;
+    }
+
     /** @return array<string, array{name:string, url:string, model:string, docs:string}> */
     public static function presets(): array
     {
@@ -50,6 +77,7 @@ final class Oyiso_Agent_Connectors
         $secret = $id . '_key';
         $name = $preset['name'];
         $managed = is_array(get_option('oyiso_agent_connections', null));
+        $protocol = 'openai_chat';
         if ($managed) {
             $matching = array_values(array_filter(Oyiso_Agent_Connections::all(), static fn(array $row): bool => $row['id'] === 'legacy-' . $id));
             if ($matching === []) {
@@ -60,14 +88,15 @@ final class Oyiso_Agent_Connectors
             $url = $matching[0]['url'];
             $model = $matching[0]['models'][0];
             $secret = Oyiso_Agent_Connections::secretName($connectionId);
+            $protocol = $matching[0]['protocol'];
         }
-        if (self::validateUrl($url) !== null || preg_match('/[\x00-\x20\x7f]/', $model) || strlen($model) > 200) {
+        if (self::validateUrl($url) !== null || preg_match('/[\x00-\x20\x7f]/', $model) || strlen($model) > 200 || !isset(self::protocols()[$protocol])) {
             return new WP_Error('agent_connector_invalid', '请检查模型预设的 HTTPS API 地址和模型 ID。', ['status' => 400]);
         }
         if ($requireKey && Oyiso_Agent_Config::secret($secret) === '') {
             return new WP_Error('agent_connector_key', '请先在「模型配置」中保存此预设的 API Key。', ['status' => 400]);
         }
-        return new Oyiso_Agent_Connection($connectionId, $name, $url, $model, $managed);
+        return new Oyiso_Agent_Connection($connectionId, $name, $url, $model, $managed, $protocol);
     }
 
     public static function validateUrl(mixed $value): ?string

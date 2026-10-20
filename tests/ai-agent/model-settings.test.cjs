@@ -121,6 +121,52 @@ test('provider presets prefill independent forms and cancel clears credentials w
     assert.equal(f.field('models').value, '');
     assert.equal(new f.window.FormData(document.querySelector('form')).has('key'), false);
 });
+test('three API protocols prefill official endpoints while preserving custom URLs and credentials', t => {
+    const f = fixture(t);
+    f.$('[data-provider-add]').click();
+    assert.deepEqual(Array.from(f.field('protocol').options, option => option.value), ['openai_chat', 'anthropic_messages', 'gemini']);
+    const change = (field, value) => { f.field(field).value = value; f.field(field).dispatchEvent(new f.window.Event('change', { bubbles: true })); };
+    change('preset', 'gemini');
+    assert.equal(f.field('protocol').value, 'gemini');
+    assert.equal(f.field('url').value, 'https://generativelanguage.googleapis.com/v1beta');
+    f.field('key').value = 'fixture-kept-key';
+    change('protocol', 'anthropic_messages');
+    assert.equal(f.field('url').value, 'https://api.anthropic.com/v1');
+    assert.equal(f.field('key').value, 'fixture-kept-key');
+    change('protocol', 'openai_chat');
+    assert.equal(f.field('url').value, 'https://api.openai.com/v1');
+    f.field('url').value = 'https://gateway.example.com/custom/v2';
+    change('protocol', 'gemini');
+    assert.equal(f.field('url').value, 'https://gateway.example.com/custom/v2');
+    assert.equal(f.field('url').placeholder, 'https://generativelanguage.googleapis.com/v1beta');
+    assert.equal(f.field('key').value, 'fixture-kept-key');
+});
+
+test('legacy Gemini edits keep their compatible API and native protocol saves persist and render correctly', async t => {
+    const legacy = row('legacy', { preset: 'gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai' });
+    const native = row('native', { preset: 'gemini', protocol: 'gemini', url: 'https://generativelanguage.googleapis.com/v1beta' });
+    const f = fixture(t, [legacy, native], (route, options) => ({ connections: [legacy, row('native', JSON.parse(options.body))] }));
+    assert.match(f.$('[data-provider-id="legacy"] td:nth-child(2)').textContent, /OpenAI Chat Completions/);
+    assert.match(f.$('[data-provider-id="native"] td:nth-child(2)').textContent, /Gemini GenerateContent/);
+    f.$('[data-provider-id="legacy"] .oyiso-agent-provider-actions button:nth-child(2)').click();
+    assert.equal(f.field('protocol').value, 'openai_chat');
+    assert.equal(f.field('url').value, legacy.url);
+    f.$('[data-provider-close]').click();
+    f.$('[data-provider-id="native"] .oyiso-agent-provider-actions button:nth-child(2)').click();
+    assert.equal(f.field('protocol').value, 'gemini');
+    f.field('protocol').value = 'anthropic_messages';
+    f.field('protocol').dispatchEvent(new f.window.Event('change'));
+    f.$('[data-provider-save]').click(); await settle();
+    const payload = JSON.parse(f.calls[0].options.body);
+    assert.equal(payload.protocol, 'anthropic_messages');
+    assert.equal(payload.url, 'https://api.anthropic.com/v1');
+    assert.equal(payload.key, '');
+    assert.equal(f.calls[0].route, 'providers/native');
+    assert.equal(f.$('[data-provider-id="native"] td:nth-child(2)').textContent, 'Anthropic Messages');
+    f.$('[data-provider-id="native"] .oyiso-agent-provider-actions button:nth-child(2)').click();
+    assert.equal(f.field('protocol').value, 'anthropic_messages');
+});
+
 test('adding a duplicate preset saves through nonce protected REST once and updates model choices', async t => {
     let finish;
     const rows = [row()];
