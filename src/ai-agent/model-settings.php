@@ -121,7 +121,7 @@ final class Oyiso_Agent_Model_Settings
                     <p class="oyiso-agent-provider-dialog-notice" role="status" aria-live="polite" data-model-notice></p>
                 </div>
                 <div class="oyiso-agent-provider-dialog-footer">
-                    <div class="oyiso-agent-model-footer-status" data-model-catalog-actions><span class="oyiso-agent-model-selection-count" data-model-selection-count></span><button type="button" class="button" data-model-retry>重新获取</button></div>
+                    <div class="oyiso-agent-model-footer-status" data-model-catalog-actions><button type="button" class="button" data-model-retry>重新获取</button><span class="oyiso-agent-model-selection-count" data-model-selection-count></span></div>
                     <div class="oyiso-agent-model-footer-actions"><button type="button" class="button" data-model-close>取消</button><button type="button" class="button button-primary" data-model-apply>添加所选模型</button></div>
                 </div>
             </dialog>
