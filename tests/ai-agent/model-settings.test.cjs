@@ -163,7 +163,7 @@ test('API protocol changes preserve official, custom and empty URLs while preset
     assert.equal(f.field('url').value, 'https://api.deepseek.com');
     assert.equal(f.field('protocol').value, 'openai_responses');
     change('preset', 'agnes');
-    assert.equal(f.field('protocol').value, 'openai_chat');
+    assert.equal(f.field('protocol').value, 'openai_responses');
     change('preset', 'custom');
     assert.equal(f.field('protocol').value, 'openai_responses');
     change('preset', 'openai');

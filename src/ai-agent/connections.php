@@ -38,7 +38,7 @@ final class Oyiso_Agent_Connectors
     {
         $presets = ['openai' => ['name' => 'OpenAI', 'url' => self::protocols()['openai_responses']['url'], 'model' => '', 'docs' => 'https://developers.openai.com/api/docs', 'protocol' => 'openai_responses']];
         foreach (self::presets() as $id => $preset) {
-            $row = $preset + ['protocol' => $id === 'deepseek' ? 'openai_responses' : 'openai_chat'];
+            $row = $preset + ['protocol' => 'openai_responses'];
             // Only new connections use the native Gemini API; legacy endpoints keep their protocol.
             if ($id === 'gemini') {
                 $row['url'] = self::protocols()['gemini']['url'];
