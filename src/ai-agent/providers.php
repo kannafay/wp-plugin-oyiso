@@ -115,7 +115,7 @@ final readonly class Oyiso_Agent_Model_Directory implements ModelMetadataDirecto
             static fn(OptionEnum $option): SupportedOption => new SupportedOption($option),
             [OptionEnum::systemInstruction(), OptionEnum::maxTokens(), OptionEnum::functionDeclarations()]
         );
-        $options[] = new SupportedOption(OptionEnum::inputModalities(), [[ModalityEnum::text()]]);
+        $options[] = new SupportedOption(OptionEnum::inputModalities(), [[ModalityEnum::text()], [ModalityEnum::text(), ModalityEnum::image()], [ModalityEnum::text(), ModalityEnum::document()], [ModalityEnum::text(), ModalityEnum::image(), ModalityEnum::document()]]);
         $options[] = new SupportedOption(OptionEnum::outputModalities(), [[ModalityEnum::text()]]);
         return new ModelMetadata($model, $model, [CapabilityEnum::textGeneration(), CapabilityEnum::chatHistory()], $options);
     }
@@ -189,18 +189,23 @@ final class Oyiso_Agent_Compatible_Model extends AbstractOpenAiCompatibleTextGen
         // Text-only Chat Completions providers also accept strings; this avoids empty content arrays on tool calls.
         foreach ($prepared as &$message) {
             if (is_array($message['content'] ?? null)) {
-                $content = '';
+                $content = ''; $textOnly = true;
                 foreach ($message['content'] as $part) {
-                    if (!is_array($part) || !is_string($part['text'] ?? null)) {
-                        throw new InvalidArgumentException('Oyiso 模型预设当前仅支持文本和工具调用。');
-                    }
+                    if (!is_array($part) || !is_string($part['text'] ?? null)) { $textOnly = false; break; }
                     $content .= $part['text'];
                 }
-                $message['content'] = $content;
+                if ($textOnly) $message['content'] = $content;
             }
         }
         unset($message);
         return $prepared;
+    }
+
+    protected function getMessagePartContentData(MessagePart $part): ?array
+    {
+        $file = $part->getFile();
+        if ($file !== null && $file->isInline() && $file->getMimeType() === 'application/pdf') return ['type' => 'file', 'file' => ['filename' => 'attachment.pdf', 'file_data' => $file->getDataUri()]];
+        return parent::getMessagePartContentData($part);
     }
 
     protected function getMessagePartToolCallData(MessagePart $part): ?array

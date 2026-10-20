@@ -477,7 +477,7 @@ final class AgentTest extends TestCase
         self::assertStringNotContainsString('oyiso-agent-tasks', $html);
         self::assertStringContainsString('<h2>对话记录</h2>', $html);
         self::assertStringNotContainsString('执行记录', $html);
-        self::assertStringContainsString('可取消正在执行或等待确认的任务', $html);
+        self::assertStringContainsString('选择对话批量删除', $html);
         self::assertStringContainsString('查询商品', $html); self::assertStringContainsString('在修改预览中操作', $html);
         self::assertStringNotContainsString('<form', $html); self::assertStringContainsString('options-connectors.php', $html);
     }
@@ -534,7 +534,7 @@ final class AgentTest extends TestCase
         self::assertStringContainsString('data-agent-drag tabindex="-1"', $html);
         self::assertStringContainsString('data-agent-history-toggle aria-controls="oyiso-agent-panel-history"', $html);
         self::assertStringContainsString('data-agent-runs="panel"', $html);
-        self::assertStringContainsString('data-agent-layout-menu role="menu"', $html);
+        self::assertStringContainsString('data-agent-layout-menu role="group"', $html);
         self::assertStringContainsString('data-agent-layout-choice="left"', $html);
         self::assertStringContainsString('data-agent-layout-choice="right"', $html);
         self::assertStringContainsString('data-agent-reset', $html);

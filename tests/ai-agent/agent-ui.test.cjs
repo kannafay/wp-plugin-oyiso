@@ -12,12 +12,14 @@ const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.js'), 
 const panelScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/panel.js'), 'utf8');
 const markdownVendor = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/lib/markdown-it.min.js'), 'utf8');
 const markdownScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/markdown.js'), 'utf8');
+const historyScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/history.js'), 'utf8');
+const composerScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/composer.js'), 'utf8');
 const csfScript = fs.readFileSync(path.join(repo, 'assets/js/main.min.js'), 'utf8');
 const nativeNavigation = Array.from(fs.readFileSync(path.join(repo, 'src/_init.php'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g), match => match[1]).find(source => source.includes('function switchToSection(tabId)'));
 const wpRoot = process.env.OYISO_WORDPRESS_ROOT || path.resolve(repo, '../../..');
 const jquery = fs.readFileSync(path.join(wpRoot, 'wp-includes/js/jquery/jquery.js'), 'utf8');
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve)); };
-const chooseLayout = (f, mode) => { f.$('[data-agent-layout]').click(); f.$(`[data-agent-layout-choice="${mode}"]`).click(); };
+const chooseLayout = (f, mode) => { if (f.$('[data-agent-settings-menu]').hidden) f.$('[data-agent-settings-toggle]').click(); f.$(`[data-agent-layout-choice="${mode}"]`).click(); };
 
 const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42, conversation: [], events: [], changes: [], error: '', recoverable: false, ...extra });
 const proposal = () => ({ id: '12345678-1234-1234-1234-123456789abc', product_id: 99, name: '商品示例', before: { description: '<p>Original</p>' }, after: { description: '<p>Proposed</p>' }, status: 'pending' });
@@ -48,6 +50,8 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     window.eval(panelScript);
     window.eval(markdownVendor);
     window.eval(markdownScript);
+    window.eval(historyScript);
+    window.eval(composerScript);
     view.afterGeometry?.(window);
     window.eval(script);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
@@ -154,7 +158,7 @@ test('Enter used to confirm IME composition never submits until composition has 
 test('settings popover contains icon and text actions with keyboard dismissal and a separate refresh button', async t => {
     const f = fixture(t);
     const settings = f.$('[data-agent-settings-menu]'); const toggle = f.$('[data-agent-settings-toggle]');
-    for (const selector of ['[data-agent-layout]', '[data-agent-reset]', '[data-agent-history-toggle]']) {
+    for (const selector of ['[data-agent-layout-choice="left"]', '[data-agent-reset]', '[data-agent-history-toggle]']) {
         assert.equal(settings.contains(f.$(selector)), true);
         assert.ok(f.$(selector).querySelector('svg'));
         assert.ok(f.$(selector).textContent.trim());
@@ -163,7 +167,7 @@ test('settings popover contains icon and text actions with keyboard dismissal an
     assert.equal(f.$('[data-agent-fullscreen-toggle]').nextElementSibling, f.$('[data-agent-close]'));
     toggle.click(); assert.equal(settings.hidden, false); assert.equal(toggle.getAttribute('aria-expanded'), 'true');
     settings.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-    assert.equal(f.window.document.activeElement, f.$('[data-agent-reset]'));
+    assert.equal(f.window.document.activeElement, f.$('[data-agent-layout-choice="right"]'));
     settings.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     assert.equal(settings.hidden, true); assert.equal(f.window.document.activeElement, toggle);
     toggle.click(); f.window.document.body.click(); assert.equal(settings.hidden, true);
@@ -304,6 +308,134 @@ test('MCP review cards show escaped arguments and require an explicit action wit
     assert.ok(f.calls.filter(call => call.route === 'runs/12').length >= 2, 'successful confirmation reconnects to the resumed assistant');
     f.$('[data-agent-refresh]').click(); await settle();
     assert.equal(f.calls.filter(call => call.route.includes('/mcp/')).length, 1);
+});
+
+test('switching conversations loads quietly and only explicit refresh spins the header refresh button', async t => {
+    let resolveSwitch, resolveRefresh, reads = 0;
+    const f = fixture(t, route => {
+        if (route === 'runs?page=1') return { items: [12, 13].map(id => ({ id, title: `对话 ${id}`, status: 'completed', updated: '2026-10-20 16:15:49' })), pages: 1 };
+        if (route === 'runs/12') return task();
+        if (route === 'runs/13') return new Promise(resolve => { if (++reads === 1) resolveSwitch = resolve; else resolveRefresh = resolve; });
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); const listReads = f.calls.filter(call => call.route === 'runs?page=1').length;
+    f.$('#oyiso-agent-history [data-agent-run="13"]').click(); await settle();
+    assert.equal(f.$('[data-agent-refresh]').getAttribute('aria-busy'), 'false');
+    assert.equal(f.calls.filter(call => call.route === 'runs?page=1').length, listReads);
+    resolveSwitch(task({ id: 13, conversation: [{ role: 'assistant', text: '已切换' }] })); await settle();
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-refresh]').getAttribute('aria-busy'), 'true');
+    resolveRefresh(task({ id: 13 })); await settle();
+    assert.equal(f.$('[data-agent-refresh]').getAttribute('aria-busy'), 'false');
+});
+
+test('single deletion needs a modal confirmation and safely clears the active conversation once', async t => {
+    let finish, deleted = false;
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs?page=1') return { items: deleted ? [] : [{ id: 12, title: '要删除的对话', status: 'completed', updated: '2026-10-20 16:15:49' }], pages: 1 };
+        if (route === 'runs/12') return task({ conversation: [{ role: 'user', text: '即将删除' }] });
+        if (route === 'runs' && options.method === 'DELETE') return new Promise(resolve => { finish = () => { deleted = true; resolve({ deleted: [12] }); }; });
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    f.$('#oyiso-agent-history [data-agent-history-remove="12"]').click();
+    const dialog = f.window.document.querySelector('[data-agent-delete-dialog]');
+    assert.equal(dialog.open, true); assert.match(dialog.textContent, /确定删除这条对话/);
+    assert.equal(f.calls.some(call => call.options.method === 'DELETE'), false);
+    dialog.querySelector('[data-agent-delete-cancel]').click(); assert.equal(dialog.open, false);
+    f.$('#oyiso-agent-history [data-agent-history-remove="12"]').click();
+    dialog.querySelector('[data-agent-delete-confirm]').click(); dialog.querySelector('[data-agent-delete-confirm]').click(); await settle();
+    assert.equal(f.calls.filter(call => call.options.method === 'DELETE').length, 1);
+    assert.equal(dialog.querySelector('[data-agent-delete-confirm]').disabled, true);
+    finish(); await settle();
+    assert.equal(dialog.open, false); assert.equal(f.$('#oyiso-agent-history [data-agent-run="12"]'), null);
+    assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/'), null);
+    assert.equal(f.$('.oyiso-agent-message'), null); assert.ok(f.$('.oyiso-agent-empty'));
+});
+
+test('batch selection survives a rejected deletion and submits only the confirmed IDs', async t => {
+    let reject = true, deleted = false;
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs?page=1') return { items: deleted ? [] : [12, 13].map(id => ({ id, title: `批量 ${id}`, status: 'completed', updated: '2026-10-20 16:15:49' })), pages: 1 };
+        if (route === 'runs' && options.method === 'DELETE') {
+            assert.deepEqual(JSON.parse(options.body).ids, [12, 13]);
+            if (reject) return { ok: false, status: 403, body: { message: '没有删除权限' } };
+            deleted = true; return { deleted: [12, 13] };
+        }
+    });
+    await settle(); const root = f.$('#oyiso-agent-history');
+    root.querySelector('[data-agent-history-manage]').click(); root.querySelector('[data-agent-history-all]').click();
+    assert.equal(root.querySelector('[data-agent-history-count]').textContent, '已选 2');
+    assert.equal(root.querySelectorAll('[data-agent-history-pick]:checked').length, 2);
+    root.querySelector('[data-agent-history-delete]').click();
+    const dialog = f.window.document.querySelector('[data-agent-delete-dialog]');
+    assert.match(dialog.textContent, /所选 2 条对话/);
+    dialog.querySelector('[data-agent-delete-confirm]').click(); await settle();
+    assert.equal(dialog.open, true); assert.match(dialog.querySelector('[data-agent-delete-error]').textContent, /没有删除权限/);
+    assert.equal(root.querySelector('[data-agent-history-count]').textContent, '已选 2');
+    reject = false; dialog.querySelector('[data-agent-delete-confirm]').click(); await settle();
+    assert.equal(dialog.open, false); assert.equal(root.querySelector('[data-agent-history-count]').textContent, '已选 0');
+});
+
+test('composer grows from one line to a bounded height and shrinks when cleared', t => {
+    let contentHeight = 40;
+    const f = fixture(t, undefined, {}, window => Object.defineProperty(window.document.querySelector('#oyiso-agent-prompt'), 'scrollHeight', { get: () => contentHeight }));
+    const input = f.$('#oyiso-agent-prompt');
+    assert.equal(input.rows, 1); assert.equal(input.style.height, '42px');
+    input.value = '多行内容'; contentHeight = 110; input.dispatchEvent(new f.window.Event('input', { bubbles: true }));
+    assert.equal(input.style.height, '112px'); assert.equal(input.style.overflowY, 'hidden');
+    contentHeight = 400; input.dispatchEvent(new f.window.Event('input', { bubbles: true }));
+    assert.equal(input.style.height, '160px'); assert.equal(input.style.overflowY, 'auto');
+    input.value = ''; contentHeight = 40; input.dispatchEvent(new f.window.Event('input', { bubbles: true }));
+    assert.equal(input.style.height, '42px');
+});
+
+function pasteFiles(f, files, text = '') {
+    const event = new f.window.Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: { files, getData: () => text } });
+    f.$('#oyiso-agent-prompt').dispatchEvent(event); return event;
+}
+
+test('files can be pasted or selected and are submitted as CSRF-protected multipart content', async t => {
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs' && options.method === 'POST') return task({ conversation: [{ role: 'user', text: '请分析附件。', attachments: [{ id: 88, name: 'reference.txt', mime: 'text/plain', size: 7 }] }] });
+    });
+    const text = new f.window.File(['fixture'], 'reference.txt', { type: 'text/plain' });
+    const image = new f.window.File(['image'], 'image.png', { type: 'image/png' });
+    assert.equal(pasteFiles(f, [image]).defaultPrevented, true);
+    const input = f.$('[data-agent-file]'); Object.defineProperty(input, 'files', { value: [text], configurable: true }); input.dispatchEvent(new f.window.Event('change', { bubbles: true }));
+    assert.equal(f.window.document.querySelectorAll('[data-agent-attachments] .oyiso-agent-attachment').length, 2);
+    assert.equal(f.calls.some(call => call.options.method === 'POST'), false, 'draft files are uploaded only on Send');
+    f.$('[data-agent-send]').click(); await settle();
+    const sent = f.calls.find(call => call.route === 'runs' && call.options.method === 'POST');
+    assert.ok(sent.options.body instanceof f.window.FormData); assert.equal(sent.options.headers['Content-Type'], undefined);
+    assert.equal(sent.options.headers['X-WP-Nonce'], 'fixture-nonce');
+    assert.equal(sent.options.body.getAll('files[]').length, 2); assert.equal(sent.options.body.get('message'), '请分析附件。');
+    assert.equal(f.$('[data-agent-attachments]').hidden, true);
+    assert.match(f.$('.oyiso-agent-message-attachments').textContent, /reference.txt/);
+});
+
+test('attachment drafts survive conversation switches and refresh without leaking into another draft', async t => {
+    const f = fixture(t, route => route === 'runs?page=1' ? { items: [{ id: 12, title: '已保存对话', status: 'completed', updated: '2026-10-20' }], pages: 1 } : route === 'runs/12' ? task() : undefined);
+    const file = new f.window.File(['fixture'], 'draft.txt', { type: 'text/plain' });
+    pasteFiles(f, [file], '附件说明'); await settle();
+    assert.equal(f.$('#oyiso-agent-prompt').value, '附件说明');
+    f.$('#oyiso-agent-history [data-agent-run="12"]').click(); await settle();
+    assert.equal(f.$('[data-agent-attachments]').hidden, true);
+    f.$('[data-agent-refresh]').click(); await settle(); assert.equal(f.$('[data-agent-attachments]').hidden, true);
+    f.$('[data-agent-new]').click();
+    assert.equal(f.$('[data-agent-attachments]').hidden, false); assert.match(f.$('[data-agent-attachments]').textContent, /draft.txt/);
+    assert.equal(f.$('#oyiso-agent-prompt').value, '附件说明');
+    f.$('[data-agent-attachments] button').click(); assert.equal(f.$('[data-agent-attachments]').hidden, true);
+});
+
+test('invalid or oversized files are rejected and failed sending preserves the draft files', async t => {
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? { ok: false, status: 400, body: { message: '所选模型不支持此图片' } } : undefined);
+    pasteFiles(f, [new f.window.File(['x'], 'bad.exe'), new f.window.File(['x'.repeat(80001)], 'large.txt')]);
+    assert.equal(f.$('[data-agent-attachments]').hidden, true); assert.match(f.$('[data-agent-notice]').textContent, /大小限制/);
+    const file = new f.window.File(['x'], 'photo.png', { type: 'image/png' }); pasteFiles(f, [file]); pasteFiles(f, [file]);
+    assert.equal(f.window.document.querySelectorAll('.oyiso-agent-attachment').length, 1);
+    f.$('[data-agent-send]').click(); await settle();
+    assert.match(f.$('[data-agent-notice]').textContent, /不支持此图片/); assert.equal(f.$('[data-agent-attachments]').hidden, false);
+    assert.equal(pasteFiles(f, [], '正常文本').defaultPrevented, false);
 });
 
 test('refresh and page restoration reconnect to running work without duplicate steps or stale response rollback', async t => {
@@ -566,14 +698,14 @@ test('panel history cancellation submits once and updates the record without clo
         if (route === 'runs/12/cancel') return new Promise(resolve => { finish = () => { cancelled = true; resolve(task({ status: 'cancelled' })); }; });
     }, {}, undefined, { globalOnly: true });
     f.$('[data-agent-history-toggle]').click(); await settle();
-    const cancel = f.$(`${panelRecords} li .button`);
+    const cancel = f.$(`${panelRecords} li [aria-label="取消任务"]`);
     cancel.click(); cancel.click(); await settle();
     assert.equal(f.calls.filter(call => call.route === 'runs/12/cancel').length, 1);
     assert.equal(cancel.disabled, true);
     finish(); await settle();
     assert.equal(f.$('#oyiso-agent-panel-history').hidden, false);
     assert.match(f.$(`${panelRecords} li`).textContent, /已取消/);
-    assert.equal(f.$(`${panelRecords} li .button`), null);
+    assert.equal(f.$(`${panelRecords} li [aria-label="取消任务"]`), null);
 });
 
 test('rapid switches ignore earlier conversation responses and sending clears the submitted draft', async t => {
@@ -846,16 +978,16 @@ test('execution history cancels eligible tasks once and refreshes their status',
     }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'), { closed: true });
     await settle();
     const rows = Array.from(f.window.document.querySelectorAll('#oyiso-agent-history tbody tr'));
-    assert.deepEqual(rows.map(row => row.querySelectorAll('button').length), [2, 2, 2, 1, 1, 1]);
-    const button = rows[0].querySelector('button:last-child');
-    assert.equal(button.textContent, '取消任务');
+    assert.deepEqual(rows.map(row => row.querySelectorAll('button').length), [3, 3, 3, 2, 2, 2]);
+    const button = rows[0].querySelector('[aria-label="取消任务"]');
+    assert.equal(button.getAttribute('aria-label'), '取消任务');
     assert.equal(rows[0].querySelector('button:first-child').textContent, '查看对话');
     button.click(); button.click(); await settle();
     assert.equal(f.calls.filter(call => call.route === 'runs/12/cancel').length, 1);
     assert.equal(f.calls.find(call => call.route === 'runs/12/cancel').options.headers['X-WP-Nonce'], 'fixture-nonce');
     finish(); await settle();
     assert.match(f.$('#oyiso-agent-history tbody tr:first-child').textContent, /已取消/);
-    assert.equal(f.$('#oyiso-agent-history tbody tr:first-child').querySelectorAll('button').length, 1);
+    assert.equal(f.$('#oyiso-agent-history tbody tr:first-child').querySelectorAll('button').length, 2);
     assert.equal(f.$('[data-agent-status]').textContent, '已取消');
     assert.equal(f.$('#oyiso-agent-panel').hidden, true);
 });
@@ -1134,27 +1266,28 @@ test('resetting a fullscreen panel restores default geometry and preserves the f
 test('layout menu supports both split sides, keyboard navigation, dismissal and saved side restoration', async t => {
     const f = fixture(t, undefined, {}, geometry, { globalOnly: true });
     const menu = f.$('[data-agent-layout-menu]');
-    const toggle = f.$('[data-agent-layout]');
+    const toggle = f.$('[data-agent-settings-toggle]');
     toggle.click();
-    assert.equal(menu.hidden, false);
+    assert.equal(f.$('[data-agent-settings-menu]').hidden, false);
     assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.equal(f.window.document.activeElement.dataset.agentLayoutChoice, 'left');
+    menu.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     assert.equal(f.window.document.activeElement.dataset.agentLayoutChoice, 'right');
-    menu.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    menu.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
     assert.equal(f.window.document.activeElement.dataset.agentLayoutChoice, 'left');
     f.window.document.activeElement.click();
-    assert.equal(menu.hidden, true);
+    assert.equal(f.$('[data-agent-settings-menu]').hidden, true);
     assert.equal(f.$('#oyiso-agent-panel').dataset.agentDock, 'left');
     assert.equal(f.$('[data-agent-layout-choice="left"]').getAttribute('aria-checked'), 'true');
-    assert.equal(f.$('[data-agent-split-divider]').getAttribute('d'), 'M9 4v16');
     assert.equal(f.window.localStorage.getItem(windowKey + ':side'), 'left');
     toggle.click();
     menu.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    assert.equal(menu.hidden, true);
+    assert.equal(f.$('[data-agent-settings-menu]').hidden, true);
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
     assert.equal(f.window.document.activeElement, toggle);
     toggle.click();
     f.window.document.body.click();
-    assert.equal(menu.hidden, true);
+    assert.equal(f.$('[data-agent-settings-menu]').hidden, true);
     const restored = fixture(t, undefined, {}, window => {
         geometry(window);
         window.localStorage.setItem(windowKey + ':side', 'left');
@@ -1164,8 +1297,9 @@ test('layout menu supports both split sides, keyboard navigation, dismissal and 
     assert.equal(restored.$('#oyiso-agent-panel').dataset.agentDock, 'right');
     chooseLayout(restored, 'floating');
     assert.equal(restored.$('#oyiso-agent-panel').hasAttribute('data-agent-window'), true);
-    assert.equal(restored.$('[data-agent-layout-icon="floating"]').hidden, false);
-    assert.equal(restored.$('[data-agent-layout-icon="split"]').hidden, true);
+    assert.equal(restored.$('[data-agent-layout-choice="floating"]').getAttribute('aria-checked'), 'true');
+    assert.equal(menu.querySelectorAll('button').length, 4);
+    assert.equal(menu.querySelector('[aria-haspopup]'), null);
     await settle();
 });
 

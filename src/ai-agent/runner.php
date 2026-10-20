@@ -8,7 +8,9 @@ use WordPress\AiClient\Messages\DTO\MessagePart;
 use WordPress\AiClient\Messages\DTO\UserMessage;
 use WordPress\AiClient\Tools\DTO\FunctionResponse;
 
-/** @phpstan-import-type Run from Oyiso_Agent_Store */
+/** @phpstan-import-type Run from Oyiso_Agent_Store
+ * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
+ */
 final class Oyiso_Agent_Runner
 {
     public const HOOK = 'oyiso_agent_run_step';
@@ -29,12 +31,18 @@ final class Oyiso_Agent_Runner
         }
     }
 
-    /** @param Run $run */
-    public static function message(array &$run, string $text): void
+    /** @param Run $run
+     * @param list<Attachment> $attachments
+     */
+    public static function message(array &$run, string $text, array $attachments = []): void
     {
         unset($run['partial']);
-        $run['messages'][] = (new UserMessage([new MessagePart($text)]))->toArray();
-        $run['conversation'][] = ['role' => 'user', 'text' => $text];
+        $message = (new UserMessage([new MessagePart($text)]))->toArray();
+        if ($attachments !== []) $message['oyiso_attachments'] = array_column($attachments, 'id');
+        $run['messages'][] = $message;
+        $entry = ['role' => 'user', 'text' => $text];
+        if ($attachments !== []) $entry['attachments'] = $attachments;
+        $run['conversation'][] = $entry;
         $run['step'] = 0;
         $run['status'] = 'queued';
         $run['error'] = '';

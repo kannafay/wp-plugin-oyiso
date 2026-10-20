@@ -20,8 +20,18 @@ final class Oyiso_Agent_Admin
         register_rest_route($root, '/runs', [
             ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response => new WP_REST_Response(Oyiso_Agent_Store::recent(max(1, (int) $request->get_param('page')))), 'args' => ['page' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]]],
             ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'send'], 'args' => ['message' => ['type' => 'string', 'required' => true, 'minLength' => 1, 'maxLength' => 4000], 'selection' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 251], 'run_id' => ['type' => 'integer', 'minimum' => 0, 'default' => 0]]],
+            ['methods' => 'DELETE', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
+                $ids = $request->get_param('ids');
+                if (!is_array($ids)) return new WP_Error('agent_delete_ids', '请选择要删除的对话。', ['status' => 400]);
+                $result = Oyiso_Agent_Store::remove($ids);
+                return is_wp_error($result) ? $result : new WP_REST_Response(['deleted' => $result]);
+            }, 'args' => ['ids' => ['type' => 'array', 'required' => true, 'minItems' => 1, 'maxItems' => 100, 'uniqueItems' => true, 'items' => ['type' => 'integer', 'minimum' => 1]]]],
         ]);
         register_rest_route($root, '/runs/(?P<id>\d+)', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => [self::class, 'read']]);
+        register_rest_route($root, '/files/(?P<id>\d+)', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
+            $file = Oyiso_Agent_Attachments::read((int) $request->get_param('id'));
+            return is_wp_error($file) ? $file : new WP_REST_Response($file, 200, ['Cache-Control' => 'no-store, private']);
+        }]);
         foreach (['step', 'cancel'] as $action) {
             register_rest_route($root, '/runs/(?P<id>\d+)/' . $action, ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response|WP_Error => self::control($request, $action)]);
         }
@@ -36,6 +46,9 @@ final class Oyiso_Agent_Admin
             return new WP_Error('agent_not_ready', '请先启用 AI Agent，并使用 WordPress 7.0 或以上版本。', ['status' => 400]);
         }
         $message = trim((string) $request->get_param('message'));
+        $uploads = Oyiso_Agent_Attachments::uploads($request);
+        if (is_wp_error($uploads)) return $uploads;
+        if ($message === '' && $uploads !== []) $message = '请分析附件。';
         if ($message === '') {
             return new WP_Error('agent_message_empty', '请输入要处理的任务。', ['status' => 400]);
         }
@@ -70,7 +83,9 @@ final class Oyiso_Agent_Admin
             if ($selection === null) return new WP_Error('agent_model_selection', '此对话尚未选择模型，请在 AI 助手中选择模型后重新发送。', ['status' => 400]);
             if (!isset(Oyiso_Agent_Connections::choices()[$selection])) return new WP_Error('agent_model_selection', '所选模型已不可用，请重新选择模型。', ['status' => 400]);
             $run['selection'] = $selection;
-            Oyiso_Agent_Runner::message($run, $message);
+            $attachments = Oyiso_Agent_Attachments::save($id, $uploads);
+            if (is_wp_error($attachments)) return $attachments;
+            Oyiso_Agent_Runner::message($run, $message, $attachments);
         } finally {
             Oyiso_Agent_Store::unlock('run_' . $id);
         }
@@ -193,8 +208,10 @@ final class Oyiso_Agent_Admin
         wp_enqueue_script('oyiso-agent-panel', plugins_url('assets/panel.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/panel.js'), true);
         wp_enqueue_script('oyiso-agent-markdown-it', plugins_url('assets/lib/markdown-it.min.js', __FILE__), [], '15.0.3', true);
         wp_enqueue_script('oyiso-agent-markdown', plugins_url('assets/markdown.js', __FILE__), ['oyiso-agent-markdown-it'], (string) filemtime(__DIR__ . '/assets/markdown.js'), true);
-        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
-        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices()]);
+        wp_enqueue_script('oyiso-agent-history', plugins_url('assets/history.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/history.js'), true);
+        wp_enqueue_script('oyiso-agent-composer', plugins_url('assets/composer.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/composer.js'), true);
+        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
+        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536))]);
     }
 
     private static function available(): bool
@@ -222,13 +239,12 @@ final class Oyiso_Agent_Admin
                     <div class="oyiso-agent-settings-wrap">
                     <button type="button" class="oyiso-agent-icon-button" data-agent-settings-toggle title="设置" aria-label="设置" aria-haspopup="menu" aria-controls="oyiso-agent-settings-menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 3-.4 2.1-1.8 1-2-.7-2.5 4.3L4.5 11v2l-1.7 1.3 2.5 4.3 2-.7 1.8 1 .4 2.1h5l.4-2.1 1.8-1 2 .7 2.5-4.3-1.7-1.3v-2l1.7-1.3-2.5-4.3-2 .7-1.8-1-.4-2.1z"/><circle cx="12" cy="12" r="3"/></svg></button>
                     <div id="oyiso-agent-settings-menu" class="oyiso-agent-settings-menu" data-agent-settings-menu role="menu" aria-label="助手设置" hidden>
-                    <button type="button" role="menuitem" data-agent-layout aria-label="窗口布局" aria-haspopup="menu" aria-controls="oyiso-agent-layout-menu" aria-expanded="false">
-                        <span data-agent-layout-icon="split" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path data-agent-split-divider d="M15 4v16"/></svg></span>
-                        <span data-agent-layout-icon="floating" aria-hidden="true" hidden><svg viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></span>
-                        <span>窗口布局</span><span class="oyiso-agent-menu-chevron" aria-hidden="true">⌄</span>
-                    </button>
-                    <div id="oyiso-agent-layout-menu" class="oyiso-agent-layout-menu" data-agent-layout-menu role="menu" aria-label="窗口布局" hidden><button type="button" role="menuitemradio" aria-checked="false" data-agent-layout-choice="left"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg><span>左侧分屏</span></button><button type="button" role="menuitemradio" aria-checked="true" data-agent-layout-choice="right"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg><span>右侧分屏</span></button><button type="button" role="menuitemradio" aria-checked="false" data-agent-layout-choice="floating"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="13" height="12" rx="2"/><path d="M16 8V3H3v13h5"/></svg><span>悬浮窗</span></button></div>
-                    <button type="button" role="menuitem" data-agent-reset aria-label="恢复默认大小和位置"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg><span>重置窗口</span></button>
+                    <div class="oyiso-agent-layout-grid" data-agent-layout-menu role="group" aria-label="窗口布局">
+                        <button type="button" role="menuitemradio" aria-checked="false" aria-label="左侧分屏" title="左侧分屏" data-agent-layout-choice="left"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg><span>左侧</span></button>
+                        <button type="button" role="menuitemradio" aria-checked="true" aria-label="右侧分屏" title="右侧分屏" data-agent-layout-choice="right"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg><span>右侧</span></button>
+                        <button type="button" role="menuitemradio" aria-checked="false" aria-label="悬浮窗" title="悬浮窗" data-agent-layout-choice="floating"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="13" height="12" rx="2"/><path d="M16 8V3H3v13h5"/></svg><span>悬浮</span></button>
+                        <button type="button" role="menuitem" data-agent-reset aria-label="恢复默认大小和位置" title="重置窗口"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg><span>重置</span></button>
+                    </div>
                     <button type="button" role="menuitem" data-agent-history-toggle aria-controls="oyiso-agent-panel-history" aria-expanded="false" aria-label="对话记录"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>对话记录</span></button>
                     <a role="menuitem" class="oyiso-agent-settings-link" data-agent-tab="ai-agent/agent-model" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-model')); ?>" aria-label="模型配置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg><span>模型配置</span></a>
                     </div></div>
@@ -241,15 +257,17 @@ final class Oyiso_Agent_Admin
             </header>
             <div class="oyiso-agent-panel-body">
                 <section id="oyiso-agent-panel-history" class="oyiso-agent-panel-history" data-agent-runs="panel" aria-labelledby="oyiso-agent-history-title" hidden>
-                    <div class="oyiso-agent-history-heading"><h3 id="oyiso-agent-history-title">对话记录</h3><button type="button" class="oyiso-agent-icon-button" data-agent-history-refresh title="刷新记录" aria-label="刷新记录"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.36-6.36L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.36 6.36L3 16M8 16H3v5"/></svg></button><button type="button" class="oyiso-agent-icon-button" data-agent-history-back title="关闭对话记录" aria-label="关闭对话记录"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
+                    <div class="oyiso-agent-history-heading"><h3 id="oyiso-agent-history-title">对话记录</h3><button type="button" class="oyiso-agent-icon-button" data-agent-history-manage aria-label="选择对话" aria-pressed="false" title="选择对话"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 12 3 3 7-7"/></svg></button><button type="button" class="oyiso-agent-icon-button" data-agent-history-refresh title="刷新记录" aria-label="刷新记录"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.36-6.36L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.36 6.36L3 16M8 16H3v5"/></svg></button><button type="button" class="oyiso-agent-icon-button" data-agent-history-back title="关闭对话记录" aria-label="关闭对话记录"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
+                    <?php self::historySelection(); ?>
                     <p class="oyiso-agent-history-notice" data-agent-history-notice role="status" aria-live="polite"></p>
                     <ul class="oyiso-agent-history-list" data-agent-history-body aria-label="历史对话"></ul>
-                    <div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div>
+                    <div class="oyiso-agent-pagination"><button type="button" class="oyiso-agent-icon-button" data-agent-history-prev aria-label="上一页" title="上一页"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><span data-agent-history-page></span><button type="button" class="oyiso-agent-icon-button" data-agent-history-next aria-label="下一页" title="下一页"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
                 </section>
                 <button type="button" class="oyiso-agent-history-dismiss" data-agent-history-dismiss tabindex="-1" aria-label="关闭对话记录" hidden></button>
                 <?php self::chat(); ?>
             </div>
         </aside>
+        <dialog class="oyiso-agent-confirm" data-agent-delete-dialog aria-labelledby="oyiso-agent-delete-title"><h3 id="oyiso-agent-delete-title">删除对话</h3><p data-agent-delete-description></p><p class="oyiso-agent-confirm-error" data-agent-delete-error role="alert" hidden></p><div class="oyiso-agent-confirm-actions"><button type="button" class="button" data-agent-delete-cancel>取消</button><button type="button" class="button" data-agent-delete-confirm>删除</button></div></dialog>
         <?php
     }
 
@@ -265,8 +283,10 @@ final class Oyiso_Agent_Admin
             <details class="oyiso-agent-progress"><summary>执行过程 <span data-agent-status>尚未开始</span></summary><div class="oyiso-agent-progress-body"><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></div></details>
             <div class="oyiso-agent-composer">
                 <label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label>
-                <textarea id="oyiso-agent-prompt" rows="3" maxlength="4000" placeholder="例如：读取商品 123，完善长短描述和 SEO 信息，先给我预览。"></textarea>
+                <div class="oyiso-agent-attachments" data-agent-attachments hidden></div>
+                <textarea id="oyiso-agent-prompt" rows="1" maxlength="4000" placeholder="发送消息，或粘贴图片和文件…"></textarea>
                 <div class="oyiso-agent-composer-actions">
+                    <button type="button" class="oyiso-agent-icon-button" data-agent-attach aria-label="添加附件" title="添加附件"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11-8 8a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button><input type="file" data-agent-file multiple accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.yaml,.yml,.css,.js,.ts,.php,.sql" hidden>
                     <select id="oyiso-agent-model" class="oyiso-agent-model-picker" data-agent-model aria-label="对话模型"><option value="">暂无可用模型</option></select>
                     <div><button type="button" class="button" data-agent-cancel hidden>取消任务</button><button type="button" class="button button-primary" data-agent-send>发送</button></div>
                 </div>
@@ -299,7 +319,14 @@ final class Oyiso_Agent_Admin
             echo '<p class="description">请先启用 AI Agent 并保存配置，刷新页面后查看对话记录。</p>';
             return;
         }
-        echo '<div id="oyiso-agent-history" class="oyiso-agent" data-agent-runs="history"><div class="oyiso-agent-heading"><div><h2>对话记录</h2><p class="description">查看你发起的对话、执行过程和商品修改；可取消正在执行或等待确认的任务。</p></div><button type="button" class="button" data-agent-history-refresh>刷新记录</button></div><p role="status" aria-live="polite" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th>对话</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="4">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>';
+        echo '<div id="oyiso-agent-history" class="oyiso-agent" data-agent-runs="history"><div class="oyiso-agent-heading"><div><h2>对话记录</h2><p class="description">查看对话和执行过程，或选择对话批量删除。</p></div><div><button type="button" class="button" data-agent-history-manage aria-pressed="false">选择对话</button> <button type="button" class="button" data-agent-history-refresh>刷新记录</button></div></div>';
+        self::historySelection();
+        echo '<p role="status" aria-live="polite" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th data-agent-history-select-column hidden>选择</th><th>对话</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="5">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>';
+    }
+
+    private static function historySelection(): void
+    {
+        echo '<div class="oyiso-agent-history-selection" data-agent-history-selection hidden><label><input type="checkbox" data-agent-history-all> 本页</label><span data-agent-history-count>已选 0</span><button type="button" class="button button-small" data-agent-history-delete disabled>删除</button></div>';
     }
 
     public static function tools(): void

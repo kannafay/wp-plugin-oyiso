@@ -9,7 +9,8 @@ defined('ABSPATH') || exit;
  * @phpstan-type Change array{id:string, product_id:int, name:string, before:Fields, after:Fields, status:string}
  * @phpstan-type RunEvent array{time:string, type:string, label:string, detail:string}
  * @phpstan-type MCPAction array{id:string,name:string,label:string,input_json:string,status:string,result:string}
- * @phpstan-type Run array{id:int, selection?:string, partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
+ * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
+ * @phpstan-type Run array{id:int, selection?:string, partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
  */
 final class Oyiso_Agent_Store
 {
@@ -51,7 +52,30 @@ final class Oyiso_Agent_Store
     public static function owned(int $id): bool
     {
         $post = get_post($id);
-        return $post instanceof WP_Post && $post->post_type === self::TYPE && (int) $post->post_author === get_current_user_id();
+        return $post instanceof WP_Post && $post->post_type === self::TYPE && $post->post_status === 'private' && (int) $post->post_author === get_current_user_id();
+    }
+
+    /** @param array<mixed> $ids
+     * @return list<int>|WP_Error
+     */
+    public static function remove(array $ids): array|WP_Error
+    {
+        if (!current_user_can('manage_options') || $ids === [] || count($ids) > 100) return new WP_Error('agent_delete_invalid', '请选择 1–100 个对话。', ['status' => 400]);
+        $valid = [];
+        foreach ($ids as $id) {
+            if (!is_int($id) || !self::owned($id)) return new WP_Error('agent_delete_forbidden', '部分对话不存在或不属于当前账号，未执行删除。', ['status' => 404]);
+            $valid[] = $id;
+        }
+        $valid = array_values(array_unique($valid));
+        foreach ($valid as $id) {
+            self::cancel($id);
+            // Keep records recoverable even on sites with EMPTY_TRASH_DAYS set to zero.
+            update_post_meta($id, '_wp_trash_meta_status', 'private');
+            update_post_meta($id, '_wp_trash_meta_time', time());
+            $result = wp_update_post(['ID' => $id, 'post_status' => 'trash'], true);
+            if (is_wp_error($result)) return $result;
+        }
+        return $valid;
     }
 
     /** @param Run $run */

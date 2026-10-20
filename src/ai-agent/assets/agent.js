@@ -25,7 +25,10 @@
     const fields = { description: '长描述', short_description: '短描述', seo_title: 'SEO 标题', seo_description: 'SEO 描述', seo_keywords: '目标关键词' };
     const storageKey = `oyiso-agent:${config.user}:${new URL(config.url).pathname}`;
     const changing = new Set();
-    const lists = Array.from(document.querySelectorAll('[data-agent-runs]'), root => ({ root, inline: root === panelHistory, page: 1, pages: 1, revision: 0 }));
+    let history;
+    let composer;
+    let deleting = false;
+    let refreshing = false;
     const drafts = new Map();
     let run = null;
     let runId = 0;
@@ -79,6 +82,7 @@
 
     function forgetDraft(id) {
         drafts.delete(id);
+        composer?.clear(id);
         try { sessionStorage.removeItem(storageKey + ':draft:' + id); } catch { /* Storage is optional. */ }
     }
 
@@ -87,7 +91,7 @@
         historyToggle.setAttribute('aria-expanded', String(open));
         store(':history-open', open ? '1' : '0');
         syncHistory();
-        if (open) loadList(lists.find(list => list.inline));
+        if (open) history?.reloadPanel();
         if (focus) (open ? $('[data-agent-history-back]') : settingsToggle).focus({ preventScroll: true });
     }
 
@@ -110,6 +114,7 @@
 
     function setPanel(open, focus = true, animate = true) {
         if (open && !config.enabled) return;
+        const wasOpen = panelOpen;
         const moving = animate && open !== panelOpen && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
         cancelPanelMotion?.();
         cancelPanelMotion = undefined;
@@ -141,12 +146,13 @@
         if (open) {
             if (focus) $('[data-agent-close]').focus({ preventScroll: true });
             poll();
-            if (!panelHistory.hidden) loadList(lists.find(list => list.inline));
+            if (!wasOpen && !panelHistory.hidden) history?.reloadPanel();
         } else {
             setSettingsMenu(false, false);
             clearTimeout(timer);
             pollRevision++;
             loading = false;
+            refreshing = false;
             controls();
             rememberDraft();
             if (focus) launcher.focus({ preventScroll: true });
@@ -193,25 +199,13 @@
     function updateLayoutControls() {
         const floating = document.body.classList.contains('oyiso-agent-floating');
         const left = document.body.classList.contains('oyiso-agent-dock-left');
-        $('[data-agent-layout-icon="split"]').hidden = floating;
-        $('[data-agent-layout-icon="floating"]').hidden = !floating;
-        $('[data-agent-split-divider]').setAttribute('d', left ? 'M9 4v16' : 'M15 4v16');
         layoutMenu.querySelectorAll('[data-agent-layout-choice]').forEach(button => button.setAttribute('aria-checked', String(button.dataset.agentLayoutChoice === (floating ? 'floating' : left ? 'left' : 'right'))));
-    }
-
-    function setLayoutMenu(open, focus = true) {
-        if (open && settingsMenu.hidden) setSettingsMenu(true, false);
-        layoutMenu.hidden = !open;
-        $('[data-agent-layout]').setAttribute('aria-expanded', String(open));
-        if (!settingsMenu.hidden) placeSettingsMenu();
-        if (focus) (open ? $('[aria-checked="true"]', layoutMenu) : $('[data-agent-layout]')).focus({ preventScroll: true });
     }
 
     function setSettingsMenu(open, focus = true) {
         settingsMenu.hidden = !open;
         panel.toggleAttribute('data-agent-menu-open', open);
         settingsToggle.setAttribute('aria-expanded', String(open));
-        if (!open) setLayoutMenu(false, false);
         if (open) placeSettingsMenu();
         if (focus) (open ? menuItems()[0] : settingsToggle)?.focus({ preventScroll: true });
     }
@@ -243,7 +237,7 @@
         const response = await fetch(config.url + path, {
             credentials: 'same-origin',
             ...options,
-            headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': config.nonce, ...options.headers },
+            headers: { ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), 'X-WP-Nonce': config.nonce, ...options.headers },
         });
         let data;
         try { data = await response.json(); } catch { throw new Error('服务器未返回有效数据，请检查网络或刷新页面。'); }
@@ -297,21 +291,21 @@
             if (id) localStorage.setItem(storageKey, String(id));
             else localStorage.removeItem(storageKey);
         } catch { /* Private browsing may disable localStorage. */ }
-        panelHistory.querySelectorAll('[data-agent-run]').forEach(button => {
-            if (Number(button.dataset.agentRun) === id) button.setAttribute('aria-current', 'true');
-            else button.removeAttribute('aria-current');
-        });
+        history?.setCurrent(id);
     }
 
     function controls() {
         const active = run && ['queued', 'running'].includes(run.status);
         const ready = config.enabled && config.supported;
-        $('[data-agent-send]').disabled = !ready || !Object.hasOwn(config.models || {}, modelSelect.value) || loading || sending || changing.size > 0 || active || run?.status === 'cancelled';
-        modelSelect.disabled = !ready || loading || sending || changing.size > 0 || active;
-        prompt.disabled = !ready || loading || sending || active || run?.status === 'cancelled';
-        $('[data-agent-new]').disabled = sending || changing.size > 0;
+        $('[data-agent-send]').disabled = !ready || !Object.hasOwn(config.models || {}, modelSelect.value) || loading || sending || deleting || changing.size > 0 || active || run?.status === 'cancelled';
+        modelSelect.disabled = !ready || loading || sending || deleting || changing.size > 0 || active;
+        prompt.disabled = !ready || loading || sending || deleting || active || run?.status === 'cancelled';
+        $('[data-agent-attach]').disabled = prompt.disabled;
+        $('[data-agent-file]').disabled = prompt.disabled;
+        document.querySelectorAll('[data-agent-attachments] button').forEach(button => { button.disabled = prompt.disabled; });
+        $('[data-agent-new]').disabled = sending || deleting || changing.size > 0;
         $('[data-agent-refresh]').disabled = !runId || loading || sending || changing.size > 0;
-        $('[data-agent-refresh]').setAttribute('aria-busy', String(loading));
+        $('[data-agent-refresh]').setAttribute('aria-busy', String(refreshing));
         $('[data-agent-cancel]').hidden = !run || !['queued', 'running', 'waiting'].includes(run.status);
         $('[data-agent-status]').textContent = loading ? '读取中' : run?.status === 'running' ? (run.partial?.text ? '回复中' : '思考中') : run ? statuses[run.status] || run.status : '尚未开始';
         $('[data-agent-usage]').textContent = run ? `本次任务 ${run.step} 轮 · 累计 ${Number(run.tokens).toLocaleString()} Token` : '';
@@ -454,6 +448,7 @@
                 if (!isUser && window.oyisoAgentMarkdown) window.oyisoAgentMarkdown(content, entry.text);
                 else messageText(content, entry.text);
                 item.append(content);
+                composer?.renderFiles(item, entry.attachments);
                 messages.append(item);
             }
             if (!next.conversation.length) messages.append(empty.cloneNode(true));
@@ -510,17 +505,20 @@
         const controller = new AbortController(); pollController = controller;
         const timeout = setTimeout(() => controller.abort(), 15000);
         loading = force || !run || run.id !== id;
+        refreshing = force;
         controls();
         try {
             const data = await api(`runs/${id}`, { signal: controller.signal });
             if (id !== runId || revision !== pollRevision || !panelOpen) return;
             loading = false;
+            refreshing = false;
             render(data);
             if (data.status === 'queued' || data.recoverable) drive(id);
             if (['queued', 'running'].includes(data.status)) timer = setTimeout(poll, 700);
         } catch (error) {
             if (id === runId && revision === pollRevision && panelOpen) {
                 loading = false;
+                refreshing = false;
                 controls();
                 showNotice(error.name === 'AbortError' ? '读取对话超时，请点击刷新重试。' : error.message, true);
                 timer = setTimeout(poll, 6000);
@@ -532,16 +530,23 @@
     }
 
     async function send() {
-        const message = prompt.value.trim();
+        const files = composer?.files() || [];
+        const message = prompt.value.trim() || (files.length ? '请分析附件。' : '');
         if (!message || $('[data-agent-send]').disabled) return;
         sending = true;
         controls();
         try {
-            const next = await api('runs', { method: 'POST', body: JSON.stringify({ message, run_id: runId, selection: modelSelect.value }) });
+            let body;
+            if (files.length) {
+                body = new FormData(); body.append('message', message); body.append('run_id', String(runId)); body.append('selection', modelSelect.value); files.forEach(file => body.append('files[]', file, file.name));
+            } else body = JSON.stringify({ message, run_id: runId, selection: modelSelect.value });
+            const next = await api('runs', { method: 'POST', body });
             forgetDraft(runId);
             runId = next.id;
+            composer?.switchTo(runId);
             remember(runId);
             prompt.value = '';
+            composer?.resize();
             rememberDraft();
             version = '';
             render(next);
@@ -568,13 +573,13 @@
 
     async function openRun(id) {
         if (panel.dataset.historyLayout !== 'sidebar') setHistory(false, false);
-        if (sending || changing.size) {
+        if (sending || deleting || changing.size) {
             setPanel(true);
             showNotice('请等待当前操作完成后再切换对话。');
             return;
         }
         rememberDraft();
-        if (id === runId && run) { setPanel(true); return; }
+        if (id === runId && run) { if (!panelOpen) setPanel(true); return; }
         clearTimeout(timer);
         runId = id;
         run = null;
@@ -584,68 +589,13 @@
         $('[data-agent-events]').replaceChildren();
         $('[data-agent-changes]').replaceChildren();
         prompt.value = draftFor(id);
+        composer?.switchTo(id);
         rememberDraft();
         initialNotice();
         setPanel(true);
     }
 
-    async function loadList(list) {
-        if (list.inline && (panelHistory.hidden || !panelOpen)) return;
-        const { root } = list;
-        const revision = ++list.revision;
-        const note = $('[data-agent-history-notice]', root);
-        if (list.inline) note.textContent = '正在读取对话记录…';
-        try {
-            const data = await api(`runs?page=${list.page}`);
-            if (revision !== list.revision) return;
-            if (list.page > Math.max(1, data.pages)) { list.page = Math.max(1, data.pages); return loadList(list); }
-            const body = $('[data-agent-history-body]', root);
-            body.replaceChildren();
-            list.pages = Math.max(1, data.pages);
-            for (const item of data.items) {
-                const row = node(list.inline ? 'li' : 'tr', list.inline ? 'oyiso-agent-history-item' : '');
-                const cell = list.inline ? row : node('td');
-                if (!list.inline) row.append(node('td', '', item.title), node('td', '', statuses[item.status] || item.status), node('td', '', item.updated));
-                const button = node('button', list.inline ? 'oyiso-agent-history-open' : 'button button-small', list.inline ? undefined : '查看对话');
-                button.type = 'button';
-                if (list.inline) {
-                    button.dataset.agentRun = String(item.id);
-                    button.append(node('span', 'oyiso-agent-history-title', item.title), node('span', 'oyiso-agent-history-meta', `${statuses[item.status] || item.status} · ${item.updated}`));
-                    if (item.id === runId) button.setAttribute('aria-current', 'true');
-                }
-                button.addEventListener('click', () => openRun(item.id));
-                cell.append(button);
-                if (['queued', 'running', 'waiting'].includes(item.status)) {
-                    const cancel = node('button', 'button button-small', '取消任务');
-                    cancel.type = 'button';
-                    cancel.addEventListener('click', async () => {
-                        cancel.disabled = true;
-                        try {
-                            const data = await api(`runs/${item.id}/cancel`, { method: 'POST', body: '{}' });
-                            if (item.id === runId) render(data);
-                            loadLists();
-                        } catch (error) { note.textContent = error.message; cancel.disabled = false; }
-                    });
-                    cell.append(document.createTextNode(' '), cancel);
-                }
-                if (!list.inline) row.append(cell);
-                body.append(row);
-            }
-            if (!data.items.length) {
-                const cell = node(list.inline ? 'li' : 'td', list.inline ? 'oyiso-agent-history-empty' : '', '暂无对话记录。发送第一条消息后，记录会显示在这里。');
-                if (list.inline) body.append(cell);
-                else { cell.colSpan = 4; const row = node('tr'); row.append(cell); body.append(row); }
-            }
-            $('[data-agent-history-page]', root).textContent = `${list.page} / ${list.pages}`;
-            $('[data-agent-history-prev]', root).disabled = list.page <= 1;
-            $('[data-agent-history-next]', root).disabled = list.page >= list.pages;
-            note.textContent = '';
-        } catch (error) { if (revision === list.revision) note.textContent = error.message; }
-    }
-
-    function loadLists() {
-        lists.forEach(list => loadList(list));
-    }
+    function loadLists() { history?.reload(); }
 
     panel.querySelectorAll('a[data-agent-tab]').forEach(link => {
         link.addEventListener('click', event => {
@@ -674,7 +624,6 @@
     $('[data-agent-fullscreen-toggle]').addEventListener('click', () => { setSettingsMenu(false, false); setFullscreen(!fullscreen); });
     settingsToggle.addEventListener('click', () => setSettingsMenu(settingsMenu.hidden));
     $('[data-agent-refresh]').addEventListener('click', () => { setSettingsMenu(false, false); rememberDraft(); poll(true); });
-    $('[data-agent-layout]').addEventListener('click', () => setLayoutMenu(layoutMenu.hidden));
     layoutMenu.querySelectorAll('[data-agent-layout-choice]').forEach(button => button.addEventListener('click', () => {
         const choice = button.dataset.agentLayoutChoice;
         if (choice !== 'floating') setSide(choice === 'left');
@@ -688,21 +637,11 @@
     });
     document.addEventListener('click', event => { if (!settingsMenu.hidden && !event.target.closest('[data-agent-settings-toggle], [data-agent-settings-menu]')) setSettingsMenu(false, false); });
     window.addEventListener('resize', () => { if (!settingsMenu.hidden) setSettingsMenu(false, false); });
-    layoutMenu.addEventListener('keydown', event => {
-        const buttons = Array.from(layoutMenu.querySelectorAll('button'));
-        const index = buttons.indexOf(document.activeElement);
-        const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : event.key === 'ArrowDown' ? (index + 1) % buttons.length : event.key === 'ArrowUp' ? (index + buttons.length - 1) % buttons.length : -1;
-        if (next >= 0) { event.preventDefault(); buttons[next].focus(); }
-        event.stopPropagation();
-        if (event.key === 'Tab') setSettingsMenu(false, false);
-        if (event.key === 'Escape' || event.key === 'ArrowLeft') { event.preventDefault(); setLayoutMenu(false); }
-    });
     settingsMenu.addEventListener('keydown', event => {
         const buttons = menuItems();
         const index = buttons.indexOf(document.activeElement);
-        const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : event.key === 'ArrowDown' ? (index + 1) % buttons.length : event.key === 'ArrowUp' ? (index + buttons.length - 1) % buttons.length : -1;
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : ['ArrowDown', 'ArrowRight'].includes(event.key) ? (index + 1) % buttons.length : ['ArrowUp', 'ArrowLeft'].includes(event.key) ? (index + buttons.length - 1) % buttons.length : -1;
         if (next >= 0) { event.preventDefault(); buttons[next]?.focus(); }
-        if (event.key === 'ArrowRight' && document.activeElement === $('[data-agent-layout]')) { event.preventDefault(); setLayoutMenu(true); }
     });
     document.addEventListener('keydown', event => {
         if (!settingsMenu.hidden && (event.key === 'Escape' || event.key === 'Tab')) {
@@ -744,14 +683,14 @@
     });
     chat.addEventListener('click', event => {
         const example = event.target.closest('[data-agent-example]');
-        if (example && !prompt.disabled) { prompt.value = example.dataset.agentExample; rememberDraft(); prompt.focus(); }
+        if (example && !prompt.disabled) { prompt.value = example.dataset.agentExample; rememberDraft(); composer?.resize(); prompt.focus(); }
     });
-    $('[data-agent-new]').addEventListener('click', () => {
-        rememberDraft();
+    function newConversation(options = {}) {
+        if (!options.discardCurrent) rememberDraft();
         const draft = runId === 0 ? '' : draftFor(0);
         if (runId === 0) forgetDraft(0);
         if (panel.dataset.historyLayout !== 'sidebar') setHistory(false, false);
-        clearTimeout(timer); pollRevision++; loading = false; runId = 0; run = null; version = ''; remember(0);
+        clearTimeout(timer); pollController?.abort(); pollRevision++; loading = false; refreshing = false; runId = 0; run = null; version = ''; remember(0);
         let preferred;
         try { preferred = localStorage.getItem(storageKey + ':model'); } catch { /* Storage is optional. */ }
         populateModels(config.models, Object.hasOwn(config.models || {}, preferred) ? preferred : '');
@@ -760,9 +699,12 @@
         $('[data-agent-events]').replaceChildren(node('li', 'description', '发送任务后，这里会显示查询和处理进度。'));
         $('[data-agent-changes]').replaceChildren();
         prompt.value = draft;
+        composer?.switchTo(0);
         rememberDraft();
         controls(); initialNotice(); prompt.focus();
-    });
+    }
+    $('[data-agent-new]').addEventListener('click', newConversation);
+
     $('[data-agent-cancel]').addEventListener('click', async event => {
         const id = runId;
         event.currentTarget.disabled = true;
@@ -770,10 +712,16 @@
         catch (error) { showNotice(error.message, true); }
         finally { $('[data-agent-cancel]').disabled = false; }
     });
-    lists.forEach(list => {
-        $('[data-agent-history-refresh]', list.root).addEventListener('click', () => loadList(list));
-        $('[data-agent-history-prev]', list.root).addEventListener('click', () => { if (list.page > 1) { list.page--; loadList(list); } });
-        $('[data-agent-history-next]', list.root).addEventListener('click', () => { if (list.page < list.pages) { list.page++; loadList(list); } });
+    composer = window.oyisoAgentComposer({ panel, prompt, key: storageKey, api, notice: showNotice });
+    history = window.oyisoAgentHistory({
+        api, openRun, current: () => runId,
+        updated: data => { if (data.id === runId) render(data); },
+        canDelete: () => !sending && !changing.size,
+        deleting: value => { deleting = value; controls(); },
+        removed: ids => {
+            ids.forEach(forgetDraft);
+            if (ids.includes(runId)) newConversation({ discardCurrent: true });
+        },
     });
 
     function initialNotice() {
@@ -817,6 +765,7 @@
         const saved = Number(localStorage.getItem(storageKey));
         if (Number.isSafeInteger(saved) && saved > 0) runId = saved;
         prompt.value = draftFor(runId);
+        composer.switchTo(runId);
         setSide(localStorage.getItem(storageKey + ':side') === 'left');
         setLayout(localStorage.getItem(storageKey + ':layout') === 'floating');
         if (localStorage.getItem(storageKey + ':fullscreen') === '1') setFullscreen(true);

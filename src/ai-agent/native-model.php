@@ -94,8 +94,11 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
                     if (!$part->getChannel()->isThought() && $text !== '') {
                         $input[] = ['role' => $message->getRole()->isModel() ? 'assistant' : 'user', 'content' => $text];
                     }
+                } elseif (($file = $part->getFile()) !== null && $file->isInline()) {
+                    $content = $file->isImage() ? ['type' => 'input_image', 'image_url' => $file->getDataUri()] : ['type' => 'input_file', 'filename' => 'attachment.pdf', 'file_data' => $file->getDataUri()];
+                    $input[] = ['role' => 'user', 'content' => [$content]];
                 } else {
-                    throw new InvalidArgumentException('Oyiso 模型预设当前仅支持文本和工具调用。');
+                    throw new InvalidArgumentException('此附件类型无法传给所选接口，请使用图片、PDF 或文本文件。');
                 }
             }
         }
@@ -221,6 +224,10 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
     /** @return array<string, mixed>|null */
     private function inputPart(MessagePart $part, bool $anthropic): ?array
     {
+        if (($file = $part->getFile()) !== null && $file->isInline()) {
+            $mime = $file->getMimeType();
+            return $anthropic ? ['type' => $file->isImage() ? 'image' : 'document', 'source' => ['type' => 'base64', 'media_type' => $mime, 'data' => $file->getBase64Data()]] : ['inlineData' => ['mimeType' => $mime, 'data' => $file->getBase64Data()]];
+        }
         $signature = $part->getThoughtSignature();
         if ($part->getType()->isText()) {
             $text = $part->getText() ?? '';
