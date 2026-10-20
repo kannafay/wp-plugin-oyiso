@@ -17,7 +17,13 @@ function fixture(t, route = () => page()) {
     const dom = new JSDOM(`<form id="csf-form">${markup}</form>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only' });
     const { window } = dom;
     window.oyisoAgentFiles = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce' };
-    const calls = [], errors = [], objects = [], revoked = [];
+    const calls = [], errors = [], objects = [], revoked = [], observers = [];
+    window.IntersectionObserver = class {
+        constructor(callback) { this.callback = callback; this.targets = new Set(); observers.push(this); }
+        observe(target) { this.targets.add(target); }
+        unobserve(target) { this.targets.delete(target); }
+        disconnect() { this.targets.clear(); }
+    };
     window.URL.createObjectURL = blob => { objects.push(blob); return `blob:https://vape.local/preview-${objects.length}`; };
     window.URL.revokeObjectURL = url => revoked.push(url);
     window.HTMLMediaElement.prototype.pause = function () { this.dataset.paused = 'true'; };
@@ -28,13 +34,13 @@ function fixture(t, route = () => page()) {
     window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
     window.eval(previewSource); window.eval(source);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
-    return { window, calls, objects, revoked, $: selector => window.document.querySelector(selector) };
+    return { window, calls, objects, revoked, showThumbnails: () => observers.forEach(observer => observer.callback([...observer.targets].map(target => ({ target, isIntersecting: true })))), $: selector => window.document.querySelector(selector) };
 }
 
 test('file manager lists mixed files safely and sends search and type filters without dirtying settings', async t => {
     const f = fixture(t, () => page([file(1, '<img src=x onerror=alert(1)>.md'), { ...file(2, 'photo.webp'), mime: 'image/webp' }]));
     await settle();
-    assert.equal(f.$('[data-files-body] img'), null);
+    assert.equal(f.$('[data-files-body] img[src]'), null);
     assert.match(f.$('[data-files-body]').textContent, /<img src=x onerror=alert\(1\)>/);
     assert.match(f.$('[data-files-body]').textContent, /图片/);
     assert.equal(f.calls[0].options.headers['X-WP-Nonce'], 'fixture-nonce');
@@ -140,4 +146,35 @@ test('closing a pending preview aborts it and stale responses cannot reopen or r
     assert.equal(f.$('.oyiso-agent-file-preview h2').textContent, 'new.png'); assert.equal(f.objects.length, 1);
     const event = new f.window.Event('cancel', { cancelable: true }); f.$('.oyiso-agent-file-preview').dispatchEvent(event);
     assert.equal(event.defaultPrevented, true); assert.equal(f.$('.oyiso-agent-file-preview').open, false); assert.equal(f.revoked.length, 1);
+});
+
+test('visible thumbnails load through the private attachment API and are released when the list refreshes', async t => {
+    const photo = { ...file(5, 'photo.webp'), mime: 'image/webp' };
+    const f = fixture(t, route => route === 'files/5' ? { name: photo.name, mime: photo.mime, data: btoa('private thumbnail') } : page([photo]));
+    await settle(); assert.equal(f.calls.some(call => call.route === 'files/5'), false);
+    f.showThumbnails(); await settle();
+    const image = f.$('.oyiso-agent-files-thumb img');
+    assert.equal(image.src, 'blob:https://vape.local/preview-1'); assert.equal(image.width, 40); assert.equal(image.height, 40);
+    image.dispatchEvent(new f.window.Event('load'));
+    assert.equal(image.hidden, false); assert.equal(f.$('.oyiso-agent-files-thumb .dashicons').hidden, true);
+    const request = f.calls.find(call => call.route === 'files/5');
+    assert.equal(request.options.credentials, 'same-origin'); assert.equal(request.options.headers['X-WP-Nonce'], 'fixture-nonce');
+    f.$('[aria-label="预览缩略图：photo.webp"]').click(); await settle();
+    assert.equal(f.$('.oyiso-agent-file-preview').open, true); f.$('[aria-label="关闭预览"]').click();
+    f.$('[data-files-refresh]').click(); await settle();
+    assert.ok(f.revoked.includes('blob:https://vape.local/preview-1'));
+    f.showThumbnails(); await settle(); f.$('.oyiso-agent-files-thumb img').dispatchEvent(new f.window.Event('error'));
+    assert.equal(f.$('.oyiso-agent-files-thumb img').hidden, true); assert.equal(f.$('.oyiso-agent-files-thumb .dashicons').hidden, false);
+    assert.equal(f.$('[data-files-notice]').textContent, '');
+});
+
+test('a changed search aborts pending thumbnails and late private bytes never enter the new rows', async t => {
+    const photo = { ...file(5, 'old.webp'), mime: 'image/webp' }; let finish;
+    const f = fixture(t, route => route === 'files/5' ? new Promise(resolve => { finish = resolve; }) : page(new URLSearchParams(route.split('?')[1]).get('search') === 'new' ? [file(6, 'new.md')] : [photo]));
+    await settle(); f.showThumbnails(); await settle();
+    const request = f.calls.find(call => call.route === 'files/5');
+    f.$('#oyiso-agent-files-search').value = 'new'; f.$('[data-files-search]').click(); await settle();
+    assert.equal(request.options.signal.aborted, true);
+    finish({ name: photo.name, mime: photo.mime, data: btoa('old image') }); await settle();
+    assert.match(f.$('[data-files-body]').textContent, /new.md/); assert.equal(f.$('[data-files-body] img'), null); assert.equal(f.objects.length, 0);
 });

@@ -7,6 +7,7 @@
     const selected = new Set();
     const dialog = $('.oyiso-agent-files-confirm');
     let items = [], page = 1, pages = 1, sequence = 0, loading = false, deleting = false, pending = [], returnFocus;
+    let releaseThumbnails = () => {};
     const node = (tag, text) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; return el; };
     const size = bytes => bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
     async function api(route, options = {}) {
@@ -37,16 +38,55 @@
         } catch (error) { $('[data-files-notice]').textContent = error.message; }
         finally { button.disabled = false; }
     }
+    function thumbnails() {
+        const controller = new AbortController(); const urls = new Set(); const queue = []; let active = 0;
+        const observer = window.IntersectionObserver ? new IntersectionObserver(entries => {
+            for (const entry of entries) if (entry.isIntersecting) { observer.unobserve(entry.target); queue.push(entry.target.loadThumbnail); }
+            drain();
+        }, { rootMargin: '80px' }) : null;
+        function drain() {
+            if (controller.signal.aborted) return;
+            while (active < 3 && queue.length) {
+                const work = queue.shift(); active++;
+                work().finally(() => { active--; drain(); });
+            }
+        }
+        releaseThumbnails = () => { controller.abort(); observer?.disconnect(); queue.length = 0; urls.forEach(url => URL.revokeObjectURL(url)); urls.clear(); };
+        return (file, preview) => {
+            const thumb = node(preview ? 'button' : 'span'); thumb.className = 'oyiso-agent-files-thumb';
+            const icon = node('span'); icon.className = `dashicons dashicons-${file.mime.startsWith('image/') ? 'format-image' : file.mime.startsWith('video/') ? 'video-alt3' : file.mime === 'application/pdf' ? 'media-document' : 'media-text'}`; icon.setAttribute('aria-hidden', 'true'); thumb.append(icon);
+            if (preview) { thumb.type = 'button'; thumb.setAttribute('aria-label', `预览缩略图：${file.name}`); thumb.addEventListener('click', () => window.oyisoAgentFilePreview.open(file, api, thumb)); }
+            if (/^image\/(png|jpeg|webp|gif)$/.test(file.mime)) {
+                const image = node('img'); image.alt = ''; image.width = image.height = 40; image.hidden = true; image.decoding = 'async'; thumb.append(image);
+                thumb.loadThumbnail = async () => {
+                    try {
+                        const data = await api(`files/${file.id}`, { signal: controller.signal });
+                        if (controller.signal.aborted || !thumb.isConnected || !/^image\/(png|jpeg|webp|gif)$/.test(data.mime)) return;
+                        const bytes = Uint8Array.from(atob(data.data), char => char.charCodeAt(0));
+                        const url = URL.createObjectURL(new Blob([bytes], { type: data.mime })); urls.add(url);
+                        image.addEventListener('load', () => { image.hidden = false; icon.hidden = true; });
+                        image.addEventListener('error', () => { URL.revokeObjectURL(url); urls.delete(url); image.removeAttribute('src'); image.hidden = true; icon.hidden = false; }, { once: true });
+                        image.src = url;
+                    } catch { /* Keep the type icon when the private image is unavailable. */ }
+                };
+                if (observer) observer.observe(thumb); else { queue.push(thumb.loadThumbnail); Promise.resolve().then(drain); }
+            }
+            return thumb;
+        };
+    }
     function render() {
+        releaseThumbnails(); const thumbnail = thumbnails();
         const body = $('[data-files-body]'); body.replaceChildren();
         for (const file of items) {
             const row = node('tr'); const cell = node('td'); cell.className = 'check-column';
             const pick = node('input'); pick.type = 'checkbox'; pick.dataset.filesPick = file.id; pick.setAttribute('aria-label', `选择附件：${file.name}`);
             pick.addEventListener('change', () => { if (pick.checked) selected.add(file.id); else selected.delete(file.id); sync(); }); cell.append(pick); row.append(cell);
             const preview = window.oyisoAgentFilePreview?.can(file);
-            const name = node('td'); const title = node(preview ? 'button' : 'span', file.name); title.className = 'oyiso-agent-files-name'; name.append(title);
+            const name = node('td'); const label = node('div'); label.className = 'oyiso-agent-files-label';
+            const text = node('div'); const title = node(preview ? 'button' : 'span', file.name); title.className = 'oyiso-agent-files-name'; text.append(title);
+            label.append(thumbnail(file, preview), text); name.append(label);
             if (preview) { title.type = 'button'; title.setAttribute('aria-label', `预览附件：${file.name}`); title.addEventListener('click', () => window.oyisoAgentFilePreview.open(file, api, title)); }
-            if (file.legacy) name.append(node('small', '等待迁移到私有目录'));
+            if (file.legacy) text.append(node('small', '等待迁移到私有目录'));
             const type = file.mime.startsWith('image/') ? '图片' : file.mime.startsWith('video/') ? '视频' : file.mime === 'application/pdf' ? 'PDF' : '文本与代码';
             const run = node('td'); const runTitle = node('span', file.run_title); runTitle.className = 'oyiso-agent-files-run'; runTitle.title = file.run_title; run.append(runTitle);
             row.append(name, node('td', type), node('td', size(file.size)), run, node('td', file.created));
