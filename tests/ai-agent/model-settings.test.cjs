@@ -107,8 +107,15 @@ test('provider presets prefill independent forms and cancel clears credentials w
     assert.match(f.$('[data-provider-rows]').textContent, /添加提供商/);
     f.$('[data-provider-add]').click();
     assert.equal(f.$('dialog').open, true);
+    assert.equal(f.field('preset').value, 'openai');
+    assert.equal(f.field('name').value, 'OpenAI');
+    assert.equal(f.field('url').value, 'https://api.openai.com/v1');
+    assert.equal(f.field('protocol').value, 'openai_responses');
+    assert.equal(f.field('models').value, '');
+    f.field('preset').value = 'deepseek'; f.field('preset').dispatchEvent(new f.window.Event('change', { bubbles: true }));
     assert.equal(f.field('name').value, 'DeepSeek');
     assert.equal(f.field('url').value, 'https://api.deepseek.com');
+    assert.equal(f.field('protocol').value, 'openai_responses');
     f.field('preset').value = 'gemini'; f.field('preset').dispatchEvent(new f.window.Event('change', { bubbles: true }));
     assert.equal(f.field('name').value, 'Gemini');
     assert.match(f.field('url').value, /generativelanguage/);
@@ -119,6 +126,7 @@ test('provider presets prefill independent forms and cancel clears credentials w
     f.$('[data-provider-add]').click(); f.field('preset').value = 'custom'; f.field('preset').dispatchEvent(new f.window.Event('change'));
     assert.equal(f.field('url').value, '');
     assert.equal(f.field('models').value, '');
+    assert.equal(f.field('protocol').value, 'openai_responses');
     assert.equal(new f.window.FormData(document.querySelector('form')).has('key'), false);
 });
 test('API protocol changes preserve official, custom and empty URLs while presets fill their own defaults', t => {
@@ -148,7 +156,14 @@ test('API protocol changes preserve official, custom and empty URLs while preset
     assert.equal(f.field('url').value, '');
     change('preset', 'deepseek');
     assert.equal(f.field('url').value, 'https://api.deepseek.com');
+    assert.equal(f.field('protocol').value, 'openai_responses');
+    change('preset', 'agnes');
     assert.equal(f.field('protocol').value, 'openai_chat');
+    change('preset', 'custom');
+    assert.equal(f.field('protocol').value, 'openai_responses');
+    change('preset', 'openai');
+    assert.equal(f.field('protocol').value, 'openai_responses');
+    assert.equal(f.field('url').value, 'https://api.openai.com/v1');
 });
 
 test('legacy Gemini edits keep their compatible API and native protocol saves persist and render correctly', async t => {
@@ -180,13 +195,14 @@ test('adding a duplicate preset saves through nonce protected REST once and upda
     let finish;
     const rows = [row()];
     const f = fixture(t, rows, () => new Promise(resolve => { finish = resolve; }));
-    f.$('[data-provider-add]').click(); f.field('name').value = 'DeepSeek 备用'; f.field('key').value = 'fixture-second-key'; f.field('models').value = 'second-model\nreasoner';
+    f.$('[data-provider-add]').click(); f.field('preset').value = 'deepseek'; f.field('preset').dispatchEvent(new f.window.Event('change')); f.field('name').value = 'DeepSeek 备用'; f.field('key').value = 'fixture-second-key'; f.field('models').value = 'second-model\nreasoner';
     f.$('[data-provider-save]').click(); f.$('[data-provider-save]').click();
     assert.equal(f.calls.length, 1);
     const call = f.calls[0]; assert.equal(call.route, 'providers'); assert.equal(call.options.method, 'POST');
     assert.equal(call.options.credentials, 'same-origin'); assert.equal(call.options.headers['X-WP-Nonce'], 'fixture-nonce');
+    assert.equal(JSON.parse(call.options.body).protocol, 'openai_responses');
     assert.deepEqual(JSON.parse(call.options.body).models, ['second-model', 'reasoner']);
-    finish({ connections: [...rows, row('second', { name: 'DeepSeek 备用', models: ['second-model', 'reasoner'] })] }); await settle();
+    finish({ connections: [...rows, row('second', { name: 'DeepSeek 备用', protocol: 'openai_responses', models: ['second-model', 'reasoner'] })] }); await settle();
     assert.equal(f.$('dialog').open, false); assert.equal(f.field('key').value, '');
     assert.equal(f.$('[data-provider-rows]').children.length, 2);
     assert.ok(Array.from(f.$('[data-provider-default]').options).some(option => option.value === 'second|reasoner'));

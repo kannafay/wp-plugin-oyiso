@@ -36,9 +36,9 @@ final class Oyiso_Agent_Connectors
     /** @return array<string, array{name:string, url:string, model:string, docs:string, protocol:string}> */
     public static function connectionPresets(): array
     {
-        $presets = [];
+        $presets = ['openai' => ['name' => 'OpenAI', 'url' => self::protocols()['openai_responses']['url'], 'model' => '', 'docs' => 'https://developers.openai.com/api/docs', 'protocol' => 'openai_responses']];
         foreach (self::presets() as $id => $preset) {
-            $row = $preset + ['protocol' => 'openai_chat'];
+            $row = $preset + ['protocol' => $id === 'deepseek' ? 'openai_responses' : 'openai_chat'];
             // Only new connections use the native Gemini API; legacy endpoints keep their protocol.
             if ($id === 'gemini') {
                 $row['url'] = self::protocols()['gemini']['url'];
@@ -56,7 +56,7 @@ final class Oyiso_Agent_Connectors
         return [
             'deepseek' => ['name' => 'DeepSeek', 'url' => 'https://api.deepseek.com', 'model' => 'deepseek-flash', 'docs' => 'https://api-docs.deepseek.com/zh-cn/'],
             'gemini' => ['name' => 'Gemini', 'url' => 'https://generativelanguage.googleapis.com/v1beta/openai', 'model' => 'gemini-3.8-flash', 'docs' => 'https://ai.google.dev/gemini-api/docs/openai'],
-            'agnes' => ['name' => 'agnes', 'url' => 'https://api.agnes-ai.cn/v1', 'model' => 'agnes-2.5-flash', 'docs' => 'https://agnes-ai.cn/zh-Hans/docs/agnes-25-flash'],
+            'agnes' => ['name' => 'Agnes AI', 'url' => 'https://api.agnes-ai.cn/v1', 'model' => 'agnes-2.5-flash', 'docs' => 'https://agnes-ai.cn/zh-Hans/docs/agnes-25-flash'],
         ];
     }
 

@@ -229,7 +229,7 @@ final class Oyiso_Agent_Admin
             echo '<p>AI Agent 需要 WordPress 7.0 或以上版本，当前环境暂不可用。</p>';
             return;
         }
-        printf('<p>选择下方的 DeepSeek、Gemini 或 agnes 预设后，可直接在本页配置。每个预设分别保存地址、模型和密钥。</p><p>也可使用已安装的 WordPress 模型连接器。<a href="%s">管理 WordPress 连接器</a></p>', esc_url(admin_url('options-connectors.php')));
+        printf('<p>选择下方的 DeepSeek、Gemini 或 Agnes AI 预设后，可直接在本页配置。每个预设分别保存地址、模型和密钥。</p><p>也可使用已安装的 WordPress 模型连接器。<a href="%s">管理 WordPress 连接器</a></p>', esc_url(admin_url('options-connectors.php')));
     }
 
     public static function connectionTest(string $preset): void

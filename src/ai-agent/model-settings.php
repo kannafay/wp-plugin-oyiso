@@ -68,7 +68,7 @@ final class Oyiso_Agent_Model_Settings
                 <div class="oyiso-agent-provider-dialog-heading"><h2 id="oyiso-provider-dialog-title">添加提供商</h2><button type="button" class="oyiso-agent-provider-close" data-provider-close aria-label="关闭">×</button></div>
                 <div class="oyiso-agent-provider-dialog-body">
                     <div class="oyiso-agent-provider-fields">
-                        <label>提供商预设<select data-provider-field="preset"><option value="deepseek">DeepSeek</option><option value="gemini">Gemini</option><option value="agnes">agnes</option><option value="custom">自定义</option></select></label>
+                        <label>提供商预设<select data-provider-field="preset"><option value="openai">OpenAI</option><option value="deepseek">DeepSeek</option><option value="gemini">Gemini</option><option value="agnes">Agnes AI</option><option value="custom">自定义</option></select></label>
                         <label>连接名称<input type="text" maxlength="80" data-provider-field="name" placeholder="例如：DeepSeek 主账号"></label>
                         <label class="oyiso-agent-provider-wide">Base URL<input type="url" maxlength="1000" spellcheck="false" data-provider-field="url" placeholder="https://api.example.com/v1"></label>
                         <label class="oyiso-agent-provider-wide">接口类型<select data-provider-field="protocol"><?php foreach (Oyiso_Agent_Connectors::protocols() as $id => $protocol): ?><option value="<?php echo esc_attr($id); ?>"><?php echo esc_html($protocol['name']); ?></option><?php endforeach; ?></select><span class="description">按服务商文档选择接口类型。Base URL 保留版本路径，无需填写具体端点。</span></label>

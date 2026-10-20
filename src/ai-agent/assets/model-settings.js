@@ -66,11 +66,11 @@
         cancelCloseMotion?.(); cancelCloseMotion = undefined;
         dialog.inert = false; dialog.classList.remove('is-closing');
         opener = target; editing = row?.id || '';
-        fields.preset.value = row?.preset || 'deepseek';
+        fields.preset.value = row?.preset || 'openai';
         const preset = presets[fields.preset.value];
         fields.name.value = row?.name || preset?.name || '';
         fields.url.value = row?.url || preset?.url || '';
-        fields.protocol.value = row?.protocol || preset?.protocol || 'openai_chat';
+        fields.protocol.value = row?.protocol || preset?.protocol || 'openai_responses';
         fields.url.placeholder = protocols[fields.protocol.value].url;
         fields.models.value = row ? row.models.join('\n') : preset?.model || '';
         fields.key.value = ''; fields.key.disabled = false; fields.key.placeholder = row?.configured ? '已配置，留空保持' : '填写 API Key';
@@ -141,7 +141,7 @@
     fields.preset.addEventListener('change', () => {
         const preset = presets[fields.preset.value];
         fields.name.value = preset?.name || ''; fields.url.value = preset?.url || ''; fields.models.value = preset?.model || '';
-        fields.protocol.value = preset?.protocol || fields.protocol.value;
+        fields.protocol.value = preset?.protocol || 'openai_responses';
         fields.url.placeholder = protocols[fields.protocol.value].url;
     });
     fields.protocol.addEventListener('change', () => {

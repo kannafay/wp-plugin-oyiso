@@ -298,17 +298,20 @@ final class ManagedConnectionsTest extends TestCase
         return ['id' => 'msg_fixture', 'type' => 'message', 'role' => 'assistant', 'status' => 'completed', 'content' => [['type' => 'output_text', 'text' => $text, 'annotations' => []]]];
     }
 
-    public function testAllProtocolsPersistAndNewGeminiDefaultsDoNotChangeLegacyConnections(): void
+    public function testAllProtocolsPersistAndNewPresetDefaultsDoNotChangeLegacyConnections(): void
     {
         self::assertSame(['openai_responses', 'openai_chat', 'anthropic_messages', 'gemini'], array_keys(Oyiso_Agent_Connectors::protocols()));
         foreach (Oyiso_Agent_Connectors::protocols() as $protocol => $defaults) {
-            $row = $this->create(['preset' => 'custom', 'protocol' => $protocol, 'url' => $defaults['url'], 'key' => 'fixture-' . $protocol . '-key']);
+            $row = $this->create(['preset' => $protocol === 'openai_responses' ? 'openai' : 'custom', 'protocol' => $protocol, 'url' => $defaults['url'], 'key' => 'fixture-' . $protocol . '-key']);
             $connection = Oyiso_Agent_Connections::load($row['id'], 'fixture-model');
             self::assertSame($protocol, $connection->protocol);
             self::assertSame($protocol, $row['protocol']);
             self::assertSame('fixture-' . $protocol . '-key', Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($row['id'])));
             self::assertNull(Oyiso_Agent_Connections::validateSelection($row['id'] . '|fixture-model'));
         }
+        self::assertSame('openai_responses', Oyiso_Agent_Connectors::connectionPresets()['openai']['protocol']);
+        self::assertSame('https://api.openai.com/v1', Oyiso_Agent_Connectors::connectionPresets()['openai']['url']);
+        self::assertSame('openai_responses', Oyiso_Agent_Connectors::connectionPresets()['deepseek']['protocol']);
         self::assertSame('gemini', Oyiso_Agent_Connectors::connectionPresets()['gemini']['protocol']);
         self::assertSame('https://generativelanguage.googleapis.com/v1beta', Oyiso_Agent_Connectors::connectionPresets()['gemini']['url']);
         self::assertStringEndsWith('/openai', Oyiso_Agent_Connectors::presets()['gemini']['url']);
