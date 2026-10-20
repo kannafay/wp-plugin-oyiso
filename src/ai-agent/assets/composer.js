@@ -6,11 +6,13 @@
         const previews = panel.querySelector('[data-agent-attachments]');
         const drafts = new Map(); let current = 0, urls = [];
         const textExtensions = ['txt', 'md', 'csv', 'tsv', 'json', 'html', 'htm', 'xml', 'log', 'yaml', 'yml', 'css', 'js', 'ts', 'php', 'sql'];
-        const allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'pdf', ...textExtensions];
+        const videoExtensions = ['mp4', 'webm'];
+        const allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'pdf', ...videoExtensions, ...textExtensions];
         const node = (tag, text) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; return el; };
         const maxFile = window.oyisoAgent.attachmentMaxFile || 4194304;
         const maxImage = window.oyisoAgent.attachmentMaxImage || maxFile;
-        const maxTotal = window.oyisoAgent.attachmentMaxTotal || 8388608;
+        const maxVideo = window.oyisoAgent.attachmentMaxVideo || 20971520;
+        const maxTotal = window.oyisoAgent.attachmentMaxTotal || 33554432;
         const size = bytes => bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
         const db = window.indexedDB ? new Promise(resolve => {
             const request = indexedDB.open('oyiso-agent-attachment-drafts', 1);
@@ -43,6 +45,7 @@
                     const image = node('img'); image.alt = ''; image.src = URL.createObjectURL(file); urls.push(image.src); item.append(image);
                 }
                 const label = node('span', file.name); label.title = file.name; item.append(label, node('small', size(file.size)));
+                if (videoExtensions.includes(file.name.split('.').pop().toLowerCase())) item.append(node('small', '视频 · 仅预览'));
                 const remove = node('button', '×'); remove.type = 'button'; remove.className = 'oyiso-agent-icon-button'; remove.setAttribute('aria-label', `移除附件：${file.name}`);
                 remove.disabled = prompt.disabled;
                 remove.addEventListener('click', () => { drafts.set(current, files().filter((_, i) => i !== index)); persist(current); render(); }); item.append(remove); previews.append(item);
@@ -54,14 +57,14 @@
             const items = [...files()]; let message = '';
             for (const file of incoming) {
                 const extension = file.name.split('.').pop().toLowerCase();
-                if (!allowed.includes(extension)) { message = '支持图片、PDF 和常见文本文件。'; continue; }
-                const limit = ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(extension) ? maxImage : maxFile;
-                if (!file.size || file.size > limit || (textExtensions.includes(extension) && file.size > 80000)) { message = `${file.name} 超过大小限制，图片最多 ${size(maxImage)}，其他文件最多 ${size(maxFile)}，文本最多 80 KB。`; continue; }
+                if (!allowed.includes(extension)) { message = '支持图片、MP4、WebM、PDF 和常见文本文件。'; continue; }
+                const limit = videoExtensions.includes(extension) ? maxVideo : ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(extension) ? maxImage : maxFile;
+                if (!file.size || file.size > limit || (textExtensions.includes(extension) && file.size > 80000)) { message = `${file.name} 超过大小限制，图片最多 ${size(maxImage)}，视频最多 ${size(maxVideo)}，其他文件最多 ${size(maxFile)}，文本最多 80 KB。`; continue; }
                 if (items.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) continue;
                 if (items.length >= 5 || items.reduce((sum, item) => sum + item.size, file.size) > maxTotal) { message = `每次最多 5 个附件，总大小不超过 ${size(maxTotal)}。`; break; }
                 items.push(file);
             }
-            drafts.set(current, items); persist(current); render(); notice(message, !!message);
+            drafts.set(current, items); persist(current); render(); notice(message || (items.some(file => videoExtensions.includes(file.name.split('.').pop().toLowerCase())) ? '视频支持保存和在线预览，暂不支持模型分析。' : ''), !!message);
         }
         async function switchTo(id) {
             current = id; render();
@@ -78,8 +81,11 @@
             if (!attachments?.length) return;
             const list = node('div'); list.className = 'oyiso-agent-message-attachments';
             for (const file of attachments) {
-                const button = node('button', `${file.name} · ${file.deleted ? '已删除' : size(file.size)}`); button.type = 'button'; button.title = file.deleted ? '附件已删除' : `下载附件：${file.name}`; button.disabled = !!file.deleted;
+                const preview = window.oyisoAgentFilePreview?.can(file);
+                const label = `${file.name} · ${file.deleted ? '已删除' : size(file.size)}${!file.deleted && file.mime?.startsWith('video/') ? ' · 仅预览' : ''}`;
+                const button = node('button', label); button.type = 'button'; button.title = file.deleted ? '附件已删除' : `${preview ? '预览' : '下载'}附件：${file.name}`; button.disabled = !!file.deleted;
                 button.addEventListener('click', async () => {
+                    if (preview) { window.oyisoAgentFilePreview.open(file, api, button); return; }
                     button.disabled = true;
                     try {
                         const data = await api(`files/${file.id}`);

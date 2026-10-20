@@ -13,6 +13,9 @@
 .oyiso-agent-files-table .check-column { width: 20px; padding: 12px 0 12px 12px; }
 .oyiso-agent-files-table input[type="checkbox"] { margin: 0; }
 .oyiso-agent-files-name { display: block; max-width: 320px; overflow-wrap: anywhere; font-weight: 500; }
+.oyiso-agent-files button.oyiso-agent-files-name { padding: 0; border: 0; background: transparent; color: var(--oyiso-color-primary, #bf5316); font: inherit; text-align: left; cursor: pointer; }
+.oyiso-agent-files button.oyiso-agent-files-name:hover { text-decoration: underline; }
+.oyiso-agent-files button.oyiso-agent-files-name:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .oyiso-agent-files-run { display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oyiso-agent-files-actions { display: flex; gap: 6px; white-space: nowrap; }
 .oyiso-agent-files-table small { display: block; margin-top: 3px; color: #646970; }

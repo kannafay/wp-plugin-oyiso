@@ -15,6 +15,7 @@ const markdownVendor = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/lib/
 const markdownScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/markdown.js'), 'utf8');
 const historyScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/history.js'), 'utf8');
 const composerScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/composer.js'), 'utf8');
+const previewScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/file-preview.js'), 'utf8');
 const liveScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/live.js'), 'utf8');
 const csfScript = fs.readFileSync(path.join(repo, 'assets/js/main.min.js'), 'utf8');
 const nativeNavigation = Array.from(fs.readFileSync(path.join(repo, 'src/_init.php'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g), match => match[1]).find(source => source.includes('function switchToSection(tabId)'));
@@ -54,7 +55,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     window.eval(markdownVendor);
     window.eval(markdownScript);
     window.eval(historyScript);
-    window.eval(composerScript);
+    window.eval(previewScript); window.eval(composerScript);
     window.eval(liveScript);
     view.afterGeometry?.(window);
     window.eval(script);
@@ -550,6 +551,36 @@ test('file manager deletion updates open conversation attachments without deleti
     assert.match(f.$('.oyiso-agent-message-attachments').textContent, /已删除/);
     assert.equal(f.$('.oyiso-agent-message-attachments button').disabled, true);
     assert.match(f.$('[data-agent-messages]').textContent, /查看文件/);
+});
+
+test('conversation images open the shared private preview instead of downloading them', async t => {
+    const f = fixture(t, route => route === 'runs/12' ? task({ conversation: [{ role: 'user', text: '图片', attachments: [{ id: 41, name: 'photo.png', mime: 'image/png', size: 12 }] }] }) : route === 'files/41' ? { name: 'photo.png', mime: 'image/png', data: btoa('private image') } : undefined, {}, window => {
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+        window.URL.createObjectURL = () => 'blob:https://vape.local/private-image'; window.URL.revokeObjectURL = () => {};
+        window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
+        window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
+    });
+    await settle(); const trigger = f.$('.oyiso-agent-message-attachments button');
+    assert.match(trigger.title, /预览/); trigger.click(); await settle();
+    assert.equal(f.$('.oyiso-agent-file-preview').open, true);
+    assert.equal(f.$('.oyiso-agent-file-preview img').src, 'blob:https://vape.local/private-image');
+    f.$('[aria-label="关闭预览"]').click(); assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+});
+
+test('video selection supports the server limit and clearly marks preview-only attachments', async t => {
+    const f = fixture(t, undefined, { attachmentMaxVideo: 20 * 1048576, attachmentMaxTotal: 32 * 1048576 });
+    const video = new f.window.File([new Uint8Array(5 * 1048576)], 'clip.mp4', { type: 'video/mp4' });
+    const paste = new f.window.Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', { value: { files: [video], getData: () => '' } });
+    f.$('#oyiso-agent-prompt').dispatchEvent(paste); await settle();
+    assert.match(f.$('[data-agent-attachments]').textContent, /clip.mp4/); assert.match(f.$('[data-agent-attachments]').textContent, /仅预览/);
+    assert.match(f.$('[data-agent-notice]').textContent, /暂不支持模型分析/);
+    assert.match(f.$('[data-agent-file]').accept, /video\/mp4/);
+    const tooLarge = new f.window.File([new Uint8Array(21 * 1048576)], 'large.webm', { type: 'video/webm' });
+    const over = new f.window.Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(over, 'clipboardData', { value: { files: [tooLarge], getData: () => '' } });
+    f.$('#oyiso-agent-prompt').dispatchEvent(over);
+    assert.doesNotMatch(f.$('[data-agent-attachments]').textContent, /large.webm/); assert.match(f.$('[data-agent-notice]').textContent, /大小限制/);
 });
 
 test('large image drafts use the image upload limit while documents keep the smaller limit', t => {

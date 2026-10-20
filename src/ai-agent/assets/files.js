@@ -43,12 +43,15 @@
             const row = node('tr'); const cell = node('td'); cell.className = 'check-column';
             const pick = node('input'); pick.type = 'checkbox'; pick.dataset.filesPick = file.id; pick.setAttribute('aria-label', `选择附件：${file.name}`);
             pick.addEventListener('change', () => { if (pick.checked) selected.add(file.id); else selected.delete(file.id); sync(); }); cell.append(pick); row.append(cell);
-            const name = node('td'); const title = node('span', file.name); title.className = 'oyiso-agent-files-name'; name.append(title);
+            const preview = window.oyisoAgentFilePreview?.can(file);
+            const name = node('td'); const title = node(preview ? 'button' : 'span', file.name); title.className = 'oyiso-agent-files-name'; name.append(title);
+            if (preview) { title.type = 'button'; title.setAttribute('aria-label', `预览附件：${file.name}`); title.addEventListener('click', () => window.oyisoAgentFilePreview.open(file, api, title)); }
             if (file.legacy) name.append(node('small', '等待迁移到私有目录'));
-            const type = file.mime.startsWith('image/') ? '图片' : file.mime === 'application/pdf' ? 'PDF' : '文本与代码';
+            const type = file.mime.startsWith('image/') ? '图片' : file.mime.startsWith('video/') ? '视频' : file.mime === 'application/pdf' ? 'PDF' : '文本与代码';
             const run = node('td'); const runTitle = node('span', file.run_title); runTitle.className = 'oyiso-agent-files-run'; runTitle.title = file.run_title; run.append(runTitle);
             row.append(name, node('td', type), node('td', size(file.size)), run, node('td', file.created));
             const action = node('td'); const buttons = node('div'); buttons.className = 'oyiso-agent-files-actions';
+            if (preview) { const view = node('button', '预览'); view.type = 'button'; view.className = 'button button-small'; view.setAttribute('aria-label', `在线预览：${file.name}`); view.addEventListener('click', () => window.oyisoAgentFilePreview.open(file, api, view)); buttons.append(view); }
             const get = node('button', '下载'); get.type = 'button'; get.className = 'button button-small'; get.setAttribute('aria-label', `下载附件：${file.name}`); get.addEventListener('click', () => download(file, get));
             const remove = node('button', '删除'); remove.type = 'button'; remove.className = 'button button-small'; remove.setAttribute('aria-label', `删除附件：${file.name}`); remove.addEventListener('click', () => confirmDelete([file.id], remove));
             buttons.append(get, remove); action.append(buttons); row.append(action); body.append(row);

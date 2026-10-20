@@ -207,15 +207,16 @@ final class Oyiso_Agent_Admin
         if (!self::available()) {
             return;
         }
+        Oyiso_Agent_File_Manager::previewAssets();
         wp_enqueue_style('oyiso-agent', plugins_url('assets/agent.css', __FILE__), [], (string) filemtime(__DIR__ . '/assets/agent.css'));
         wp_enqueue_script('oyiso-agent-panel', plugins_url('assets/panel.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/panel.js'), true);
         wp_enqueue_script('oyiso-agent-markdown-it', plugins_url('assets/lib/markdown-it.min.js', __FILE__), [], '15.0.3', true);
         wp_enqueue_script('oyiso-agent-markdown', plugins_url('assets/markdown.js', __FILE__), ['oyiso-agent-markdown-it'], (string) filemtime(__DIR__ . '/assets/markdown.js'), true);
         wp_enqueue_script('oyiso-agent-history', plugins_url('assets/history.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/history.js'), true);
-        wp_enqueue_script('oyiso-agent-composer', plugins_url('assets/composer.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/composer.js'), true);
+        wp_enqueue_script('oyiso-agent-composer', plugins_url('assets/composer.js', __FILE__), ['oyiso-agent-file-preview'], (string) filemtime(__DIR__ . '/assets/composer.js'), true);
         wp_enqueue_script('oyiso-agent-live', plugins_url('assets/live.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/live.js'), true);
         wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer', 'oyiso-agent-live'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
-        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxImage' => min(Oyiso_Agent_Attachments::MAX_IMAGE_UPLOAD, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_UPLOAD_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536))]);
+        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxImage' => min(Oyiso_Agent_Attachments::MAX_IMAGE_UPLOAD, wp_max_upload_size()), 'attachmentMaxVideo' => min(Oyiso_Agent_Attachments::MAX_VIDEO_UPLOAD, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_UPLOAD_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536))]);
     }
 
     private static function available(): bool
@@ -291,7 +292,7 @@ final class Oyiso_Agent_Admin
                     <div class="oyiso-agent-attachments" data-agent-attachments hidden></div>
                     <textarea id="oyiso-agent-prompt" rows="1" maxlength="4000" placeholder="发送消息，或粘贴图片和文件…"></textarea>
                     <div class="oyiso-agent-composer-actions">
-                        <button type="button" class="oyiso-agent-icon-button" data-agent-attach aria-label="添加附件" title="添加附件"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><input type="file" data-agent-file multiple accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.yaml,.yml,.css,.js,.ts,.php,.sql" hidden>
+                        <button type="button" class="oyiso-agent-icon-button" data-agent-attach aria-label="添加附件" title="添加附件"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><input type="file" data-agent-file multiple accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.mp4,.webm,application/pdf,.txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.yaml,.yml,.css,.js,.ts,.php,.sql" hidden>
                         <select id="oyiso-agent-model" class="oyiso-agent-model-picker" data-agent-model aria-label="对话模型"><option value="">暂无可用模型</option></select>
                         <div>
                             <button type="button" class="button oyiso-agent-composer-control" data-agent-cancel aria-label="取消任务" title="取消任务" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>

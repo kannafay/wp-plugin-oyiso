@@ -13,6 +13,9 @@ final class ChatFilesTest extends TestCase
     private array $users = [];
     private ?Closure $http = null;
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1f8AAAAASUVORK5CYII=';
+    // Container headers exercise MIME detection; browser playback is checked with full video fixtures.
+    private const MP4 = 'AAAAIGZ0eXBtcDQyAAAAAG1wNDJtcDQxaXNvbWF2YzEAABCObW9vdgAAAGxtdmhkAAAAANbFs/HWxbPxAAACWAAAC9kAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAA=';
+    private const WEBM = 'GkXfowEAAAAAAAAfQoaBAUL3gQFC8oEEQvOBCEKChHdlYm1Ch4ECQoWBAhhTgGcBAAAAAAh0ExFNm3RALU27i1OrhBVJqWZTrIHlTbuMU6uEFlSua1OsggEjTbuNU6uEHFO7a1Osgwhz4+wBAAAAAAAAqQAAAAAAAAAAAAAAAAA=';
 
     protected function setUp(): void
     {
@@ -137,12 +140,46 @@ final class ChatFilesTest extends TestCase
     {
         $run = $this->task(); $upload = $this->upload();
         $files = Oyiso_Agent_Attachments::save($run['id'], [$upload]);
-        update_post_meta($files[0]['id'], '_oyiso_agent_file_size', 16777216);
+        update_post_meta($files[0]['id'], '_oyiso_agent_file_size', Oyiso_Agent_Attachments::MAX_CHAT_TOTAL);
         self::assertSame('agent_file_limit', Oyiso_Agent_Attachments::save($run['id'], [$upload])->get_error_code());
         update_post_meta($files[0]['id'], '_oyiso_agent_file_size', 20);
         self::assertIsArray(Oyiso_Agent_Attachments::save($run['id'], array_fill(0, 19, $upload)));
         self::assertSame('agent_file_limit', Oyiso_Agent_Attachments::save($run['id'], [$upload])->get_error_code());
         wp_set_current_user($this->anotherAdmin()); self::assertSame('agent_file_forbidden', Oyiso_Agent_Attachments::save($run['id'], [$upload])->get_error_code());
+    }
+
+    public function testVideosArePrivatePreviewableAndNotSubmittedToModelsAsUnsupportedBinary(): void
+    {
+        $run = $this->task();
+        $uploads = [$this->upload('clip.MP4', base64_decode(self::MP4)), $this->upload('clip.webm', base64_decode(self::WEBM))];
+        self::assertSame(['video/mp4', 'video/webm'], array_column($uploads, 'mime'));
+        $files = Oyiso_Agent_Attachments::save($run['id'], $uploads); self::assertIsArray($files);
+        foreach ($files as $index => $file) {
+            self::assertSame('', get_post($file['id'])->post_content);
+            $result = $this->request('GET', 'files/' . $file['id']);
+            self::assertSame(200, $result->get_status()); self::assertSame($uploads[$index]['mime'], $result->get_data()['mime']);
+            self::assertSame(base64_encode($uploads[$index]['content']), $result->get_data()['data']);
+        }
+        $filtered = $this->request('GET', 'files', ['type' => 'video', 'search' => 'clip']);
+        self::assertSame(200, $filtered->get_status());
+        self::assertEqualsCanonicalizing(array_column($files, 'id'), array_column($filtered->get_data()['items'], 'id'));
+        $parts = Oyiso_Agent_Attachments::parts(array_column($files, 'id')); self::assertIsArray($parts);
+        foreach ($parts as $part) self::assertNull($part->getFile());
+        self::assertStringContainsString('尚未将视频内容提交给模型', $parts[1]->getText());
+        wp_set_current_user($this->anotherAdmin());
+        self::assertInstanceOf(WP_Error::class, Oyiso_Agent_Attachments::parts([$files[0]['id']]));
+        self::assertSame(404, $this->request('GET', 'files/' . $files[0]['id'])->get_status());
+    }
+
+    public function testVideoInspectionRejectsSpoofedContainersAndUsesItsOwnSizeLimit(): void
+    {
+        foreach ([['fake.mp4', 'not a video'], ['fake.webm', base64_decode(self::MP4)], ['fake.mp4', base64_decode(self::WEBM)], ['fake.mp4', base64_decode(self::PNG)], ['fake.webm', "\x1a\x45\xdf\xa3not really webm"]] as [$name, $content]) {
+            self::assertSame('agent_file_video', Oyiso_Agent_Attachments::inspect($name, $content)->get_error_code());
+        }
+        $large = base64_decode(self::MP4) . str_repeat("\0", 5 * 1048576);
+        self::assertSame(strlen($large), $this->upload('large.mp4', $large)['size']);
+        self::assertSame('agent_file_size', Oyiso_Agent_Attachments::inspect('too-large.mp4', str_repeat('x', Oyiso_Agent_Attachments::MAX_VIDEO_UPLOAD + 1))->get_error_code());
+        self::assertSame('agent_file_type', Oyiso_Agent_Attachments::inspect('unavailable.mov', base64_decode(self::MP4))->get_error_code());
     }
 
     public function testPrivateAttachmentsReachEveryProtocolAsRealFileContent(): void

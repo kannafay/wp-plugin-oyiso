@@ -6,6 +6,7 @@ const { execFileSync } = require('node:child_process');
 const { JSDOM } = require('jsdom');
 const repo = path.resolve(__dirname, '../..');
 const source = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/files.js'), 'utf8');
+const previewSource = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/file-preview.js'), 'utf8');
 const phpPath = path.join(repo, 'src/ai-agent/file-manager.php').replaceAll('\\', '/');
 const markup = execFileSync('php', ['-r', `define('ABSPATH', '/');function current_user_can($cap){return true;}require '${phpPath}';Oyiso_Agent_File_Manager::render();`], { encoding: 'utf8' });
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve)); };
@@ -16,14 +17,18 @@ function fixture(t, route = () => page()) {
     const dom = new JSDOM(`<form id="csf-form">${markup}</form>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only' });
     const { window } = dom;
     window.oyisoAgentFiles = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce' };
-    const calls = [], errors = [];
+    const calls = [], errors = [], objects = [], revoked = [];
+    window.URL.createObjectURL = blob => { objects.push(blob); return `blob:https://vape.local/preview-${objects.length}`; };
+    window.URL.revokeObjectURL = url => revoked.push(url);
+    window.HTMLMediaElement.prototype.pause = function () { this.dataset.paused = 'true'; };
+    window.HTMLMediaElement.prototype.load = function () { this.dataset.released = 'true'; };
     window.addEventListener('error', event => errors.push(event.error));
     window.fetch = async (url, options) => { calls.push({ route: url.replace(window.oyisoAgentFiles.url, ''), options }); const result = await route(calls.at(-1).route, options); return { ok: result.ok !== false, status: result.status || 200, json: async () => result.body || result }; };
     window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
     window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
-    window.eval(source);
+    window.eval(previewSource); window.eval(source);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
-    return { window, calls, $: selector => window.document.querySelector(selector) };
+    return { window, calls, objects, revoked, $: selector => window.document.querySelector(selector) };
 }
 
 test('file manager lists mixed files safely and sends search and type filters without dirtying settings', async t => {
@@ -80,4 +85,59 @@ test('stale search responses cannot overwrite a newer file selection', async t =
     await settle(); f.$('#oyiso-agent-files-search').value = 'new'; f.$('[data-files-search]').click(); await settle();
     assert.match(f.$('[data-files-body]').textContent, /new.md/); first(page([file(1, 'old.md')])); await settle();
     assert.doesNotMatch(f.$('[data-files-body]').textContent, /old.md/);
+});
+
+test('image preview uses authenticated bytes and safely renders filenames then releases its URL on close', async t => {
+    const photo = { ...file(5, '<img onerror=alert(1)>.webp'), mime: 'image/webp' };
+    const f = fixture(t, route => route === 'files/5' ? { name: photo.name, mime: photo.mime, data: Buffer.from('private bytes').toString('base64') } : page([photo]));
+    await settle();
+    const trigger = f.$('[aria-label^="在线预览："]'); trigger.click(); await settle();
+    assert.equal(f.$('.oyiso-agent-file-preview').open, true);
+    assert.equal(f.$('.oyiso-agent-file-preview h2').textContent, photo.name);
+    assert.equal(f.$('.oyiso-agent-file-preview img').src, 'blob:https://vape.local/preview-1');
+    assert.equal(f.$('.oyiso-agent-file-preview img').alt, photo.name);
+    assert.equal(f.$('.oyiso-agent-file-preview h2 img'), null);
+    assert.equal(f.objects[0].type, 'image/webp'); assert.equal(f.objects[0].size, 13);
+    const request = f.calls.find(call => call.route === 'files/5');
+    assert.equal(request.options.credentials, 'same-origin'); assert.equal(request.options.headers['X-WP-Nonce'], 'fixture-nonce');
+    f.$('[aria-label="关闭预览"]').click();
+    assert.equal(f.$('.oyiso-agent-file-preview').open, false); assert.deepEqual(f.revoked, ['blob:https://vape.local/preview-1']);
+    assert.equal(f.window.document.activeElement, trigger);
+});
+
+test('video preview provides native controls and stops playback when deleted or closed', async t => {
+    const video = { ...file(6, 'clip.mp4'), mime: 'video/mp4' };
+    const f = fixture(t, route => route === 'files/6' ? { name: video.name, mime: video.mime, data: Buffer.from('video bytes').toString('base64') } : page([video]));
+    await settle(); f.$('[aria-label^="在线预览："]').click(); await settle();
+    const player = f.$('.oyiso-agent-file-preview video');
+    assert.equal(player.controls, true); assert.equal(player.playsInline, true); assert.equal(player.autoplay, false);
+    assert.equal(player.preload, 'metadata'); assert.match(f.$('[data-files-body]').textContent, /视频/);
+    f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-files-deleted', { detail: [6] }));
+    assert.equal(f.$('.oyiso-agent-file-preview').open, false); assert.equal(player.dataset.paused, 'true'); assert.equal(player.dataset.released, 'true');
+    assert.equal(player.getAttribute('src'), null); assert.equal(f.revoked.length, 1);
+});
+
+test('preview rejects active file content and offers retry after access or network failure', async t => {
+    const photo = { ...file(5, 'photo.png'), mime: 'image/png' }; let attempt = 0;
+    const f = fixture(t, route => route !== 'files/5' ? page([photo]) : ++attempt === 1 ? { ok: false, status: 401, body: { message: '请重新登录' } } : { name: 'bad.html', mime: 'text/html', data: btoa('<script>alert(1)</script>') });
+    await settle(); f.$('[aria-label^="在线预览："]').click(); await settle();
+    assert.match(f.$('.oyiso-agent-file-preview-status').textContent, /重新登录/);
+    f.$('.oyiso-agent-file-preview > .button').click(); await settle();
+    assert.match(f.$('.oyiso-agent-file-preview-status').textContent, /暂不支持/);
+    assert.equal(f.$('.oyiso-agent-file-preview-content').childElementCount, 0); assert.equal(f.objects.length, 0);
+    assert.equal(f.window.oyisoAgentFilePreview.can({ mime: 'image/svg+xml' }), false);
+    assert.equal(f.window.oyisoAgentFilePreview.can({ mime: 'image/png', deleted: true }), false);
+});
+
+test('closing a pending preview aborts it and stale responses cannot reopen or replace a newer image', async t => {
+    const photo = { ...file(5, 'photo.png'), mime: 'image/png' }; let finish;
+    const f = fixture(t, route => route === 'files/5' ? new Promise(resolve => { finish = resolve; }) : route === 'files/6' ? { name: 'new.png', mime: 'image/png', data: btoa('new bytes') } : page([photo]));
+    await settle(); f.$('[aria-label^="在线预览："]').click(); await settle();
+    const first = f.calls.find(call => call.route === 'files/5');
+    f.$('[aria-label="关闭预览"]').click(); assert.equal(first.options.signal.aborted, true);
+    f.window.oyisoAgentFilePreview.open({ ...photo, id: 6 }, async route => ({ name: 'new.png', mime: 'image/png', data: btoa(route) })); await settle();
+    finish({ name: 'old.png', mime: 'image/png', data: btoa('old bytes') }); await settle();
+    assert.equal(f.$('.oyiso-agent-file-preview h2').textContent, 'new.png'); assert.equal(f.objects.length, 1);
+    const event = new f.window.Event('cancel', { cancelable: true }); f.$('.oyiso-agent-file-preview').dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true); assert.equal(f.$('.oyiso-agent-file-preview').open, false); assert.equal(f.revoked.length, 1);
 });
