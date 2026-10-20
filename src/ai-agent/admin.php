@@ -89,7 +89,8 @@ final class Oyiso_Agent_Admin
         } finally {
             Oyiso_Agent_Store::unlock('run_' . $id);
         }
-        Oyiso_Agent_Runner::enqueue($id);
+        if (!Oyiso_Agent_Live::requested($request)) Oyiso_Agent_Runner::enqueue($id);
+        elseif (!wp_next_scheduled(Oyiso_Agent_Runner::HOOK, [$id])) wp_schedule_single_event(time() + 10, Oyiso_Agent_Runner::HOOK, [$id]);
         return new WP_REST_Response(Oyiso_Agent_Store::view($run), 201);
     }
 
@@ -120,7 +121,7 @@ final class Oyiso_Agent_Admin
                 return new WP_Error('agent_cancel_state', '此任务当前无需取消。', ['status' => 409]);
             }
             Oyiso_Agent_Store::cancel($id);
-        } else {
+        } elseif (!Oyiso_Agent_Live::requested($request)) {
             (new Oyiso_Agent_Runner(new Oyiso_Agent_Model()))->step($id);
         }
         return self::read($request);
@@ -210,7 +211,8 @@ final class Oyiso_Agent_Admin
         wp_enqueue_script('oyiso-agent-markdown', plugins_url('assets/markdown.js', __FILE__), ['oyiso-agent-markdown-it'], (string) filemtime(__DIR__ . '/assets/markdown.js'), true);
         wp_enqueue_script('oyiso-agent-history', plugins_url('assets/history.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/history.js'), true);
         wp_enqueue_script('oyiso-agent-composer', plugins_url('assets/composer.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/composer.js'), true);
-        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
+        wp_enqueue_script('oyiso-agent-live', plugins_url('assets/live.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/live.js'), true);
+        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer', 'oyiso-agent-live'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
         wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536))]);
     }
 

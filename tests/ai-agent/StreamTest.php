@@ -12,6 +12,7 @@ final class StreamTest extends TestCase
 {
     private array $original = [];
     private ?Closure $http = null;
+    private array $runs = [];
 
     protected function setUp(): void
     {
@@ -22,6 +23,8 @@ final class StreamTest extends TestCase
 
     protected function tearDown(): void
     {
+        wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
+        foreach ($this->runs as $id) { Oyiso_Agent_Store::cancel($id); wp_delete_post($id, true); }
         if ($this->http !== null) remove_filter('pre_http_request', $this->http, 10);
         foreach ($this->original as $name => $value) { if ($value === null) delete_option($name); else update_option($name, $value, false); }
     }
@@ -140,5 +143,73 @@ final class StreamTest extends TestCase
     {
         $decoder = new Oyiso_Agent_Stream_Decoder('openai_chat', static function (string $text): void {});
         $this->expectException(JsonException::class); $decoder->feed("data: {broken}\n\n");
+    }
+
+    public function testLiveRestSendStreamsDeltasBeforeCompletionAndKeepsDurableHistory(): void
+    {
+        $connection = Oyiso_Agent_Connections::save(['name' => 'live-fixture', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_chat', 'models' => ['fixture-model'], 'key' => 'fixture-stream-key']);
+        $request = new WP_REST_Request('POST', '/oyiso-agent/v1/runs');
+        $request->set_header('Accept', 'text/event-stream');
+        $request->set_param('message', 'Live fixture'); $request->set_param('selection', $connection['id'] . '|fixture-model');
+        $response = rest_get_server()->dispatch($request);
+        self::assertSame(201, $response->get_status());
+        $id = $response->get_data()['id']; $this->runs[] = $id;
+        self::assertSame('queued', Oyiso_Agent_Store::get($id)['status']);
+        self::assertNotFalse(wp_next_scheduled(Oyiso_Agent_Runner::HOOK, [$id]));
+        $requests = 0;
+        $this->http = static function ($pre, $args) use (&$requests) {
+            $requests++;
+            self::assertSame('text/event-stream', $args['headers']['Accept']);
+            return ['headers' => ['content-type' => 'text/event-stream'], 'body' => self::wire([
+                ['choices' => [['delta' => ['content' => '你'], 'finish_reason' => null]]],
+                ['choices' => [['delta' => ['content' => '好'], 'finish_reason' => 'stop']]],
+                ['choices' => [], 'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 2, 'total_tokens' => 3]], '[DONE]',
+            ]), 'response' => ['code' => 200, 'message' => 'OK'], 'cookies' => [], 'filename' => null];
+        };
+        add_filter('pre_http_request', $this->http, 10, 2);
+        $server = new class extends WP_REST_Server {
+            public array $sent = [];
+            public function send_header($key, $value) { $this->sent[$key] = $value; }
+        };
+        $beforeAbort = ignore_user_abort();
+        ob_start();
+        try { self::assertTrue(Oyiso_Agent_Live::serve(false, $response, $request, $server)); }
+        finally { $body = ob_get_clean(); }
+        self::assertSame($beforeAbort, ignore_user_abort());
+        self::assertSame('text/event-stream; charset=utf-8', $server->sent['Content-Type']);
+        self::assertSame('no', $server->sent['X-Accel-Buffering']);
+        self::assertStringContainsString('no-store', $server->sent['Cache-Control']);
+        preg_match_all('/event: (\w+)\ndata: ([^\n]+)\n\n/', $body, $frames, PREG_SET_ORDER);
+        self::assertSame(['state', 'text', 'text', 'state', 'done'], array_column($frames, 1));
+        self::assertSame('你', json_decode($frames[1][2], true)['delta']);
+        self::assertSame('好', json_decode($frames[2][2], true)['delta']);
+        self::assertArrayNotHasKey('messages', json_decode($frames[0][2], true));
+        self::assertStringNotContainsString('fixture-stream-key', $body);
+        self::assertSame('completed', Oyiso_Agent_Store::get($id)['status']);
+        self::assertSame('你好', Oyiso_Agent_Store::get($id)['conversation'][1]['text']);
+        self::assertSame(1, $requests);
+        $retry = new WP_REST_Request('POST', '/oyiso-agent/v1/runs/' . $id . '/step');
+        $retry->set_header('Accept', 'text/event-stream');
+        $retryResponse = rest_get_server()->dispatch($retry);
+        ob_start(); try { Oyiso_Agent_Live::serve(false, $retryResponse, $retry, $server); } finally { ob_end_clean(); }
+        self::assertSame(1, $requests, 'Reading an already completed live response must not generate again.');
+    }
+
+    public function testLiveServingCannotBypassRouteMethodStatusOrOwnershipChecks(): void
+    {
+        $server = new WP_REST_Server();
+        $run = Oyiso_Agent_Store::create('Access fixture'); $id = $run['id']; $this->runs[] = $id;
+        foreach ([['GET', '/oyiso-agent/v1/runs/' . $id, 200, true], ['POST', '/unrelated', 200, true], ['POST', '/oyiso-agent/v1/runs', 403, true], ['POST', '/oyiso-agent/v1/runs', 200, false]] as [$method, $route, $status, $stream]) {
+            $request = new WP_REST_Request($method, $route);
+            if ($stream) $request->set_header('Accept', 'text/event-stream');
+            self::assertFalse(Oyiso_Agent_Live::serve(false, new WP_REST_Response(['id' => $id], $status), $request, $server));
+        }
+        $request = new WP_REST_Request('POST', '/oyiso-agent/v1/runs'); $request->set_header('Accept', 'text/event-stream');
+        self::assertFalse(Oyiso_Agent_Live::serve(false, new WP_REST_Response(['id' => 'invalid']), $request, $server));
+        $request->set_param('message', 'No permission'); $request->set_param('selection', 'fixture|model');
+        wp_set_current_user(0);
+        self::assertFalse(Oyiso_Agent_Live::serve(false, new WP_REST_Response(['id' => $id]), $request, $server));
+        self::assertSame(401, rest_get_server()->dispatch($request)->get_status());
+        self::assertTrue(Oyiso_Agent_Live::serve(true, new WP_REST_Response(['id' => $id]), $request, $server));
     }
 }

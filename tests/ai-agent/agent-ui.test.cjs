@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { JSDOM } = require('jsdom');
+const { ReadableStream } = require('node:stream/web');
 
 const repo = path.resolve(__dirname, '../..');
 const phpQuote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
@@ -14,6 +15,7 @@ const markdownVendor = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/lib/
 const markdownScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/markdown.js'), 'utf8');
 const historyScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/history.js'), 'utf8');
 const composerScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/composer.js'), 'utf8');
+const liveScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/live.js'), 'utf8');
 const csfScript = fs.readFileSync(path.join(repo, 'assets/js/main.min.js'), 'utf8');
 const nativeNavigation = Array.from(fs.readFileSync(path.join(repo, 'src/_init.php'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g), match => match[1]).find(source => source.includes('function switchToSection(tabId)'));
 const wpRoot = process.env.OYISO_WORDPRESS_ROOT || path.resolve(repo, '../../..');
@@ -41,6 +43,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
         calls.push({ route, options });
         let response = await router(route, options);
         if (response === undefined) response = { items: [], pages: 0 };
+        if (response.sse) return { ok: true, status: 200, headers: { get: () => 'text/event-stream; charset=utf-8' }, body: response.sse };
         return { ok: response.ok !== false, status: response.status || 200, json: async () => response.body || response };
     };
     window.eval(jquery);
@@ -52,6 +55,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     window.eval(markdownScript);
     window.eval(historyScript);
     window.eval(composerScript);
+    window.eval(liveScript);
     view.afterGeometry?.(window);
     window.eval(script);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
@@ -242,6 +246,118 @@ test('streamed text updates the same bubble and is replaced once by the final re
     assert.equal(f.window.document.querySelectorAll('.is-assistant').length, 1);
     assert.equal(f.$('[data-agent-messages]').getAttribute('aria-busy'), 'false');
     assert.equal(f.calls.some(call => call.route.endsWith('/step')), false);
+});
+
+const liveSupport = window => { window.TextDecoder = TextDecoder; window.ReadableStream = ReadableStream; };
+function liveWire() {
+    let controller;
+    const sse = new ReadableStream({ start(value) { controller = value; } });
+    return { sse, emit(type, value) { controller.enqueue(new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`)); }, close() { controller.close(); } };
+}
+
+test('restoring a saved conversation shows a spinner immediately and never flashes welcome content', async t => {
+    let resolve;
+    const f = fixture(t, route => route === 'runs/12' ? new Promise(done => { resolve = done; }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    assert.ok(f.$('[data-agent-loading] .oyiso-agent-loading-spinner'));
+    assert.equal(f.$('.oyiso-agent-empty'), null);
+    assert.equal(f.$('[data-agent-messages]').getAttribute('aria-busy'), 'true');
+    assert.equal(f.$('[data-agent-send]').disabled, true);
+    resolve(task({ conversation: [{ role: 'assistant', text: 'Saved reply' }] })); await settle();
+    assert.equal(f.$('[data-agent-loading]'), null);
+    assert.equal(f.$('[data-agent-messages]').getAttribute('aria-busy'), 'false');
+    assert.match(f.$('[data-agent-messages]').textContent, /Saved reply/);
+    const fresh = fixture(t); assert.ok(fresh.$('.oyiso-agent-empty')); assert.equal(fresh.$('[data-agent-loading]'), null);
+});
+
+test('a failed saved conversation read stops the spinner without falling back to welcome content', async t => {
+    const f = fixture(t, route => route === 'runs/12' ? { ok: false, body: { message: 'Read failed' } } : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(f.$('[data-agent-loading]'), null); assert.equal(f.$('.oyiso-agent-empty'), null);
+    assert.equal(f.$('[data-agent-messages]').getAttribute('aria-busy'), 'false');
+    assert.match(f.$('[data-agent-messages]').textContent, /刷新重试/);
+    assert.equal(f.$('[data-agent-refresh]').disabled, false);
+});
+
+test('a live send paints text before completion and refresh cannot replace it with an older snapshot', async t => {
+    const wire = liveWire();
+    const conversation = [{ role: 'user', text: '你好' }];
+    const initial = task({ status: 'queued', selection: 'fixture|model-a', conversation });
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? wire : route === 'runs/12' ? task({ conversation: [{ role: 'assistant', text: 'Stale snapshot' }] }) : undefined, {}, liveSupport);
+    f.$('#oyiso-agent-prompt').value = '你好'; f.$('[data-agent-send]').click(); await settle();
+    const request = f.calls.find(call => call.route === 'runs');
+    assert.equal(request.options.headers.Accept, 'text/event-stream'); assert.equal(request.options.headers['X-WP-Nonce'], 'fixture-nonce');
+    wire.emit('state', initial); wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: '你' }); await settle();
+    const bubble = f.$('[data-agent-partial]'); assert.equal(bubble.querySelector('.oyiso-agent-message-content').textContent, '你');
+    assert.equal(f.$('#oyiso-agent-prompt').value, ''); assert.equal(f.$('[data-agent-send]').disabled, true);
+    assert.equal(f.calls.filter(call => call.route === 'runs/12').length, 0);
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-partial]'), bubble); assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /Stale snapshot/);
+    wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: '好 **世界**' }); await settle();
+    assert.equal(f.$('[data-agent-partial]'), bubble); assert.equal(bubble.querySelector('strong').textContent, 'model-a');
+    assert.equal(bubble.querySelector('.oyiso-agent-message-content strong').textContent, '世界');
+    const final = task({ selection: 'fixture|model-a', conversation: [...conversation, { role: 'assistant', model: 'model-a', text: '你好 **世界**' }] });
+    wire.emit('state', final); wire.emit('done', final); wire.close(); await settle();
+    assert.equal(f.$('[data-agent-partial]'), null); assert.equal(f.window.document.querySelectorAll('.is-assistant').length, 1);
+    assert.equal(f.$('[data-agent-send]').disabled, false);
+    assert.equal(f.calls.filter(call => call.route === 'runs' && call.options.method === 'POST').length, 1);
+});
+
+test('old live events cannot overwrite a new conversation or unlock its pending submission', async t => {
+    const first = liveWire(), second = liveWire(); let posts = 0;
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? (++posts === 1 ? first : second) : undefined, {}, liveSupport);
+    f.$('#oyiso-agent-prompt').value = 'First'; f.$('[data-agent-send]').click(); await settle();
+    first.emit('state', task({ status: 'queued', conversation: [{ role: 'user', text: 'First' }] })); await settle();
+    f.$('[data-agent-new]').click(); f.$('#oyiso-agent-prompt').value = 'Second'; f.$('[data-agent-send]').click(); await settle();
+    first.emit('text', { id: 12, step: 1, model: 'model-a', delta: 'Old reply' }); first.emit('done', task({ conversation: [{ role: 'assistant', text: 'Old reply' }] })); first.close(); await settle();
+    assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /Old reply/);
+    assert.equal(f.$('[data-agent-send]').disabled, true); assert.equal(f.$('#oyiso-agent-prompt').value, 'Second');
+    second.emit('state', task({ id: 13, status: 'queued', conversation: [{ role: 'user', text: 'Second' }] }));
+    second.emit('done', task({ id: 13, conversation: [{ role: 'assistant', text: 'New reply' }] })); second.close(); await settle();
+    assert.match(f.$('[data-agent-messages]').textContent, /New reply/); assert.equal(f.$('[data-agent-send]').disabled, false);
+});
+
+test('an interrupted live response resumes saved progress without submitting the message again', async t => {
+    const wire = liveWire(); let reads = 0;
+    const running = task({ status: 'running', partial: { model: 'model-a', text: '已收到' }, conversation: [{ role: 'user', text: 'Hello' }] });
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? wire : route === 'runs/12' ? (++reads, running) : undefined, {}, liveSupport);
+    f.$('#oyiso-agent-prompt').value = 'Hello'; f.$('[data-agent-send]').click(); await settle();
+    wire.emit('state', { ...running, status: 'queued', partial: undefined }); wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: '已收到' }); await settle();
+    wire.close(); await settle();
+    assert.equal(reads, 1); assert.match(f.$('[data-agent-partial]').textContent, /已收到/);
+    assert.equal(f.calls.filter(call => call.route === 'runs' && call.options.method === 'POST').length, 1);
+    const restored = fixture(t, route => route === 'runs/12' ? running : undefined, {}, window => { liveSupport(window); window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'); });
+    await settle(); assert.match(restored.$('[data-agent-partial]').textContent, /已收到/);
+    assert.equal(restored.calls.some(call => call.options.method === 'POST'), false);
+});
+
+test('a late terminal frame cannot overwrite a newer reply in the same conversation', async t => {
+    const first = liveWire(), second = liveWire(); let posts = 0;
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? (++posts === 1 ? first : second) : undefined, {}, liveSupport);
+    f.$('#oyiso-agent-prompt').value = 'First'; f.$('[data-agent-send]').click(); await settle();
+    first.emit('state', task({ status: 'queued', conversation: [{ role: 'user', text: 'First' }] }));
+    first.emit('state', task({ conversation: [{ role: 'assistant', text: 'First reply' }] })); await settle();
+    f.$('#oyiso-agent-prompt').value = 'Next'; f.$('[data-agent-send]').click(); await settle();
+    second.emit('state', task({ status: 'queued', conversation: [{ role: 'user', text: 'Next' }] }));
+    second.emit('text', { id: 12, step: 1, model: 'model-a', delta: 'New content' }); await settle();
+    first.emit('done', task({ conversation: [{ role: 'assistant', text: 'Obsolete first reply' }] })); first.close(); await settle();
+    assert.match(f.$('[data-agent-partial]').textContent, /New content/);
+    assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /Obsolete/);
+    const final = task({ conversation: [{ role: 'assistant', text: 'New content' }] });
+    second.emit('done', final); second.close(); await settle();
+    assert.match(f.$('[data-agent-messages]').textContent, /New content/);
+});
+
+test('late live text cannot revive a cancelled reply', async t => {
+    const wire = liveWire(); const cancelled = task({ status: 'cancelled', conversation: [{ role: 'user', text: 'Hello' }] });
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? wire : route === 'runs/12/cancel' || route === 'runs/12' ? cancelled : undefined, {}, liveSupport);
+    f.$('#oyiso-agent-prompt').value = 'Hello'; f.$('[data-agent-send]').click(); await settle();
+    wire.emit('state', { ...cancelled, status: 'queued' }); wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: 'Started' }); await settle();
+    f.$('[data-agent-cancel]').click(); await settle();
+    wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: 'Must be ignored' }); await settle();
+    assert.equal(f.$('[data-agent-status]').textContent, '已取消');
+    assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /Must be ignored/);
+    wire.emit('done', cancelled); wire.close(); await settle();
+    assert.equal(f.$('[data-agent-status]').textContent, '已取消');
 });
 
 test('assistant Markdown renders structure with bounded type while user input stays plain text', async t => {
@@ -963,7 +1079,7 @@ test('switching tasks clears previous proposals while the next conversation is l
     f.$('#oyiso-agent-history tbody button').click(); await settle();
     assert.equal(f.$('[data-agent-changes] button'), null);
     assert.equal(f.$('[data-agent-send]').disabled, true);
-    assert.match(f.$('[data-agent-messages]').textContent, /正在读取/);
+    assert.match(f.$('[data-agent-messages]').textContent, /正在加载/);
     finish(task({ id: 13, conversation: [{ role: 'assistant', text: '另一个任务的结果' }] })); await settle();
     assert.match(f.$('[data-agent-messages]').textContent, /另一个任务的结果/);
     assert.equal(f.$('[data-agent-send]').disabled, false);

@@ -50,7 +50,8 @@ final class Oyiso_Agent_Runner
         Oyiso_Agent_Store::save($run);
     }
 
-    public function step(int $id): void
+    /** @param (Closure(string,int,string):void)|null $onText */
+    public function step(int $id, ?Closure $onText = null): void
     {
         if (!Oyiso_Agent_Store::lock('run_' . $id)) {
             return;
@@ -87,11 +88,12 @@ final class Oyiso_Agent_Runner
             $allowed = Oyiso_Agent_Abilities::allowed();
             $savedAt = 0.0;
             $run['partial'] = ['text' => '', 'model' => explode('|', $run['selection'] ?? '|AI', 2)[1] ?? 'AI'];
-            $turn = $this->model->generate($run['messages'], $allowed, $run['selection'] ?? null, static function (string $text) use (&$run, &$savedAt, $id): void {
+            $turn = $this->model->generate($run['messages'], $allowed, $run['selection'] ?? null, static function (string $text) use (&$run, &$savedAt, $id, $onText): void {
                 if (Oyiso_Agent_Store::cancelled($id)) throw new RuntimeException('任务已取消。');
                 if ($text === '') return;
                 $run['partial']['text'] .= $text;
                 if (microtime(true) - $savedAt >= 0.25) { Oyiso_Agent_Store::save($run); $savedAt = microtime(true); }
+                if ($onText !== null) $onText($text, $run['step'], $run['partial']['model']);
             });
             if (Oyiso_Agent_Store::cancelled($id)) {
                 Oyiso_Agent_Store::save($run);
@@ -181,7 +183,7 @@ final class Oyiso_Agent_Runner
                 $run['status'] = 'queued';
             }
             Oyiso_Agent_Store::save($run);
-            if ($run['status'] === 'queued' && !Oyiso_Agent_Store::cancelled($id)) {
+            if ($onText === null && $run['status'] === 'queued' && !Oyiso_Agent_Store::cancelled($id)) {
                 self::enqueue($id);
             }
         } catch (Throwable $error) {

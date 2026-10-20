@@ -29,6 +29,9 @@
     let composer;
     let deleting = false;
     let refreshing = false;
+    const liveRuns = new Map();
+    const liveOwners = new Map();
+    let sendSequence = 0;
     const drafts = new Map();
     let run = null;
     let runId = 0;
@@ -234,15 +237,51 @@
     };
 
     async function api(path, options = {}) {
+        const { live, ...init } = options;
+        const streaming = live && window.oyisoAgentReadStream && window.TextDecoder && window.ReadableStream;
         const response = await fetch(config.url + path, {
             credentials: 'same-origin',
-            ...options,
-            headers: { ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), 'X-WP-Nonce': config.nonce, ...options.headers },
+            ...init,
+            headers: { ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...(streaming ? { Accept: 'text/event-stream' } : {}), 'X-WP-Nonce': config.nonce, ...options.headers },
         });
+        if (response.ok && streaming && response.headers?.get('Content-Type')?.includes('text/event-stream') && response.body?.getReader) return window.oyisoAgentReadStream(response, live);
         let data;
         try { data = await response.json(); } catch { throw new Error('服务器未返回有效数据，请检查网络或刷新页面。'); }
         if (!response.ok) throw new Error(data.message || `请求失败（HTTP ${response.status}）。`);
         return data;
+    }
+
+    function liveReceiver(accepted) {
+        let latest;
+        const owner = {};
+        return {
+            event(type, data) {
+                if (latest && liveOwners.get(latest.id) !== owner) return;
+                if (type === 'text') {
+                    if (!latest || data.id !== latest.id || typeof data.delta !== 'string') throw new Error('回复片段无效，请刷新对话。');
+                    const previous = latest.step === data.step ? latest.partial?.text || '' : '';
+                    latest = { ...latest, step: data.step, status: 'running', partial: { model: data.model, text: previous + data.delta } };
+                } else {
+                    if (!Number.isSafeInteger(data.id) || !Array.isArray(data.conversation)) throw new Error('对话数据无效，请刷新重试。');
+                    if (!latest) { accepted?.(data); liveOwners.set(data.id, owner); }
+                    latest = data;
+                }
+                if (latest.id === runId && run?.status === 'cancelled' && latest.status !== 'cancelled') return;
+                liveRuns.set(latest.id, latest);
+                if (latest.id === runId && panelOpen) render(latest);
+            },
+            close() { if (latest && liveOwners.get(latest.id) === owner) { liveOwners.delete(latest.id); liveRuns.delete(latest.id); } },
+            get received() { return !!latest; },
+        };
+    }
+
+    function showConversationLoading() {
+        if (!$('[data-agent-loading]', messages)) {
+            const state = node('div', 'oyiso-agent-loading'); state.dataset.agentLoading = ''; state.setAttribute('role', 'status');
+            const spinner = node('span', 'oyiso-agent-loading-spinner'); spinner.setAttribute('aria-hidden', 'true');
+            state.append(spinner, node('span', '', '正在加载对话…')); messages.replaceChildren(state);
+        }
+        messages.setAttribute('aria-busy', 'true');
     }
 
     const connectionSnapshot = preset => JSON.stringify(Array.from(document.querySelectorAll(`[data-agent-connection="${preset}"]`), input => [input.name, input.type === 'checkbox' ? input.checked : input.value]));
@@ -429,6 +468,7 @@
         if (next.id !== runId) return;
         if ((!run || sending) && typeof next.selection === 'string') populateModels(config.models, next.selection);
         run = next;
+        if (next.status === 'cancelled') liveRuns.delete(next.id);
         controls();
         if (next.error) showNotice(!next.selection && next.error.startsWith('尚无可用的工具调用模型') ? '此对话尚未选择模型。请在下方选择已添加的模型后重新发送。' : next.error, true);
         else if (next.status === 'cancelled') showNotice('任务已取消，后续步骤和待审核修改已停止。可新建对话继续。');
@@ -485,34 +525,40 @@
     }
 
     function drive(id) {
-        if (stepping.has(id)) return;
+        if (stepping.has(id) || liveRuns.has(id)) return;
         stepping.add(id);
+        const receiver = liveReceiver();
         const revision = pollRevision;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 120000);
-        api(`runs/${id}/step`, { method: 'POST', body: '{}', signal: controller.signal })
+        const timeout = setTimeout(() => controller.abort(), 180000);
+        api(`runs/${id}/step`, { method: 'POST', body: '{}', signal: controller.signal, live: receiver.event })
             .then(data => { if (id === runId && revision === pollRevision && panelOpen) render(data); })
             .catch(error => { if (id === runId && revision === pollRevision && panelOpen && error.name !== 'AbortError') showNotice(error.message, true); })
-            .finally(() => { clearTimeout(timeout); stepping.delete(id); });
+            .finally(() => {
+                clearTimeout(timeout); receiver.close(); stepping.delete(id);
+                if (id === runId && panelOpen && ['queued', 'running'].includes(run?.status)) { clearTimeout(timer); timer = setTimeout(poll, 700); }
+            });
     }
 
     async function poll(force = false) {
         clearTimeout(timer);
         const id = runId;
         if (!id || !panelOpen) return;
+        if (!force && liveRuns.has(id)) { loading = false; render(liveRuns.get(id)); return; }
         const revision = ++pollRevision;
         pollController?.abort();
         const controller = new AbortController(); pollController = controller;
         const timeout = setTimeout(() => controller.abort(), 15000);
         loading = force || !run || run.id !== id;
         refreshing = force;
+        if (!run || run.id !== id) showConversationLoading();
         controls();
         try {
             const data = await api(`runs/${id}`, { signal: controller.signal });
             if (id !== runId || revision !== pollRevision || !panelOpen) return;
             loading = false;
             refreshing = false;
-            render(data);
+            render(liveRuns.get(id) || data);
             if (data.status === 'queued' || data.recoverable) drive(id);
             if (['queued', 'running'].includes(data.status)) timer = setTimeout(poll, 700);
         } catch (error) {
@@ -520,6 +566,7 @@
                 loading = false;
                 refreshing = false;
                 controls();
+                if (!run) { messages.replaceChildren(node('p', 'description', '暂时无法加载对话，请点击右上角刷新重试。')); messages.setAttribute('aria-busy', 'false'); }
                 showNotice(error.name === 'AbortError' ? '读取对话超时，请点击刷新重试。' : error.message, true);
                 timer = setTimeout(poll, 6000);
             }
@@ -533,6 +580,18 @@
         const files = composer?.files() || [];
         const message = prompt.value.trim() || (files.length ? '请分析附件。' : '');
         if (!message || $('[data-agent-send]').disabled) return;
+        const source = runId, sequence = ++sendSequence;
+        let accepted = false, sentId = 0;
+        const accept = next => {
+            if (accepted) return;
+            accepted = true; sentId = next.id;
+            forgetDraft(source); runId = next.id; run = null; version = '';
+            composer?.switchTo(runId); remember(runId); prompt.value = ''; composer?.resize(); rememberDraft();
+            sending = false; controls(); scroll.scrollTop = scroll.scrollHeight;
+        };
+        const receiver = liveReceiver(accept);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 180000);
         sending = true;
         controls();
         try {
@@ -540,21 +599,16 @@
             if (files.length) {
                 body = new FormData(); body.append('message', message); body.append('run_id', String(runId)); body.append('selection', modelSelect.value); files.forEach(file => body.append('files[]', file, file.name));
             } else body = JSON.stringify({ message, run_id: runId, selection: modelSelect.value });
-            const next = await api('runs', { method: 'POST', body });
-            forgetDraft(runId);
-            runId = next.id;
-            composer?.switchTo(runId);
-            remember(runId);
-            prompt.value = '';
-            composer?.resize();
-            rememberDraft();
-            version = '';
-            render(next);
-            scroll.scrollTop = scroll.scrollHeight;
-            poll();
-            loadLists();
-        } catch (error) { showNotice(error.message, true); }
-        finally { sending = false; controls(); }
+            const next = await api('runs', { method: 'POST', body, signal: controller.signal, live: receiver.event });
+            if (!accepted) accept(next);
+            if (sentId === runId && sequence === sendSequence && panelOpen) render(next);
+        } catch (error) { if (!sentId || sentId === runId) showNotice(error.name === 'AbortError' ? '回复连接超时，正在重新读取对话进度。' : error.message, true); }
+        finally {
+            clearTimeout(timeout); receiver.close();
+            if (sequence === sendSequence) { sending = false; controls(); }
+            if (accepted && sentId === runId && (!receiver.received || ['queued', 'running'].includes(run?.status))) poll();
+            if (accepted) loadLists();
+        }
     }
 
     async function applyChange(proposal, action, kind = 'changes') {
@@ -585,7 +639,7 @@
         run = null;
         version = '';
         remember(id);
-        messages.replaceChildren(node('p', 'description', '正在读取对话…'));
+        showConversationLoading();
         $('[data-agent-events]').replaceChildren();
         $('[data-agent-changes]').replaceChildren();
         prompt.value = draftFor(id);
@@ -695,6 +749,7 @@
         try { preferred = localStorage.getItem(storageKey + ':model'); } catch { /* Storage is optional. */ }
         populateModels(config.models, Object.hasOwn(config.models || {}, preferred) ? preferred : '');
         messages.replaceChildren(empty.cloneNode(true));
+        messages.setAttribute('aria-busy', 'false');
         messages.setAttribute('aria-busy', 'false');
         $('[data-agent-events]').replaceChildren(node('li', 'description', '发送任务后，这里会显示查询和处理进度。'));
         $('[data-agent-changes]').replaceChildren();
