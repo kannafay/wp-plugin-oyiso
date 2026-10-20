@@ -147,6 +147,93 @@ test('Enter used to confirm IME composition never submits until composition has 
     assert.equal(f.calls.filter(call => call.route === 'runs' && call.options.method === 'POST').length, 1);
 });
 
+test('settings popover contains icon and text actions with keyboard dismissal and a separate refresh button', async t => {
+    const f = fixture(t);
+    const settings = f.$('[data-agent-settings-menu]'); const toggle = f.$('[data-agent-settings-toggle]');
+    for (const selector of ['[data-agent-layout]', '[data-agent-reset]', '[data-agent-history-toggle]']) {
+        assert.equal(settings.contains(f.$(selector)), true);
+        assert.ok(f.$(selector).querySelector('svg'));
+        assert.ok(f.$(selector).textContent.trim());
+    }
+    assert.equal(toggle.parentElement.previousElementSibling, f.$('[data-agent-refresh]'));
+    assert.equal(f.$('[data-agent-fullscreen-toggle]').nextElementSibling, f.$('[data-agent-close]'));
+    toggle.click(); assert.equal(settings.hidden, false); assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    settings.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    assert.equal(f.window.document.activeElement, f.$('[data-agent-reset]'));
+    settings.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.equal(settings.hidden, true); assert.equal(f.window.document.activeElement, toggle);
+    toggle.click(); f.window.document.body.click(); assert.equal(settings.hidden, true);
+    assert.equal(f.$('[data-agent-refresh]').disabled, true);
+    await settle();
+});
+
+test('refresh reloads only the current conversation and preserves draft model choice and geometry', async t => {
+    let reads = 0; let resolve;
+    const f = fixture(t, route => route === 'runs/12' ? (++reads === 1 ? task({ selection: 'fixture|model-a', conversation: [{ role: 'assistant', text: 'Old' }] }) : new Promise(done => { resolve = done; })) : undefined, {}, window => {
+        geometry(window); window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+    });
+    await settle();
+    const input = f.$('#oyiso-agent-prompt'); input.value = 'Keep my draft';
+    const model = f.$('[data-agent-model]'); model.value = 'second|model-b';
+    const before = f.$('#oyiso-agent-panel').style.cssText;
+    f.$('[data-agent-refresh]').click(); f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(reads, 2); assert.equal(f.$('[data-agent-refresh]').disabled, true);
+    resolve(task({ selection: 'fixture|model-a', conversation: [{ role: 'assistant', text: 'Reloaded' }] })); await settle();
+    assert.match(f.$('[data-agent-messages]').textContent, /Reloaded/);
+    assert.equal(input.value, 'Keep my draft'); assert.equal(model.value, 'second|model-b');
+    assert.equal(f.$('#oyiso-agent-panel').style.cssText, before);
+    assert.equal(f.$('[data-agent-refresh]').disabled, false);
+    assert.equal(f.calls.some(call => call.options.method === 'POST'), false);
+});
+
+test('a stalled conversation read times out and refresh remains available for retry', async t => {
+    let abortRead; let reads = 0;
+    const f = fixture(t, (route, options) => route === 'runs/12' ? (++reads === 1 ? new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(new f.window.DOMException('Aborted', 'AbortError')))) : task({ conversation: [{ role: 'assistant', text: 'Recovered' }] })) : undefined, {}, window => {
+        const originalTimeout = window.setTimeout.bind(window);
+        window.setTimeout = (callback, delay, ...args) => { if (delay === 15000) abortRead = callback; return originalTimeout(callback, delay, ...args); };
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+    });
+    abortRead(); await settle();
+    assert.match(f.$('[data-agent-notice]').textContent, /读取对话超时/);
+    assert.equal(f.$('[data-agent-refresh]').disabled, false);
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.match(f.$('[data-agent-messages]').textContent, /Recovered/);
+});
+
+test('streamed text updates the same bubble and is replaced once by the final reply', async t => {
+    let state = task({ status: 'running', conversation: [{ role: 'user', text: '你好' }], partial: { text: '你', model: 'model-a' } });
+    const f = fixture(t, route => route === 'runs/12' ? state : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); const bubble = f.$('[data-agent-partial]');
+    assert.equal(bubble.querySelector('.oyiso-agent-message-content').textContent, '你');
+    assert.equal(f.$('[data-agent-send]').disabled, true);
+    state = { ...state, partial: { text: '你好 <img src=x>', model: 'model-a' } };
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-partial]'), bubble); assert.equal(bubble.querySelector('img'), null);
+    assert.match(bubble.textContent, /你好/);
+    state = task({ conversation: [{ role: 'user', text: '你好' }, { role: 'assistant', text: '你好', model: 'model-a' }] });
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-partial]'), null);
+    assert.equal(f.window.document.querySelectorAll('.is-assistant').length, 1);
+    assert.equal(f.$('[data-agent-messages]').getAttribute('aria-busy'), 'false');
+    assert.equal(f.calls.some(call => call.route.endsWith('/step')), false);
+});
+
+test('refresh and page restoration reconnect to running work without duplicate steps or stale response rollback', async t => {
+    let reads = 0; let finishStep;
+    const running = task({ status: 'running', partial: { text: 'Current text', model: 'model-a' } });
+    const f = fixture(t, route => route === 'runs/12' ? (++reads === 1 ? task({ status: 'queued' }) : running) : route === 'runs/12/step' ? new Promise(resolve => { finishStep = resolve; }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.calls.filter(call => call.route.endsWith('/step')).length, 1);
+    finishStep(task({ conversation: [{ role: 'assistant', text: 'Stale result' }] })); await settle();
+    assert.match(f.$('[data-agent-partial]').textContent, /Current text/);
+    assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /Stale result/);
+    const restored = fixture(t, route => route === 'runs/12' ? running : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.match(restored.$('[data-agent-partial]').textContent, /Current text/);
+    assert.equal(restored.calls.some(call => call.route.endsWith('/step') || call.options.method === 'POST'), false);
+});
+
 test('prompt changes do not mark plugin settings dirty', async t => {
     const f = fixture(t);
     let changed = 0;
@@ -337,7 +424,7 @@ test('quick conversation switching keeps separate drafts and returning to the li
     f.$('[data-agent-history-back]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
     assert.equal(f.$('#oyiso-agent-panel-history').hidden, true);
-    assert.equal(f.window.document.activeElement, f.$('[data-agent-history-toggle]'));
+    assert.equal(f.window.document.activeElement, f.$('[data-agent-settings-toggle]'));
     const restored = fixture(t, router, {}, window => {
         window.localStorage.setItem(key, '13');
         window.sessionStorage.setItem(key + ':draft:13', f.window.sessionStorage.getItem(key + ':draft:13'));

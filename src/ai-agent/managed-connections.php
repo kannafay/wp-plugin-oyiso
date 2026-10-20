@@ -116,7 +116,8 @@ final class Oyiso_Agent_Connections
         return new WP_Error('agent_connection_missing', '模型连接不存在，请在 AI 助手中重新选择模型。', ['status' => 404]);
     }
 
-    public static function model(string $id, string $model): \WordPress\AiClient\Providers\Models\Contracts\ModelInterface|WP_Error
+    /** @param (Closure(string):void)|null $onText */
+    public static function model(string $id, string $model, ?Closure $onText = null): \WordPress\AiClient\Providers\Models\Contracts\ModelInterface|WP_Error
     {
         $connection = self::load($id, $model);
         if (is_wp_error($connection)) {
@@ -125,7 +126,7 @@ final class Oyiso_Agent_Connections
         Oyiso_Agent_Connectors::register();
         $metadata = Oyiso_Agent_Model_Directory::metadata($model);
         $provider = Oyiso_Agent_Custom_Provider::metadata();
-        return $connection->protocol === 'openai_chat' ? new Oyiso_Agent_Compatible_Model($metadata, $provider, $id) : new Oyiso_Agent_Native_Model($metadata, $provider, $id);
+        return $connection->protocol === 'openai_chat' ? new Oyiso_Agent_Compatible_Model($metadata, $provider, $id, $onText) : new Oyiso_Agent_Native_Model($metadata, $provider, $id, $onText);
     }
 
     /** @param array<string, mixed> $input

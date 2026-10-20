@@ -32,6 +32,7 @@ final class Oyiso_Agent_Runner
     /** @param Run $run */
     public static function message(array &$run, string $text): void
     {
+        unset($run['partial']);
         $run['messages'][] = (new UserMessage([new MessagePart($text)]))->toArray();
         $run['conversation'][] = ['role' => 'user', 'text' => $text];
         $run['step'] = 0;
@@ -47,9 +48,10 @@ final class Oyiso_Agent_Runner
             return;
         }
         $previousUser = get_current_user_id();
+        $previousAbort = ignore_user_abort(true);
         try {
             if (function_exists('set_time_limit')) {
-                set_time_limit(120);
+                set_time_limit(150);
             }
             $post = get_post($id);
             if (!$post instanceof WP_Post || $post->post_type !== Oyiso_Agent_Store::TYPE) {
@@ -69,12 +71,20 @@ final class Oyiso_Agent_Runner
                 return;
             }
             $run['status'] = 'running';
+            unset($run['partial']);
             $run['step']++;
             Oyiso_Agent_Store::event($run, 'info', '正在分析任务', '第 ' . $run['step'] . ' 轮');
             Oyiso_Agent_Store::save($run);
             $checkpoint = $run;
             $allowed = Oyiso_Agent_Abilities::allowed();
-            $turn = $this->model->generate($run['messages'], $allowed, $run['selection'] ?? null);
+            $savedAt = 0.0;
+            $run['partial'] = ['text' => '', 'model' => explode('|', $run['selection'] ?? '|AI', 2)[1] ?? 'AI'];
+            $turn = $this->model->generate($run['messages'], $allowed, $run['selection'] ?? null, static function (string $text) use (&$run, &$savedAt, $id): void {
+                if (Oyiso_Agent_Store::cancelled($id)) throw new RuntimeException('任务已取消。');
+                if ($text === '') return;
+                $run['partial']['text'] .= $text;
+                if (microtime(true) - $savedAt >= 0.25) { Oyiso_Agent_Store::save($run); $savedAt = microtime(true); }
+            });
             if (Oyiso_Agent_Store::cancelled($id)) {
                 Oyiso_Agent_Store::save($run);
                 return;
@@ -99,6 +109,7 @@ final class Oyiso_Agent_Runner
                 return;
             }
             $run['tokens'] += $turn->tokens;
+            unset($run['partial']);
             $run['messages'][] = $turn->message->toArray();
             if (trim($text) !== '') {
                 $run['conversation'][] = ['role' => 'assistant', 'text' => $text, 'model' => $turn->model];
@@ -166,14 +177,17 @@ final class Oyiso_Agent_Runner
             }
         } catch (Throwable $error) {
             if (isset($run) && is_array($run)) {
+                if (Oyiso_Agent_Store::cancelled($id)) { Oyiso_Agent_Store::save($run); return; }
                 if (isset($checkpoint)) {
                     $checkpoint['events'] = $run['events'];
                     $checkpoint['tokens'] = $run['tokens'];
+                    if (isset($run['partial'])) $checkpoint['partial'] = $run['partial'];
                     $run = $checkpoint;
                 }
                 $this->fail($run, Oyiso_Agent_Config::error($error->getMessage()));
             }
         } finally {
+            ignore_user_abort($previousAbort !== 0);
             Oyiso_Agent_Abilities::bind(null);
             wp_set_current_user($previousUser);
             Oyiso_Agent_Store::unlock('run_' . $id);

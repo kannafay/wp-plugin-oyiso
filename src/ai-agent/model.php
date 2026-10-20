@@ -18,8 +18,9 @@ interface Oyiso_Agent_Model_Gateway
 {
     /** @param list<array<string, mixed>> $history
      * @param list<string> $abilities
+     * @param (Closure(string):void)|null $onText
      */
-    public function generate(array $history, array $abilities, ?string $selection = null): Oyiso_Agent_Turn|WP_Error;
+    public function generate(array $history, array $abilities, ?string $selection = null, ?Closure $onText = null): Oyiso_Agent_Turn|WP_Error;
 }
 
 /** @phpstan-import-type MessageArrayShape from Message */
@@ -30,7 +31,7 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
     {
     }
 
-    public function generate(array $history, array $abilities, ?string $selection = null): Oyiso_Agent_Turn|WP_Error
+    public function generate(array $history, array $abilities, ?string $selection = null, ?Closure $onText = null): Oyiso_Agent_Turn|WP_Error
     {
         if (!Oyiso_Agent_Config::supported()) {
             return new WP_Error('agent_wp_version', 'AI Agent 需要 WordPress 7.0 或以上版本。');
@@ -45,7 +46,7 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
                 $messages[] = Message::fromArray($entry);
             }
             $requestOptions = new RequestOptions();
-            $requestOptions->setTimeout(45.0);
+            $requestOptions->setTimeout($onText !== null ? 90.0 : 45.0);
             $requestOptions->setConnectTimeout(10.0);
             $requestOptions->setMaxRedirects(0);
             $builder = ($this->builderFactory !== null ? ($this->builderFactory)($messages) : wp_ai_client_prompt($messages))
@@ -58,7 +59,7 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
             $selection ??= Oyiso_Agent_Config::text('selection');
             if (str_contains($selection, '|')) {
                 [$connectionId, $modelId] = explode('|', $selection, 2);
-                $selectedModel = Oyiso_Agent_Connections::model($connectionId, $modelId);
+                $selectedModel = Oyiso_Agent_Connections::model($connectionId, $modelId, $onText);
                 if (is_wp_error($selectedModel)) {
                     return $selectedModel;
                 }

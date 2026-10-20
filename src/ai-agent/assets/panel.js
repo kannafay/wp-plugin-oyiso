@@ -231,7 +231,7 @@
     document.addEventListener('pointercancel', event => finish(event, true));
     for (const [element, type] of [[launcher, 'launcher'], ...resizers.map(handle => [handle, 'resize']), [heading, 'window']]) {
         element.addEventListener('pointerdown', event => {
-            if (type === 'window' && event.target.closest('button, a, input, textarea, select, [contenteditable], [data-agent-layout-menu]')) return;
+            if (type === 'window' && event.target.closest('button, a, input, textarea, select, [contenteditable], [data-agent-settings-menu]')) return;
             start(event, type, element.dataset.agentResize || '');
         });
         element.addEventListener('lostpointercapture', event => finish(event, true));

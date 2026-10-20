@@ -28,13 +28,13 @@ final class OyisoAgentScriptedModel implements Oyiso_Agent_Model_Gateway
     {
     }
 
-    public function generate(array $history, array $abilities, ?string $selection = null): Oyiso_Agent_Turn|WP_Error
+    public function generate(array $history, array $abilities, ?string $selection = null, ?Closure $onText = null): Oyiso_Agent_Turn|WP_Error
     {
         $this->calls++;
         $this->selections[] = $selection;
         $this->allowed = $abilities;
         $turn = array_shift($this->turns);
-        return $turn instanceof Closure ? $turn() : $turn;
+        return $turn instanceof Closure ? $turn($onText) : $turn;
     }
 }
 
@@ -669,6 +669,45 @@ final class AgentTest extends TestCase
             ['role' => 'user', 'text' => 'Follow-up'],
             ['role' => 'assistant', 'text' => 'Second reply', 'model' => 'second-model'],
         ], $this->request('GET', 'runs/' . $run['id'])->get_data()['conversation']);
+    }
+
+    public function testPartialRepliesSurviveReadsWhileTheWorkerLockPreventsDuplicateGeneration(): void
+    {
+        $run = $this->task(); $run['selection'] = 'fixture|fixture-model';
+        Oyiso_Agent_Runner::message($run, '你好');
+        $beforeAbort = ignore_user_abort();
+        $model = null;
+        $model = new OyisoAgentScriptedModel([function (Closure $publish) use ($run, &$model) {
+            self::assertSame(1, ignore_user_abort());
+            $publish('你');
+            $view = $this->request('GET', 'runs/' . $run['id'])->get_data();
+            self::assertSame(['text' => '你', 'model' => 'fixture-model'], $view['partial']);
+            self::assertSame('running', $view['status']); self::assertFalse($view['recoverable']);
+            (new Oyiso_Agent_Runner($model))->step($run['id']); self::assertSame(1, $model->calls);
+            $publish('好');
+            return $this->turn('你好');
+        }]);
+        (new Oyiso_Agent_Runner($model))->step($run['id']);
+        $view = $this->request('GET', 'runs/' . $run['id'])->get_data();
+        self::assertSame('completed', $view['status']); self::assertArrayNotHasKey('partial', $view);
+        self::assertCount(2, $view['conversation']); self::assertSame('你好', $view['conversation'][1]['text']);
+        self::assertSame($beforeAbort, ignore_user_abort());
+    }
+
+    public function testInterruptedAndCancelledStreamsKeepPartialTextWithoutAddingIncompleteModelHistory(): void
+    {
+        foreach (['failed', 'cancelled'] as $status) {
+            $run = $this->task(); Oyiso_Agent_Runner::message($run, 'Stream test');
+            $model = new OyisoAgentScriptedModel([static function (Closure $publish) use ($run, $status) {
+                $publish('已收到的文字');
+                if ($status === 'cancelled') { Oyiso_Agent_Store::cancel($run['id']); $publish('不该出现'); }
+                return new WP_Error('interrupted', 'Connection interrupted');
+            }]);
+            (new Oyiso_Agent_Runner($model))->step($run['id']);
+            $fresh = Oyiso_Agent_Store::get($run['id']);
+            self::assertSame($status, $fresh['status']); self::assertSame('已收到的文字', $fresh['partial']['text']);
+            self::assertCount(1, $fresh['messages']); self::assertCount(1, $fresh['conversation']);
+        }
     }
 
     public function testCancellationSeesUpdatesOutsideCurrentMetadataCache(): void

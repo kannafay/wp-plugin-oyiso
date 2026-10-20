@@ -25,6 +25,7 @@ use WordPress\AiClient\Providers\Models\Enums\OptionEnum;
 use WordPress\AiClient\Providers\OpenAiCompatibleImplementation\AbstractOpenAiCompatibleTextGenerationModel;
 
 require_once __DIR__ . '/native-model.php';
+require_once __DIR__ . '/stream.php';
 
 abstract class Oyiso_Agent_Provider extends AbstractProvider
 {
@@ -140,9 +141,16 @@ final readonly class Oyiso_Agent_Model_Directory implements ModelMetadataDirecto
  */
 final class Oyiso_Agent_Compatible_Model extends AbstractOpenAiCompatibleTextGenerationModel
 {
-    public function __construct(ModelMetadata $metadata, ProviderMetadata $providerMetadata, private readonly ?string $connectionId = null)
+    /** @param (Closure(string):void)|null $onText */
+    public function __construct(ModelMetadata $metadata, ProviderMetadata $providerMetadata, private readonly ?string $connectionId = null, private readonly ?Closure $onText = null)
     {
         parent::__construct($metadata, $providerMetadata);
+    }
+
+    public function getHttpTransporter(): \WordPress\AiClient\Providers\Http\Contracts\HttpTransporterInterface
+    {
+        $transport = parent::getHttpTransporter();
+        return $this->onText !== null ? new Oyiso_Agent_Stream_Transport($transport, 'openai_chat', $this->onText) : $transport;
     }
 
     protected function createRequest(HttpMethodEnum $method, string $path, array $headers = [], $data = null): Request

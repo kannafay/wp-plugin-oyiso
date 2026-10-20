@@ -31,7 +31,8 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
     private const REDACTED_THOUGHT = 'oyiso-anthropic-redacted:';
     private const RESPONSES_ITEM = 'oyiso-openai-item:';
 
-    public function __construct(ModelMetadata $metadata, ProviderMetadata $provider, private readonly string $connectionId)
+    /** @param (Closure(string):void)|null $onText */
+    public function __construct(ModelMetadata $metadata, ProviderMetadata $provider, private readonly string $connectionId, private readonly ?Closure $onText = null)
     {
         parent::__construct($metadata, $provider);
     }
@@ -64,7 +65,9 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
         $options->setTimeout($options->getTimeout() ?? 45.0);
         $options->setMaxRedirects(0);
         $body = $responses ? $this->responsesParameters($prompt, $connection->model) : $this->parameters($prompt, $connection->model, $anthropic);
-        $response = $this->getHttpTransporter()->send(new Request(HttpMethodEnum::POST(), $base . $path, $headers, $body, $options));
+        $transport = $this->getHttpTransporter();
+        if ($this->onText !== null) $transport = new Oyiso_Agent_Stream_Transport($transport, $connection->protocol, $this->onText);
+        $response = $transport->send(new Request(HttpMethodEnum::POST(), $base . $path, $headers, $body, $options));
         ResponseUtil::throwIfNotSuccessful($response);
         $data = self::object($response->getData());
         return $responses ? $this->responsesResult($data) : $this->result($data, $anthropic);

@@ -83,13 +83,20 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-panel-actions > .button { margin-right: 4px; }
 .oyiso-agent-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 32px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: #50575e; text-decoration: none; cursor: pointer; }
 .oyiso-agent-icon-button:hover { background: #f0f0f1; color: #1d2327; }
-.oyiso-agent-icon-button svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.oyiso-agent-layout-menu { position: absolute; z-index: 6; top: calc(100% + 8px); right: 0; width: 170px; padding: 4px; border: 1px solid #c3c4c7; border-radius: 4px; background: #fff; box-shadow: 0 4px 16px #0002; }
-.oyiso-agent-layout-menu button { display: block; width: 100%; padding: 9px 12px; border: 0; border-radius: 2px; background: transparent; color: #1d2327; font: inherit; text-align: left; cursor: pointer; }
+.oyiso-agent-icon-button svg, .oyiso-agent-settings-menu svg { display: block; flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.oyiso-agent-settings-wrap { position: relative; display: flex; }
+.oyiso-agent-settings-menu { position: absolute; z-index: 6; top: calc(100% + 8px); right: 0; width: 196px; padding: 4px; overflow-y: auto; border: 1px solid #c3c4c7; border-radius: 4px; background: #fff; box-shadow: 0 4px 16px #0002; }
+.oyiso-agent-settings-menu :is(button, a) { display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 0; border-radius: 2px; background: transparent; color: #1d2327; font: inherit; font-size: 13px; line-height: 1.4; text-align: left; text-decoration: none; cursor: pointer; }
+.oyiso-agent-settings-menu :is(button, a):hover, [data-agent-settings-toggle][aria-expanded="true"] { background: #f0f0f1; }
+.oyiso-agent-settings-menu .oyiso-agent-settings-link { border-top: 1px solid #e5e5e5; border-radius: 0; margin-top: 4px; }
+.oyiso-agent-menu-chevron { margin-left: auto; }
+.oyiso-agent-layout-menu { padding-left: 10px; }
 .oyiso-agent-layout-menu button:is(:hover, [aria-checked="true"]) { background: #f0f0f1; }
 .oyiso-agent-layout-menu button[aria-checked="true"] { font-weight: 600; }
 [data-agent-history-toggle][aria-expanded="true"] { background: #f0f0f1; }
 [data-agent-fullscreen-toggle][aria-pressed="true"] { background: #f0f0f1; }
+[data-agent-refresh][aria-busy="true"] svg { animation: oyiso-agent-refresh 1s linear infinite; }
+@keyframes oyiso-agent-refresh { to { transform: rotate(360deg); } }
 #oyiso-agent-launcher:focus-visible, .oyiso-agent-panel :is(button, a, textarea, summary):focus-visible { outline: 2px solid var(--wp-admin-theme-color, #2271b1); outline-offset: 2px; }
 #oyiso-agent-launcher:focus-visible { outline-color: #fff; outline-offset: -4px; }
 .oyiso-agent-panel .button { border-radius: 3px; }
@@ -112,6 +119,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-message-content { max-width: min(85%, 720px); padding: 10px 14px; box-sizing: border-box; border: 1px solid #e5e5e5; border-radius: 12px 12px 12px 3px; background: #f6f7f7; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 13px; }
 .oyiso-agent-message.is-user .oyiso-agent-message-content { border-color: transparent; border-radius: 12px 12px 3px 12px; background: var(--oyiso-color-primary, #bf5316); color: #fff; }
 .oyiso-agent-message.is-user .oyiso-agent-message-content a { color: inherit; text-decoration: underline; }
+.oyiso-agent-message.is-streaming .oyiso-agent-message-content::after { content: ''; display: inline-block; width: 2px; height: 1em; margin-left: 3px; background: currentColor; vertical-align: -.1em; }
 .oyiso-agent-composer { flex: none; padding: 14px 16px 16px; border-top: 1px solid #dcdcde; }
 .oyiso-agent-composer textarea { display: block; width: 100%; max-width: none; min-height: 80px; max-height: 180px; resize: vertical; box-sizing: border-box; font: inherit; font-size: 13px; line-height: 1.6; }
 .oyiso-agent-composer-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
@@ -199,6 +207,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
     #oyiso-agent-launcher-wrap { right: 16px; bottom: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
+    [data-agent-refresh][aria-busy="true"] svg { animation: none; }
     body { --oyiso-agent-motion-duration: 0ms; }
     #oyiso-agent-launcher, #oyiso-agent-launcher > span { transition: none; }
     #oyiso-agent-launcher::after { transition: none; }
