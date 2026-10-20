@@ -132,15 +132,16 @@
     }
     $('[data-files-delete-confirm]').addEventListener('click', async () => {
         if (deleting || !pending.length) return;
-        deleting = true; sync(); $('[data-files-delete-confirm]').disabled = $('[data-files-delete-cancel]').disabled = true;
+        deleting = true; sync(); $('[data-files-delete-confirm]').disabled = $('[data-files-delete-cancel]').disabled = $('[data-files-delete-close]').disabled = true;
         try {
             const result = await api('files', { method: 'DELETE', body: JSON.stringify({ ids: pending }) });
             document.dispatchEvent(new CustomEvent('oyiso-agent-files-deleted', { detail: result.deleted }));
             deleting = false; close(); await load();
         } catch (error) { $('[data-files-delete-error]').textContent = error.message; $('[data-files-delete-error]').hidden = false; }
-        finally { deleting = false; $('[data-files-delete-confirm]').disabled = $('[data-files-delete-cancel]').disabled = false; sync(); }
+        finally { deleting = false; $('[data-files-delete-confirm]').disabled = $('[data-files-delete-cancel]').disabled = $('[data-files-delete-close]').disabled = false; sync(); }
     });
     $('[data-files-delete-cancel]').addEventListener('click', close);
+    $('[data-files-delete-close]').addEventListener('click', close);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     dialog.addEventListener('keydown', event => { if (event.key === 'Escape' || event.key === 'Tab') event.stopPropagation(); });
     dialog.addEventListener('click', event => { if (event.target === dialog) close(); });

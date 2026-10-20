@@ -64,6 +64,11 @@ test('file deletion requires confirmation and batch deletion emits the deleted I
     assert.equal(f.$('dialog').open, true); assert.match(f.$('[data-files-delete-description]').textContent, /2 个/);
     f.$('[data-files-delete-cancel]').click(); assert.equal(f.$('dialog').open, false);
     f.$('[data-files-delete-selected]').click();
+    assert.equal(f.window.document.activeElement, f.$('[data-files-delete-cancel]'));
+    f.$('[data-files-delete-close]').click(); assert.equal(f.$('dialog').open, false);
+    assert.equal(f.window.document.activeElement, f.$('[data-files-delete-selected]'));
+    assert.equal(f.calls.filter(call => call.options.method === 'DELETE').length, 0);
+    f.$('[data-files-delete-selected]').click();
     let notified; f.window.document.addEventListener('oyiso-agent-files-deleted', event => { notified = [...event.detail]; });
     f.$('[data-files-delete-confirm]').click(); await settle();
     assert.deepEqual(notified, [1, 2]); assert.equal(f.$('dialog').open, false); assert.match(f.$('[data-files-body]').textContent, /暂无/);
