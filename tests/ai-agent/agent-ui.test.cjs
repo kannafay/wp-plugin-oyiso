@@ -1602,14 +1602,95 @@ test('title-bar dragging is bounded and ignores action buttons and links', t => 
     const title = f.$('#oyiso-agent-title');
     pointer(f, title, 'pointerdown', 280, 180);
     pointer(f, f.window.document, 'pointermove', -800, -900);
-    assert.deepEqual(windowRect(f), { x: 5, y: 5, width: 600, height: 500 });
+    assert.deepEqual(windowRect(f), { x: -435, y: 5, width: 600, height: 500 });
     pointer(f, f.window.document, 'pointermove', 4000, 4000);
     pointer(f, f.window.document, 'pointerup', 4000, 4000);
-    assert.deepEqual(windowRect(f), { x: 995, y: 919, width: 600, height: 500 });
+    assert.deepEqual(windowRect(f), { x: 1435, y: 919, width: 600, height: 500 });
+    assert.equal(f.window.innerWidth - 5 - windowRect(f).x, 160);
     assert.ok(windowRect(f).y + 76 <= f.window.innerHeight - 5);
     assert.ok(windowRect(f).y + windowRect(f).height > f.window.innerHeight);
     assert.equal(f.window.document.body.classList.contains('oyiso-agent-dragging'), false);
     assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+});
+
+test('horizontal overflow survives reload and viewport changes while keeping the title bar recoverable', t => {
+    for (const direction of [-1, 1]) {
+        const f = floatingWindow(t);
+        const heading = f.$('[data-agent-drag]');
+        pointer(f, heading, 'pointerdown', 280, 145);
+        pointer(f, f.window.document, 'pointermove', direction * 4000, 145);
+        pointer(f, f.window.document, 'pointerup', direction * 4000, 145);
+        const moved = windowRect(f);
+        assert.equal(direction < 0 ? moved.x + moved.width - 5 : 1595 - moved.x, 160);
+        const saved = f.window.localStorage.getItem(windowKey + ':window');
+        const restored = floatingWindow(t, window => window.localStorage.setItem(windowKey + ':window', saved));
+        assert.deepEqual(windowRect(restored), moved);
+        for (const width of [375, 120]) {
+            restored.window.innerWidth = width; restored.window.innerHeight = 600;
+            restored.window.dispatchEvent(new restored.window.Event('resize'));
+            const small = windowRect(restored);
+            assert.ok(Math.min(width - 5, small.x + small.width) - Math.max(5, small.x) >= Math.min(160, width - 10));
+            assert.ok(small.y >= 5 && small.y + 76 <= 595);
+            assert.equal(restored.window.localStorage.getItem(windowKey + ':window'), saved);
+        }
+        restored.window.innerWidth = 1600; restored.window.innerHeight = 1000;
+        restored.window.dispatchEvent(new restored.window.Event('resize'));
+        assert.deepEqual(windowRect(restored), moved);
+        restored.$('[data-agent-fullscreen-toggle]').click(); restored.$('[data-agent-fullscreen-toggle]').click();
+        chooseLayout(restored, 'left'); chooseLayout(restored, 'floating');
+        assert.deepEqual(windowRect(restored), moved);
+        for (let i = 0; i < 20; i++) restored.$('[data-agent-drag]').dispatchEvent(new restored.window.KeyboardEvent('keydown', { key: direction < 0 ? 'ArrowRight' : 'ArrowLeft', shiftKey: true, bubbles: true }));
+        const recovered = windowRect(restored);
+        assert.ok(recovered.x >= 5 && recovered.x + recovered.width <= 1595);
+    }
+});
+
+test('resizing an overflowing window preserves the opposite edge and visible title-bar strip', t => {
+    for (const direction of [-1, 1]) {
+        const f = floatingWindow(t);
+        const heading = f.$('[data-agent-drag]');
+        pointer(f, heading, 'pointerdown', 280, 145);
+        pointer(f, f.window.document, 'pointermove', direction * 4000, 145);
+        pointer(f, f.window.document, 'pointerup', direction * 4000, 145);
+        const original = windowRect(f);
+        resizeFloating(f, direction < 0 ? 'e' : 'w', direction < 0 ? -4000 : 4000, 0);
+        assert.deepEqual(windowRect(f), original, 'the visible resize edge cannot hide the last part of the title bar');
+        for (const [edge, dx] of [['w', 4000], ['e', -4000], ['w', -4000], ['e', 4000]]) {
+            const before = windowRect(f);
+            resizeFloating(f, edge, dx, 0);
+            const after = windowRect(f);
+            assert.equal(edge === 'w' ? after.x + after.width : after.x, edge === 'w' ? before.x + before.width : before.x);
+            assert.ok(after.width >= 360 && after.width <= 1590);
+            assert.ok(Math.min(1595, after.x + after.width) - Math.max(5, after.x) >= 160);
+            for (const handle of f.window.document.querySelectorAll('[data-agent-resize="w"], [data-agent-resize="e"]')) {
+                assert.ok(Number(handle.getAttribute('aria-valuemin')) <= after.width);
+                assert.ok(Number(handle.getAttribute('aria-valuemax')) >= after.width);
+            }
+        }
+    }
+});
+
+test('viewport-wide floating windows restore their horizontal overflow without losing the title bar', t => {
+    for (const direction of [-1, 1]) {
+        const f = floatingWindow(t);
+        resizeFloating(f, 'w', -4000, 0); resizeFloating(f, 'e', 4000, 0);
+        assert.equal(windowRect(f).width, 1590);
+        pointer(f, f.$('[data-agent-drag]'), 'pointerdown', 280, 145);
+        pointer(f, f.window.document, 'pointermove', direction * 4000, 145);
+        pointer(f, f.window.document, 'pointerup', direction * 4000, 145);
+        const moved = windowRect(f);
+        const saved = f.window.localStorage.getItem(windowKey + ':window');
+        const restored = floatingWindow(t, window => window.localStorage.setItem(windowKey + ':window', saved));
+        assert.deepEqual(windowRect(restored), moved);
+        assert.equal(direction < 0 ? moved.x + moved.width - 5 : 1595 - moved.x, 160);
+        restored.window.innerWidth = 375;
+        restored.window.dispatchEvent(new restored.window.Event('resize'));
+        const small = windowRect(restored);
+        assert.ok(Math.min(370, small.x + small.width) - Math.max(5, small.x) >= 160);
+        restored.window.innerWidth = 1600;
+        restored.window.dispatchEvent(new restored.window.Event('resize'));
+        assert.deepEqual(windowRect(restored), moved);
+    }
 });
 
 test('window minimum size and available viewport constrain all resize directions', t => {

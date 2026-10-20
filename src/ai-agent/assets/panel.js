@@ -10,6 +10,7 @@
     if (!config || !panel || !launcher || !wrapper || !resizers.length || !heading) return;
 
     const key = `oyiso-agent:${config.user}:${new URL(config.url).pathname}`;
+    const visibleHeaderWidth = 160;
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
     const read = suffix => { try { return localStorage.getItem(key + suffix); } catch { return null; } };
     const save = (suffix, value) => { try { localStorage.setItem(key + suffix, value); } catch { /* Storage is optional. */ } };
@@ -26,7 +27,7 @@
     try {
         const saved = JSON.parse(read(':window'));
         if (saved && ['x', 'y', 'width', 'height'].every(name => Number.isFinite(saved[name])) && saved.width > 0 && saved.height > 0) {
-            windowState = { x: clamp(saved.x, 0, 1), y: clamp(saved.y, 0, 1), width: saved.width, height: saved.height, anchor: saved.anchor === 'header' ? 'header' : 'window' };
+            windowState = { x: saved.anchorX === 'header' ? saved.x : clamp(saved.x, 0, 1), y: clamp(saved.y, 0, 1), width: saved.width, height: saved.height, anchor: saved.anchor === 'header' ? 'header' : 'window', anchorX: saved.anchorX === 'header' ? 'header' : 'window' };
         }
     } catch { /* Ignore invalid or unavailable window geometry. */ }
     let launcherWidth = 120;
@@ -55,9 +56,22 @@
         const { w, h } = viewport();
         const gap = Math.min(5, Math.max(0, (w - 1) / 2), Math.max(0, (h - 1) / 2));
         const maxWidth = Math.max(1, w - gap * 2), maxHeight = Math.max(1, h - gap * 2);
-        // The whole header stays reachable; the body may extend below the viewport.
+        // Keep the header vertically visible while the body may extend below it.
         const headerHeight = Math.min(maxHeight, heading.offsetHeight || 76);
         return { left: gap, right: w - gap, top: gap, bottom: h - gap, headerBottom: Math.max(gap, h - gap - headerHeight), maxWidth, maxHeight, minWidth: Math.min(360, maxWidth), minHeight: Math.min(360, maxHeight) };
+    }
+
+    function horizontalBounds(width, bounds) {
+        const visible = Math.min(visibleHeaderWidth, width, bounds.maxWidth);
+        return { left: bounds.left + visible - width, right: bounds.right - visible };
+    }
+
+    function horizontalResizeBounds(rect, bounds) {
+        const visible = Math.min(visibleHeaderWidth, bounds.minWidth);
+        return {
+            w: { min: Math.max(bounds.minWidth, rect.x + rect.width - bounds.right + visible), max: Math.min(bounds.maxWidth, rect.x + rect.width - Math.min(bounds.left, rect.x)) },
+            e: { min: Math.max(bounds.minWidth, bounds.left + visible - rect.x), max: Math.min(bounds.maxWidth, Math.max(bounds.right, rect.x + rect.width) - rect.x) },
+        };
     }
 
     function applyGeometry() {
@@ -72,7 +86,9 @@
         }
         const height = fullscreen ? view.h : floating ? Math.round(clamp(windowState?.height ?? 720, bounds.minHeight, bounds.maxHeight)) : view.h;
         const top = windowState?.anchor === 'header' ? bounds.top + windowState.y * (bounds.headerBottom - bounds.top) : windowState ? windowState.y * (view.h - height) : bounds.bottom - height;
-        const rect = { width: value, height, x: fullscreen ? 0 : floating ? clamp(Math.round((windowState?.x ?? 1) * (view.w - value)), bounds.left, bounds.right - value) : leftDock() ? 0 : view.w - value, y: floating && !fullscreen ? clamp(Math.round(top), bounds.top, bounds.headerBottom) : 0 };
+        const horizontal = floating ? horizontalBounds(value, bounds) : null;
+        const left = floating ? windowState?.anchorX === 'header' ? bounds.left + windowState.x * Math.max(1, bounds.maxWidth - value) : clamp(Math.round((windowState?.x ?? 1) * (view.w - value)), bounds.left, bounds.right - value) : 0;
+        const rect = { width: value, height, x: fullscreen ? 0 : floating ? clamp(Math.round(left), horizontal.left, horizontal.right) : leftDock() ? 0 : view.w - value, y: floating && !fullscreen ? clamp(Math.round(top), bounds.top, bounds.headerBottom) : 0 };
         document.body.style.setProperty('--oyiso-agent-panel-width', `${value}px`);
         panel.toggleAttribute('data-agent-window', floating);
         if (floating) delete panel.dataset.agentDock;
@@ -86,13 +102,14 @@
             heading.removeAttribute('aria-label');
             for (const property of ['left', 'top', 'width', 'height', 'right', 'bottom']) panel.style.removeProperty(property);
         }
+        const horizontalResize = floating ? horizontalResizeBounds(rect, bounds) : null;
         for (const handle of resizers) {
             const edge = handle.dataset.agentResize;
             if (edge.length !== 1) continue;
             handle.tabIndex = fullscreen ? -1 : 0;
             const horizontal = edge === 'w' || edge === 'e';
-            const max = !floating ? (horizontal ? bounds.max : height) : ({ w: rect.x + value - bounds.left, e: bounds.right - rect.x, n: Math.min(bounds.maxHeight, rect.y + height - bounds.top), s: bounds.maxHeight })[edge];
-            handle.setAttribute('aria-valuemin', String(floating ? (horizontal ? bounds.minWidth : edge === 'n' ? Math.max(bounds.minHeight, rect.y + height - bounds.headerBottom) : bounds.minHeight) : (horizontal ? bounds.min : height)));
+            const max = !floating ? (horizontal ? bounds.max : height) : horizontal ? horizontalResize[edge].max : edge === 'n' ? Math.min(bounds.maxHeight, rect.y + height - bounds.top) : bounds.maxHeight;
+            handle.setAttribute('aria-valuemin', String(floating ? (horizontal ? horizontalResize[edge].min : edge === 'n' ? Math.max(bounds.minHeight, rect.y + height - bounds.headerBottom) : bounds.minHeight) : (horizontal ? bounds.min : height)));
             handle.setAttribute('aria-valuemax', String(max));
             handle.setAttribute('aria-valuenow', String(horizontal ? value : height));
             handle.setAttribute('aria-valuetext', `${horizontal ? value : height} 像素`);
@@ -106,24 +123,25 @@
     }
 
     function setWindowRect(rect) {
-        const view = viewport();
-        const roomX = view.w - rect.width;
         const bounds = windowBounds();
+        const roomX = Math.max(1, bounds.maxWidth - rect.width);
         const roomY = bounds.headerBottom - bounds.top;
-        windowState = { width: rect.width, height: rect.height, x: roomX > 0 ? clamp(rect.x / roomX, 0, 1) : 0, y: roomY > 0 ? clamp((rect.y - bounds.top) / roomY, 0, 1) : 0, anchor: 'header' };
+        windowState = { width: rect.width, height: rect.height, x: (rect.x - bounds.left) / roomX, y: roomY > 0 ? clamp((rect.y - bounds.top) / roomY, 0, 1) : 0, anchor: 'header', anchorX: 'header' };
         applyGeometry();
     }
 
     function moveWindow(rect, dx, dy) {
         const bounds = windowBounds();
-        setWindowRect({ ...rect, x: clamp(rect.x + dx, bounds.left, bounds.right - rect.width), y: clamp(rect.y + dy, bounds.top, bounds.headerBottom) });
+        const horizontal = horizontalBounds(rect.width, bounds);
+        setWindowRect({ ...rect, x: clamp(rect.x + dx, horizontal.left, horizontal.right), y: clamp(rect.y + dy, bounds.top, bounds.headerBottom) });
     }
 
     function resizeWindow(rect, edge, dx, dy) {
         const bounds = windowBounds();
+        const horizontal = horizontalResizeBounds(rect, bounds);
         const next = { ...rect };
-        if (edge.includes('w')) { next.x = clamp(rect.x + dx, bounds.left, rect.x + rect.width - bounds.minWidth); next.width = rect.x + rect.width - next.x; }
-        if (edge.includes('e')) next.width = clamp(rect.width + dx, bounds.minWidth, bounds.right - rect.x);
+        if (edge.includes('w')) { next.width = clamp(rect.width - dx, horizontal.w.min, horizontal.w.max); next.x = rect.x + rect.width - next.width; }
+        if (edge.includes('e')) next.width = clamp(rect.width + dx, horizontal.e.min, horizontal.e.max);
         if (edge.includes('n')) { next.y = clamp(rect.y + dy, Math.max(bounds.top, rect.y + rect.height - bounds.maxHeight), Math.min(bounds.headerBottom, rect.y + rect.height - bounds.minHeight)); next.height = rect.y + rect.height - next.y; }
         if (edge.includes('s')) next.height = clamp(rect.height + dy, bounds.minHeight, bounds.maxHeight);
         setWindowRect(next);

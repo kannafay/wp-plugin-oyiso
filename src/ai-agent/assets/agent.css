@@ -109,8 +109,10 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent .oyiso-agent-notice { flex: none; margin: 20px 20px 0; padding: 10px 12px; border-left: 3px solid var(--oyiso-color-accent, #e5702a); background: #f6f7f7; font-size: 12px; overflow-wrap: anywhere; }
 .oyiso-agent-notice.is-error { border-left-color: #b32d2e; color: #8a2424; }
 .oyiso-agent-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.oyiso-agent-scroll:has(> .oyiso-agent-messages > .oyiso-agent-loading) { scrollbar-gutter: stable both-edges; }
 .oyiso-agent-messages { padding: 20px; box-sizing: border-box; }
-.oyiso-agent-loading { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 160px; color: #646970; font-size: 13px; }
+.oyiso-agent-messages:has(> .oyiso-agent-loading) { display: flex; align-items: center; justify-content: center; min-height: 100%; }
+.oyiso-agent-loading { display: flex; align-items: center; justify-content: center; gap: 8px; color: #646970; font-size: 13px; }
 .oyiso-agent-loading-spinner { width: 16px; height: 16px; box-sizing: border-box; border: 2px solid #dcdcde; border-top-color: var(--oyiso-color-primary, #bf5316); border-radius: 50%; animation: oyiso-agent-refresh .8s linear infinite; }
 .oyiso-agent-empty { padding: 28px 0; }
 .oyiso-agent-empty h3 { font-size: 16px; }
