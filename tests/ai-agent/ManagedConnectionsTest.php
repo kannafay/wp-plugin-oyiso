@@ -290,12 +290,14 @@ final class ManagedConnectionsTest extends TestCase
     public function testNativeCsfSavePersistsDefaultAndAdvancedFieldsWithoutTouchingProviderKeys(): void
     {
         $row = $this->create();
-        $section = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $section): bool => ($section['id'] ?? '') === 'agent-model'))[0];
+        $sections = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
         $form = (new ReflectionClass(CSF_Options::class))->newInstanceWithoutConstructor();
-        $form->unique = 'oyiso'; $form->options = Oyiso_Agent_Config::options(); $form->pre_fields = $section['fields'];
+        $form->unique = 'oyiso'; $form->options = Oyiso_Agent_Config::options(); $form->pre_fields = array_merge(...array_column($sections, 'fields'));
+        $languageCatalogue = static fn(): array => ['cs_CZ' => ['native_name' => 'Čeština']];
+        add_filter('pre_site_transient_available_translations', $languageCatalogue);
         $previousPost = $_POST;
         try {
-            $payload = ['csf_options_nonceoyiso' => wp_create_nonce('csf_options_nonce'), 'oyiso' => ['agent_enabled' => '1', 'agent_selection' => $row['id'] . '|fixture-model', 'agent_language' => 'cs_CZ', 'agent_instructions' => '品牌写作要求', 'agent_advanced' => ['max_steps' => '11', 'model' => 'native-preference']]];
+            $payload = ['csf_options_nonceoyiso' => wp_create_nonce('csf_options_nonce'), 'oyiso' => ['agent_enabled' => '1', 'agent_selection' => $row['id'] . '|fixture-model', 'agent_language' => 'cs_CZ', 'agent_instructions' => '品牌写作要求', 'agent_custom_instructions' => '先说明结论。', 'agent_advanced' => ['max_steps' => '11', 'model' => 'native-preference']]];
             $_POST = ['data' => wp_slash(wp_json_encode($payload))];
             self::assertTrue($form->set_options(true));
             self::assertSame([], $form->errors);
@@ -303,14 +305,22 @@ final class ManagedConnectionsTest extends TestCase
             self::assertSame(11, Oyiso_Agent_Config::maxSteps());
             self::assertSame('cs_CZ', Oyiso_Agent_Config::text('language'));
             self::assertSame('品牌写作要求', Oyiso_Agent_Config::text('instructions'));
+            self::assertSame('先说明结论。', Oyiso_Agent_Config::text('custom_instructions'));
             self::assertSame('fixture-first-key', Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($row['id'])));
             $payload['oyiso']['agent_selection'] = 'missing|model';
             $_POST = ['data' => wp_slash(wp_json_encode($payload))];
             self::assertTrue($form->set_options(true));
             self::assertArrayHasKey('agent_selection', $form->errors);
             self::assertSame($row['id'] . '|fixture-model', Oyiso_Agent_Config::text('selection'));
+            $payload['oyiso']['agent_selection'] = $row['id'] . '|fixture-model';
+            $payload['oyiso']['agent_language'] = 'misspelled-language'; $form->errors = [];
+            $_POST = ['data' => wp_slash(wp_json_encode($payload))];
+            self::assertTrue($form->set_options(true));
+            self::assertArrayHasKey('agent_language', $form->errors);
+            self::assertSame('cs_CZ', Oyiso_Agent_Config::text('language'));
         } finally {
             $_POST = $previousPost;
+            remove_filter('pre_site_transient_available_translations', $languageCatalogue);
         }
     }
 

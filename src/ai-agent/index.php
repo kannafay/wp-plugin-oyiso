@@ -5,6 +5,7 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/personalization.php';
 require_once __DIR__ . '/connections.php';
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/managed-connections.php';

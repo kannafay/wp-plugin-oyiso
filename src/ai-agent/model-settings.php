@@ -71,7 +71,7 @@ final class Oyiso_Agent_Model_Settings
             <div class="oyiso-agent-settings-heading"><div><h3>模型提供商</h3><p class="description">每个连接独立保存密钥，同一家提供商可以添加多次。</p></div><button type="button" class="button button-primary" data-provider-add>添加提供商</button></div>
             <p data-provider-notice role="status" aria-live="polite" hidden></p>
             <div class="oyiso-agent-provider-table"><table class="widefat"><thead><tr><th>连接名称</th><th>接口协议</th><th>模型</th><th>密钥</th><th>操作</th></tr></thead><tbody data-provider-rows></tbody></table></div>
-            <p class="description">提供商在弹窗内单独保存。默认模型和下方偏好使用页面顶部的「保存配置」。<a href="<?php echo esc_url(admin_url('options-connectors.php')); ?>">管理 WordPress 连接器</a></p>
+            <p class="description">提供商在弹窗内单独保存。默认模型和个性化设置使用页面顶部的「保存配置」。<a href="<?php echo esc_url(admin_url('options-connectors.php')); ?>">管理 WordPress 连接器</a></p>
             <dialog class="oyiso-agent-provider-dialog" aria-labelledby="oyiso-provider-dialog-title" data-provider-dialog>
                 <div class="oyiso-agent-provider-dialog-heading"><h2 id="oyiso-provider-dialog-title">添加提供商</h2><button type="button" class="oyiso-agent-provider-close" data-provider-close aria-label="关闭">×</button></div>
                 <div class="oyiso-agent-provider-dialog-body">

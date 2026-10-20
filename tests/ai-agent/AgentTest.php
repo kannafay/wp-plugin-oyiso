@@ -422,12 +422,15 @@ final class AgentTest extends TestCase
         self::assertStringContainsString('禁止编造', Oyiso_Agent_Model::instructions());
     }
 
-    public function testSettingsHaveThreeChildrenAndHistoryRendersWithoutChatOrNestedForms(): void
+    public function testSettingsHaveSeparateModelPersonalizationAndAdvancedPagesAndHistoryRendersWithoutNestedForms(): void
     {
         $sections = CSF::$args['sections']['oyiso'];
         $children = array_values(array_filter($sections, static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
-        self::assertSame(['agent-model', 'agent-tools', 'agent-records'], array_column($children, 'id'));
-        self::assertSame(['模型配置', '站内工具', '对话记录'], array_column($children, 'title'));
+        self::assertSame(['agent-model', 'agent-personalization', 'agent-advanced', 'agent-tools', 'agent-records'], array_column($children, 'id'));
+        self::assertSame(['模型配置', '个性化', '高级设置', '站内工具', '对话记录'], array_column($children, 'title'));
+        self::assertSame(['agent_language', 'agent_instructions', 'agent_custom_instructions'], array_values(array_filter(array_column($children[1]['fields'], 'id'))));
+        self::assertNotContains('agent_language', array_column($children[0]['fields'], 'id'));
+        self::assertSame('fieldset', $children[2]['fields'][1]['type']);
         ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_Admin::history(); Oyiso_Agent_Admin::connection(); $html = ob_get_clean();
         self::assertStringNotContainsString('oyiso-agent-chat', $html); self::assertStringContainsString('oyiso-agent-history', $html);
         self::assertStringNotContainsString('oyiso-agent-tasks', $html);
@@ -459,7 +462,7 @@ final class AgentTest extends TestCase
             CSF::$args['sections']['oyiso'] = [];
             require dirname(__DIR__, 2) . '/src/ai-agent/settings.php';
             $sections = CSF::$args['sections']['oyiso'];
-            self::assertCount(4, $sections);
+            self::assertCount(6, $sections);
             self::assertSame('ai-agent', $sections[0]['id']);
             $provider = array_values(array_filter($sections[1]['fields'], static fn(array $field): bool => ($field['id'] ?? '') === 'agent_selection'))[0];
             ob_start(); CSF::field($provider, '', 'oyiso'); $select = ob_get_clean();

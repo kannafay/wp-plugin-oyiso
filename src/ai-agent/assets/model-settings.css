@@ -1,6 +1,5 @@
 .csf-options[data-unique="oyiso"] .csf-field.oyiso-agent-model-field { padding: 20px 28px; }
 .csf-options[data-unique="oyiso"] .csf-field.oyiso-agent-model-providers { padding: 24px 28px; }
-.csf-options[data-unique="oyiso"] .oyiso-agent-model-advanced .csf-accordion-item { border-color: #dcdcde; box-shadow: none; }
 .oyiso-agent-settings { color: #1d2327; }
 .oyiso-agent-settings [hidden] { display: none !important; }
 .oyiso-agent-settings-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
