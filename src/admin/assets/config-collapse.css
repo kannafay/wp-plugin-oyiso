@@ -205,6 +205,12 @@
     border-inline-start: 0;
 }
 
+/* Inner dependent rows align with their parent fields inside the same panel. */
+.csf-options[data-unique="oyiso"] :where(.csf-tabbed-content, .csf-fieldset-content, .csf-cloneable-content, .csf-accordion-content, .csf-repeater-content) > .oyiso-config-details {
+    margin-inline: 0;
+    padding-inline: 0;
+}
+
 .csf-options[data-unique="oyiso"] .oyiso-config-details .oyiso-config-details-last {
     margin-bottom: 8px;
 }
