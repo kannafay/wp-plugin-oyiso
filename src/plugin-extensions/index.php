@@ -32,6 +32,8 @@ add_action('plugins_loaded', function () {
     require_once __DIR__ . '/woocommerce-variation-inline/index.php';
     require_once __DIR__ . '/woocommerce-shipping-maintenance/index.php';
     require_once __DIR__ . '/woocommerce-shipping-maintenance/settings.php';
+    require_once __DIR__ . '/woocommerce-checkout-maintenance/index.php';
+    require_once __DIR__ . '/woocommerce-checkout-maintenance/settings.php';
     require_once __DIR__ . '/woocommerce-poland-checkout/index.php';
     require_once __DIR__ . '/woocommerce-checkout-form/settings.php';
     require_once __DIR__ . '/woocommerce-product-table/settings.php';
