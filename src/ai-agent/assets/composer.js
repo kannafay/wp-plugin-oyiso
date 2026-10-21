@@ -60,7 +60,8 @@
                 if (!isImage) { const label = node('span', file.name); label.title = file.name; content.append(label, node('small', size(file.size))); }
                 item.append(content);
                 if (videoExtensions.includes(file.name.split('.').pop().toLowerCase())) content.append(node('small', '视频 · 仅预览'));
-                const remove = node('button', '×'); remove.type = 'button'; remove.className = 'oyiso-agent-icon-button oyiso-agent-attachment-remove'; remove.setAttribute('aria-label', `移除附件：${file.name}`);
+                const remove = node('button'); remove.type = 'button'; remove.className = 'oyiso-agent-icon-button oyiso-agent-attachment-remove'; remove.setAttribute('aria-label', `移除附件：${file.name}`);
+                remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';
                 remove.disabled = prompt.disabled;
                 remove.addEventListener('click', () => { drafts.set(current, files().filter((_, i) => i !== index)); persist(current); render(); }); item.append(remove); previews.append(item);
             });
@@ -102,7 +103,7 @@
         function thumbnail(file) {
             const thumb = node('span'); thumb.className = 'oyiso-agent-message-thumb'; thumb.setAttribute('aria-hidden', 'true');
             const icon = node('span'); icon.className = 'dashicons dashicons-format-image'; thumb.append(icon);
-            const image = node('img'); image.alt = ''; image.width = 160; image.height = 120; image.hidden = true; image.decoding = 'async'; thumb.append(image);
+            const image = node('img'); image.alt = ''; image.width = 64; image.height = 64; image.hidden = true; image.decoding = 'async'; thumb.append(image);
             if (!thumbnails.has(file.id)) thumbnails.set(file.id, { controller: new AbortController() });
             const entry = thumbnails.get(file.id);
             image.addEventListener('load', () => { image.hidden = false; icon.hidden = true; });
