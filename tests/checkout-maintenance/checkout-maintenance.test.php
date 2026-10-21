@@ -76,6 +76,30 @@ try {
     $check($settings['title'] === 'Temporarily closed', 'Customer-facing copy must be sanitized.');
     $check($settings['message'] === $options['oyiso_wc_checkout_maintenance_options']['message'], 'Custom text and line breaks must survive.');
     $check($settings['template'] === 'default', 'An unknown template must fall back to the default.');
+    $check(array_keys(Oyiso_WC_Checkout_Maintenance::getTemplateOptions()) === ['default', 'minimal', 'soft', 'dark'], 'All four templates must be available in settings.');
+    foreach ([[], null, 42, 'missing', '__proto__'] as $invalidTemplate) {
+        $check(Oyiso_WC_Checkout_Maintenance::sanitizeSettings(['template' => $invalidTemplate])['template'] === 'default', 'Invalid template values must safely fall back.');
+    }
+    foreach (['default', 'minimal', 'soft', 'dark'] as $template) {
+        $options['oyiso_wc_checkout_maintenance_options']['template'] = $template;
+        $check(Oyiso_WC_Checkout_Maintenance::getSettings()['template'] === $template, 'A valid template must survive option sanitization.');
+        $templateStatus = rest_do_request(new WP_REST_Request('GET', '/oyiso/v1/checkout-maintenance'))->get_data();
+        $check(($templateStatus['settings']['template'] ?? '') === $template, 'The status route must return the selected template.');
+        $templateResponse = rest_do_request(new WP_REST_Request('POST', '/wc/store/v1/checkout'));
+        $templateBody = $templateResponse->get_data();
+        $check($templateResponse->get_status() === 503 && ($templateBody['data']['oyiso_checkout_maintenance']['template'] ?? '') === $template, 'Every template must keep Store API submission blocked.');
+        $noticeTemplate = null;
+        try {
+            Oyiso_WC_Checkout_Maintenance::validateClassic();
+        } catch (Exception $error) {
+            if (preg_match('/data-oyiso-checkout-maintenance="([^"]+)"/', $error->getMessage(), $match)) {
+                $noticeSettings = json_decode(html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'), true);
+                $noticeTemplate = $noticeSettings['template'] ?? null;
+            }
+        }
+        $check($noticeTemplate === $template, 'The classic rejection notice must carry the selected template.');
+    }
+    $options['oyiso_wc_checkout_maintenance_options']['template'] = 'unknown';
     $status = rest_do_request(new WP_REST_Request('GET', '/oyiso/v1/checkout-maintenance'));
     $check($status->get_data() === ['enabled' => true, 'settings' => $settings], 'The status route must return current PHP settings without submitting an order.');
 

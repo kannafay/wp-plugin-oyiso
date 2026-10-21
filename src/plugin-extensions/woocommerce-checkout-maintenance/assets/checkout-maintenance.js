@@ -10,6 +10,7 @@
     const title = dialog.querySelector('.oyiso-checkout-maintenance-dialog__title');
     const message = dialog.querySelector('.oyiso-checkout-maintenance-dialog__message');
     const button = dialog.querySelector('.oyiso-checkout-maintenance-dialog__button');
+    const templates = Array.isArray(config.templates) ? config.templates : ['default'];
     let previousFocus = null;
 
     function openDialog(settings) {
@@ -17,7 +18,7 @@
         title.textContent = content.title || config.defaults.title;
         message.textContent = content.message || config.defaults.message;
         button.textContent = content.button || config.defaults.button;
-        dialog.dataset.template = content.template === 'default' ? content.template : 'default';
+        dialog.dataset.template = templates.includes(content.template) ? content.template : 'default';
         if (dialog.open) return;
 
         previousFocus = document.activeElement;

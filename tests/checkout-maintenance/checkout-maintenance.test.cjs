@@ -11,6 +11,7 @@ const defaults = {
     template: 'default', title: 'Checkout is under maintenance',
     message: 'Checkout is currently under maintenance. Please try placing your order again later.', button: 'Got it',
 };
+const templates = ['default', 'minimal', 'soft', 'dark'];
 
 function setup(noticeSettings) {
     const dom = new JSDOM('<button id="place-order">Place order</button><button data-oyiso-checkout-maintenance-preview>Preview</button>' + markup, { runScripts: 'outside-only' });
@@ -19,7 +20,7 @@ function setup(noticeSettings) {
     const dialog = document.querySelector('dialog');
     dialog.showModal = function () { this.setAttribute('open', ''); };
     dialog.close = function () { this.removeAttribute('open'); this.dispatchEvent(new window.Event('close')); };
-    window.oyisoCheckoutMaintenance = { defaults, settings: defaults, settingsRoot: 'oyiso[oyiso_wc_checkout_maintenance_options]' };
+    window.oyisoCheckoutMaintenance = { defaults, templates, settings: defaults, settingsRoot: 'oyiso[oyiso_wc_checkout_maintenance_options]' };
     let checkoutError;
     let middleware;
     window.jQuery = () => ({ on: (event, callback) => { checkoutError = callback; } });
@@ -73,6 +74,44 @@ test('classic AJAX errors display the current PHP settings as text and restore f
 test('a full-page classic POST notice also opens the dialog on load', () => {
     const page = setup({ ...defaults, message: 'Full page checkout is paused.' });
     try { assert.equal(page.dialog.open, true); } finally { page.dom.window.close(); }
+});
+
+test('the selected template is applied to both classic notices and Store API errors', async () => {
+    for (const template of templates) {
+        const settings = { ...defaults, template };
+        const page = setup(settings);
+        try {
+            assert.equal(page.dialog.dataset.template, template);
+            page.dialog.close();
+            const error = maintenanceError(settings);
+            await assert.rejects(page.middleware({}, async () => { throw error; }), result => result === error);
+            assert.equal(page.dialog.dataset.template, template);
+            assert.equal(page.dialog.open, true);
+            assert.equal(page.dialog.querySelector('h2').textContent, defaults.title);
+        } finally { page.dom.window.close(); }
+    }
+});
+
+test('preview switches between unsaved template choices and falls back for unknown values', () => {
+    const page = setup();
+    try {
+        const select = page.document.createElement('select');
+        select.name = 'oyiso[oyiso_wc_checkout_maintenance_options][template]';
+        for (const template of [...templates, 'unknown']) {
+            const option = page.document.createElement('option');
+            option.value = template;
+            option.textContent = template;
+            select.appendChild(option);
+        }
+        page.document.body.appendChild(select);
+        for (const template of [...templates, 'unknown']) {
+            select.value = template;
+            page.document.querySelector('[data-oyiso-checkout-maintenance-preview]').click();
+            assert.equal(page.dialog.dataset.template, templates.includes(template) ? template : 'default');
+            assert.equal(page.dialog.querySelector('p').textContent, defaults.message);
+            page.dialog.close();
+        }
+    } finally { page.dom.window.close(); }
 });
 
 test('Store API rejection displays new server copy and preserves the exact error and request', async () => {

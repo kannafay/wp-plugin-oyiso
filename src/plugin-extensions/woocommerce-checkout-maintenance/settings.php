@@ -32,8 +32,9 @@ function oyiso_wc_checkout_maintenance_get_fields(): array
                     'id' => 'template',
                     'type' => 'select',
                     'title' => '弹窗模板',
-                    'options' => ['default' => '默认模板'],
+                    'options' => Oyiso_WC_Checkout_Maintenance::getTemplateOptions(),
                     'default' => $defaults['template'],
+                    'desc' => '选择喜欢的风格，再点击下方“预览弹窗”查看效果。',
                 ],
                 [
                     'id' => 'title',

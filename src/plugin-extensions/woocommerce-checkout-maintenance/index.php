@@ -34,6 +34,17 @@ final class Oyiso_WC_Checkout_Maintenance
         ];
     }
 
+    /** @return array<string, string> */
+    public static function getTemplateOptions(): array
+    {
+        return [
+            'default' => '默认模板',
+            'minimal' => '简约文字',
+            'soft' => '温和居中',
+            'dark' => '深色面板',
+        ];
+    }
+
     public static function isEnabled(): bool
     {
         $options = get_option('oyiso', []);
@@ -53,6 +64,10 @@ final class Oyiso_WC_Checkout_Maintenance
         $settings = self::getDefaults();
         if (!is_array($value)) {
             return $settings;
+        }
+
+        if (is_string($value['template'] ?? null) && array_key_exists($value['template'], self::getTemplateOptions())) {
+            $settings['template'] = $value['template'];
         }
 
         foreach (['title', 'message', 'button'] as $field) {
@@ -145,6 +160,7 @@ final class Oyiso_WC_Checkout_Maintenance
         wp_enqueue_script(self::ASSET_HANDLE, plugins_url('assets/checkout-maintenance.js', __FILE__), $dependencies, (string) filemtime(__DIR__ . '/assets/checkout-maintenance.js'), true);
         wp_localize_script(self::ASSET_HANDLE, 'oyisoCheckoutMaintenance', [
             'defaults' => self::getDefaults(),
+            'templates' => array_keys(self::getTemplateOptions()),
             'settings' => self::getSettings(),
             'settingsRoot' => 'oyiso[' . self::OPTION_SETTINGS . ']',
             'statusUrl' => rest_url('oyiso/v1/checkout-maintenance'),

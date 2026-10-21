@@ -132,6 +132,163 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
     outline-offset: 3px;
 }
 
+/* Minimal: a compact, text-first notice with an outlined action. */
+dialog.oyiso-checkout-maintenance-dialog[data-template="minimal"] {
+    max-width: 420px;
+    border-color: #d9dde2;
+    border-radius: 8px;
+    box-shadow: 0 16px 48px rgb(0 0 0 / 12%);
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="minimal"] .oyiso-checkout-maintenance-dialog__content {
+    padding: 32px;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="minimal"] .oyiso-checkout-maintenance-dialog__header {
+    margin-bottom: 14px;
+    padding-inline-end: 24px;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="minimal"] .oyiso-checkout-maintenance-dialog__icon {
+    display: none;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="minimal"] .oyiso-checkout-maintenance-dialog__title {
+    font-size: 22px;
+    letter-spacing: -.2px;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="minimal"] .oyiso-checkout-maintenance-dialog__button {
+    width: auto;
+    min-width: 112px;
+    max-width: 100%;
+    margin-inline-start: auto;
+    border: 1px solid #b9c0c9;
+    border-radius: 5px;
+    background: #fff;
+    color: #20242b;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="minimal"] .oyiso-checkout-maintenance-dialog__button:hover {
+    border-color: #20242b;
+    background: #f3f4f6;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="minimal"] button:focus-visible {
+    outline-color: #626873;
+}
+
+/* Soft: a centered notice with a quiet green surface. */
+dialog.oyiso-checkout-maintenance-dialog[data-template="soft"] {
+    border-color: #d7e6dc;
+    border-radius: 24px;
+    background: #f3f8f5;
+    box-shadow: 0 20px 60px rgb(25 63 50 / 16%);
+    text-align: center;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__header {
+    flex-direction: column;
+    gap: 20px;
+    padding-inline-end: 0;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__icon {
+    width: 64px;
+    height: 64px;
+    border-color: #cee1d5;
+    border-radius: 50%;
+    background: #e3eee6;
+    color: #276747;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__title {
+    color: #193f32;
+    font-size: 24px;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__message {
+    color: #526b60;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__close {
+    color: #526b60;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__close:hover {
+    background: #e3eee6;
+    color: #193f32;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__button {
+    border-radius: 24px;
+    background: #276747;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__button:hover {
+    background: #1e5339;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="soft"] button:focus-visible {
+    outline-color: #276747;
+}
+
+/* Dark: a distinct header band above the message and light action. */
+dialog.oyiso-checkout-maintenance-dialog[data-template="dark"] {
+    border-color: #354957;
+    border-radius: 12px;
+    background: #17242e;
+    color: #f5f7fa;
+    box-shadow: 0 24px 80px rgb(0 0 0 / 28%);
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__header {
+    margin: -36px -36px 24px;
+    padding: 30px 60px 30px 36px;
+    border-bottom: 1px solid #354957;
+    background: #243744;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__icon {
+    border-color: #526f7d;
+    border-radius: 14px;
+    background: transparent;
+    color: #c4e2ed;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__title {
+    color: #f5f7fa;
+    font-size: 24px;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__message {
+    color: #bbcbd5;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__close {
+    z-index: 1;
+    color: #bbcbd5;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__close:hover {
+    background: #354957;
+    color: #fff;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__button {
+    background: #d7e9ef;
+    color: #17242e;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__button:hover {
+    background: #eef7fa;
+    color: #17242e;
+}
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] button:focus-visible {
+    outline-color: #c4e2ed;
+}
+
 @keyframes oyiso-checkout-maintenance-enter {
     from { opacity: 0; transform: translateY(6px) scale(.98); }
     to { opacity: 1; transform: translateY(0) scale(1); }
@@ -143,6 +300,11 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
     .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__icon { width: 44px; height: 44px; border-radius: 12px; }
     .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__icon svg { width: 24px; height: 24px; }
     .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__title { font-size: 21px; }
+    .oyiso-checkout-maintenance-dialog[data-template="minimal"] .oyiso-checkout-maintenance-dialog__content { padding: 30px 24px 24px; }
+    .oyiso-checkout-maintenance-dialog[data-template="minimal"] .oyiso-checkout-maintenance-dialog__header { padding-inline-end: 28px; }
+    .oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__icon { width: 56px; height: 56px; }
+    .oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__header { margin: -30px -24px 22px; padding: 26px 52px 26px 24px; }
+    .oyiso-checkout-maintenance-dialog[data-template]:not([data-template="default"]) .oyiso-checkout-maintenance-dialog__title { font-size: 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
