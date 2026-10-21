@@ -443,14 +443,14 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             }
             .oyiso-view-sparkline__line {
                 fill: none;
-                stroke: #e5702a;
+                stroke: var(--oyiso-color-accent, #3858e9);
                 stroke-linecap: round;
                 stroke-linejoin: round;
                 stroke-width: 1;
             }
             .oyiso-view-sparkline__dot {
                 fill: #fff;
-                stroke: #e5702a;
+                stroke: var(--oyiso-color-accent, #3858e9);
                 stroke-width: 1;
             }
             .oyiso-view-tooltip-point {
@@ -570,7 +570,7 @@ if (!class_exists('Oyiso_Content_View_Metrics')) {
             echo '<span class="oyiso-view-metrics" data-oyiso-view-metrics data-post-id="' . esc_attr((string) $post_id) . '" data-metrics-hash="' . esc_attr($metrics_hash) . '">';
             echo '<span class="oyiso-view-chart">';
             echo '<svg class="oyiso-view-sparkline" viewBox="0 0 86 16" role="img" aria-label="最近 7 天每日浏览量趋势">';
-            echo '<defs><linearGradient id="oyiso-view-fill-' . esc_attr((string) $post_id) . '" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#e5702a" stop-opacity="0.2"/><stop offset="100%" stop-color="#e5702a" stop-opacity="0"/></linearGradient></defs>';
+            echo '<defs><linearGradient id="oyiso-view-fill-' . esc_attr((string) $post_id) . '" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="var(--oyiso-color-accent, #3858e9)" stop-opacity="0.2"/><stop offset="100%" stop-color="var(--oyiso-color-accent, #3858e9)" stop-opacity="0"/></linearGradient></defs>';
             echo '<path class="oyiso-view-sparkline__grid" d="M3 13H83"></path>';
             echo '<polygon class="oyiso-view-sparkline__area" points="' . esc_attr($chart['area']) . '" fill="url(#oyiso-view-fill-' . esc_attr((string) $post_id) . ')"></polygon>';
             echo '<polyline class="oyiso-view-sparkline__line" points="' . esc_attr($chart['line']) . '"></polyline>';

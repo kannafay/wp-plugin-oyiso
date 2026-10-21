@@ -2,7 +2,7 @@
     --oyiso-config-border: #e5e7eb;
     --oyiso-config-tab-border: #dcdcde;
     --oyiso-config-text: #646970;
-    --oyiso-config-action: var(--oyiso-color-primary, #bf5316);
+    --oyiso-config-action: var(--oyiso-color-primary, #3858e9);
     --oyiso-config-label-width: 224px;
     --oyiso-config-control-offset: 248px;
     --oyiso-config-detail-offset: 278px;
@@ -250,7 +250,7 @@
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-toggle:hover {
-    color: var(--oyiso-color-primary-hover, #a8440d);
+    color: var(--oyiso-color-primary-hover, #2145e6);
 }
 
 .csf-options[data-unique="oyiso"] .oyiso-config-toggle:focus-visible,

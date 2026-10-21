@@ -6,7 +6,7 @@
 .oyiso-agent-settings-heading h3 { margin: 0 0 6px; font-size: 15px; }
 .oyiso-agent-settings-heading p { margin: 0; }
 .oyiso-agent-settings .description { font-size: 12px; color: #646970; }
-.oyiso-agent-settings .button-primary { background: var(--wp-admin-theme-color, #2271b1); border-color: var(--wp-admin-theme-color, #2271b1); color: #fff; }
+.oyiso-agent-settings .button-primary { background: var(--wp-admin-theme-color, #3858e9); border-color: var(--wp-admin-theme-color, #3858e9); color: #fff; }
 .oyiso-agent-provider-table { overflow-x: auto; }
 .oyiso-agent-provider-table table { border-color: #dcdcde; border-spacing: 0; box-shadow: none; }
 .oyiso-agent-provider-table :is(th, td) { padding: 12px; vertical-align: middle; }
@@ -20,7 +20,7 @@
 .oyiso-agent-provider-actions .button { white-space: nowrap; }
 .oyiso-agent-provider-actions .oyiso-agent-provider-delete { color: #b32d2e; }
 .oyiso-agent-provider-empty { padding: 28px 12px !important; color: #646970; text-align: center; }
-[data-provider-notice] { margin: 0 0 16px; padding: 10px 12px; border-left: 3px solid var(--wp-admin-theme-color, #2271b1); background: #f6f7f7; overflow-wrap: anywhere; }
+[data-provider-notice] { margin: 0 0 16px; padding: 10px 12px; border-left: 3px solid var(--wp-admin-theme-color, #3858e9); background: #f6f7f7; overflow-wrap: anywhere; }
 [data-provider-notice].is-error { border-color: #b32d2e; }
 .oyiso-agent-provider-dialog { position: fixed; width: 600px; max-width: 94vw; max-height: calc(100dvh - 48px); padding: 0; border: 0; border-radius: 8px; background: #fff; color: #1e1e1e; box-sizing: border-box; overflow: hidden; box-shadow: 0 4px 20px #00000026, 0 1px 3px #00000014; }
 .oyiso-agent-provider-dialog[open] { display: flex; flex-direction: column; }
@@ -84,7 +84,7 @@
 .oyiso-agent-provider-dialog-notice { margin: 16px 0 0; color: #b32d2e; overflow-wrap: anywhere; }
 .oyiso-agent-provider-dialog-notice:empty { display: none; }
 .oyiso-agent-provider-dialog-footer { display: flex; flex: none; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 24px; border-top: 1px solid #e5e5e5; background: #fff; }
-.oyiso-agent-settings :is(button, input, select, textarea):focus-visible { outline: 2px solid var(--wp-admin-theme-color, #2271b1); outline-offset: 2px; }
+.oyiso-agent-settings :is(button, input, select, textarea):focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: 2px; }
 @media (max-width: 782px) {
     .csf-options[data-unique="oyiso"] .csf-field:is(.oyiso-agent-model-field, .oyiso-agent-model-providers) { padding: 16px; }
     .oyiso-agent-settings-heading { gap: 12px; }

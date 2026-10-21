@@ -82,7 +82,7 @@
 }
 
 .oyiso-vim-close:focus-visible {
-    outline: 2px solid var(--oyiso-color-primary, #bf5316);
+    outline: 2px solid var(--oyiso-color-primary, #3858e9);
     outline-offset: 3px;
     border-radius: 2px;
 }
@@ -129,12 +129,12 @@
     border-color: #dcdcde;
     border-bottom-color: #fff;
     background: #fff;
-    color: var(--oyiso-color-primary, #bf5316);
+    color: var(--oyiso-color-primary, #3858e9);
     font-weight: 600;
 }
 
 .oyiso-vim-source-tabs [role="tab"]:focus-visible {
-    outline: 2px solid var(--oyiso-color-primary, #bf5316);
+    outline: 2px solid var(--oyiso-color-primary, #3858e9);
     outline-offset: -3px;
 }
 
@@ -468,8 +468,8 @@
 }
 
 .oyiso-vim-dialog select:focus {
-    border-color: var(--oyiso-color-primary, #bf5316);
-    box-shadow: 0 0 0 1px var(--oyiso-color-primary, #bf5316);
+    border-color: var(--oyiso-color-primary, #3858e9);
+    box-shadow: 0 0 0 1px var(--oyiso-color-primary, #3858e9);
 }
 
 .oyiso-vim-footer {

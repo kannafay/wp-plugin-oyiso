@@ -28,7 +28,7 @@
             '<p><strong>变体拆分</strong>：即将拆分 ' + total + ' 个产品（仅可变产品会被处理）。</p>' +
             '<div id="oyiso-split-progress" style="margin:10px 0;">' +
             '<div style="background:#f0f0f0;border-radius:4px;overflow:hidden;height:24px;position:relative;">' +
-            '<div id="oyiso-split-bar" style="background:#2271b1;height:100%;width:0%;transition:width .3s;"></div>' +
+            '<div id="oyiso-split-bar" style="background:var(--oyiso-color-primary, #3858e9);height:100%;width:0%;transition:width .3s;"></div>' +
             '<span id="oyiso-split-bar-text" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12px;color:#333;">0 / ' + total + ' (0%)</span>' +
             '</div>' +
             '<div id="oyiso-split-log" style="margin-top:8px;max-height:200px;overflow-y:auto;font-size:12px;color:#666;"></div>' +

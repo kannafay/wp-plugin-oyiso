@@ -1,24 +1,25 @@
 :root {
-    --oyiso-color-accent: #e5702a;
-    --oyiso-color-primary: #bf5316;
-    --oyiso-color-primary-hover: #a8440d;
-    --oyiso-color-primary-soft: #fff4ec;
-    --oyiso-color-accent-border: #edc5a9;
+    --oyiso-color-accent: #3858e9;
+    --oyiso-color-primary: #3858e9;
+    --oyiso-color-primary-hover: #2145e6;
+    --oyiso-color-primary-active: #183ad6;
+    --oyiso-color-primary-soft: color-mix(in srgb, var(--oyiso-color-primary) 6%, #fff);
+    --oyiso-color-accent-border: color-mix(in srgb, var(--oyiso-color-primary) 25%, #fff);
 }
 
 /* Preserve the user's admin palette before Oyiso scopes its own control colors. */
 body {
-    --oyiso-admin-theme-color: var(--wp-admin-theme-color, #2271b1);
-    --oyiso-admin-theme-color-darker-10: var(--wp-admin-theme-color-darker-10, #135e96);
-    --oyiso-admin-theme-color-darker-20: var(--wp-admin-theme-color-darker-20, #0a4b78);
+    --oyiso-admin-theme-color: var(--wp-admin-theme-color, #3858e9);
+    --oyiso-admin-theme-color-darker-10: var(--wp-admin-theme-color-darker-10, #2145e6);
+    --oyiso-admin-theme-color-darker-20: var(--wp-admin-theme-color-darker-20, #183ad6);
 }
 
 /* Scope WordPress control colors to Oyiso's own settings and dialogs. */
 :is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog, .oyiso-agent-file-preview) {
     --wp-admin-theme-color: var(--oyiso-color-primary);
-    --wp-admin-theme-color--rgb: 191, 83, 22;
+    --wp-admin-theme-color--rgb: 56, 88, 233;
     --wp-admin-theme-color-darker-10: var(--oyiso-color-primary-hover);
-    --wp-admin-theme-color-darker-20: var(--oyiso-color-primary-hover);
+    --wp-admin-theme-color-darker-20: var(--oyiso-color-primary-active);
 }
 
 :is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog, .oyiso-agent-file-preview) .button:not(.button-primary, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled) {
@@ -61,7 +62,7 @@ body {
 .csf-options[data-unique="oyiso"] .csf-buttons .csf-save:focus {
     /* Restore the native focus ring suppressed by CSF's header styles. */
     outline: 1px solid transparent !important;
-    box-shadow: 0 0 0 var(--wp-admin-border-width-focus, 1.5px) var(--wp-admin-theme-color, #2271b1), inset 0 0 0 1px #fff !important;
+    box-shadow: 0 0 0 var(--wp-admin-border-width-focus, 1.5px) var(--wp-admin-theme-color, #3858e9), inset 0 0 0 1px #fff !important;
 }
 
 .csf-options[data-unique="oyiso"] :is(.csf-desc-text, .csf-submessage, .csf-before-text, .csf-after-text, .csf-field-callback) a:not(.button) {

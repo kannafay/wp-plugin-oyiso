@@ -52,8 +52,8 @@
 
 .oyiso-update-state--available,
 .oyiso-update-release-badge {
-    background: var(--oyiso-color-primary-soft, #fff4ec);
-    color: var(--oyiso-color-primary, #bf5316);
+    background: var(--oyiso-color-primary-soft, #f3f5fe);
+    color: var(--oyiso-color-primary, #3858e9);
 }
 
 .oyiso-update-versions {
@@ -85,7 +85,7 @@
 }
 
 .oyiso-update-version--latest strong {
-    color: var(--oyiso-color-primary, #bf5316);
+    color: var(--oyiso-color-primary, #3858e9);
 }
 
 .oyiso-update-version > span {
@@ -162,7 +162,7 @@
 }
 
 .oyiso-update-release > summary:focus-visible {
-    outline: 2px solid var(--oyiso-color-primary, #bf5316);
+    outline: 2px solid var(--oyiso-color-primary, #3858e9);
     outline-offset: -2px;
 }
 

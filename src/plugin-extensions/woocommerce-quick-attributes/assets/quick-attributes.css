@@ -87,8 +87,8 @@
 }
 
 .oyiso-qa-modal-body textarea:focus {
-    border-color: var(--oyiso-color-primary, #bf5316);
-    box-shadow: 0 0 0 1px var(--oyiso-color-primary, #bf5316);
+    border-color: var(--oyiso-color-primary, #3858e9);
+    box-shadow: 0 0 0 1px var(--oyiso-color-primary, #3858e9);
     outline: none;
 }
 
@@ -108,8 +108,8 @@
 }
 
 .oyiso-qa-preview-active {
-    background: color-mix(in srgb, var(--oyiso-color-primary, #bf5316) 6%, #fff);
-    border: 1px solid color-mix(in srgb, var(--oyiso-color-primary, #bf5316) 25%, transparent);
+    background: color-mix(in srgb, var(--oyiso-color-primary, #3858e9) 6%, #fff);
+    border: 1px solid color-mix(in srgb, var(--oyiso-color-primary, #3858e9) 25%, transparent);
     color: #1e1e1e;
 }
 
@@ -183,8 +183,8 @@
 }
 
 .oyiso-qa-tab-active {
-    color: var(--oyiso-color-primary, #bf5316);
-    border-bottom-color: var(--oyiso-color-primary, #bf5316);
+    color: var(--oyiso-color-primary, #3858e9);
+    border-bottom-color: var(--oyiso-color-primary, #3858e9);
 }
 
 .oyiso-qa-tab-panel {
@@ -243,7 +243,7 @@
 }
 
 .oyiso-qa-term-search:focus {
-    border-color: var(--oyiso-color-primary, #bf5316);
-    box-shadow: 0 0 0 1px var(--oyiso-color-primary, #bf5316);
+    border-color: var(--oyiso-color-primary, #3858e9);
+    box-shadow: 0 0 0 1px var(--oyiso-color-primary, #3858e9);
     outline: none;
 }
