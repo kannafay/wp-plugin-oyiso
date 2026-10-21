@@ -32,9 +32,8 @@
 /* Keep dependent fields as siblings so native CSF dependencies continue to work. */
 .csf-options[data-unique="oyiso"] .oyiso-config-details {
     margin-inline: calc(var(--oyiso-config-detail-offset) - 18px) 30px;
-    padding: 12px 0 12px 16px;
+    padding: 12px 0 12px 18px;
     border: 0;
-    border-inline-start: 2px solid var(--oyiso-color-accent-border, #edc5a9);
     background: transparent;
 }
 
