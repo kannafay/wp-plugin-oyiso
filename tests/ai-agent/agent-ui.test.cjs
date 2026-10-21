@@ -39,7 +39,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     window.addEventListener('error', event => errors.push(event.error));
     window.HTMLElement.prototype.scrollIntoView = () => {};
     window.matchMedia = query => ({ matches: !view.motion, media: query });
-    window.oyisoAgent = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce', user: 1, enabled: true, supported: true, models: { 'fixture|model-a': '测试连接 / model-a', 'second|model-b': '备用连接 / model-b' }, ...settings };
+    window.oyisoAgent = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce', user: 1, enabled: true, supported: true, productTrashAllowed: true, models: { 'fixture|model-a': '测试连接 / model-a', 'second|model-b': '备用连接 / model-b' }, ...settings };
     window.fetch = async (url, options) => {
         const route = url.replace(window.oyisoAgent.url, '');
         calls.push({ route, options });
@@ -488,6 +488,41 @@ test('product confirmation Escape keeps the assistant open and a rejected deleti
     assert.match(f.$('[data-agent-notice]').textContent, /商品已发生变化/);
     assert.equal(productButton(f, '移入回收站').disabled, false);
     assert.equal(productButton(f, '恢复商品'), undefined);
+});
+
+test('product trash opt-in blocks old proposals while dismissal and restore stay available', async t => {
+    const changes = [trashProposal(), trashProposal({ id: 'second', status: 'applied' })];
+    for (const productTrashAllowed of [false, undefined]) {
+        const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes }) : undefined, { productTrashAllowed }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+        await settle();
+        assert.match(f.$('[data-agent-changes]').textContent, /商品删除权限未开启/);
+        assert.equal(productButton(f, '移入回收站').disabled, true);
+        assert.equal(productButton(f, '不删除').disabled, false);
+        assert.equal(productButton(f, '恢复商品').disabled, false);
+        productButton(f, '移入回收站').click();
+        assert.equal(f.$('[data-agent-product-dialog]').open, false);
+        assert.equal(f.calls.some(call => call.route.includes('/changes/')), false);
+    }
+});
+
+test('saving permission changes updates pending cards and cancels an open deletion confirmation', async t => {
+    let productTrashAllowed = false;
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes: [trashProposal()] }) : route === 'status' ? { enabled: true, supported: true, productTrashAllowed, secrets: {} } : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    const saved = async () => {
+        f.window.jQuery(f.window.document).trigger('ajaxSuccess', [{ responseJSON: { success: true } }, { data: 'action=csf_oyiso_ajax_save' }]);
+        await settle();
+    };
+    await settle(); productButton(f, '移入回收站').click();
+    await saved();
+    assert.equal(f.$('[data-agent-product-dialog]').open, false);
+    assert.equal(productButton(f, '移入回收站').disabled, true);
+    f.$('[data-agent-product-confirm]').click(); await settle();
+    assert.equal(f.calls.some(call => call.route.includes('/changes/')), false);
+    productTrashAllowed = true; await saved();
+    assert.equal(productButton(f, '移入回收站').disabled, false);
+    assert.doesNotMatch(f.$('[data-agent-changes]').textContent, /商品删除权限未开启/);
+    productButton(f, '移入回收站').click();
+    assert.equal(f.$('[data-agent-product-dialog]').open, true);
 });
 
 test('running and cancelled conversations cannot submit product deletions', async t => {

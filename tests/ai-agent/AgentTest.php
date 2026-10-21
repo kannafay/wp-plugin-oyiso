@@ -56,7 +56,7 @@ final class AgentTest extends TestCase
         delete_option('oyiso_agent_connections');
         $options = $this->options;
         unset($options['agent_selection'], $options['agent_advanced']);
-        update_option('oyiso', array_merge($options, ['agent_enabled' => true, 'agent_max_steps' => '8', 'agent_provider' => '', 'agent_model' => '']), false);
+        update_option('oyiso', array_merge($options, ['agent_enabled' => true, 'agent_allow_product_trash' => true, 'agent_max_steps' => '8', 'agent_provider' => '', 'agent_model' => '']), false);
     }
 
     protected function tearDown(): void
@@ -473,6 +473,9 @@ final class AgentTest extends TestCase
         self::assertSame(['agent_language', 'agent_instructions', 'agent_custom_instructions'], array_values(array_filter(array_column($children[1]['fields'], 'id'))));
         self::assertNotContains('agent_language', array_column($children[0]['fields'], 'id'));
         self::assertSame('fieldset', $children[2]['fields'][1]['type']);
+        self::assertSame('agent_allow_product_trash', $children[4]['fields'][0]['id']);
+        self::assertSame('checkbox', $children[4]['fields'][0]['type']);
+        self::assertFalse($children[4]['fields'][0]['default']);
         ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_Admin::history(); Oyiso_Agent_Admin::connection(); Oyiso_Agent_File_Manager::render(); $html = ob_get_clean();
         self::assertStringNotContainsString('oyiso-agent-chat', $html); self::assertStringContainsString('oyiso-agent-history', $html);
         self::assertStringNotContainsString('oyiso-agent-tasks', $html);
@@ -773,6 +776,59 @@ final class AgentTest extends TestCase
         self::assertSame('pending', $run['changes'][0]['status']);
         self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal]));
         self::assertWPError($this->tool($run, 'apply-product-update', ['proposal_id' => $proposal], 'apply'));
+        self::assertSame('draft', get_post_status($product->get_id()));
+    }
+
+    public function testProductTrashIsOptInAndCannotBeCalledDirectlyWhenDisabled(): void
+    {
+        $options = Oyiso_Agent_Config::options(); unset($options['agent_allow_product_trash']);
+        update_option('oyiso', $options, false);
+        self::assertFalse(Oyiso_Agent_Config::productTrashAllowed());
+        self::assertNotContains('oyiso/prepare-product-trash', Oyiso_Agent_Abilities::allowed());
+        self::assertFalse($this->request('GET', 'status')->get_data()['productTrashAllowed']);
+        $run = $this->task(); $product = $this->product(); $args = ['product_id' => $product->get_id(), 'reason' => 'Test opt-in'];
+        self::assertFalse($this->tool($run, 'get-product', ['product_id' => $product->get_id()])['can_trash']);
+        self::assertWPError($this->tool($run, 'prepare-product-trash', $args));
+        $result = (new Oyiso_Agent_Tools($run))->execute('prepare-product-trash', $args);
+        self::assertWPError($result); self::assertSame('agent_product_trash_disabled', $result->get_error_code());
+        self::assertWPError(Oyiso_Agent_Product_Trash::prepare($run, $product->get_id(), 'Direct service call'));
+        self::assertSame([], $run['changes']); self::assertSame('draft', get_post_status($product->get_id()));
+        foreach ([false, 0, '0', '', 'false', 'true', ['1']] as $value) {
+            update_option('oyiso', $options + ['agent_allow_product_trash' => $value], false);
+            self::assertFalse(Oyiso_Agent_Config::productTrashAllowed());
+        }
+        foreach ([true, 1, '1'] as $value) {
+            update_option('oyiso', $options + ['agent_allow_product_trash' => $value], false);
+            self::assertTrue(Oyiso_Agent_Config::productTrashAllowed());
+            self::assertContains('oyiso/prepare-product-trash', Oyiso_Agent_Abilities::allowed());
+        }
+        self::assertTrue($this->tool($run, 'get-product', ['product_id' => $product->get_id()])['can_trash']);
+    }
+
+    public function testProductTrashRevokedPermissionBlocksPendingPlansButAllowsDismissal(): void
+    {
+        $run = $this->task(); $product = $this->product(); $proposal = $this->trashProposal($run, $product);
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_allow_product_trash' => '0']), false);
+        self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply'));
+        $result = (new Oyiso_Agent_Tools($run, 'apply'))->execute('apply-product-trash', ['proposal_id' => $proposal]);
+        self::assertWPError($result); self::assertSame('agent_product_trash_disabled', $result->get_error_code());
+        self::assertWPError(Oyiso_Agent_Product_Trash::change($run, $proposal, 'apply', 'apply'));
+        $route = 'runs/' . $run['id'] . '/changes/' . $proposal;
+        self::assertGreaterThanOrEqual(400, $this->request('POST', $route, ['action' => 'trash'])->get_status());
+        self::assertSame('pending', Oyiso_Agent_Store::get($run['id'])['changes'][0]['status']);
+        self::assertSame('draft', get_post_status($product->get_id()));
+        self::assertSame('dismissed', $this->request('POST', $route, ['action' => 'dismiss'])->get_data()['changes'][0]['status']);
+    }
+
+    public function testProductTrashCanRestoreAfterPermissionIsTurnedOff(): void
+    {
+        $run = $this->task(); $product = $this->product(); $proposal = $this->trashProposal($run, $product);
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        $route = 'runs/' . $run['id'] . '/changes/' . $proposal;
+        self::assertSame('applied', $this->request('POST', $route, ['action' => 'trash'])->get_data()['changes'][0]['status']);
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_allow_product_trash' => false]), false);
+        self::assertSame('reverted', $this->request('POST', $route, ['action' => 'restore'])->get_data()['changes'][0]['status']);
         self::assertSame('draft', get_post_status($product->get_id()));
     }
 

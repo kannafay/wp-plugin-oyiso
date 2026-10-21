@@ -396,13 +396,13 @@
                 const states = { publish: '已发布', private: '私密', draft: '草稿', pending: '待审核', future: '定时发布' };
                 section.append(node('p', 'description', 'SKU：' + (change.sku || '未设置') + ' · 原状态：' + (states[change.previous_status] || change.previous_status || '未知') + ' · 关联变体：' + (change.variation_count || 0)));
                 section.append(node('p', '', change.reason || ''));
-                if (change.status === 'pending') section.append(node('p', 'description', '确认后移入回收站，商品及关联变体从前台下架，图片和历史订单保留。'));
+                if (change.status === 'pending') section.append(node('p', 'description', config.productTrashAllowed ? '确认后移入回收站，商品及关联变体从前台下架，图片和历史订单保留。' : '商品删除权限未开启，请在「AI Agent → 站内工具」中勾选并保存。'));
                 if (change.status === 'pending' || change.status === 'applied') {
                     const actions = node('div', 'oyiso-agent-product-actions');
                     for (const [action, label] of change.status === 'pending' ? [['dismiss', '不删除'], ['apply', '移入回收站']] : [['restore', '恢复商品']]) {
                         const button = node('button', 'button' + (action === 'apply' ? ' oyiso-button-danger' : ''), label);
                         button.type = 'button';
-                        button.disabled = !config.enabled || ['queued', 'running'].includes(run.status) || (action !== 'restore' && run.status === 'cancelled') || changing.has(change.id);
+                        button.disabled = !config.enabled || (action === 'apply' && !config.productTrashAllowed) || ['queued', 'running'].includes(run.status) || (action !== 'restore' && run.status === 'cancelled') || changing.has(change.id);
                         button.addEventListener('click', () => action === 'apply' ? confirmProductTrash(change, button) : applyChange(change.id, action));
                         actions.append(button);
                     }
@@ -486,7 +486,7 @@
     }
 
     function confirmProductTrash(change, trigger) {
-        if (!productDialog || changing.has(change.id) || !run?.changes.some(item => item.id === change.id && item.type === 'trash' && item.status === 'pending') || ['queued', 'running', 'cancelled'].includes(run.status)) return;
+        if (!config.productTrashAllowed || !productDialog || changing.has(change.id) || !run?.changes.some(item => item.id === change.id && item.type === 'trash' && item.status === 'pending') || ['queued', 'running', 'cancelled'].includes(run.status)) return;
         productConfirmation = { runId, proposal: change.id, trigger };
         $('[data-agent-product-description]', productDialog).textContent = '确定将“' + change.name + '”（#' + change.product_id + '，SKU：' + (change.sku || '未设置') + '）及其 ' + (change.variation_count || 0) + ' 个关联变体移入回收站？';
         window.oyisoModalMotion.show(productDialog);
@@ -662,7 +662,7 @@
     }
 
     async function applyChange(proposal, action, kind = 'changes') {
-        if (changing.has(proposal)) return;
+        if (changing.has(proposal) || (kind === 'changes' && action === 'trash' && !config.productTrashAllowed)) return;
         const id = runId;
         changing.add(proposal);
         controls();
@@ -849,6 +849,9 @@
             api('status').then(state => {
                 config.enabled = state.enabled;
                 config.supported = state.supported;
+                config.productTrashAllowed = state.productTrashAllowed === true;
+                if (!config.productTrashAllowed && productConfirmation) closeProductConfirmation();
+                if (run) renderChanges(run.changes);
                 if (state.models) populateModels(state.models);
                 if (!config.enabled) setPanel(false, false, false);
                 for (const [name, configured] of Object.entries(state.secrets || {})) {

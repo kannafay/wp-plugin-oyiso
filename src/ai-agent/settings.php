@@ -13,7 +13,7 @@ CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-model', 'title' => '模型配置', 'icon' => 'fas fa-sliders-h', 'priority' => 20,
     'fields' => [
         ['type' => 'heading', 'content' => '模型配置'],
-        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询数据，并准备商品修改或移入回收站方案。', 'default' => false, 'desc' => '商品变更须在操作卡片中确认。启用后保存配置并刷新页面，即可加载助手。'],
+        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询数据，并准备商品修改方案。', 'default' => false, 'desc' => '商品变更须在操作卡片中确认，商品删除需在「站内工具」中另行授权。启用后保存配置并刷新页面，即可加载助手。'],
         ['type' => 'callback', 'class' => 'oyiso-agent-model-providers', 'function' => [Oyiso_Agent_Model_Settings::class, 'render']],
     ],
 ]);
@@ -47,7 +47,10 @@ CSF::createSection('oyiso', [
 ]);
 CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-tools', 'title' => '站内工具', 'icon' => 'fas fa-tools', 'priority' => 25,
-    'fields' => [['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'tools']]],
+    'fields' => [
+        ['id' => 'agent_allow_product_trash', 'type' => 'checkbox', 'title' => '商品删除权限', 'label' => '允许 AI 准备商品删除方案', 'default' => false, 'desc' => '默认关闭。勾选并保存后，AI 才能生成删除方案，仍需在对话中确认移入回收站。关闭后，尚未执行的删除会被阻止，已删除商品仍可恢复。'],
+        ['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'tools']],
+    ],
 ]);
 CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-records', 'title' => '对话记录', 'icon' => 'fas fa-history', 'priority' => 40,

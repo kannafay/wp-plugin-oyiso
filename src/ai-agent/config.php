@@ -28,6 +28,11 @@ final class Oyiso_Agent_Config
         return !empty(self::options()['agent_enabled']);
     }
 
+    public static function productTrashAllowed(): bool
+    {
+        return in_array(self::options()['agent_allow_product_trash'] ?? false, [true, 1, '1'], true);
+    }
+
     public static function supported(): bool
     {
         return function_exists('wp_ai_client_prompt') && function_exists('wp_register_ability');

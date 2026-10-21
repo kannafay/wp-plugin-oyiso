@@ -13,7 +13,7 @@ final class Oyiso_Agent_Admin
         Oyiso_Agent_File_Manager::routes();
         $permission = static fn(): bool => current_user_can('manage_options');
         $root = 'oyiso-agent/v1';
-        register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'secrets' => Oyiso_Agent_Config::secretStatus(), 'models' => Oyiso_Agent_Connections::choices()])]);
+        register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'productTrashAllowed' => Oyiso_Agent_Config::productTrashAllowed(), 'secrets' => Oyiso_Agent_Config::secretStatus(), 'models' => Oyiso_Agent_Connections::choices()])]);
         register_rest_route($root, '/connections/(?P<preset>deepseek|gemini|agnes)/test', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
             $result = Oyiso_Agent_Connectors::test((string) $request->get_param('preset'));
             return is_wp_error($result) ? $result : new WP_REST_Response($result);
@@ -224,7 +224,7 @@ final class Oyiso_Agent_Admin
         wp_enqueue_script('oyiso-agent-composer', plugins_url('assets/composer.js', __FILE__), ['oyiso-agent-file-preview'], (string) filemtime(__DIR__ . '/assets/composer.js'), true);
         wp_enqueue_script('oyiso-agent-live', plugins_url('assets/live.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/live.js'), true);
         wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer', 'oyiso-agent-live'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
-        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxImage' => min(Oyiso_Agent_Attachments::MAX_IMAGE_UPLOAD, wp_max_upload_size()), 'attachmentMaxVideo' => min(Oyiso_Agent_Attachments::MAX_VIDEO_UPLOAD, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_UPLOAD_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536))]);
+        wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'productTrashAllowed' => Oyiso_Agent_Config::productTrashAllowed(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxImage' => min(Oyiso_Agent_Attachments::MAX_IMAGE_UPLOAD, wp_max_upload_size()), 'attachmentMaxVideo' => min(Oyiso_Agent_Attachments::MAX_VIDEO_UPLOAD, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_UPLOAD_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536))]);
     }
 
     private static function available(): bool
@@ -358,7 +358,7 @@ final class Oyiso_Agent_Admin
 
     public static function tools(): void
     {
-        echo '<div class="oyiso-agent"><div class="oyiso-agent-heading"><div><h2>站内工具</h2><p class="description">助手可用的站内能力。商品修改和移入回收站需在卡片中确认，可用能力取决于当前账号权限。</p></div></div>';
+        echo '<div class="oyiso-agent"><div class="oyiso-agent-heading"><div><h2>站内工具</h2><p class="description">助手可用的站内能力。商品修改和移入回收站需在卡片中确认，可用能力取决于已保存的授权和当前账号权限。</p></div></div>';
         if (!Oyiso_Agent_Config::supported()) {
             echo '<p>AI Agent 需要 WordPress 7.0 或以上版本，当前环境暂不可用。</p></div>';
             return;
@@ -370,9 +370,10 @@ final class Oyiso_Agent_Admin
                 continue;
             }
             $trash = str_ends_with($ability->get_name(), '-product-trash');
+            $blocked = in_array($ability->get_name(), ['oyiso/prepare-product-trash', 'oyiso/apply-product-trash'], true) && !Oyiso_Agent_Config::productTrashAllowed();
             $manual = in_array($ability->get_name(), ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash', 'oyiso/dismiss-product-trash'], true);
-            $usable = Oyiso_Agent_Config::enabled() && ($manual ? function_exists('wc_get_product') && current_user_can('edit_products') && (!$trash || current_user_can('delete_products')) : in_array($ability->get_name(), $allowed, true));
-            printf('<tr><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html($ability->get_label()), esc_html($ability->get_description()), esc_html($usable ? ($manual ? '在修改预览中操作' : '助手调用') : '当前不可用'));
+            $usable = !$blocked && Oyiso_Agent_Config::enabled() && ($manual ? function_exists('wc_get_product') && current_user_can('edit_products') && (!$trash || current_user_can('delete_products')) : in_array($ability->get_name(), $allowed, true));
+            printf('<tr><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html($ability->get_label()), esc_html($ability->get_description()), esc_html($blocked ? '需先开启商品删除权限' : ($usable ? ($manual ? ($trash ? '在操作卡片中确认' : '在修改预览中操作') : '助手调用') : '当前不可用')));
         }
         echo '</tbody></table></div></div>';
     }
