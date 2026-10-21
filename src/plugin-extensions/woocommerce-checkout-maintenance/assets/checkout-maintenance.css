@@ -1,3 +1,14 @@
+.oyiso-checkout-maintenance-notice {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.oyiso-checkout-maintenance-notice > :first-child { margin-top: 0; }
+.oyiso-checkout-maintenance-notice > :last-child { margin-bottom: 0; }
+.oyiso-checkout-maintenance-notice a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.oyiso-checkout-maintenance-notice img { max-width: 100%; height: auto; }
+
 html.oyiso-checkout-maintenance-open {
     overflow: hidden;
 }

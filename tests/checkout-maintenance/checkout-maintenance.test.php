@@ -191,7 +191,18 @@ try {
     $htmlSettings = Oyiso_WC_Checkout_Maintenance::prepareSettings(Oyiso_WC_Checkout_Maintenance::getSettings());
     $htmlResponse = rest_do_request(new WP_REST_Request('POST', '/wc/store/v1/checkout'))->get_data();
     $check($htmlResponse['data']['oyiso_checkout_maintenance'] === $htmlSettings, 'Blocks must receive safe formatted HTML and the selected color.');
-    $check(!str_contains($htmlResponse['message'], '<') && str_contains($htmlResponse['message'], 'Contact us'), 'Blocks must also receive a readable plain error fallback.');
+    $check(str_contains($htmlResponse['message'], '<a href="https://example.com/help">Contact us</a>'), 'The Blocks top notice must retain HTML links.');
+    $check(str_contains($htmlResponse['message'], '<strong>Custom maintenance message.</strong>'), 'The Blocks top notice must retain rich-text formatting.');
+
+    $options['oyiso_wc_checkout_maintenance_options']['message'] = $unsafe;
+    $unsafeApiNotice = rest_do_request(new WP_REST_Request('POST', '/wc/store/v1/checkout'))->get_data()['message'];
+    $check(!preg_match('~<script\b|<iframe\b|\bonerror\s*=|javascript:~i', $unsafeApiNotice), 'Rendering HTML in the Blocks top notice must not restore unsafe markup.');
+    try {
+        Oyiso_WC_Checkout_Maintenance::validateClassic();
+    } catch (Exception $error) {
+        $check(!preg_match('~<script\b|<iframe\b|\bonerror\s*=|javascript:~i', $error->getMessage()), 'Rendering HTML in the classic top notice must not restore unsafe markup.');
+    }
+    $options['oyiso_wc_checkout_maintenance_options']['message'] = $html;
 
     wc_clear_notices();
     $_REQUEST['woocommerce-process-checkout-nonce'] = wp_create_nonce('woocommerce-process_checkout');
@@ -206,7 +217,9 @@ try {
     preg_match('/data-oyiso-checkout-maintenance="([^"]+)"/', $notice, $noticeMatch);
     $noticeSettings = json_decode(html_entity_decode($noticeMatch[1] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'), true);
     $check($noticeSettings === $htmlSettings, 'WooCommerce notice filtering must preserve the complete HTML/color payload.');
-    $check(!str_contains(wp_strip_all_tags($notice), '<strong>'), 'Classic fallback must not expose literal HTML source.');
+    $check(str_contains($notice, '<a href="https://example.com/help">Contact us</a>'), 'The classic top notice must retain HTML links even without JavaScript.');
+    $check(str_contains($notice, '<strong>Custom maintenance message.</strong>'), 'The classic top notice must retain rich-text formatting.');
+    $check(!str_contains($notice, '<span data-oyiso-checkout-maintenance'), 'Block-level editor HTML must not be nested inside an inline span.');
 
     $guardedCreate = false;
     try {
@@ -231,6 +244,7 @@ try {
     $ajaxSettings = json_decode(html_entity_decode($ajaxMatch[1] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'), true);
     $check(($ajaxSettings['accent'] ?? '') === '#2563eb', 'The real AJAX notice must carry the selected color.');
     $check(str_contains($ajaxSettings['messageHtml'] ?? '', 'AJAX &amp; HTML') && str_contains($ajaxSettings['messageHtml'] ?? '', '&lt;img'), 'Classic AJAX must preserve entities as text through JSON, notice filtering and HTML attributes.');
+    $check(str_contains($ajax['messages'], '<strong>AJAX &amp; HTML</strong>'), 'The real AJAX top notice must render the same formatted HTML as the popup.');
     $check($countOrders() === $ordersBefore, 'Maintenance tests must not create any orders.');
 
     echo "PASS: {$assertions} checkout maintenance assertions; order count unchanged.\n";

@@ -126,14 +126,6 @@ final class Oyiso_WC_Checkout_Maintenance
         return $settings;
     }
 
-    /** @param array<string, string> $settings */
-    private static function getPlainMessage(array $settings): string
-    {
-        $text = preg_replace('~<(?:br\b[^>]*|/(?:p|div|li|h[1-6]))>~i', "\n", $settings['message']);
-        $text = trim(wp_strip_all_tags(html_entity_decode($text ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-        return $text !== '' ? $text : self::getDefaults()['message'];
-    }
-
     public static function validateClassic(): void
     {
         if (!self::isEnabled()) {
@@ -143,8 +135,8 @@ final class Oyiso_WC_Checkout_Maintenance
         $settings = self::prepareSettings(self::getSettings());
         // WooCommerce catches this before creating an order; the notice still works without JavaScript.
         $payload = wp_json_encode($settings, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-        throw new Exception('<span data-oyiso-checkout-maintenance="' . esc_attr((string) $payload) . '">'
-            . nl2br(esc_html(self::getPlainMessage($settings))) . '</span>');
+        throw new Exception('<div class="oyiso-checkout-maintenance-notice" data-oyiso-checkout-maintenance="' . esc_attr((string) $payload) . '">'
+            . $settings['messageHtml'] . '</div>');
     }
 
     /** @param WP_REST_Request<array<string, mixed>> $request */
@@ -161,7 +153,9 @@ final class Oyiso_WC_Checkout_Maintenance
         }
 
         $settings = self::prepareSettings(self::getSettings());
-        return rest_convert_error_to_response(new WP_Error(self::ERROR_CODE, self::getPlainMessage($settings), [
+        // Blocks renders API errors as HTML notices, applying its own sanitization as well.
+        $notice = '<div class="oyiso-checkout-maintenance-notice">' . $settings['messageHtml'] . '</div>';
+        return rest_convert_error_to_response(new WP_Error(self::ERROR_CODE, $notice, [
             'status' => 503,
             self::ERROR_CODE => $settings,
         ]));
