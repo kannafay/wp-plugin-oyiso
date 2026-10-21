@@ -72,7 +72,8 @@ final class AgentTest extends TestCase
         }
         foreach ($this->products as $id) {
             delete_option('oyiso_agent_lock_product_' . $id);
-            wc_get_product($id)?->delete(true);
+            $product = wc_get_product($id);
+            if ($product instanceof WC_Product) $product->delete(true);
         }
         foreach ($this->users as $id) wp_delete_user($id);
         update_option('oyiso', $this->options, false);
@@ -731,6 +732,226 @@ final class AgentTest extends TestCase
         self::assertSame('cancelled', $result->get_data()['status']);
         self::assertSame('reverted', $result->get_data()['changes'][0]['status']);
         self::assertSame($before, Oyiso_Agent_Tools::fields(wc_get_product($product->get_id())));
+    }
+
+    private function trashProposal(array &$run, WC_Product $product): string
+    {
+        self::assertIsArray($this->tool($run, 'get-product', ['product_id' => $product->get_id()]));
+        $proposal = $this->tool($run, 'prepare-product-trash', ['product_id' => $product->get_id(), 'reason' => '用户已指定此测试商品，移入回收站。']);
+        self::assertIsArray($proposal);
+        Oyiso_Agent_Store::save($run);
+        return $proposal['proposal_id'];
+    }
+
+    /** @return array{WC_Product_Variable,WC_Product_Variation,WC_Product_Variation} */
+    private function variableProduct(): array
+    {
+        $parent = new WC_Product_Variable();
+        $parent->set_name('Oyiso Agent variable fixture ' . wp_generate_uuid4());
+        $parent->set_status('publish'); $parent->save(); $this->products[] = $parent->get_id();
+        $children = [];
+        foreach (['publish', 'private'] as $status) {
+            $child = new WC_Product_Variation(); $child->set_parent_id($parent->get_id());
+            $child->set_status($status); $child->set_regular_price('20'); $child->save();
+            $this->products[] = $child->get_id(); $children[] = $child;
+        }
+        return [$parent, $children[0], $children[1]];
+    }
+
+    public function testProductTrashToolsExposePreparationButNeverDirectWrites(): void
+    {
+        self::assertContains('oyiso/prepare-product-trash', Oyiso_Agent_Abilities::allowed());
+        foreach (['apply', 'revert', 'dismiss'] as $action) {
+            $ability = wp_get_ability('oyiso/' . $action . '-product-trash');
+            self::assertInstanceOf(WP_Ability::class, $ability);
+            self::assertNotContains($ability->get_name(), Oyiso_Agent_Abilities::allowed());
+            self::assertFalse($ability->get_meta()['show_in_rest']);
+        }
+        $run = $this->task(); $product = $this->product(); $proposal = $this->trashProposal($run, $product);
+        self::assertSame('draft', get_post_status($product->get_id()));
+        self::assertSame('trash', $run['changes'][0]['type']);
+        self::assertSame('pending', $run['changes'][0]['status']);
+        self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal]));
+        self::assertWPError($this->tool($run, 'apply-product-update', ['proposal_id' => $proposal], 'apply'));
+        self::assertSame('draft', get_post_status($product->get_id()));
+    }
+
+    public function testProductTrashRequiresFreshReadAndValidReasonAndMainProduct(): void
+    {
+        $run = $this->task(); $product = $this->product();
+        $args = ['product_id' => $product->get_id(), 'reason' => 'Test'];
+        self::assertWPError($this->tool($run, 'prepare-product-trash', $args));
+        $this->tool($run, 'get-product', ['product_id' => $product->get_id()]);
+        self::assertWPError($this->tool($run, 'prepare-product-trash', array_replace($args, ['reason' => str_repeat('a', 501)])));
+        self::assertWPError($this->tool($run, 'prepare-product-trash', array_replace($args, ['force' => true])));
+        $product->set_regular_price('21'); $product->save();
+        self::assertWPError($this->tool($run, 'prepare-product-trash', $args));
+        [$parent, $child] = $this->variableProduct();
+        $this->tool($run, 'get-product', ['product_id' => $child->get_id()]);
+        self::assertWPError($this->tool($run, 'prepare-product-trash', ['product_id' => $child->get_id(), 'reason' => 'No standalone variations']));
+        self::assertSame('publish', get_post_status($parent->get_id()));
+    }
+
+    public function testProductTrashAndRestorePreserveProductAndMediaAndAreIdempotent(): void
+    {
+        $run = $this->task(); $product = $this->product();
+        $media = wp_insert_post(['post_type' => 'attachment', 'post_status' => 'inherit', 'post_title' => 'Oyiso trash image fixture']);
+        try {
+            $product->set_image_id($media); $product->save();
+            $before = Oyiso_Agent_Tools::fields($product); $proposal = $this->trashProposal($run, $product);
+            $pending = $run;
+            self::assertSame('applied', $this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply')['status']);
+            self::assertStringContainsString('status=applied', wp_json_encode($run['messages']));
+            self::assertSame('trash', get_post_status($product->get_id()));
+            self::assertInstanceOf(WP_Post::class, get_post($media));
+            self::assertSame($media, (int) get_post_meta($product->get_id(), '_thumbnail_id', true));
+            self::assertSame('applied', $this->tool($pending, 'apply-product-trash', ['proposal_id' => $proposal], 'apply')['status']);
+            $applied = $run;
+            self::assertSame('reverted', $this->tool($run, 'revert-product-trash', ['proposal_id' => $proposal], 'revert')['status']);
+            self::assertStringContainsString('status=reverted', wp_json_encode($run['messages']));
+            self::assertSame('draft', get_post_status($product->get_id()));
+            self::assertSame($before, Oyiso_Agent_Tools::fields(wc_get_product($product->get_id())));
+            self::assertSame('19.90', wc_get_product($product->get_id())->get_regular_price());
+            self::assertSame('reverted', $this->tool($applied, 'revert-product-trash', ['proposal_id' => $proposal], 'revert')['status']);
+        } finally { wp_delete_post($media, true); }
+    }
+
+    public function testProductTrashRestoresVariationStatusesAndLeavesPreviouslyTrashedOnesAlone(): void
+    {
+        $run = $this->task(); [$parent, $first, $second] = $this->variableProduct();
+        $old = new WC_Product_Variation(); $old->set_parent_id($parent->get_id()); $old->set_status('private'); $old->save();
+        $this->products[] = $old->get_id(); wp_trash_post($old->get_id());
+        $proposal = $this->trashProposal($run, $parent);
+        self::assertSame(2, $run['changes'][0]['variation_count']);
+        self::assertIsArray($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply'));
+        foreach ([$parent, $first, $second, $old] as $item) self::assertSame('trash', get_post_status($item->get_id()));
+        self::assertIsArray($this->tool($run, 'revert-product-trash', ['proposal_id' => $proposal], 'revert'));
+        self::assertSame('publish', get_post_status($parent->get_id()));
+        self::assertSame('publish', get_post_status($first->get_id()));
+        self::assertSame('private', get_post_status($second->get_id()));
+        self::assertSame('trash', get_post_status($old->get_id()));
+    }
+
+    public function testProductTrashRejectsChangesToProductOrVariationsDuringReview(): void
+    {
+        $run = $this->task(); [$parent, $child] = $this->variableProduct(); $proposal = $this->trashProposal($run, $parent);
+        $child->set_regular_price('22'); $child->save();
+        self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply'));
+        self::assertSame('publish', get_post_status($parent->get_id()));
+        $proposal = $this->trashProposal($run, wc_get_product($parent->get_id()));
+        self::assertSame('superseded', $run['changes'][0]['status']);
+        update_post_meta($parent->get_id(), '_stock', 42);
+        self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply'));
+        self::assertSame('publish', get_post_status($child->get_id()));
+    }
+
+    public function testProductTrashRollsBackWhenAVariationCannotBeTrashed(): void
+    {
+        $run = $this->task(); [$parent, $first, $second] = $this->variableProduct(); $proposal = $this->trashProposal($run, $parent);
+        $block = static fn(mixed $pre, WP_Post $post): mixed => $post->ID === $second->get_id() ? false : $pre;
+        add_filter('pre_trash_post', $block, 10, 2);
+        try { self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply')); }
+        finally { remove_filter('pre_trash_post', $block, 10); }
+        self::assertSame('publish', get_post_status($parent->get_id()));
+        self::assertSame('publish', get_post_status($first->get_id()));
+        self::assertSame('private', get_post_status($second->get_id()));
+        self::assertSame('pending', $run['changes'][0]['status']);
+        self::assertFalse(metadata_exists('post', $parent->get_id(), '_oyiso_agent_product_trash'));
+    }
+
+    public function testProductTrashRechecksObjectPermissionsAndLocks(): void
+    {
+        $run = $this->task(); $product = $this->product(); $proposal = $this->trashProposal($run, $product);
+        $deny = static function (array $allcaps, array $caps, array $args) use ($product): array {
+            if (($args[0] ?? '') === 'delete_post' && ($args[2] ?? 0) === $product->get_id()) foreach ($caps as $cap) $allcaps[$cap] = false;
+            return $allcaps;
+        };
+        add_filter('user_has_cap', $deny, 10, 3);
+        try { self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply')); }
+        finally { remove_filter('user_has_cap', $deny, 10); }
+        self::assertSame('draft', get_post_status($product->get_id()));
+        self::assertTrue(Oyiso_Agent_Store::lock('product_' . $product->get_id()));
+        try { self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply')); }
+        finally { Oyiso_Agent_Store::unlock('product_' . $product->get_id()); }
+    }
+
+    public function testProductTrashRestRequiresStoppedOwnedRunAndAllowsDismissal(): void
+    {
+        $run = $this->task(); $product = $this->product(); $proposal = $this->trashProposal($run, $product);
+        $route = 'runs/' . $run['id'] . '/changes/' . $proposal;
+        self::assertSame(409, $this->request('POST', $route, ['action' => 'trash'])->get_status());
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        self::assertSame(400, $this->request('POST', $route, ['action' => 'apply'])->get_status(), 'An old content-update button cannot confirm deletion.');
+        self::assertSame('dismissed', $this->request('POST', $route, ['action' => 'dismiss'])->get_data()['changes'][0]['status']);
+        self::assertSame('draft', get_post_status($product->get_id()));
+        self::assertGreaterThanOrEqual(400, $this->request('POST', $route, ['action' => 'trash'])->get_status());
+        $proposal = $this->trashProposal($run, $product); $route = 'runs/' . $run['id'] . '/changes/' . $proposal;
+        $user = wp_insert_user(['user_login' => 'agent-trash-fixture-' . wp_generate_uuid4(), 'user_pass' => wp_generate_password(), 'role' => 'administrator']);
+        $this->users[] = $user; wp_set_current_user($user);
+        self::assertSame(404, $this->request('POST', $route, ['action' => 'trash'])->get_status());
+        self::assertSame('draft', get_post_status($product->get_id()));
+    }
+
+    public function testProductTrashCanRestoreAfterCancellationButCannotApplyCancelledPlan(): void
+    {
+        $run = $this->task(); $product = $this->product(); $proposal = $this->trashProposal($run, $product);
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        $route = 'runs/' . $run['id'] . '/changes/' . $proposal;
+        self::assertSame('applied', $this->request('POST', $route, ['action' => 'trash'])->get_data()['changes'][0]['status']);
+        self::assertSame(400, $this->request('POST', $route, ['action' => 'revert'])->get_status(), 'An old content-revert button cannot restore a deleted product.');
+        Oyiso_Agent_Store::cancel($run['id']);
+        self::assertSame('reverted', $this->request('POST', $route, ['action' => 'restore'])->get_data()['changes'][0]['status']);
+        self::assertSame('draft', get_post_status($product->get_id()));
+        $other = $this->task(); $proposal = $this->trashProposal($other, $product); Oyiso_Agent_Store::cancel($other['id']);
+        self::assertWPError($this->tool($other, 'apply-product-trash', ['proposal_id' => $proposal], 'apply'));
+    }
+
+    public function testProductTrashDoesNotRestoreAfterAnUnrelatedManualTrashCycle(): void
+    {
+        $run = $this->task(); $product = $this->product(); $proposal = $this->trashProposal($run, $product);
+        self::assertIsArray($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply'));
+        wp_untrash_post($product->get_id()); wp_trash_post($product->get_id());
+        self::assertWPError($this->tool($run, 'revert-product-trash', ['proposal_id' => $proposal], 'revert'));
+        self::assertSame('trash', get_post_status($product->get_id()));
+    }
+
+    public function testProductTrashRestoreRejectsSkuReuse(): void
+    {
+        $run = $this->task(); $product = $this->product(); $product->set_sku('agent-trash-' . wp_generate_uuid4()); $product->save();
+        $proposal = $this->trashProposal($run, $product);
+        self::assertIsArray($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply'));
+        $other = $this->product(); $other->set_sku($product->get_sku()); $other->save();
+        self::assertWPError($this->tool($run, 'revert-product-trash', ['proposal_id' => $proposal], 'revert'));
+        self::assertSame('trash', get_post_status($product->get_id()));
+        self::assertSame($product->get_sku(), wc_get_product($other->get_id())->get_sku());
+    }
+
+    public function testProductTrashRunnerStopsAtReviewWithoutDeleting(): void
+    {
+        $run = $this->task(); $product = $this->product(); Oyiso_Agent_Runner::message($run, '移入回收站');
+        $runner = new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('', [
+            ['get-product', ['product_id' => $product->get_id()]],
+            ['prepare-product-trash', ['product_id' => $product->get_id(), 'reason' => '明确指定的测试商品']],
+            ['apply-product-trash', ['proposal_id' => 'not-approved']],
+        ])]));
+        $runner->step($run['id']);
+        $fresh = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('waiting', $fresh['status']); self::assertSame('pending', $fresh['changes'][0]['status']);
+        self::assertStringContainsString('尚未执行', $fresh['conversation'][count($fresh['conversation']) - 1]['text']);
+        self::assertSame('draft', get_post_status($product->get_id()));
+    }
+
+    public function testProductTrashDisabledNeverPermanentlyDeletes(): void
+    {
+        if (EMPTY_TRASH_DAYS) self::markTestSkipped('Run with EMPTY_TRASH_DAYS=0 defined before the WordPress bootstrap.');
+        $run = $this->task(); $product = $this->product();
+        self::assertIsArray($this->tool($run, 'get-product', ['product_id' => $product->get_id()]));
+        self::assertWPError($this->tool($run, 'prepare-product-trash', ['product_id' => $product->get_id(), 'reason' => 'Must not hard-delete']));
+        $proposal = wp_generate_uuid4();
+        $run['changes'][] = ['id' => $proposal, 'type' => 'trash', 'product_id' => $product->get_id(), 'name' => $product->get_name(), 'before' => [], 'after' => [], 'status' => 'pending'];
+        self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply'));
+        self::assertSame('draft', get_post_status($product->get_id()));
+        self::assertInstanceOf(WP_Post::class, get_post($product->get_id()));
     }
 
     private static function assertWPError(mixed $value): void

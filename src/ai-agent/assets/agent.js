@@ -21,6 +21,8 @@
     const layoutMenu = $('[data-agent-layout-menu]');
     const settingsMenu = $('[data-agent-settings-menu]');
     const settingsToggle = $('[data-agent-settings-toggle]');
+    const productDialog = document.querySelector('[data-agent-product-dialog]');
+    let productConfirmation;
     const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
     const fields = { description: '长描述', short_description: '短描述', seo_title: 'SEO 标题', seo_description: 'SEO 描述', seo_keywords: '目标关键词' };
     const storageKey = `oyiso-agent:${config.user}:${new URL(config.url).pathname}`;
@@ -382,14 +384,33 @@
         const container = $('[data-agent-changes]');
         container.replaceChildren();
         const visible = changes.filter(change => !['superseded', 'cancelled'].includes(change.status));
-        if (visible.length) container.append(node('h3', '', '商品修改'));
+        if (visible.length) container.append(node('h3', '', visible.some(change => change.type === 'trash') ? '商品操作' : '商品修改'));
         for (const change of visible) {
             const section = node('section', 'oyiso-agent-change');
             const heading = node('div', 'oyiso-agent-change-heading');
             heading.append(node('h4', '', `${change.name}（#${change.product_id}）`));
-            const state = { pending: '尚未保存', applied: '已保存', reverted: '已撤回' };
+            const state = change.type === 'trash' ? { pending: '等待确认', applied: '已移入回收站', reverted: '已恢复', dismissed: '已取消' } : { pending: '尚未保存', applied: '已保存', reverted: '已撤回' };
             heading.append(node('span', 'description', state[change.status] || change.status));
             section.append(heading);
+            if (change.type === 'trash') {
+                const states = { publish: '已发布', private: '私密', draft: '草稿', pending: '待审核', future: '定时发布' };
+                section.append(node('p', 'description', 'SKU：' + (change.sku || '未设置') + ' · 原状态：' + (states[change.previous_status] || change.previous_status || '未知') + ' · 关联变体：' + (change.variation_count || 0)));
+                section.append(node('p', '', change.reason || ''));
+                if (change.status === 'pending') section.append(node('p', 'description', '确认后移入回收站，商品及关联变体从前台下架，图片和历史订单保留。'));
+                if (change.status === 'pending' || change.status === 'applied') {
+                    const actions = node('div', 'oyiso-agent-product-actions');
+                    for (const [action, label] of change.status === 'pending' ? [['dismiss', '不删除'], ['apply', '移入回收站']] : [['restore', '恢复商品']]) {
+                        const button = node('button', 'button' + (action === 'apply' ? ' oyiso-button-danger' : ''), label);
+                        button.type = 'button';
+                        button.disabled = !config.enabled || ['queued', 'running'].includes(run.status) || (action !== 'restore' && run.status === 'cancelled') || changing.has(change.id);
+                        button.addEventListener('click', () => action === 'apply' ? confirmProductTrash(change, button) : applyChange(change.id, action));
+                        actions.append(button);
+                    }
+                    section.append(actions);
+                }
+                container.append(section);
+                continue;
+            }
             for (const [name, after] of Object.entries(change.after)) {
                 const before = change.before[name] || '';
                 if (before === after) continue;
@@ -463,6 +484,34 @@
             container.append(section);
         }
     }
+
+    function confirmProductTrash(change, trigger) {
+        if (!productDialog || changing.has(change.id) || !run?.changes.some(item => item.id === change.id && item.type === 'trash' && item.status === 'pending') || ['queued', 'running', 'cancelled'].includes(run.status)) return;
+        productConfirmation = { runId, proposal: change.id, trigger };
+        $('[data-agent-product-description]', productDialog).textContent = '确定将“' + change.name + '”（#' + change.product_id + '，SKU：' + (change.sku || '未设置') + '）及其 ' + (change.variation_count || 0) + ' 个关联变体移入回收站？';
+        window.oyisoModalMotion.show(productDialog);
+        $('[data-agent-product-cancel]', productDialog).focus();
+    }
+
+    function closeProductConfirmation() {
+        if (!productDialog) return;
+        const trigger = productConfirmation?.trigger;
+        productConfirmation = null;
+        window.oyisoModalMotion.hide(productDialog, () => {
+            if (trigger?.isConnected) trigger.focus();
+            else if (panelOpen) prompt.focus();
+        });
+    }
+
+    productDialog?.querySelectorAll('[data-agent-product-close], [data-agent-product-cancel]').forEach(button => button.addEventListener('click', closeProductConfirmation));
+    productDialog?.addEventListener('cancel', event => { event.preventDefault(); closeProductConfirmation(); });
+    productDialog?.addEventListener('keydown', event => { if (event.key === 'Escape') event.stopPropagation(); });
+    productDialog?.querySelector('[data-agent-product-confirm]').addEventListener('click', () => {
+        const pending = productConfirmation;
+        if (!pending) return;
+        closeProductConfirmation();
+        if (pending.runId === runId && run?.changes.some(change => change.id === pending.proposal && change.type === 'trash' && change.status === 'pending')) applyChange(pending.proposal, 'trash');
+    });
 
     function render(next) {
         if (next.id !== runId) return;

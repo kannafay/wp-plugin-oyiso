@@ -405,6 +405,105 @@ test('Markdown blocks raw HTML unsafe links and automatic external image loads i
     assert.equal(content.querySelector('li').textContent, '新项目');
 });
 
+const trashProposal = (extra = {}) => ({ ...proposal(), type: 'trash', sku: 'SKU-99', product_type: 'variable', previous_status: 'publish', variation_count: 2, reason: '用户指定此商品移入回收站', before: {}, after: {}, ...extra });
+const productButton = (f, text) => [...f.$('[data-agent-changes]').querySelectorAll('button')].find(button => button.textContent === text);
+
+test('product trash cards require modal confirmation and support restore without duplicate execution', async t => {
+    const change = trashProposal();
+    let state = task({ status: 'waiting', changes: [change] }), finish;
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs/12') return state;
+        if (route.includes('/changes/')) {
+            const action = JSON.parse(options.body).action;
+            if (action === 'trash') return new Promise(resolve => { finish = () => { state = task({ changes: [{ ...change, status: 'applied' }] }); resolve(state); }; });
+            state = task({ changes: [{ ...change, status: 'reverted' }] }); return state;
+        }
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.match(f.$('[data-agent-changes]').textContent, /SKU-99/);
+    assert.match(f.$('[data-agent-changes]').textContent, /关联变体：2/);
+    const apply = productButton(f, '移入回收站'); assert.ok(apply.classList.contains('oyiso-button-danger'));
+    apply.click();
+    const dialog = f.$('[data-agent-product-dialog]');
+    assert.equal(dialog.open, true); assert.ok(dialog.classList.contains('oyiso-modal-motion'));
+    assert.match(dialog.textContent, /商品示例.*#99.*SKU-99/);
+    assert.equal(f.window.document.activeElement, f.$('[data-agent-product-cancel]'));
+    assert.equal(f.calls.some(call => call.route.includes('/changes/')), false);
+    f.$('[data-agent-product-cancel]').click(); assert.equal(dialog.open, false);
+    assert.equal(f.window.document.activeElement, apply);
+    apply.click();
+    f.$('[data-agent-product-confirm]').click(); f.$('[data-agent-product-confirm]').click(); await settle();
+    const requests = f.calls.filter(call => call.route.includes('/changes/'));
+    assert.equal(requests.length, 1); assert.equal(JSON.parse(requests[0].options.body).action, 'trash');
+    assert.equal(requests[0].options.headers['X-WP-Nonce'], 'fixture-nonce');
+    assert.equal(productButton(f, '移入回收站').disabled, true);
+    finish(); await settle();
+    assert.match(f.$('[data-agent-changes]').textContent, /已移入回收站/);
+    productButton(f, '恢复商品').click(); await settle();
+    assert.match(f.$('[data-agent-changes]').textContent, /已恢复/);
+    assert.equal(productButton(f, '恢复商品'), undefined);
+    assert.equal(JSON.parse(f.calls.filter(call => call.route.includes('/changes/'))[1].options.body).action, 'restore');
+});
+
+test('product deletion can be dismissed and unsafe product text stays escaped', async t => {
+    const change = trashProposal({ name: '<img src=x onerror=bad>', reason: '<script>bad</script>' });
+    let state = task({ status: 'waiting', changes: [change] });
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs/12') return state;
+        if (route.includes('/changes/')) { assert.equal(JSON.parse(options.body).action, 'dismiss'); state = task({ changes: [{ ...change, status: 'dismissed' }] }); return state; }
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(f.$('[data-agent-changes]').querySelector('script,img'), null);
+    productButton(f, '不删除').click(); await settle();
+    assert.match(f.$('[data-agent-changes]').textContent, /已取消/);
+    assert.equal(f.$('[data-agent-product-dialog]').open, false);
+    assert.equal(productButton(f, '移入回收站'), undefined);
+});
+
+test('a stale product confirmation cannot apply after conversation or proposal changes', async t => {
+    const change = trashProposal();
+    let state = task({ status: 'waiting', changes: [change] });
+    const f = fixture(t, route => route === 'runs/12' ? state : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); productButton(f, '移入回收站').click();
+    state = task({ changes: [{ ...change, status: 'dismissed' }] });
+    f.$('[data-agent-refresh]').click(); await settle();
+    f.$('[data-agent-product-confirm]').click(); await settle();
+    assert.equal(f.calls.some(call => call.route.includes('/changes/')), false);
+    state = task({ status: 'waiting', changes: [change] });
+    f.$('[data-agent-refresh]').click(); await settle(); productButton(f, '移入回收站').click();
+    f.$('[data-agent-new]').click(); f.$('[data-agent-product-confirm]').click(); await settle();
+    assert.equal(f.calls.some(call => call.route.includes('/changes/')), false);
+});
+
+test('product confirmation Escape keeps the assistant open and a rejected deletion remains reviewable', async t => {
+    const change = trashProposal();
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes: [change] }) : route.includes('/changes/') ? { ok: false, status: 409, body: { message: '商品已发生变化，请重新读取。' } } : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); f.$('[data-agent-fullscreen-toggle]').click(); productButton(f, '移入回收站').click();
+    const dialog = f.$('[data-agent-product-dialog]');
+    dialog.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    dialog.dispatchEvent(new f.window.Event('cancel', { cancelable: true }));
+    assert.equal(dialog.open, false); assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    assert.ok(f.$('#oyiso-agent-panel').hasAttribute('data-agent-fullscreen'));
+    productButton(f, '移入回收站').click(); f.$('[data-agent-product-confirm]').click(); await settle();
+    assert.match(f.$('[data-agent-notice]').textContent, /商品已发生变化/);
+    assert.equal(productButton(f, '移入回收站').disabled, false);
+    assert.equal(productButton(f, '恢复商品'), undefined);
+});
+
+test('running and cancelled conversations cannot submit product deletions', async t => {
+    for (const status of ['running', 'cancelled']) {
+        const f = fixture(t, route => route === 'runs/12' ? task({ status, changes: [trashProposal()] }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+        await settle();
+        assert.equal(productButton(f, '移入回收站').disabled, true);
+        productButton(f, '移入回收站').click();
+        assert.equal(f.$('[data-agent-product-dialog]').open, false);
+        assert.equal(f.calls.some(call => call.route.includes('/changes/')), false);
+    }
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'cancelled', changes: [trashProposal({ status: 'applied' })] }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(productButton(f, '恢复商品').disabled, false);
+});
+
 test('MCP review cards show escaped arguments and require an explicit action without duplicate execution', async t => {
     const action = { id: '12345678-1234-1234-1234-123456789abc', name: 'woodmart/update-theme-setting', label: '更新主题设置', input_json: '{"id":"primary-color","value":"<script>bad</script>"}', status: 'pending', result: '' };
     let state = task({ status: 'waiting', mcp_actions: [action] }); let finish;

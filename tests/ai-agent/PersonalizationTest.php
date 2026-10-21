@@ -123,7 +123,9 @@ final class PersonalizationTest extends TestCase
         self::assertStringNotContainsString('默认内容语言：', $instructions);
         self::assertStringContainsString('管理员写作要求：保留商品参数。', $instructions);
         self::assertStringContainsString('管理员自定义指令：先给结论，使用简短列表。', $instructions);
-        self::assertStringContainsString('只通过 prepare-product-update 准备修改', $instructions);
+        self::assertStringContainsString('商品文案通过 prepare-product-update 准备修改', $instructions);
+        self::assertStringContainsString('通过 prepare-product-trash 生成移入回收站的待确认卡片', $instructions);
+        self::assertStringContainsString('保存、删除和恢复由用户在界面中确认', $instructions);
         update_option('oyiso', ['agent_custom_instructions' => ''], false);
         self::assertStringNotContainsString('管理员自定义指令：', Oyiso_Agent_Model::instructions());
         update_option('oyiso', ['agent_language' => 'pl_PL'], false);

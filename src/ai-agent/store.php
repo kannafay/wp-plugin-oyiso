@@ -6,11 +6,11 @@ defined('ABSPATH') || exit;
 
 /**
  * @phpstan-type Fields array<string, string>
- * @phpstan-type Change array{id:string, product_id:int, name:string, before:Fields, after:Fields, status:string}
+ * @phpstan-type Change array{id:string, product_id:int, name:string, before:Fields, after:Fields, status:string, type?:string, sku?:string, product_type?:string, reason?:string, previous_status?:string, variation_count?:int, variation_statuses?:array<int,string>, fingerprint?:string}
  * @phpstan-type RunEvent array{time:string, type:string, label:string, detail:string}
  * @phpstan-type MCPAction array{id:string,name:string,label:string,input_json:string,status:string,result:string}
  * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
- * @phpstan-type Run array{id:int, selection?:string, partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
+ * @phpstan-type Run array{id:int, selection?:string, partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, product_snapshots?:array<int,string>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
  */
 final class Oyiso_Agent_Store
 {

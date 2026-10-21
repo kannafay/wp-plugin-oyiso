@@ -36,7 +36,7 @@ final class Oyiso_Agent_Admin
         foreach (['step', 'cancel'] as $action) {
             register_rest_route($root, '/runs/(?P<id>\d+)/' . $action, ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response|WP_Error => self::control($request, $action)]);
         }
-        register_rest_route($root, '/runs/(?P<id>\d+)/changes/(?P<proposal>[a-f0-9-]{36})', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'change'], 'args' => ['action' => ['type' => 'string', 'enum' => ['apply', 'revert'], 'required' => true]]]);
+        register_rest_route($root, '/runs/(?P<id>\d+)/changes/(?P<proposal>[a-f0-9-]{36})', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'change'], 'args' => ['action' => ['type' => 'string', 'enum' => ['apply', 'trash', 'restore', 'revert', 'dismiss'], 'required' => true]]]);
         register_rest_route($root, '/runs/(?P<id>\d+)/mcp/(?P<proposal>[a-f0-9-]{36})', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'mcp'], 'args' => ['action' => ['type' => 'string', 'enum' => ['execute', 'dismiss'], 'required' => true]]]);
     }
 
@@ -147,15 +147,23 @@ final class Oyiso_Agent_Admin
                 return new WP_Error('agent_change_state', '请等待任务停止后再操作修改方案。', ['status' => 409]);
             }
             $action = (string) $request->get_param('action');
-            if (!in_array($action, ['apply', 'revert'], true)) {
+            if (!in_array($action, ['apply', 'trash', 'restore', 'revert', 'dismiss'], true)) {
                 return new WP_Error('agent_action_invalid', '操作无效。', ['status' => 400]);
             }
-            if ($run['status'] === 'cancelled' && $action !== 'revert') {
+            if ($run['status'] === 'cancelled' && !in_array($action, ['revert', 'restore'], true)) {
                 return new WP_Error('agent_change_cancelled', '任务已取消，待审核的修改已停止。', ['status' => 409]);
             }
+            $proposal = (string) $request->get_param('proposal');
+            $matches = array_values(array_filter($run['changes'], static fn(array $change): bool => $change['id'] === $proposal));
+            if ($matches === []) return new WP_Error('agent_proposal_missing', '商品操作方案不存在。', ['status' => 404]);
+            $kind = ($matches[0]['type'] ?? 'update') === 'trash' ? 'trash' : 'update';
+            if ($kind === 'trash' && in_array($action, ['apply', 'revert'], true)) return new WP_Error('agent_trash_confirmation', '请刷新页面，通过新的“移入回收站”或“恢复商品”按钮确认。', ['status' => 400]);
+            if ($kind !== 'trash' && in_array($action, ['trash', 'restore', 'dismiss'], true)) return new WP_Error('agent_action_invalid', '此修改方案不支持该操作。', ['status' => 400]);
+            if ($action === 'trash') $action = 'apply';
+            if ($action === 'restore') $action = 'revert';
             Oyiso_Agent_Abilities::bind(new Oyiso_Agent_Tools($run, $action));
-            $ability = wp_get_ability('oyiso/' . ($action === 'apply' ? 'apply' : 'revert') . '-product-update');
-            $result = $ability?->execute(['proposal_id' => (string) $request->get_param('proposal')]);
+            $ability = wp_get_ability('oyiso/' . $action . '-product-' . $kind);
+            $result = $ability?->execute(['proposal_id' => $proposal]);
             if (is_wp_error($result)) {
                 return $result;
             }
@@ -277,6 +285,11 @@ final class Oyiso_Agent_Admin
             <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-delete-description" data-agent-delete-description></p><p class="oyiso-confirm-dialog__error" data-agent-delete-error role="alert" hidden></p></div>
             <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-agent-delete-cancel>取消</button><button type="button" class="button oyiso-button-danger" data-agent-delete-confirm>删除</button></div>
         </dialog>
+        <dialog class="oyiso-agent-confirm oyiso-confirm-dialog" data-agent-product-dialog aria-labelledby="oyiso-agent-product-title" aria-describedby="oyiso-agent-product-description">
+            <div class="oyiso-confirm-dialog__heading"><h2 id="oyiso-agent-product-title">商品移入回收站</h2><button type="button" class="oyiso-confirm-dialog__close" data-agent-product-close aria-label="关闭">×</button></div>
+            <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-product-description" data-agent-product-description></p><p class="description">商品及其关联变体会从前台下架，图片和历史订单保留。可在回收站保留期间恢复。</p></div>
+            <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-agent-product-cancel>取消</button><button type="button" class="button oyiso-button-danger" data-agent-product-confirm>移入回收站</button></div>
+        </dialog>
         <?php
     }
 
@@ -345,7 +358,7 @@ final class Oyiso_Agent_Admin
 
     public static function tools(): void
     {
-        echo '<div class="oyiso-agent"><div class="oyiso-agent-heading"><div><h2>站内工具</h2><p class="description">助手可用的站内能力。商品修改需在预览中点击应用，查询权限取决于当前账号。</p></div></div>';
+        echo '<div class="oyiso-agent"><div class="oyiso-agent-heading"><div><h2>站内工具</h2><p class="description">助手可用的站内能力。商品修改和移入回收站需在卡片中确认，可用能力取决于当前账号权限。</p></div></div>';
         if (!Oyiso_Agent_Config::supported()) {
             echo '<p>AI Agent 需要 WordPress 7.0 或以上版本，当前环境暂不可用。</p></div>';
             return;
@@ -356,8 +369,9 @@ final class Oyiso_Agent_Admin
             if ($ability->get_category() !== 'oyiso-agent') {
                 continue;
             }
-            $manual = in_array($ability->get_name(), ['oyiso/apply-product-update', 'oyiso/revert-product-update'], true);
-            $usable = Oyiso_Agent_Config::enabled() && ($manual ? function_exists('wc_get_product') && current_user_can('edit_products') : in_array($ability->get_name(), $allowed, true));
+            $trash = str_ends_with($ability->get_name(), '-product-trash');
+            $manual = in_array($ability->get_name(), ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash', 'oyiso/dismiss-product-trash'], true);
+            $usable = Oyiso_Agent_Config::enabled() && ($manual ? function_exists('wc_get_product') && current_user_can('edit_products') && (!$trash || current_user_can('delete_products')) : in_array($ability->get_name(), $allowed, true));
             printf('<tr><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html($ability->get_label()), esc_html($ability->get_description()), esc_html($usable ? ($manual ? '在修改预览中操作' : '助手调用') : '当前不可用'));
         }
         echo '</tbody></table></div></div>';

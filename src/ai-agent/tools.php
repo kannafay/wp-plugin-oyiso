@@ -30,7 +30,7 @@ final class Oyiso_Agent_Tools
      */
     public function execute(string $name, array $input): array|WP_Error
     {
-        if (!Oyiso_Agent_Config::enabled() || !current_user_can('manage_options') || !Oyiso_Agent_Store::owned($this->run['id']) || ($name !== 'revert-product-update' && Oyiso_Agent_Store::cancelled($this->run['id']))) {
+        if (!Oyiso_Agent_Config::enabled() || !current_user_can('manage_options') || !Oyiso_Agent_Store::owned($this->run['id']) || (!in_array($name, ['revert-product-update', 'revert-product-trash'], true) && Oyiso_Agent_Store::cancelled($this->run['id']))) {
             return new WP_Error('agent_tool_forbidden', '当前任务已取消或没有执行权限。');
         }
         return match ($name) {
@@ -38,6 +38,8 @@ final class Oyiso_Agent_Tools
             'get-product' => $this->product(self::integer($input, 'product_id')),
             'order-summary' => $this->orders($input),
             'prepare-product-update' => $this->prepare($input),
+            'prepare-product-trash' => Oyiso_Agent_Product_Trash::prepare($this->run, self::integer($input, 'product_id'), self::text($input, 'reason')),
+            'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash' => Oyiso_Agent_Product_Trash::change($this->run, self::text($input, 'proposal_id'), explode('-', $name)[0], $this->approval),
             'apply-product-update' => $this->change(self::text($input, 'proposal_id'), false),
             'revert-product-update' => $this->change(self::text($input, 'proposal_id'), true),
             'mcp-list-tools', 'mcp-describe-tool', 'mcp-call-tool' => Oyiso_Agent_MCP::call($name, $input, $this->run),
@@ -85,6 +87,9 @@ final class Oyiso_Agent_Tools
         }
         $fields = self::fields($product);
         $this->run['snapshots'][$id] = $fields;
+        $snapshot = Oyiso_Agent_Product_Trash::snapshot($id);
+        if (is_wp_error($snapshot)) return $snapshot;
+        $this->run['product_snapshots'][$id] = $snapshot['hash'];
         $attributes = [];
         foreach ($product->get_attributes() as $key => $attribute) {
             if ($attribute instanceof WC_Product_Attribute) {
@@ -93,7 +98,7 @@ final class Oyiso_Agent_Tools
                 $attributes[wc_attribute_label($key)] = $product->get_attribute($key);
             }
         }
-        return ['id' => $id, 'parent_id' => $product->get_parent_id(), 'name' => $product->get_name(), 'sku' => $product->get_sku(), 'type' => $product->get_type(), 'url' => $product->get_permalink(), 'price' => $product->get_price(), 'currency' => get_woocommerce_currency(), 'stock_status' => $product->get_stock_status(), 'attributes' => $attributes, 'fields' => array_map(static fn(string $value): string => mb_substr($value, 0, 20000), $fields), 'seopress' => self::seoEnabled(), 'notice' => '描述单字段最多返回 20000 字符。价格、库存和规格以本站资料为准；与用户提供的资料冲突时需说明。SEO 字段为空表示未单独设置，页面可能使用全局模板。'];
+        return ['id' => $id, 'parent_id' => $product->get_parent_id(), 'name' => $product->get_name(), 'sku' => $product->get_sku(), 'type' => $product->get_type(), 'status' => $product->get_status(), 'variation_count' => count(array_filter($snapshot['variations'], static fn(string $status): bool => $status !== 'trash')), 'can_trash' => get_post_type($id) === 'product' && current_user_can('delete_products') && current_user_can('delete_post', $id) && Oyiso_Agent_Product_Trash::trashEnabled(), 'url' => $product->get_permalink(), 'price' => $product->get_price(), 'currency' => get_woocommerce_currency(), 'stock_status' => $product->get_stock_status(), 'attributes' => $attributes, 'fields' => array_map(static fn(string $value): string => mb_substr($value, 0, 20000), $fields), 'seopress' => self::seoEnabled(), 'notice' => '描述单字段最多返回 20000 字符。价格、库存和规格以本站资料为准；与用户提供的资料冲突时需说明。SEO 字段为空表示未单独设置，页面可能使用全局模板。'];
     }
 
     /** @param array<string, mixed> $input
@@ -180,7 +185,7 @@ final class Oyiso_Agent_Tools
             return new WP_Error('agent_approval_required', '请通过修改预览中的操作按钮执行。');
         }
         foreach ($this->run['changes'] as &$change) {
-            if ($change['id'] !== $proposal) {
+            if ($change['id'] !== $proposal || ($change['type'] ?? 'update') !== 'update') {
                 continue;
             }
             $done = $revert ? 'reverted' : 'applied';

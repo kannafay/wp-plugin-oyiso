@@ -185,6 +185,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-changes { padding: 0 20px 4px; }
 .oyiso-agent-change { margin: 0 0 16px; padding: 14px; border: 1px solid #dcdcde; border-radius: 4px; }
 .oyiso-agent-change-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.oyiso-agent-product-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .oyiso-agent-field-diff { margin: 0 0 14px; }
 .oyiso-agent-field-diff summary { padding: 6px 0; cursor: pointer; font-weight: 600; }
 .oyiso-agent-source-toggle { display: inline-flex; align-items: center; gap: 5px; margin: 4px 0; color: #646970; font-size: 12px; }

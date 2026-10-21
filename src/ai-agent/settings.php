@@ -13,7 +13,7 @@ CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-model', 'title' => '模型配置', 'icon' => 'fas fa-sliders-h', 'priority' => 20,
     'fields' => [
         ['type' => 'heading', 'content' => '模型配置'],
-        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询数据并准备商品修改。', 'default' => false, 'desc' => '启用后保存配置并刷新页面，即可加载助手。'],
+        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询数据，并准备商品修改或移入回收站方案。', 'default' => false, 'desc' => '商品变更须在操作卡片中确认。启用后保存配置并刷新页面，即可加载助手。'],
         ['type' => 'callback', 'class' => 'oyiso-agent-model-providers', 'function' => [Oyiso_Agent_Model_Settings::class, 'render']],
     ],
 ]);
