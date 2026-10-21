@@ -37,6 +37,13 @@ function oyiso_wc_checkout_maintenance_get_fields(): array
                     'desc' => '选择喜欢的风格，再点击下方“预览弹窗”查看效果。',
                 ],
                 [
+                    'id' => 'accent',
+                    'type' => 'callback',
+                    'title' => '强调色',
+                    'default' => $defaults['accent'],
+                    'function' => [Oyiso_WC_Checkout_Maintenance::class, 'renderAccentField'],
+                ],
+                [
                     'id' => 'title',
                     'type' => 'text',
                     'title' => '弹窗标题',
@@ -44,10 +51,13 @@ function oyiso_wc_checkout_maintenance_get_fields(): array
                 ],
                 [
                     'id' => 'message',
-                    'type' => 'textarea',
+                    'type' => 'wp_editor',
                     'title' => '客户提示',
                     'default' => $defaults['message'],
-                    'desc' => '可替换默认英文，支持换行。留空时使用默认提示。',
+                    'media_buttons' => false,
+                    'wpautop' => true,
+                    'height' => '200px',
+                    'desc' => '支持可视化编辑，也可切换到“代码”输入 HTML。留空时使用默认提示。',
                 ],
                 [
                     'id' => 'button',

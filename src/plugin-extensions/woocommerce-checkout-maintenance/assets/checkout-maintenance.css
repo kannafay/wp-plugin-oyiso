@@ -3,6 +3,20 @@ html.oyiso-checkout-maintenance-open {
 }
 
 dialog.oyiso-checkout-maintenance-dialog {
+    --oyiso-maintenance-accent: #a36616;
+    --oyiso-maintenance-on-accent: #fff;
+    --oyiso-maintenance-accent-hover: #935c14;
+    --oyiso-maintenance-on-accent-hover: #fff;
+    --oyiso-maintenance-ink: color-mix(in srgb, var(--oyiso-maintenance-accent) 32%, #20242b);
+    --oyiso-maintenance-muted: color-mix(in srgb, var(--oyiso-maintenance-accent) 18%, #626873);
+    --oyiso-maintenance-tint: color-mix(in srgb, var(--oyiso-maintenance-accent) 6%, #fff);
+    --oyiso-maintenance-tint-strong: color-mix(in srgb, var(--oyiso-maintenance-accent) 12%, #fff);
+    --oyiso-maintenance-border: color-mix(in srgb, var(--oyiso-maintenance-accent) 22%, #fff);
+    --oyiso-maintenance-dark: color-mix(in srgb, var(--oyiso-maintenance-accent) 18%, #14171c);
+    --oyiso-maintenance-dark-header: color-mix(in srgb, var(--oyiso-maintenance-accent) 25%, #1e242b);
+    --oyiso-maintenance-dark-border: color-mix(in srgb, var(--oyiso-maintenance-accent) 30%, #45505c);
+    --oyiso-maintenance-light: color-mix(in srgb, var(--oyiso-maintenance-accent) 20%, #fff);
+    --oyiso-maintenance-light-muted: color-mix(in srgb, var(--oyiso-maintenance-accent) 20%, #c7cdd4);
     box-sizing: border-box;
     width: calc(100% - 40px);
     max-width: 440px;
@@ -10,7 +24,7 @@ dialog.oyiso-checkout-maintenance-dialog {
     max-height: calc(100dvh - 40px);
     margin: auto;
     padding: 0;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--oyiso-maintenance-border);
     border-radius: 18px;
     background: #fff;
     color: #20242b;
@@ -61,7 +75,7 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
 }
 
 .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__close:hover {
-    background: #f3f4f6;
+    background: var(--oyiso-maintenance-tint);
     color: #20242b;
 }
 
@@ -78,10 +92,10 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
     flex-shrink: 0;
     width: 56px;
     height: 56px;
-    border: 1px solid #f6e0b7;
+    border: 1px solid var(--oyiso-maintenance-border);
     border-radius: 16px;
-    background: #fff8eb;
-    color: #a36616;
+    background: var(--oyiso-maintenance-tint);
+    color: var(--oyiso-maintenance-ink);
     place-items: center;
 }
 
@@ -99,13 +113,25 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
 
 .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message {
     margin: 0 0 28px;
-    color: #626873;
+    color: var(--oyiso-maintenance-muted);
     font-family: inherit;
     font-size: 15px;
     line-height: 1.7;
-    white-space: pre-line;
+    white-space: normal;
     overflow-wrap: anywhere;
 }
+
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message[data-format="text"] { white-space: pre-line; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message :where(p, ul, ol, blockquote, pre, table) { margin: 0 0 .9em; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message > :last-child { margin-bottom: 0; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message :where(ul, ol) { padding-inline-start: 1.4em; text-align: start; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message :where(ul) { list-style: disc; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message :where(ol) { list-style: decimal; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message :where(li) { margin-bottom: .25em; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message :where(a) { color: var(--oyiso-maintenance-ink); text-decoration: underline; text-underline-offset: 2px; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message :where(img, video) { max-width: 100%; height: auto; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message :where(pre) { white-space: pre-wrap; }
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__message :where(table) { display: block; max-width: 100%; overflow: auto; }
 
 .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__button {
     display: block;
@@ -113,8 +139,8 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
     min-height: 46px;
     padding: 12px 20px;
     border-radius: 9px;
-    background: #20242b;
-    color: #fff;
+    background: var(--oyiso-maintenance-accent);
+    color: var(--oyiso-maintenance-on-accent);
     font-size: 14px;
     font-weight: 600;
     line-height: 1.5;
@@ -123,19 +149,19 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
 }
 
 .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__button:hover {
-    background: #353b45;
-    color: #fff;
+    background: var(--oyiso-maintenance-accent-hover);
+    color: var(--oyiso-maintenance-on-accent-hover);
 }
 
 .oyiso-checkout-maintenance-dialog button:focus-visible {
-    outline: 2px solid #a36616;
+    outline: 2px solid var(--oyiso-maintenance-ink);
     outline-offset: 3px;
 }
 
 /* Minimal: a compact, text-first notice with an outlined action. */
 dialog.oyiso-checkout-maintenance-dialog[data-template="minimal"] {
     max-width: 420px;
-    border-color: #d9dde2;
+    border-color: var(--oyiso-maintenance-border);
     border-radius: 8px;
     box-shadow: 0 16px 48px rgb(0 0 0 / 12%);
 }
@@ -163,27 +189,24 @@ dialog.oyiso-checkout-maintenance-dialog[data-template="minimal"] {
     min-width: 112px;
     max-width: 100%;
     margin-inline-start: auto;
-    border: 1px solid #b9c0c9;
+    border: 1px solid var(--oyiso-maintenance-accent);
     border-radius: 5px;
     background: #fff;
-    color: #20242b;
+    color: var(--oyiso-maintenance-ink);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="minimal"] .oyiso-checkout-maintenance-dialog__button:hover {
-    border-color: #20242b;
-    background: #f3f4f6;
+    border-color: var(--oyiso-maintenance-ink);
+    background: var(--oyiso-maintenance-tint);
+    color: var(--oyiso-maintenance-ink);
 }
 
-.oyiso-checkout-maintenance-dialog[data-template="minimal"] button:focus-visible {
-    outline-color: #626873;
-}
-
-/* Soft: a centered notice with a quiet green surface. */
+/* Soft: a centered notice with a quiet tint of the selected accent. */
 dialog.oyiso-checkout-maintenance-dialog[data-template="soft"] {
-    border-color: #d7e6dc;
+    border-color: var(--oyiso-maintenance-border);
     border-radius: 24px;
-    background: #f3f8f5;
-    box-shadow: 0 20px 60px rgb(25 63 50 / 16%);
+    background: var(--oyiso-maintenance-tint);
+    box-shadow: 0 20px 60px rgb(0 0 0 / 16%);
     text-align: center;
 }
 
@@ -196,48 +219,39 @@ dialog.oyiso-checkout-maintenance-dialog[data-template="soft"] {
 .oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__icon {
     width: 64px;
     height: 64px;
-    border-color: #cee1d5;
+    border-color: var(--oyiso-maintenance-border);
     border-radius: 50%;
-    background: #e3eee6;
-    color: #276747;
+    background: var(--oyiso-maintenance-tint-strong);
+    color: var(--oyiso-maintenance-ink);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__title {
-    color: #193f32;
+    color: var(--oyiso-maintenance-ink);
     font-size: 24px;
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__message {
-    color: #526b60;
+    color: var(--oyiso-maintenance-muted);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__close {
-    color: #526b60;
+    color: var(--oyiso-maintenance-muted);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__close:hover {
-    background: #e3eee6;
-    color: #193f32;
+    background: var(--oyiso-maintenance-tint-strong);
+    color: var(--oyiso-maintenance-ink);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__button {
     border-radius: 24px;
-    background: #276747;
-}
-
-.oyiso-checkout-maintenance-dialog[data-template="soft"] .oyiso-checkout-maintenance-dialog__button:hover {
-    background: #1e5339;
-}
-
-.oyiso-checkout-maintenance-dialog[data-template="soft"] button:focus-visible {
-    outline-color: #276747;
 }
 
 /* Dark: a distinct header band above the message and light action. */
 dialog.oyiso-checkout-maintenance-dialog[data-template="dark"] {
-    border-color: #354957;
+    border-color: var(--oyiso-maintenance-dark-border);
     border-radius: 12px;
-    background: #17242e;
+    background: var(--oyiso-maintenance-dark);
     color: #f5f7fa;
     box-shadow: 0 24px 80px rgb(0 0 0 / 28%);
 }
@@ -245,15 +259,15 @@ dialog.oyiso-checkout-maintenance-dialog[data-template="dark"] {
 .oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__header {
     margin: -36px -36px 24px;
     padding: 30px 60px 30px 36px;
-    border-bottom: 1px solid #354957;
-    background: #243744;
+    border-bottom: 1px solid var(--oyiso-maintenance-dark-border);
+    background: var(--oyiso-maintenance-dark-header);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__icon {
-    border-color: #526f7d;
+    border-color: var(--oyiso-maintenance-dark-border);
     border-radius: 14px;
     background: transparent;
-    color: #c4e2ed;
+    color: var(--oyiso-maintenance-light);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__title {
@@ -262,32 +276,42 @@ dialog.oyiso-checkout-maintenance-dialog[data-template="dark"] {
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__message {
-    color: #bbcbd5;
+    color: var(--oyiso-maintenance-light-muted);
 }
+
+.oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__message :where(a) { color: var(--oyiso-maintenance-light); }
 
 .oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__close {
     z-index: 1;
-    color: #bbcbd5;
+    color: var(--oyiso-maintenance-light);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__close:hover {
-    background: #354957;
+    background: var(--oyiso-maintenance-dark-border);
     color: #fff;
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__button {
-    background: #d7e9ef;
-    color: #17242e;
+    background: var(--oyiso-maintenance-light);
+    color: var(--oyiso-maintenance-dark);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="dark"] .oyiso-checkout-maintenance-dialog__button:hover {
-    background: #eef7fa;
-    color: #17242e;
+    background: #fff;
+    color: var(--oyiso-maintenance-dark);
 }
 
 .oyiso-checkout-maintenance-dialog[data-template="dark"] button:focus-visible {
-    outline-color: #c4e2ed;
+    outline-color: var(--oyiso-maintenance-light);
 }
+
+.oyiso-maintenance-accent-control { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.csf-field .oyiso-maintenance-accent-control input[type="color"] { box-sizing: border-box; width: 48px; height: 38px; min-height: 0; margin: 0; padding: 3px; border: 1px solid #8c8f94; border-radius: 4px; background: #fff; cursor: pointer; }
+.csf-field .oyiso-maintenance-accent-control input[type="text"] { box-sizing: border-box; width: 112px; height: 38px; margin: 0; }
+.oyiso-maintenance-color-presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.csf-field .oyiso-maintenance-color-preset { box-sizing: border-box; width: 26px; height: 26px; min-height: 0; margin: 0; padding: 0; border: 2px solid #fff; border-radius: 4px; background: var(--oyiso-preset-color); box-shadow: 0 0 0 1px #dcdcde; cursor: pointer; }
+.csf-field .oyiso-maintenance-color-preset[aria-pressed="true"] { box-shadow: 0 0 0 2px #20242b; }
+.csf-field .oyiso-maintenance-color-preset:focus-visible { outline: 2px solid #20242b; outline-offset: 3px; }
 
 @keyframes oyiso-checkout-maintenance-enter {
     from { opacity: 0; transform: translateY(6px) scale(.98); }
