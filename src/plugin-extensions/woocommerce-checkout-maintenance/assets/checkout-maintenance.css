@@ -320,6 +320,7 @@ dialog.oyiso-checkout-maintenance-dialog[data-template="dark"] {
 .csf-field .oyiso-maintenance-accent-control input[type="color"] { box-sizing: border-box; width: 48px; height: 38px; min-height: 0; margin: 0; padding: 3px; border: 1px solid #8c8f94; border-radius: 4px; background: #fff; cursor: pointer; }
 .csf-field .oyiso-maintenance-accent-control input[type="text"] { box-sizing: border-box; width: 112px; height: 38px; margin: 0; }
 .oyiso-maintenance-color-presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.oyiso-maintenance-color-presets + .description { margin-top: 6px; }
 .csf-field .oyiso-maintenance-color-preset { box-sizing: border-box; width: 26px; height: 26px; min-height: 0; margin: 0; padding: 0; border: 2px solid #fff; border-radius: 4px; background: var(--oyiso-preset-color); box-shadow: 0 0 0 1px #dcdcde; cursor: pointer; }
 .csf-field .oyiso-maintenance-color-preset[aria-pressed="true"] { box-shadow: 0 0 0 2px #20242b; }
 .csf-field .oyiso-maintenance-color-preset:focus-visible { outline: 2px solid #20242b; outline-offset: 3px; }
