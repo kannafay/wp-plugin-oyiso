@@ -52,6 +52,7 @@ function oyiso_wc_checkout_maintenance_get_fields(): array
                 [
                     'id' => 'message',
                     'type' => 'wp_editor',
+                    'class' => 'oyiso-maintenance-message-field',
                     'title' => '客户提示',
                     'default' => $defaults['message'],
                     'media_buttons' => false,
