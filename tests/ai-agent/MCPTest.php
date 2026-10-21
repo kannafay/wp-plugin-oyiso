@@ -45,6 +45,7 @@ final class MCPTest extends TestCase
             self::assertInstanceOf(WP_Ability::class, WP_Abilities_Registry::get_instance()->register($name, $args));
             $this->registered[] = $name;
         }
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => ['fixture-mcp/write', 'fixture-mcp/unknown', 'fixture-mcp/throws', 'fixture-mcp/error']]), false);
     }
 
     protected function tearDown(): void
@@ -162,7 +163,7 @@ final class MCPTest extends TestCase
         $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
         update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => []], false);
         self::assertSame(400, $this->request($run, $pending['action_id'])->get_status());
-        update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => ['fixture-mcp']], false);
+        update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => ['fixture-mcp'], 'agent_write_tools' => ['fixture-mcp/write']], false);
         $this->permission = false;
         self::assertSame('failed', $this->request($run, $pending['action_id'])->get_data()['mcp_actions'][0]['status']);
         self::assertSame(0, $this->writes);
@@ -231,5 +232,94 @@ final class MCPTest extends TestCase
         self::assertStringContainsString('woodmart/update-theme-setting', $html);
         self::assertStringNotContainsString('type="password"', $html);
         self::assertStringContainsString('无需另存应用程序密码', $html);
+    }
+
+    public function testReadOnlyDefaultHidesAndBlocksEveryUnapprovedMcpWriteIncludingUnknownAnnotations(): void
+    {
+        update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => ['fixture-mcp'], 'agent_allow_product_trash' => true], false);
+        $run = $this->task();
+        self::assertSame(['fixture-mcp/large', 'fixture-mcp/read'], array_column(Oyiso_Agent_MCP::call('mcp-list-tools', [], $run)['tools'], 'name'));
+        self::assertIsArray($this->call($run, 'fixture-mcp/read'));
+        foreach (['write', 'unknown', 'throws', 'error'] as $kind) {
+            $name = 'fixture-mcp/' . $kind;
+            self::assertSame('agent_write_disabled', $this->call($run, $name)->get_error_code());
+            self::assertSame('agent_write_disabled', Oyiso_Agent_MCP::call('mcp-call-tool', ['name' => $name, 'input_json' => '{}'], $run)->get_error_code());
+            self::assertInstanceOf(WP_Error::class, Oyiso_Agent_MCP::call('mcp-describe-tool', ['name' => $name], $run));
+        }
+        self::assertSame(0, $this->writes);
+        self::assertSame([], $run['mcp_actions'] ?? []);
+    }
+
+    public function testEachMcpWriteNeedsItsOwnGrantAndOldCardsCannotBypassRevocation(): void
+    {
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => ['fixture-mcp/write']]), false);
+        $run = $this->task();
+        self::assertSame('agent_write_disabled', $this->call($run, 'fixture-mcp/unknown')->get_error_code());
+        $pending = $this->call($run, 'fixture-mcp/write');
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => ['fixture-mcp/unknown']]), false);
+        self::assertSame(403, $this->request($run, $pending['action_id'])->get_status());
+        self::assertSame('agent_write_disabled', Oyiso_Agent_MCP::approve($run, $pending['action_id'], 'execute')->get_error_code());
+        self::assertSame('pending', Oyiso_Agent_Store::get($run['id'])['mcp_actions'][0]['status']);
+        self::assertSame(0, $this->writes);
+        self::assertSame('dismissed', $this->request($run, $pending['action_id'], 'dismiss')->get_data()['mcp_actions'][0]['status']);
+    }
+
+    public function testMcpWriteRechecksSavedGrantAfterAnotherRequestRevokesIt(): void
+    {
+        global $wpdb;
+        $run = $this->task(); $pending = $this->call($run, 'fixture-mcp/write');
+        $options = Oyiso_Agent_Config::options();
+        try {
+            foreach ([['agent_write_tools' => []], ['agent_mcp_namespaces' => []]] as $revoked) {
+                $wpdb->update($wpdb->options, ['option_value' => maybe_serialize(array_replace($options, $revoked))], ['option_name' => 'oyiso']);
+                self::assertTrue(Oyiso_Agent_Permissions::allows('fixture-mcp/write'), 'The old request still has a cached grant.');
+                self::assertSame('agent_write_disabled', $this->call($run, 'fixture-mcp/write')->get_error_code());
+                self::assertSame('agent_write_disabled', Oyiso_Agent_MCP::approve($run, $pending['action_id'], 'execute')->get_error_code());
+                self::assertSame('pending', $run['mcp_actions'][0]['status']);
+                self::assertSame(0, $this->writes);
+            }
+        } finally {
+            $wpdb->update($wpdb->options, ['option_value' => maybe_serialize($options)], ['option_name' => 'oyiso']);
+            wp_cache_delete('oyiso', 'options'); wp_cache_delete('alloptions', 'options');
+        }
+    }
+
+    public function testModelCannotInvokeRawMcpAbilitiesOrUseDispatcherToBypassReadOnly(): void
+    {
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => []]), false);
+        $run = $this->task();
+        $parts = [];
+        foreach ([['fixture-mcp/write', ['value' => 'raw']], ['oyiso/mcp-call-tool', ['name' => 'fixture-mcp/write', 'input_json' => '{}']]] as [$name, $args]) {
+            $parts[] = new MessagePart(new FunctionCall(wp_generate_uuid4(), WP_AI_Client_Ability_Function_Resolver::ability_name_to_function_name($name), $args));
+        }
+        $turn = new Oyiso_Agent_Turn(new ModelMessage($parts), 10, 'fixture-model');
+        $gateway = new class($turn) implements Oyiso_Agent_Model_Gateway {
+            public function __construct(private Oyiso_Agent_Turn $turn) {}
+            public function generate(array $history, array $abilities, ?string $selection = null, ?Closure $onText = null): Oyiso_Agent_Turn|WP_Error { return $this->turn; }
+        };
+        (new Oyiso_Agent_Runner($gateway))->step($run['id']);
+        $saved = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame(0, $this->writes);
+        self::assertSame([], $saved['mcp_actions'] ?? []);
+        self::assertStringContainsString('agent_tool_denied', wp_json_encode($saved['messages']));
+        self::assertStringContainsString('agent_write_disabled', wp_json_encode($saved['messages']));
+    }
+
+    public function testWriteCheckboxesAreInsideToolRowsAndReadOnlyToolsCannotBeGranted(): void
+    {
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => []]), false);
+        ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
+        $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new DOMXPath($dom);
+        self::assertSame(0, $xpath->query('//input[@type="checkbox"][@checked]')->length);
+        foreach (Oyiso_Agent_Permissions::writable() as $name => $ability) {
+            self::assertGreaterThanOrEqual(1, $xpath->query('//tr//input[@type="checkbox"][@name="oyiso[agent_write_tools][]"][@value="' . $name . '"]')->length, $name);
+        }
+        self::assertSame(0, $xpath->query('//input[@value="fixture-mcp/read"]')->length);
+        self::assertStringNotContainsString('oyiso[agent_allow_product_trash]', $html);
+        self::assertSame([], Oyiso_Agent_Permissions::sanitize(['*', 'fixture-mcp/read', 'unknown/write', ['fixture-mcp/write']]));
+        self::assertFalse(Oyiso_Agent_Permissions::allows('fixture-mcp/write'));
+        self::assertInstanceOf(WP_Error::class, Oyiso_Agent_Permissions::check('fixture-mcp/write'));
     }
 }

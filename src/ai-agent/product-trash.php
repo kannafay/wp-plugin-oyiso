@@ -69,7 +69,8 @@ final class Oyiso_Agent_Product_Trash
      */
     public static function prepare(array &$run, int $id, string $reason): array|WP_Error
     {
-        if (!Oyiso_Agent_Config::productTrashAllowed()) return self::permissionDisabled();
+        $permission = Oyiso_Agent_Permissions::check('oyiso/apply-product-trash');
+        if (is_wp_error($permission)) return $permission;
         $product = self::product($id);
         if (is_wp_error($product)) return $product;
         if (!self::trashEnabled()) return self::trashDisabled();
@@ -101,7 +102,10 @@ final class Oyiso_Agent_Product_Trash
     public static function change(array &$run, string $proposal, string $action, string $approval): array|WP_Error
     {
         if ($approval !== $action || !in_array($action, ['apply', 'revert', 'dismiss'], true)) return new WP_Error('agent_approval_required', '请通过商品操作卡片确认。');
-        if ($action === 'apply' && !Oyiso_Agent_Config::productTrashAllowed()) return self::permissionDisabled();
+        if ($action !== 'dismiss') {
+            $permission = Oyiso_Agent_Permissions::check('oyiso/' . ($action === 'revert' ? 'revert' : 'apply') . '-product-trash');
+            if (is_wp_error($permission)) return $permission;
+        }
         foreach ($run['changes'] as &$change) {
             if ($change['id'] !== $proposal || ($change['type'] ?? '') !== 'trash') continue;
             $done = match ($action) { 'apply' => 'applied', 'revert' => 'reverted', default => 'dismissed' };
@@ -230,11 +234,6 @@ final class Oyiso_Agent_Product_Trash
         if (get_post_type($id) !== 'product') return new WP_Error('agent_product_type', '此操作只支持主商品，不支持单独删除变体或其他内容。');
         $product = wc_get_product($id);
         return $product instanceof WC_Product ? $product : new WP_Error('agent_product_missing', '商品不存在。');
-    }
-
-    private static function permissionDisabled(): WP_Error
-    {
-        return new WP_Error('agent_product_trash_disabled', '商品删除权限未开启，请在「AI Agent → 站内工具」中勾选并保存。', ['status' => 403]);
     }
 
     private static function trashDisabled(): WP_Error

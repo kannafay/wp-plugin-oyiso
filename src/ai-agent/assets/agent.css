@@ -12,6 +12,8 @@ body.is-fullscreen-mode { --oyiso-agent-bar-height: 0px; }
 .oyiso-agent .description { color: #646970; font-size: 12px; }
 .oyiso-agent-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .oyiso-agent-heading .button { flex-shrink: 0; }
+.oyiso-agent-tools-table th:last-child, .oyiso-agent-tools-table td:last-child { width: 112px; text-align: center; vertical-align: middle; }
+.oyiso-agent-tools-table td:last-child input[type="checkbox"] { display: block; margin: 0 auto; }
 #oyiso-agent-launcher-wrap { position: fixed; z-index: 9991; right: 24px; bottom: 24px; display: flex; width: max-content; height: max-content; overflow: hidden; pointer-events: none; filter: drop-shadow(0 3px 6px #0002); opacity: 1; transform: scale(1); }
 #oyiso-agent-launcher-wrap[style] { right: auto; bottom: auto; }
 body.oyiso-agent-open #oyiso-agent-launcher-wrap { opacity: 0; transform: scale(.9); }

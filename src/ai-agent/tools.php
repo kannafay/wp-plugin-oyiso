@@ -33,6 +33,10 @@ final class Oyiso_Agent_Tools
         if (!Oyiso_Agent_Config::enabled() || !current_user_can('manage_options') || !Oyiso_Agent_Store::owned($this->run['id']) || (!in_array($name, ['revert-product-update', 'revert-product-trash'], true) && Oyiso_Agent_Store::cancelled($this->run['id']))) {
             return new WP_Error('agent_tool_forbidden', '当前任务已取消或没有执行权限。');
         }
+        if (Oyiso_Agent_Permissions::required('oyiso/' . $name) !== null) {
+            $permission = Oyiso_Agent_Permissions::check('oyiso/' . $name);
+            if (is_wp_error($permission)) return $permission;
+        }
         return match ($name) {
             'search-products' => $this->search($input),
             'get-product' => $this->product(self::integer($input, 'product_id')),
@@ -98,7 +102,7 @@ final class Oyiso_Agent_Tools
                 $attributes[wc_attribute_label($key)] = $product->get_attribute($key);
             }
         }
-        return ['id' => $id, 'parent_id' => $product->get_parent_id(), 'name' => $product->get_name(), 'sku' => $product->get_sku(), 'type' => $product->get_type(), 'status' => $product->get_status(), 'variation_count' => count(array_filter($snapshot['variations'], static fn(string $status): bool => $status !== 'trash')), 'can_trash' => Oyiso_Agent_Config::productTrashAllowed() && get_post_type($id) === 'product' && current_user_can('delete_products') && current_user_can('delete_post', $id) && Oyiso_Agent_Product_Trash::trashEnabled(), 'url' => $product->get_permalink(), 'price' => $product->get_price(), 'currency' => get_woocommerce_currency(), 'stock_status' => $product->get_stock_status(), 'attributes' => $attributes, 'fields' => array_map(static fn(string $value): string => mb_substr($value, 0, 20000), $fields), 'seopress' => self::seoEnabled(), 'notice' => '描述单字段最多返回 20000 字符。价格、库存和规格以本站资料为准；与用户提供的资料冲突时需说明。SEO 字段为空表示未单独设置，页面可能使用全局模板。'];
+        return ['id' => $id, 'parent_id' => $product->get_parent_id(), 'name' => $product->get_name(), 'sku' => $product->get_sku(), 'type' => $product->get_type(), 'status' => $product->get_status(), 'variation_count' => count(array_filter($snapshot['variations'], static fn(string $status): bool => $status !== 'trash')), 'can_trash' => Oyiso_Agent_Permissions::allows('oyiso/apply-product-trash') && get_post_type($id) === 'product' && current_user_can('delete_products') && current_user_can('delete_post', $id) && Oyiso_Agent_Product_Trash::trashEnabled(), 'url' => $product->get_permalink(), 'price' => $product->get_price(), 'currency' => get_woocommerce_currency(), 'stock_status' => $product->get_stock_status(), 'attributes' => $attributes, 'fields' => array_map(static fn(string $value): string => mb_substr($value, 0, 20000), $fields), 'seopress' => self::seoEnabled(), 'notice' => '描述单字段最多返回 20000 字符。价格、库存和规格以本站资料为准；与用户提供的资料冲突时需说明。SEO 字段为空表示未单独设置，页面可能使用全局模板。'];
     }
 
     /** @param array<string, mixed> $input

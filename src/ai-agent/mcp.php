@@ -67,9 +67,10 @@ final class Oyiso_Agent_MCP
             echo '<p>尚未发现 MCP 工具。请先启用 WoodMart MCP 或支持 WordPress Abilities API 的插件。</p></div>';
             return;
         }
-        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-mcp-table"><thead><tr><th>工具</th><th>用途</th><th>执行方式</th></tr></thead><tbody>';
+        echo '<p class="description">默认只读。新增、修改、删除等写入工具需逐项勾选并保存；未标明只读的工具同样需要授权。启用插件不代表允许写入。</p>';
+        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-mcp-table oyiso-agent-tools-table"><thead><tr><th>工具</th><th>用途</th><th>执行方式</th><th>写入授权</th></tr></thead><tbody>';
         foreach ($tools as $name => $ability) {
-            printf('<tr><td>%s<br><small>%s</small></td><td>%s</td><td>%s</td></tr>', esc_html($ability->get_label()), esc_html($name), esc_html(mb_substr($ability->get_description(), 0, 220)), esc_html(self::readonly($ability) ? '只读查询' : '对话中确认后执行'));
+            printf('<tr><td>%s<br><small>%s</small></td><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html($ability->get_label()), esc_html($name), esc_html(mb_substr($ability->get_description(), 0, 220)), esc_html(self::readonly($ability) ? '只读查询' : '授权后在对话中确认'), Oyiso_Agent_Permissions::cell($ability));
         }
         echo '</tbody></table></div><p class="description">WoodMart 区块和布局编辑适用于 Gutenberg；待处理的区块修改还需要在 AI Block Queue 中完成。</p></div>';
     }
@@ -80,7 +81,7 @@ final class Oyiso_Agent_MCP
      */
     public static function call(string $operation, array $input, array &$run): array|WP_Error
     {
-        $tools = self::selected();
+        $tools = array_filter(self::selected(), static fn(WP_Ability $ability): bool => self::readonly($ability) || Oyiso_Agent_Permissions::allows($ability->get_name()));
         if ($operation === 'mcp-list-tools') {
             $search = is_string($input['search'] ?? null) ? mb_strtolower($input['search']) : '';
             $items = [];
@@ -93,7 +94,15 @@ final class Oyiso_Agent_MCP
         }
         $name = is_string($input['name'] ?? null) ? $input['name'] : '';
         $ability = $tools[$name] ?? null;
-        if ($ability === null) return new WP_Error('agent_mcp_unavailable', '该 MCP 工具未启用或已不可用。');
+        if ($ability === null) {
+            $disabled = self::selected()[$name] ?? null;
+            if ($disabled !== null && !self::readonly($disabled)) return Oyiso_Agent_Permissions::denied($name);
+            return new WP_Error('agent_mcp_unavailable', '该 MCP 工具未启用或已不可用。');
+        }
+        if (!self::readonly($ability)) {
+            $permission = Oyiso_Agent_Permissions::check($name);
+            if (is_wp_error($permission)) return $permission;
+        }
         if ($operation === 'mcp-describe-tool') {
             return ['name' => $name, 'description' => $ability->get_description(), 'input_schema' => $ability->get_input_schema(), 'readonly' => self::readonly($ability), 'notice' => self::readonly($ability) ? '只读工具可直接调用。' : '修改类工具仅生成待确认操作，用户在界面中批准后才会执行。'];
         }
@@ -139,6 +148,9 @@ final class Oyiso_Agent_MCP
             }
             $ability = self::selected()[$action['name']] ?? null;
             if ($ability === null) return new WP_Error('agent_mcp_unavailable', '该 MCP 工具未启用或已不可用。', ['status' => 400]);
+            // Recheck the saved grant even for an old card or a changed tool annotation.
+            $permission = Oyiso_Agent_Permissions::check($action['name']);
+            if (is_wp_error($permission)) return $permission;
             $input = json_decode($action['input_json'], true);
             // Persist before the write: a disconnected client must never repeat a mutation.
             $run['mcp_actions'][$index] = array_replace($action, ['status' => 'executing']);

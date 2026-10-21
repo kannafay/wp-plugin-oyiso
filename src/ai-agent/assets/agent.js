@@ -380,6 +380,9 @@
         return template.content.textContent.replace(/\n{3,}/g, '\n\n').trim();
     }
 
+    const mayWrite = name => Array.isArray(config.writeTools) && config.writeTools.includes(name);
+    const writePermissionNotice = '此工具未获写入授权，请在「AI Agent」对应工具列表中勾选并保存。';
+
     function renderChanges(changes) {
         const container = $('[data-agent-changes]');
         container.replaceChildren();
@@ -396,13 +399,15 @@
                 const states = { publish: '已发布', private: '私密', draft: '草稿', pending: '待审核', future: '定时发布' };
                 section.append(node('p', 'description', 'SKU：' + (change.sku || '未设置') + ' · 原状态：' + (states[change.previous_status] || change.previous_status || '未知') + ' · 关联变体：' + (change.variation_count || 0)));
                 section.append(node('p', '', change.reason || ''));
-                if (change.status === 'pending') section.append(node('p', 'description', config.productTrashAllowed ? '确认后移入回收站，商品及关联变体从前台下架，图片和历史订单保留。' : '商品删除权限未开启，请在「AI Agent → 站内工具」中勾选并保存。'));
+                if (change.status === 'pending') section.append(node('p', 'description', mayWrite('oyiso/apply-product-trash') ? '确认后移入回收站，商品及关联变体从前台下架，图片和历史订单保留。' : writePermissionNotice));
+                if (change.status === 'applied' && !mayWrite('oyiso/revert-product-trash')) section.append(node('p', 'description', writePermissionNotice));
                 if (change.status === 'pending' || change.status === 'applied') {
                     const actions = node('div', 'oyiso-agent-product-actions');
                     for (const [action, label] of change.status === 'pending' ? [['dismiss', '不删除'], ['apply', '移入回收站']] : [['restore', '恢复商品']]) {
                         const button = node('button', 'button' + (action === 'apply' ? ' oyiso-button-danger' : ''), label);
                         button.type = 'button';
-                        button.disabled = !config.enabled || (action === 'apply' && !config.productTrashAllowed) || ['queued', 'running'].includes(run.status) || (action !== 'restore' && run.status === 'cancelled') || changing.has(change.id);
+                        const permission = action === 'restore' ? 'oyiso/revert-product-trash' : 'oyiso/apply-product-trash';
+                        button.disabled = !config.enabled || (action !== 'dismiss' && !mayWrite(permission)) || ['queued', 'running'].includes(run.status) || (action !== 'restore' && run.status === 'cancelled') || changing.has(change.id);
                         button.addEventListener('click', () => action === 'apply' ? confirmProductTrash(change, button) : applyChange(change.id, action));
                         actions.append(button);
                     }
@@ -445,7 +450,8 @@
                 const action = change.status === 'pending' ? 'apply' : 'revert';
                 const button = node('button', `button ${action === 'apply' ? 'button-primary' : ''}`, action === 'apply' ? '应用修改' : '撤回修改');
                 button.type = 'button';
-                button.disabled = !config.enabled || ['queued', 'running'].includes(run.status) || (action === 'apply' && run.status === 'cancelled') || changing.has(change.id);
+                if (!mayWrite(`oyiso/${action}-product-update`)) section.append(node('p', 'description', writePermissionNotice));
+                button.disabled = !config.enabled || !mayWrite(`oyiso/${action}-product-update`) || ['queued', 'running'].includes(run.status) || (action === 'apply' && run.status === 'cancelled') || changing.has(change.id);
                 button.addEventListener('click', () => applyChange(change.id, action));
                 section.append(button);
             }
@@ -472,11 +478,11 @@
                 section.append(result);
             }
             if (action.status === 'pending') {
-                section.append(node('p', 'description', '确认后将调用此工具修改站点。'));
+                section.append(node('p', 'description', mayWrite(action.name) ? '确认后将调用此工具修改站点。' : writePermissionNotice));
                 for (const [decision, label] of [['dismiss', '取消'], ['execute', '确认执行']]) {
                     const button = node('button', `button${decision === 'execute' ? ' button-primary' : ''}`, changing.has(action.id) ? '处理中…' : label);
                     button.type = 'button';
-                    button.disabled = !config.enabled || ['queued', 'running', 'cancelled'].includes(run.status) || changing.has(action.id);
+                    button.disabled = !config.enabled || (decision === 'execute' && !mayWrite(action.name)) || ['queued', 'running', 'cancelled'].includes(run.status) || changing.has(action.id);
                     button.addEventListener('click', () => applyChange(action.id, decision, 'mcp'));
                     section.append(button);
                 }
@@ -486,7 +492,7 @@
     }
 
     function confirmProductTrash(change, trigger) {
-        if (!config.productTrashAllowed || !productDialog || changing.has(change.id) || !run?.changes.some(item => item.id === change.id && item.type === 'trash' && item.status === 'pending') || ['queued', 'running', 'cancelled'].includes(run.status)) return;
+        if (!mayWrite('oyiso/apply-product-trash') || !productDialog || changing.has(change.id) || !run?.changes.some(item => item.id === change.id && item.type === 'trash' && item.status === 'pending') || ['queued', 'running', 'cancelled'].includes(run.status)) return;
         productConfirmation = { runId, proposal: change.id, trigger };
         $('[data-agent-product-description]', productDialog).textContent = '确定将“' + change.name + '”（#' + change.product_id + '，SKU：' + (change.sku || '未设置') + '）及其 ' + (change.variation_count || 0) + ' 个关联变体移入回收站？';
         window.oyisoModalMotion.show(productDialog);
@@ -662,7 +668,12 @@
     }
 
     async function applyChange(proposal, action, kind = 'changes') {
-        if (changing.has(proposal) || (kind === 'changes' && action === 'trash' && !config.productTrashAllowed)) return;
+        if (changing.has(proposal)) return;
+        const change = kind === 'changes' ? run?.changes.find(item => item.id === proposal) : null;
+        const decision = { trash: 'apply', restore: 'revert' }[action] || action;
+        const operation = change?.type === 'trash' || ['trash', 'restore'].includes(action) ? 'trash' : 'update';
+        const permission = kind === 'mcp' ? run?.mcp_actions?.find(item => item.id === proposal)?.name : `oyiso/${decision}-product-${operation}`;
+        if (action !== 'dismiss' && !mayWrite(permission)) return;
         const id = runId;
         changing.add(proposal);
         controls();
@@ -849,8 +860,8 @@
             api('status').then(state => {
                 config.enabled = state.enabled;
                 config.supported = state.supported;
-                config.productTrashAllowed = state.productTrashAllowed === true;
-                if (!config.productTrashAllowed && productConfirmation) closeProductConfirmation();
+                config.writeTools = Array.isArray(state.writeTools) ? state.writeTools : [];
+                if (!mayWrite('oyiso/apply-product-trash') && productConfirmation) closeProductConfirmation();
                 if (run) renderChanges(run.changes);
                 if (state.models) populateModels(state.models);
                 if (!config.enabled) setPanel(false, false, false);

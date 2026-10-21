@@ -344,22 +344,31 @@ final class ManagedConnectionsTest extends TestCase
         }
     }
 
-    public function testNativeCsfSavePersistsAndRevokesProductTrashPermission(): void
+    public function testNativeCsfSavePersistsOnlyListedWriteGrantsAndRevokesUncheckedTools(): void
     {
         $sections = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
         $form = (new ReflectionClass(CSF_Options::class))->newInstanceWithoutConstructor();
         $form->unique = 'oyiso'; $form->options = Oyiso_Agent_Config::options(); $form->pre_fields = array_merge(...array_column($sections, 'fields'));
         $previousPost = $_POST;
         try {
-            foreach ([['agent_allow_product_trash' => '1'], ['agent_allow_product_trash' => '0'], ['agent_allow_product_trash' => '1'], []] as $fields) {
+            $cases = [
+                [['agent_write_tools' => ['oyiso/apply-product-update', 'oyiso/apply-product-trash', 'woodmart/create-layout', 'oyiso/apply-product-trash', '*', 'unknown/write', ['nested'], 'oyiso/get-product']], ['oyiso/apply-product-update', 'oyiso/apply-product-trash', 'woodmart/create-layout']],
+                [['agent_write_tools' => ['']], []],
+                [['agent_write_tools' => ['oyiso/revert-product-update']], ['oyiso/revert-product-update']],
+                [[], []],
+                [['agent_write_tools' => 'all', 'agent_allow_product_trash' => '1'], []],
+            ];
+            foreach ($cases as [$fields, $expected]) {
                 $payload = ['csf_options_nonceoyiso' => wp_create_nonce('csf_options_nonce'), 'oyiso' => $fields + ['agent_enabled' => '1']];
                 $_POST = ['data' => wp_slash(wp_json_encode($payload))];
                 self::assertTrue($form->set_options(true));
                 self::assertSame([], $form->errors);
-                $expected = ($fields['agent_allow_product_trash'] ?? '') === '1';
-                self::assertSame($expected, Oyiso_Agent_Config::productTrashAllowed());
-                self::assertSame($expected, in_array('oyiso/prepare-product-trash', Oyiso_Agent_Abilities::allowed(), true));
+                self::assertSame($expected, Oyiso_Agent_Permissions::granted());
+                self::assertSame($expected, Oyiso_Agent_Config::options()['agent_write_tools']);
+                self::assertArrayNotHasKey('agent_allow_product_trash', Oyiso_Agent_Config::options());
+                self::assertSame(in_array('oyiso/apply-product-trash', $expected, true), in_array('oyiso/prepare-product-trash', Oyiso_Agent_Abilities::allowed(), true));
             }
+            self::assertSame([], Oyiso_Agent_Permissions::granted());
         } finally { $_POST = $previousPost; }
     }
 

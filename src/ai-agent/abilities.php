@@ -52,9 +52,9 @@ final class Oyiso_Agent_Abilities
                     if (!Oyiso_Agent_Config::enabled() || !current_user_can('manage_options') || self::$context === null) {
                         return false;
                     }
+                    if (Oyiso_Agent_Permissions::required('oyiso/' . $name) !== null && !Oyiso_Agent_Permissions::allows('oyiso/' . $name)) return false;
                     return match ($name) {
-                        'apply-product-update' => self::$context->approved('apply'),
-                        'apply-product-trash' => Oyiso_Agent_Config::productTrashAllowed() && self::$context->approved('apply'),
+                        'apply-product-update', 'apply-product-trash' => self::$context->approved('apply'),
                         'revert-product-update', 'revert-product-trash' => self::$context->approved('revert'),
                         'dismiss-product-trash' => self::$context->approved('dismiss'),
                         default => in_array('oyiso/' . $name, self::allowed(), true),
@@ -75,8 +75,9 @@ final class Oyiso_Agent_Abilities
     {
         $names = [];
         if (function_exists('wc_get_product') && current_user_can('edit_products')) {
-            $names = array_merge($names, ['oyiso/search-products', 'oyiso/get-product', 'oyiso/prepare-product-update']);
-            if (Oyiso_Agent_Config::productTrashAllowed() && current_user_can('delete_products')) $names[] = 'oyiso/prepare-product-trash';
+            $names = array_merge($names, ['oyiso/search-products', 'oyiso/get-product']);
+            if (Oyiso_Agent_Permissions::allows('oyiso/prepare-product-update')) $names[] = 'oyiso/prepare-product-update';
+            if (Oyiso_Agent_Permissions::allows('oyiso/prepare-product-trash') && current_user_can('delete_products')) $names[] = 'oyiso/prepare-product-trash';
         }
         if (function_exists('wc_get_orders') && current_user_can('manage_woocommerce')) {
             $names[] = 'oyiso/order-summary';

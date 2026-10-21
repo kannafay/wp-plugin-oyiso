@@ -39,7 +39,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     window.addEventListener('error', event => errors.push(event.error));
     window.HTMLElement.prototype.scrollIntoView = () => {};
     window.matchMedia = query => ({ matches: !view.motion, media: query });
-    window.oyisoAgent = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce', user: 1, enabled: true, supported: true, productTrashAllowed: true, models: { 'fixture|model-a': '测试连接 / model-a', 'second|model-b': '备用连接 / model-b' }, ...settings };
+    window.oyisoAgent = { url: 'https://vape.local/wp-json/oyiso-agent/v1/', nonce: 'fixture-nonce', user: 1, enabled: true, supported: true, writeTools: ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash', 'woodmart/update-theme-setting'], models: { 'fixture|model-a': '测试连接 / model-a', 'second|model-b': '备用连接 / model-b' }, ...settings };
     window.fetch = async (url, options) => {
         const route = url.replace(window.oyisoAgent.url, '');
         calls.push({ route, options });
@@ -490,15 +490,15 @@ test('product confirmation Escape keeps the assistant open and a rejected deleti
     assert.equal(productButton(f, '恢复商品'), undefined);
 });
 
-test('product trash opt-in blocks old proposals while dismissal and restore stay available', async t => {
+test('product writes are individually opt-in and restoring also requires its own permission', async t => {
     const changes = [trashProposal(), trashProposal({ id: 'second', status: 'applied' })];
-    for (const productTrashAllowed of [false, undefined]) {
-        const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes }) : undefined, { productTrashAllowed }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    for (const writeTools of [[], undefined, ['oyiso/revert-product-trash']]) {
+        const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes }) : undefined, { writeTools }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
         await settle();
-        assert.match(f.$('[data-agent-changes]').textContent, /商品删除权限未开启/);
+        assert.match(f.$('[data-agent-changes]').textContent, /未获写入授权/);
         assert.equal(productButton(f, '移入回收站').disabled, true);
         assert.equal(productButton(f, '不删除').disabled, false);
-        assert.equal(productButton(f, '恢复商品').disabled, false);
+        assert.equal(productButton(f, '恢复商品').disabled, !writeTools?.includes('oyiso/revert-product-trash'));
         productButton(f, '移入回收站').click();
         assert.equal(f.$('[data-agent-product-dialog]').open, false);
         assert.equal(f.calls.some(call => call.route.includes('/changes/')), false);
@@ -506,8 +506,8 @@ test('product trash opt-in blocks old proposals while dismissal and restore stay
 });
 
 test('saving permission changes updates pending cards and cancels an open deletion confirmation', async t => {
-    let productTrashAllowed = false;
-    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes: [trashProposal()] }) : route === 'status' ? { enabled: true, supported: true, productTrashAllowed, secrets: {} } : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    let writeTools = [];
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes: [trashProposal()] }) : route === 'status' ? { enabled: true, supported: true, writeTools, secrets: {} } : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
     const saved = async () => {
         f.window.jQuery(f.window.document).trigger('ajaxSuccess', [{ responseJSON: { success: true } }, { data: 'action=csf_oyiso_ajax_save' }]);
         await settle();
@@ -518,11 +518,42 @@ test('saving permission changes updates pending cards and cancels an open deleti
     assert.equal(productButton(f, '移入回收站').disabled, true);
     f.$('[data-agent-product-confirm]').click(); await settle();
     assert.equal(f.calls.some(call => call.route.includes('/changes/')), false);
-    productTrashAllowed = true; await saved();
+    writeTools = ['oyiso/apply-product-trash']; await saved();
     assert.equal(productButton(f, '移入回收站').disabled, false);
-    assert.doesNotMatch(f.$('[data-agent-changes]').textContent, /商品删除权限未开启/);
+    assert.doesNotMatch(f.$('[data-agent-changes]').textContent, /未获写入授权/);
     productButton(f, '移入回收站').click();
     assert.equal(f.$('[data-agent-product-dialog]').open, true);
+});
+
+test('read-only settings block content writes and MCP writes while cancellation remains available', async t => {
+    const changes = [proposal(), { ...proposal(), id: 'applied', status: 'applied' }];
+    const action = { id: 'mcp-write', name: 'woodmart/update-theme-setting', label: '修改主题', input_json: '{}', status: 'pending' };
+    for (const writeTools of [[], undefined, ['oyiso/apply-product-update']]) {
+        const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes, mcp_actions: [action] }) : undefined, { writeTools }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+        await settle();
+        assert.equal(productButton(f, '应用修改').disabled, !writeTools?.includes('oyiso/apply-product-update'));
+        assert.equal(productButton(f, '撤回修改').disabled, true);
+        assert.equal(productButton(f, '确认执行').disabled, true);
+        assert.equal(productButton(f, '取消').disabled, false);
+        productButton(f, '撤回修改').click(); productButton(f, '确认执行').click(); await settle();
+        assert.equal(f.calls.some(call => /\/(changes|mcp)\//.test(call.route)), false);
+    }
+});
+
+test('saving individual write grants immediately updates content and MCP action buttons', async t => {
+    let writeTools = ['woodmart/update-theme-setting'];
+    const action = { id: 'mcp-write', name: 'woodmart/update-theme-setting', label: '修改主题', input_json: '{}', status: 'pending' };
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes: [proposal()], mcp_actions: [action] }) : route === 'status' ? { enabled: true, supported: true, writeTools, secrets: {} } : undefined, { writeTools: [] }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    const saved = async () => {
+        f.window.jQuery(f.window.document).trigger('ajaxSuccess', [{ responseJSON: { success: true } }, { data: 'action=csf_oyiso_ajax_save' }]);
+        await settle();
+    };
+    await settle(); await saved();
+    assert.equal(productButton(f, '确认执行').disabled, false);
+    assert.equal(productButton(f, '应用修改').disabled, true);
+    writeTools = ['oyiso/apply-product-update']; await saved();
+    assert.equal(productButton(f, '确认执行').disabled, true);
+    assert.equal(productButton(f, '应用修改').disabled, false);
 });
 
 test('running and cancelled conversations cannot submit product deletions', async t => {
