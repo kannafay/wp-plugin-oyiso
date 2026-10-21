@@ -14,38 +14,38 @@ body {
 }
 
 /* Scope WordPress control colors to Oyiso's own settings and dialogs. */
-:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog) {
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog, .oyiso-agent-file-preview) {
     --wp-admin-theme-color: var(--oyiso-color-primary);
     --wp-admin-theme-color--rgb: 191, 83, 22;
     --wp-admin-theme-color-darker-10: var(--oyiso-color-primary-hover);
     --wp-admin-theme-color-darker-20: var(--oyiso-color-primary-hover);
 }
 
-:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog) .button:not(.button-primary, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled) {
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog, .oyiso-agent-file-preview) .button:not(.button-primary, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled) {
     color: var(--oyiso-color-primary);
     border-color: var(--oyiso-color-primary);
     background: #fff;
 }
 
-:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog) .button:not(.button-primary, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):is(:hover, :focus-visible) {
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog, .oyiso-agent-file-preview) .button:not(.button-primary, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):is(:hover, :focus-visible) {
     color: var(--oyiso-color-primary-hover);
     border-color: var(--oyiso-color-primary-hover);
     background: var(--oyiso-color-primary-soft);
 }
 
-:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog) .button-primary:not(.csf-save, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled) {
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog, .oyiso-agent-file-preview) .button-primary:not(.csf-save, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled) {
     color: #fff;
     border-color: var(--oyiso-color-primary);
     background: var(--oyiso-color-primary);
 }
 
-:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog) .button-primary:not(.csf-save, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):is(:hover, :focus-visible) {
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog, .oyiso-agent-file-preview) .button-primary:not(.csf-save, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):is(:hover, :focus-visible) {
     color: #fff;
     border-color: var(--oyiso-color-primary-hover);
     background: var(--oyiso-color-primary-hover);
 }
 
-:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog) .button:not(.csf-save, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):focus-visible {
+:is(.csf-options[data-unique="oyiso"], .oyiso-archive-modal, .oyiso-admin-update-modal, .oyiso-qa-modal-backdrop, .oyiso-vim-backdrop, .oyiso-vi-inline, .oyiso-agent-panel, .oyiso-confirm-dialog, .oyiso-agent-file-preview) .button:not(.csf-save, .csf-warning-primary, .oyiso-button-danger, .oyiso-archive-danger, :disabled, .disabled):focus-visible {
     /* CSF suppresses header-button focus outlines with !important. */
     outline: 2px solid var(--oyiso-color-primary) !important;
     outline-offset: 2px;

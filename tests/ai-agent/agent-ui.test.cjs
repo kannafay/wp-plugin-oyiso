@@ -597,6 +597,7 @@ test('draft images preview locally without uploading and the separate remove but
     const file = new f.window.File(['local bytes'], 'photo.png', { type: 'image/png' });
     pasteFiles(f, [file]);
     const preview = f.$('[aria-label="预览待发送附件：photo.png"]');
+    assert.equal(preview.textContent, '');
     assert.ok(preview.querySelector('img')); preview.click(); await settle();
     assert.equal(f.$('.oyiso-agent-file-preview').open, true);
     assert.equal(f.$('.oyiso-agent-file-preview img').src, 'blob:https://vape.local/draft-2');
@@ -618,7 +619,8 @@ test('conversation thumbnails use authenticated bytes once, survive redraws and 
     });
     await settle(); const image = f.$('.oyiso-agent-message-thumb img');
     assert.equal(image.src, 'blob:https://vape.local/image-1'); image.dispatchEvent(new f.window.Event('load'));
-    assert.equal(image.hidden, false); assert.match(f.$('.oyiso-agent-message-file-label').textContent, /<img src=x>/);
+    assert.equal(image.hidden, false); assert.equal(f.$('.oyiso-agent-message-file-label'), null);
+    assert.match(f.$('.oyiso-agent-message-attachments button').getAttribute('aria-label'), /<img src=x>/);
     const request = f.calls.find(call => call.route === 'files/41');
     assert.equal(request.options.credentials, 'same-origin'); assert.equal(request.options.headers['X-WP-Nonce'], 'fixture-nonce');
     f.$('[data-agent-refresh]').click(); await settle();
@@ -674,7 +676,7 @@ test('video selection supports the server limit and clearly marks preview-only a
 test('large image drafts use the image upload limit while documents keep the smaller limit', t => {
     const f = fixture(t, undefined, { attachmentMaxImage: 20 * 1048576, attachmentMaxTotal: 32 * 1048576 });
     pasteFiles(f, [new f.window.File(['x'.repeat(5 * 1048576)], 'large.png', { type: 'image/png' })]);
-    assert.match(f.$('[data-agent-attachments]').textContent, /large.png/);
+    assert.ok(f.$('[aria-label="预览待发送附件：large.png"]'));
     pasteFiles(f, [new f.window.File(['x'.repeat(5 * 1048576)], 'large.pdf', { type: 'application/pdf' })]);
     assert.doesNotMatch(f.$('[data-agent-attachments]').textContent, /large.pdf/);
     assert.match(f.$('[data-agent-notice]').textContent, /大小限制/);

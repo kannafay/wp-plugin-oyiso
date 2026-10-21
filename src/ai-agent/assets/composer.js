@@ -47,17 +47,20 @@
             files().forEach((file, index) => {
                 const item = node('div'); item.className = 'oyiso-agent-attachment';
                 const preview = window.oyisoAgentFilePreview?.canLocal(file);
+                const isImage = imageMime(file.type) || (!file.type && /\.(png|jpe?g|webp|gif)$/i.test(file.name));
+                item.classList.toggle('is-image', isImage);
                 const content = node(preview ? 'button' : 'span'); content.className = 'oyiso-agent-attachment-preview';
                 if (preview) {
                     content.type = 'button'; content.disabled = prompt.disabled; content.setAttribute('aria-label', `预览待发送附件：${file.name}`);
                     content.addEventListener('click', () => window.oyisoAgentFilePreview.openLocal(file, content));
                 }
-                if (/^image\/(png|jpeg|webp|gif)$/.test(file.type) && URL.createObjectURL) {
+                if (isImage && URL.createObjectURL) {
                     const image = node('img'); image.alt = ''; image.src = URL.createObjectURL(file); urls.push(image.src); content.append(image);
                 }
-                const label = node('span', file.name); label.title = file.name; content.append(label, node('small', size(file.size))); item.append(content);
+                if (!isImage) { const label = node('span', file.name); label.title = file.name; content.append(label, node('small', size(file.size))); }
+                item.append(content);
                 if (videoExtensions.includes(file.name.split('.').pop().toLowerCase())) content.append(node('small', '视频 · 仅预览'));
-                const remove = node('button', '×'); remove.type = 'button'; remove.className = 'oyiso-agent-icon-button'; remove.setAttribute('aria-label', `移除附件：${file.name}`);
+                const remove = node('button', '×'); remove.type = 'button'; remove.className = 'oyiso-agent-icon-button oyiso-agent-attachment-remove'; remove.setAttribute('aria-label', `移除附件：${file.name}`);
                 remove.disabled = prompt.disabled;
                 remove.addEventListener('click', () => { drafts.set(current, files().filter((_, i) => i !== index)); persist(current); render(); }); item.append(remove); previews.append(item);
             });
@@ -99,7 +102,7 @@
         function thumbnail(file) {
             const thumb = node('span'); thumb.className = 'oyiso-agent-message-thumb'; thumb.setAttribute('aria-hidden', 'true');
             const icon = node('span'); icon.className = 'dashicons dashicons-format-image'; thumb.append(icon);
-            const image = node('img'); image.alt = ''; image.width = image.height = 40; image.hidden = true; image.decoding = 'async'; thumb.append(image);
+            const image = node('img'); image.alt = ''; image.width = 160; image.height = 120; image.hidden = true; image.decoding = 'async'; thumb.append(image);
             if (!thumbnails.has(file.id)) thumbnails.set(file.id, { controller: new AbortController() });
             const entry = thumbnails.get(file.id);
             image.addEventListener('load', () => { image.hidden = false; icon.hidden = true; });
@@ -129,8 +132,8 @@
                 const label = `${file.name} · ${file.deleted ? '已删除' : size(file.size)}${!file.deleted && file.mime?.startsWith('video/') ? ' · 仅预览' : ''}`;
                 const button = node('button'); button.type = 'button'; button.title = file.deleted ? '附件已删除' : `${preview ? '预览' : '下载'}附件：${file.name}`; button.disabled = !!file.deleted;
                 button.setAttribute('aria-label', button.title);
-                if (!file.deleted && imageMime(file.mime)) button.append(thumbnail(file));
-                const text = node('span', label); text.className = 'oyiso-agent-message-file-label'; button.append(text);
+                if (!file.deleted && imageMime(file.mime)) { button.classList.add('is-image'); button.append(thumbnail(file)); }
+                else { const text = node('span', label); text.className = 'oyiso-agent-message-file-label'; button.append(text); }
                 button.addEventListener('click', async () => {
                     if (preview) { window.oyisoAgentFilePreview.open(file, api, button, thumbnails.get(file.id)?.blob); return; }
                     button.disabled = true;
