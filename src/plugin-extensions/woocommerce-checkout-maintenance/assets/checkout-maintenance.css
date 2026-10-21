@@ -65,11 +65,19 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
     color: #20242b;
 }
 
+.oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-inline-end: 20px;
+}
+
 .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__icon {
     display: grid;
+    flex-shrink: 0;
     width: 56px;
     height: 56px;
-    margin-bottom: 24px;
     border: 1px solid #f6e0b7;
     border-radius: 16px;
     background: #fff8eb;
@@ -78,7 +86,8 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
 }
 
 .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__title {
-    margin: 0 0 12px;
+    min-width: 0;
+    margin: 0;
     color: #20242b;
     font-family: inherit;
     font-size: 25px;
@@ -130,7 +139,10 @@ dialog.oyiso-checkout-maintenance-dialog::backdrop {
 
 @media (max-width: 480px) {
     .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__content { padding: 30px 24px 24px; }
-    .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__title { font-size: 23px; }
+    .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__header { gap: 12px; padding-inline-end: 28px; }
+    .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__icon { width: 44px; height: 44px; border-radius: 12px; }
+    .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__icon svg { width: 24px; height: 24px; }
+    .oyiso-checkout-maintenance-dialog .oyiso-checkout-maintenance-dialog__title { font-size: 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

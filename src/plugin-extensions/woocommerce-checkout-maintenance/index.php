@@ -179,10 +179,12 @@ final class Oyiso_WC_Checkout_Maintenance
                 <button type="button" class="oyiso-checkout-maintenance-dialog__close" aria-label="<?php echo esc_attr__('Close', 'woocommerce'); ?>" data-oyiso-maintenance-close>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
                 </button>
-                <div class="oyiso-checkout-maintenance-dialog__icon" aria-hidden="true">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-7.1 7.1a2.1 2.1 0 0 1-3-3l7.1-7.1a6 6 0 0 1 7.9-7.9z" /></svg>
+                <div class="oyiso-checkout-maintenance-dialog__header">
+                    <div class="oyiso-checkout-maintenance-dialog__icon" aria-hidden="true">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-7.1 7.1a2.1 2.1 0 0 1-3-3l7.1-7.1a6 6 0 0 1 7.9-7.9z" /></svg>
+                    </div>
+                    <h2 id="oyiso-checkout-maintenance-title" class="oyiso-checkout-maintenance-dialog__title"></h2>
                 </div>
-                <h2 id="oyiso-checkout-maintenance-title" class="oyiso-checkout-maintenance-dialog__title"></h2>
                 <p id="oyiso-checkout-maintenance-message" class="oyiso-checkout-maintenance-dialog__message"></p>
                 <button type="button" class="oyiso-checkout-maintenance-dialog__button" data-oyiso-maintenance-close></button>
             </div>
