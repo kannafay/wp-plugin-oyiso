@@ -321,9 +321,8 @@ if (!function_exists('oyiso_render_admin_bar_update_check_modal')) {
             }
 
             function setOpen(open) {
-                var surface = modal.querySelector('.oyiso-admin-update-modal');
-                if (open) window.oyisoModalMotion.show(modal, surface);
-                else window.oyisoModalMotion.hide(modal, function () {}, surface);
+                modal.classList.toggle('is-open', open);
+                modal.setAttribute('aria-hidden', open ? 'false' : 'true');
             }
 
             function setLoading(loading) {
@@ -810,5 +809,4 @@ require_once $dir . 'wp-optimize/index.php';
 require_once $dir . 'code-analytics/index.php';
 require_once $dir . 'notifications/index.php';
 require_once $dir . 'plugin-extensions/index.php';
-require_once $dir . 'ai-agent/index.php';
 require_once $dir . 'update-backup/index.php';

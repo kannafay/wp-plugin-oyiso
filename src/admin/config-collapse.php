@@ -12,9 +12,6 @@ function oyiso_enqueue_admin_theme_assets(): void
         [],
         (string) filemtime(__DIR__ . '/assets/admin-theme.css')
     );
-    wp_enqueue_style('oyiso-modals', plugins_url('assets/modals.css', __FILE__), ['oyiso-admin-theme'], (string) filemtime(__DIR__ . '/assets/modals.css'));
-    // The admin-bar update dialog runs inline before footer scripts.
-    wp_enqueue_script('oyiso-modal-motion', plugins_url('assets/modal-motion.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/modal-motion.js'), false);
 }
 
 function oyiso_enqueue_config_collapse_assets(string $hook): void

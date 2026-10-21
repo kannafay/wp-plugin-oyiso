@@ -61,7 +61,7 @@ if (!class_exists('Oyiso_New_Order_Email_Archive_Manager', false)) {
             wp_enqueue_script(
                 'oyiso-order-email-archive-manager',
                 plugins_url('assets/archive-manager.js', __FILE__),
-                ['jquery', 'oyiso-modal-motion'],
+                ['jquery'],
                 is_file($scriptPath) ? (string) filemtime($scriptPath) : null,
                 true
             );

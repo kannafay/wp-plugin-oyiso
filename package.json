@@ -7,13 +7,10 @@
     "i18n:sync": "php scripts/update-oyiso-pot.php --sync",
     "i18n:prune": "php scripts/update-oyiso-pot.php --prune",
     "i18n:check": "php scripts/update-oyiso-pot.php --check --strict",
-    "i18n:build": "node scripts/build-i18n.js",
-    "test:agent-ui": "node --test tests/ai-agent/agent-ui.test.cjs tests/ai-agent/live-ui.test.cjs tests/ai-agent/model-settings.test.cjs tests/ai-agent/files-ui.test.cjs"
+    "i18n:build": "node scripts/build-i18n.js"
   },
   "devDependencies": {
     "archiver": "^7.0.1",
-    "gettext-parser": "^9.0.2",
-    "jsdom": "^30.1.3",
-    "markdown-it": "15.0.3"
+    "gettext-parser": "^9.0.2"
   }
 }
