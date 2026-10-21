@@ -34,7 +34,7 @@
             const pinned = scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
             prompt.style.height = '0px';
             const style = getComputedStyle(prompt);
-            const min = parseFloat(style.minHeight) || 42;
+            const min = parseFloat(style.minHeight) || 21;
             const max = parseFloat(style.maxHeight) || 160;
             const height = Math.max(min, Math.min(prompt.scrollHeight + 2, max));
             prompt.style.height = `${height}px`;

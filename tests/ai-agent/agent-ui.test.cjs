@@ -679,16 +679,16 @@ test('conversation delete dismissals wait for the exit animation and cannot subm
 });
 
 test('composer grows from one line to a bounded height and shrinks when cleared', t => {
-    let contentHeight = 40;
+    let contentHeight = 21;
     const f = fixture(t, undefined, {}, window => Object.defineProperty(window.document.querySelector('#oyiso-agent-prompt'), 'scrollHeight', { get: () => contentHeight }));
     const input = f.$('#oyiso-agent-prompt');
-    assert.equal(input.rows, 1); assert.equal(input.style.height, '42px');
+    assert.equal(input.rows, 1); assert.equal(input.style.height, '23px');
     input.value = '多行内容'; contentHeight = 110; input.dispatchEvent(new f.window.Event('input', { bubbles: true }));
     assert.equal(input.style.height, '112px'); assert.equal(input.style.overflowY, 'hidden');
     contentHeight = 400; input.dispatchEvent(new f.window.Event('input', { bubbles: true }));
     assert.equal(input.style.height, '160px'); assert.equal(input.style.overflowY, 'auto');
-    input.value = ''; contentHeight = 40; input.dispatchEvent(new f.window.Event('input', { bubbles: true }));
-    assert.equal(input.style.height, '42px');
+    input.value = ''; contentHeight = 21; input.dispatchEvent(new f.window.Event('input', { bubbles: true }));
+    assert.equal(input.style.height, '23px');
 });
 
 function pasteFiles(f, files, text = '') {
