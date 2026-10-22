@@ -41,8 +41,7 @@ CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-mcp', 'title' => 'MCP 工具', 'icon' => 'fas fa-plug', 'priority' => 24,
     'fields' => [
         ['type' => 'heading', 'content' => 'MCP 工具'],
-        ['id' => 'agent_mcp_namespaces', 'type' => 'checkbox', 'title' => '启用插件工具', 'default' => ['woodmart'], 'options' => Oyiso_Agent_MCP::class . '::namespaceOptions', 'desc' => '选择允许助手使用的插件，WoodMart 默认启用。下方按插件开启写入权限，保存配置后生效。'],
-        ['type' => 'callback', 'class' => 'oyiso-agent-mcp-field', 'function' => [Oyiso_Agent_MCP::class, 'render']],
+        ['id' => 'agent_mcp_namespaces', 'type' => 'callback', 'class' => 'oyiso-agent-mcp-field', 'default' => ['woodmart'], 'sanitize' => [Oyiso_Agent_MCP::class, 'sanitizeNamespaces'], 'function' => [Oyiso_Agent_MCP::class, 'render']],
     ],
 ]);
 CSF::createSection('oyiso', [

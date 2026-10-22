@@ -1,6 +1,7 @@
 .oyiso-agent-mcp-settings .oyiso-agent-table-wrap { overflow-x: auto; }
 .oyiso-agent-mcp-settings .oyiso-agent-mcp-table { width: 100%; }
 .oyiso-agent-mcp-table > thead > tr > th:first-child { width: 160px; }
+.oyiso-agent-mcp-table > thead > tr > th:nth-child(3) { width: 100px; }
 .oyiso-agent-mcp-table > thead > tr > th:last-child { width: 136px; }
 .oyiso-agent-mcp-table :is(th, td) { padding: 14px 16px; vertical-align: top; }
 .oyiso-agent-mcp-table label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }

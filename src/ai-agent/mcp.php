@@ -49,6 +49,14 @@ final class Oyiso_Agent_MCP
         return $options;
     }
 
+    /** @return list<string> */
+    public static function sanitizeNamespaces(mixed $value): array
+    {
+        if (!is_array($value)) return [];
+        $known = self::namespaceOptions();
+        return array_values(array_unique(array_filter($value, static fn(mixed $namespace): bool => is_string($namespace) && isset($known[$namespace]))));
+    }
+
     private static function namespaceLabel(string $namespace): string
     {
         return match ($namespace) {
@@ -89,17 +97,18 @@ final class Oyiso_Agent_MCP
             $plugins[explode('/', $name, 2)[0]][$name] = $ability;
         }
         $granted = array_fill_keys(Oyiso_Agent_Permissions::granted(), true);
-        echo '<p class="description">默认只读。按插件开启写入权限并保存后，新增、修改、删除等操作仍需在对话中确认。</p>';
-        echo '<input type="hidden" name="oyiso[agent_write_tools][]" value="">';
-        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-mcp-table"><thead><tr><th scope="col">插件</th><th scope="col">工具</th><th scope="col">写入权限</th></tr></thead><tbody>';
-        foreach ($plugins as $namespace => $abilities) self::renderPlugin($namespace, $abilities, $granted);
+        $namespaces = Oyiso_Agent_Config::options()['agent_mcp_namespaces'] ?? ['woodmart'];
+        echo '<p class="description">选择允许助手使用的插件，WoodMart 默认启用。默认只读；开启写入权限后，新增、修改、删除等操作仍需在对话中确认。保存配置后生效。</p>';
+        echo '<input type="hidden" name="oyiso[agent_mcp_namespaces][]" value=""><input type="hidden" name="oyiso[agent_write_tools][]" value="">';
+        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-mcp-table"><thead><tr><th scope="col">插件</th><th scope="col">工具</th><th scope="col">启用工具</th><th scope="col">写入权限</th></tr></thead><tbody>';
+        foreach ($plugins as $namespace => $abilities) self::renderPlugin($namespace, $abilities, $granted, is_array($namespaces) && in_array($namespace, $namespaces, true));
         echo '</tbody></table></div><p class="description">WoodMart 区块和布局编辑适用于 Gutenberg；待处理的区块修改还需要在 AI Block Queue 中完成。</p></div>';
     }
 
     /** @param array<string, WP_Ability> $tools
      * @param array<string, true> $granted
      */
-    private static function renderPlugin(string $namespace, array $tools, array $granted): void
+    private static function renderPlugin(string $namespace, array $tools, array $granted, bool $enabled): void
     {
         $label = self::namespaceLabel($namespace);
         $writes = array_filter($tools, static fn(WP_Ability $ability): bool => !self::readonly($ability));
@@ -111,6 +120,7 @@ final class Oyiso_Agent_MCP
             printf('<li><span>%s</span><span class="description">%s</span></li>', esc_html($ability->get_label()), self::readonly($ability) ? '只读' : '写入');
         }
         echo '</ul></details></td><td>';
+        printf('<label><input type="checkbox" name="oyiso[agent_mcp_namespaces][]" value="%s" aria-label="%s"%s> 启用</label></td><td>', esc_attr($namespace), esc_attr('启用 ' . $label . ' 工具'), checked($enabled, true, false));
         printf('<label><input type="checkbox" data-agent-mcp-write data-partial="%s" aria-label="%s"%s%s> %s</label>', $partial ? 'true' : 'false', esc_attr('允许 ' . $label . ' 写入'), checked($all, true, false), disabled($writes === [], true, false), $writes === [] ? '仅查询' : '允许写入');
         if ($partial) echo '<span class="description oyiso-agent-mcp-partial" data-agent-mcp-partial>部分工具已授权</span>';
         // Keep the existing per-tool grants on the server, including legacy partial selections.

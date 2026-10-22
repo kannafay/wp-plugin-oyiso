@@ -226,7 +226,7 @@ final class MCPTest extends TestCase
         self::assertIsArray($result);
         self::assertNotEmpty($result['output']);
         $section = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $item): bool => ($item['id'] ?? '') === 'agent-mcp'))[0];
-        ob_start(); CSF::field($section['fields'][1], ['woodmart'], 'oyiso'); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
+        ob_start(); CSF::field($section['fields'][1], ['woodmart'], 'oyiso'); $html = ob_get_clean();
         $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
         self::assertSame(1, (new DOMXPath($dom))->query('//input[@value="woodmart"][@checked]')->length);
         self::assertStringContainsString('woodmart/update-theme-setting', $html);
@@ -312,12 +312,13 @@ final class MCPTest extends TestCase
         ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
         $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
         $xpath = new DOMXPath($dom);
-        self::assertSame(0, $xpath->query('//input[@type="checkbox"][@checked]')->length);
+        self::assertSame(0, $xpath->query('//input[@type="checkbox"][@name="oyiso[agent_write_tools][]"][@checked] | //input[@data-agent-mcp-write][@checked]')->length);
         foreach (Oyiso_Agent_Permissions::writable() as $name => $ability) {
             $type = str_starts_with($name, 'oyiso/') ? 'checkbox' : 'hidden';
             self::assertSame(1, $xpath->query('//tr//input[@type="' . $type . '"][@name="oyiso[agent_write_tools][]"][@value="' . $name . '"]')->length, $name);
         }
-        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@type="checkbox"]')->length);
+        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-mcp-write]')->length);
+        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@name="oyiso[agent_mcp_namespaces][]"][@value="fixture-mcp"][@checked]')->length);
         self::assertSame(4, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-mcp-grant][@disabled]')->length);
         self::assertSame(0, $xpath->query('//tr[@data-agent-mcp-plugin]//details[@open]')->length);
         self::assertSame(0, $xpath->query('//input[@value="fixture-mcp/read"]')->length);
@@ -343,6 +344,38 @@ final class MCPTest extends TestCase
             self::assertSame($grants, $submitted);
             self::assertSame($grants, Oyiso_Agent_Permissions::sanitize($submitted));
         }
+    }
+
+    public function testPluginTableSelectionsRoundTripThroughNativeSettingsAndCanDisableAllPlugins(): void
+    {
+        $sections = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
+        $form = (new ReflectionClass(CSF_Options::class))->newInstanceWithoutConstructor();
+        $form->unique = 'oyiso'; $form->pre_fields = array_merge(...array_column($sections, 'fields'));
+        $previousPost = $_POST;
+        try {
+            foreach ([['fixture-mcp'], [], ['woodmart']] as $namespaces) {
+                update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => $namespaces, 'agent_write_tools' => ['fixture-mcp/write']], false);
+                $form->options = Oyiso_Agent_Config::options();
+                ob_start(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
+                $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
+                $xpath = new DOMXPath($dom);
+                $fields = ['agent_enabled' => '1'];
+                foreach (['agent_mcp_namespaces', 'agent_write_tools'] as $field) {
+                    $fields[$field] = [];
+                    foreach ($xpath->query('//input[@name="oyiso[' . $field . '][]"][not(@disabled)][@type="hidden" or @checked]') as $input) $fields[$field][] = $input->getAttribute('value');
+                }
+                $payload = ['csf_options_nonceoyiso' => wp_create_nonce('csf_options_nonce'), 'oyiso' => $fields];
+                $_POST = ['data' => wp_slash(wp_json_encode($payload))];
+                self::assertTrue($form->set_options(true));
+                self::assertSame([], $form->errors);
+                self::assertSame($namespaces, Oyiso_Agent_Config::options()['agent_mcp_namespaces']);
+                self::assertSame(['fixture-mcp/write'], Oyiso_Agent_Permissions::granted());
+                self::assertSame(in_array('fixture-mcp', $namespaces, true), isset(Oyiso_Agent_MCP::selected()['fixture-mcp/read']));
+                self::assertSame(in_array('fixture-mcp', $namespaces, true), in_array('fixture-mcp/write', Oyiso_Agent_Permissions::granted(true), true));
+            }
+            self::assertSame(['fixture-mcp'], Oyiso_Agent_MCP::sanitizeNamespaces(['', 'fixture-mcp', 'fixture-mcp', 'unknown', ['fixture-mcp']]));
+            self::assertSame([], Oyiso_Agent_MCP::sanitizeNamespaces('fixture-mcp'));
+        } finally { $_POST = $previousPost; }
     }
 
     public function testPluginPermissionAssetsWorkBeforeTheAgentIsEnabled(): void
