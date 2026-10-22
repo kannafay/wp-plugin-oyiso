@@ -38,15 +38,12 @@ CSF::createSection('oyiso', [
 ]);
 
 CSF::createSection('oyiso', [
-    'parent' => 'ai-agent', 'id' => 'agent-mcp', 'title' => 'MCP 工具', 'icon' => 'fas fa-plug', 'priority' => 24,
+    'parent' => 'ai-agent', 'id' => 'agent-tools', 'title' => '工具设置', 'icon' => 'fas fa-tools', 'priority' => 24,
     'fields' => [
-        ['type' => 'heading', 'content' => 'MCP 工具'],
-        ['id' => 'agent_mcp_namespaces', 'type' => 'callback', 'class' => 'oyiso-agent-mcp-field', 'default' => ['woodmart'], 'sanitize' => [Oyiso_Agent_MCP::class, 'sanitizeNamespaces'], 'function' => [Oyiso_Agent_MCP::class, 'render']],
+        ['type' => 'heading', 'content' => '工具设置'],
+        ['id' => Oyiso_Agent_Permissions::OPTION, 'type' => 'callback', 'class' => 'oyiso-agent-tool-settings', 'default' => [], 'sanitize' => [Oyiso_Agent_Permissions::class, 'sanitize'], 'function' => [Oyiso_Agent_Admin::class, 'tools']],
+        ['id' => 'agent_mcp_namespaces', 'type' => 'callback', 'class' => 'oyiso-agent-tool-settings', 'default' => ['woodmart'], 'sanitize' => [Oyiso_Agent_MCP::class, 'sanitizeNamespaces'], 'function' => [Oyiso_Agent_MCP::class, 'render']],
     ],
-]);
-CSF::createSection('oyiso', [
-    'parent' => 'ai-agent', 'id' => 'agent-tools', 'title' => '站内工具', 'icon' => 'fas fa-tools', 'priority' => 25,
-    'fields' => [['id' => Oyiso_Agent_Permissions::OPTION, 'type' => 'callback', 'class' => 'oyiso-agent-panel', 'default' => [], 'sanitize' => [Oyiso_Agent_Permissions::class, 'sanitize'], 'function' => [Oyiso_Agent_Admin::class, 'tools']]],
 ]);
 CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-records', 'title' => '对话记录', 'icon' => 'fas fa-history', 'priority' => 40,

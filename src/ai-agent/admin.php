@@ -367,7 +367,6 @@ final class Oyiso_Agent_Admin
         $groups = [
             'products' => ['商品管理', '查询商品、修改内容，以及移入回收站和恢复。', ['search-products', 'get-product', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash']],
             'orders' => ['订单统计', '按日期查看订单数量和销售金额。', ['order-summary']],
-            'mcp' => ['MCP 调用', '使用已启用的插件工具，权限在「MCP 工具」中设置。', ['mcp-list-tools', 'mcp-describe-tool', 'mcp-call-tool']],
         ];
         $granted = array_fill_keys(Oyiso_Agent_Permissions::granted(), true);
         $writable = Oyiso_Agent_Permissions::writable();
@@ -384,7 +383,7 @@ final class Oyiso_Agent_Admin
             foreach ($tools as $ability) printf('<li>%s</li>', esc_html($ability->get_label()));
             echo '</ul></details></td><td>';
             $writes = array_intersect_key($writable, $tools);
-            echo $id === 'mcp' ? '<a href="#tab=ai-agent/agent-mcp">设置插件权限</a>' : ($writes === [] ? '<span class="description">仅查询</span>' : Oyiso_Agent_Permissions::groupCell($writes, $granted, $label));
+            echo $writes === [] ? '<span class="description">仅查询</span>' : Oyiso_Agent_Permissions::groupCell($writes, $granted, $label);
             echo '</td></tr>';
         }
         echo '</tbody></table></div></div>';

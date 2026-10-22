@@ -225,8 +225,9 @@ final class MCPTest extends TestCase
         $result = $this->call($run, 'woodmart/list-theme-settings', '{"search":"primary","per_page":1}');
         self::assertIsArray($result);
         self::assertNotEmpty($result['output']);
-        $section = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $item): bool => ($item['id'] ?? '') === 'agent-mcp'))[0];
-        ob_start(); CSF::field($section['fields'][1], ['woodmart'], 'oyiso'); $html = ob_get_clean();
+        $section = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $item): bool => ($item['id'] ?? '') === 'agent-tools'))[0];
+        $field = array_values(array_filter($section['fields'], static fn(array $item): bool => ($item['id'] ?? '') === 'agent_mcp_namespaces'))[0];
+        ob_start(); CSF::field($field, ['woodmart'], 'oyiso'); $html = ob_get_clean();
         $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
         self::assertSame(1, (new DOMXPath($dom))->query('//input[@value="woodmart"][@checked]')->length);
         self::assertStringContainsString('woodmart/update-theme-setting', $html);
@@ -319,7 +320,7 @@ final class MCPTest extends TestCase
         self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-write-toggle]')->length);
         self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@name="oyiso[agent_mcp_namespaces][]"][@value="fixture-mcp"][@checked]')->length);
         self::assertSame(4, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-write-grant][@disabled]')->length);
-        self::assertSame(3, $xpath->query('//tr[@data-agent-tool-group]')->length);
+        self::assertSame(2, $xpath->query('//tr[@data-agent-tool-group]')->length);
         self::assertSame(1, $xpath->query('//tr[@data-agent-tool-group]//input[@data-agent-write-toggle]')->length);
         self::assertSame(0, $xpath->query('//tr[@data-agent-mcp-plugin]//details[@open]')->length);
         self::assertSame(0, $xpath->query('//input[@value="fixture-mcp/read"]')->length);
@@ -350,6 +351,7 @@ final class MCPTest extends TestCase
     public function testPluginTableSelectionsRoundTripThroughNativeSettingsAndCanDisableAllPlugins(): void
     {
         $sections = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
+        $toolSection = array_values(array_filter($sections, static fn(array $section): bool => $section['id'] === 'agent-tools'))[0];
         $form = (new ReflectionClass(CSF_Options::class))->newInstanceWithoutConstructor();
         $form->unique = 'oyiso'; $form->pre_fields = array_merge(...array_column($sections, 'fields'));
         $previousPost = $_POST;
@@ -357,7 +359,9 @@ final class MCPTest extends TestCase
             foreach ([['fixture-mcp'], [], ['woodmart']] as $namespaces) {
                 update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => $namespaces, 'agent_write_tools' => ['oyiso/apply-product-update', 'fixture-mcp/write']], false);
                 $form->options = Oyiso_Agent_Config::options();
-                ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
+                ob_start();
+                foreach ($toolSection['fields'] as $field) CSF::field($field, $form->options[$field['id'] ?? ''] ?? '', 'oyiso');
+                $html = ob_get_clean();
                 $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
                 $xpath = new DOMXPath($dom);
                 $fields = ['agent_enabled' => '1'];

@@ -1,5 +1,6 @@
 (() => {
     'use strict';
+    if (window.location.hash === '#tab=ai-agent/agent-mcp') window.location.replace('#tab=ai-agent/agent-tools');
     document.querySelectorAll('[data-agent-write-toggle]').forEach(toggle => {
         const row = toggle.closest('[data-agent-write-group]');
         if (!row) return;

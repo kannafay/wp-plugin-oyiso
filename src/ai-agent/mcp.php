@@ -86,7 +86,7 @@ final class Oyiso_Agent_MCP
 
     public static function render(): void
     {
-        echo '<div class="oyiso-agent oyiso-agent-mcp-settings oyiso-agent-permission-settings"><p>本站直接复用 WoodMart MCP 和其他插件公开的工具，无需另存应用程序密码。应用程序密码用于 Claude、Codex 等外部客户端连接本站。</p><p><a href="' . esc_url(admin_url('admin.php?page=xts_mcp')) . '">WoodMart MCP 设置</a> · <a href="https://woodmarttheme.com/docs/woodmart-mcp/" target="_blank" rel="noopener noreferrer">接入说明</a></p>';
+        echo '<div class="oyiso-agent oyiso-agent-mcp-settings oyiso-agent-permission-settings"><h2>MCP 工具</h2><p>本站直接复用 WoodMart MCP 和其他插件公开的工具，无需另存应用程序密码。应用程序密码用于 Claude、Codex 等外部客户端连接本站。</p><p><a href="' . esc_url(admin_url('admin.php?page=xts_mcp')) . '">WoodMart MCP 设置</a> · <a href="https://woodmarttheme.com/docs/woodmart-mcp/" target="_blank" rel="noopener noreferrer">接入说明</a></p>';
         $tools = self::catalog();
         if ($tools === []) {
             echo '<p>尚未发现 MCP 工具。请先启用 WoodMart MCP 或支持 WordPress Abilities API 的插件。</p></div>';
@@ -98,7 +98,7 @@ final class Oyiso_Agent_MCP
         }
         $granted = array_fill_keys(Oyiso_Agent_Permissions::granted(), true);
         $namespaces = Oyiso_Agent_Config::options()['agent_mcp_namespaces'] ?? ['woodmart'];
-        echo '<p class="description">选择允许助手使用的插件，WoodMart 默认启用。默认只读；开启写入权限后，新增、修改、删除等操作仍需在对话中确认。保存配置后生效。</p>';
+        echo '<p class="description">选择允许助手使用的插件，WoodMart 默认启用。保存配置后生效。</p>';
         echo '<input type="hidden" name="oyiso[agent_mcp_namespaces][]" value=""><input type="hidden" name="oyiso[agent_write_tools][]" value="">';
         echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-mcp-table oyiso-agent-permissions-table"><thead><tr><th scope="col">插件</th><th scope="col">工具</th><th scope="col">启用工具</th><th scope="col">写入权限</th></tr></thead><tbody>';
         foreach ($plugins as $namespace => $abilities) self::renderPlugin($namespace, $abilities, $granted, is_array($namespaces) && in_array($namespace, $namespaces, true));
