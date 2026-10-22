@@ -53,7 +53,7 @@ final class PersonalizationTest extends TestCase
             $options = Oyiso_Agent_Personalization::languageOptions();
             self::assertSame('', array_key_first($options));
             self::assertSame('自动判断（不指定语言）', $options['']);
-            self::assertSame('推荐：Polski（pl_PL）', $options['site-default']);
+            self::assertSame('跟随站点：Polski（pl_PL）', $options['site-default']);
             self::assertSame('Čeština（cs_CZ）', $options['全部语言']['cs_CZ']);
             self::assertArrayHasKey('en_US', $options['全部语言']);
             self::assertSame('pl_PL', get_option('WPLANG'));
@@ -87,7 +87,7 @@ final class PersonalizationTest extends TestCase
         self::assertSame('select', $field['type']);
         self::assertSame('自动判断（不指定语言）', $xpath->evaluate('string(//select/option[1])'));
         self::assertSame('', $xpath->evaluate('string(//select/option[1]/@value)'));
-        self::assertSame('推荐：Polski（pl_PL）', $xpath->evaluate('string(//select/option[2])'));
+        self::assertSame('跟随站点：Polski（pl_PL）', $xpath->evaluate('string(//select/option[2])'));
         self::assertSame('site-default', $xpath->evaluate('string(//select/option[2]/@value)'));
         self::assertSame('oyiso[agent_language]', $xpath->evaluate('string(//select/@name)'));
         self::assertSame('cs_CZ', $xpath->evaluate('string(//option[@selected]/@value)'));
@@ -103,34 +103,100 @@ final class PersonalizationTest extends TestCase
     {
         $unavailable = static fn(): array => [];
         add_filter('pre_site_transient_available_translations', $unavailable, 20);
-        update_option('oyiso', ['agent_language' => 'de_AT'], false);
+        update_option('oyiso', ['agent_language' => 'de_AT', 'agent_reply_language' => 'pt_AO'], false);
         try {
             $options = Oyiso_Agent_Personalization::languageOptions();
             self::assertArrayHasKey('pl_PL', $options['全部语言']);
             self::assertArrayHasKey('zh_CN', $options['全部语言']);
             self::assertArrayHasKey('en_US', $options['全部语言']);
             self::assertArrayHasKey('de_AT', $options['全部语言']);
+            self::assertArrayHasKey('pt_AO', Oyiso_Agent_Personalization::replyLanguageOptions()['全部语言']);
+            self::assertNull(Oyiso_Agent_Personalization::validateReplyLanguage('pt_AO'));
             self::assertNull(Oyiso_Agent_Personalization::validateLanguage('de_AT'));
             self::assertSame('de_AT', Oyiso_Agent_Personalization::language());
         } finally { remove_filter('pre_site_transient_available_translations', $unavailable, 20); }
     }
 
-    public function testModelReceivesCustomInstructionsAlongsideWritingRequirementsAndResolvedLanguage(): void
+    public function testNativePreferencesFormPreservesBothLegacyTextsWithoutRepeatingThemOrRestoringClearedText(): void
+    {
+        $merged = "保留商品参数和链接。\n\n先给结论，使用简短列表。";
+        update_option('oyiso', ['agent_instructions' => '保留商品参数和链接。', 'agent_custom_instructions' => '先给结论，使用简短列表。'], false);
+        $sections = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
+        $section = array_values(array_filter($sections, static fn(array $section): bool => $section['id'] === 'agent-personalization'))[0];
+        $options = get_option('oyiso');
+        self::assertSame($merged, $options['agent_instructions']);
+        self::assertArrayNotHasKey('agent_custom_instructions', $options);
+        ob_start();
+        foreach ($section['fields'] as $field) CSF::field($field, $options[$field['id'] ?? ''] ?? ($field['default'] ?? ''), 'oyiso');
+        $html = ob_get_clean();
+        $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new DOMXPath($dom);
+        self::assertSame(1, $xpath->query('//textarea')->length);
+        self::assertSame($merged, $xpath->evaluate('string(//textarea[@name="oyiso[agent_instructions]"])'));
+        self::assertSame(0, $xpath->query('//textarea[@name="oyiso[agent_custom_instructions]"]')->length);
+        $form = (new ReflectionClass(CSF_Options::class))->newInstanceWithoutConstructor();
+        $form->unique = 'oyiso'; $form->options = $options; $form->pre_fields = array_merge(...array_column($sections, 'fields'));
+        $previousPost = $_POST;
+        try {
+            $payload = ['csf_options_nonceoyiso' => wp_create_nonce('csf_options_nonce'), 'oyiso' => ['agent_enabled' => '1', 'agent_instructions' => $merged, 'agent_custom_instructions' => '', 'agent_reply_language' => '', 'agent_reply_detail' => 'brief']];
+            for ($save = 0; $save < 2; $save++) {
+                $_POST = ['data' => wp_slash(wp_json_encode($payload))];
+                self::assertTrue($form->set_options(true));
+                self::assertSame([], $form->errors);
+                self::assertSame($merged, Oyiso_Agent_Config::text('instructions'));
+                self::assertArrayNotHasKey('agent_custom_instructions', Oyiso_Agent_Config::options());
+                self::assertSame(1, substr_count(Oyiso_Agent_Model::instructions(), '先给结论，使用简短列表。'));
+            }
+            $payload['oyiso']['agent_instructions'] = '';
+            $_POST = ['data' => wp_slash(wp_json_encode($payload))];
+            self::assertTrue($form->set_options(true));
+            self::assertSame('', Oyiso_Agent_Config::text('instructions'));
+            self::assertStringNotContainsString('管理员助手偏好：', Oyiso_Agent_Model::instructions());
+        } finally { $_POST = $previousPost; }
+    }
+
+    public function testReplySettingsValidateChoicesAndDefaultToAutomaticLanguageAndBriefReplies(): void
+    {
+        self::assertSame('brief', Oyiso_Agent_Personalization::replyDetail());
+        self::assertNull(Oyiso_Agent_Personalization::validateReplyLanguage(''));
+        self::assertNull(Oyiso_Agent_Personalization::validateReplyLanguage('zh_CN'));
+        self::assertNotNull(Oyiso_Agent_Personalization::validateReplyLanguage('site-default'));
+        self::assertNotNull(Oyiso_Agent_Personalization::validateReplyLanguage(['zh_CN']));
+        self::assertNotNull(Oyiso_Agent_Personalization::validateReplyLanguage('unknown'));
+        self::assertNull(Oyiso_Agent_Personalization::validateReplyDetail(''));
+        self::assertNull(Oyiso_Agent_Personalization::validateReplyDetail('standard'));
+        self::assertNotNull(Oyiso_Agent_Personalization::validateReplyDetail('unknown'));
+        self::assertNotNull(Oyiso_Agent_Personalization::validateReplyDetail(['brief']));
+        update_option('oyiso', ['agent_language' => 'pl_PL', 'agent_reply_language' => 'zh_CN', 'agent_reply_detail' => 'standard'], false);
+        self::assertSame('standard', Oyiso_Agent_Personalization::replyDetail());
+        self::assertStringContainsString('回复详略：标准。', Oyiso_Agent_Model::instructions());
+        update_option('oyiso', ['agent_reply_detail' => 'unknown'], false);
+        self::assertSame('brief', Oyiso_Agent_Personalization::replyDetail());
+    }
+
+    public function testModelReceivesMergedPreferencesAndKeepsContentAndReplyLanguagesSeparate(): void
     {
         update_option('oyiso', ['agent_language' => '', 'agent_instructions' => '保留商品参数。', 'agent_custom_instructions' => '先给结论，使用简短列表。'], false);
         $instructions = Oyiso_Agent_Model::instructions();
         self::assertStringContainsString('未指定时，根据任务要求和原文判断。', $instructions);
         self::assertStringNotContainsString('默认内容语言：', $instructions);
-        self::assertStringContainsString('管理员写作要求：保留商品参数。', $instructions);
-        self::assertStringContainsString('管理员自定义指令：先给结论，使用简短列表。', $instructions);
+        self::assertStringContainsString("管理员助手偏好：\n保留商品参数。\n\n先给结论，使用简短列表。", $instructions);
+        self::assertStringContainsString('聊天回复语言：默认跟随用户当前提问的语言。', $instructions);
+        self::assertStringContainsString('回复详略：简洁。', $instructions);
         self::assertStringContainsString('商品文案通过 prepare-product-update 准备修改', $instructions);
         self::assertStringContainsString('模型默认只读', $instructions);
         self::assertStringContainsString('当前未授权任何写入工具，保持只读', $instructions);
         self::assertStringContainsString('保存、删除和恢复由用户在界面中确认', $instructions);
         update_option('oyiso', ['agent_custom_instructions' => ''], false);
-        self::assertStringNotContainsString('管理员自定义指令：', Oyiso_Agent_Model::instructions());
-        update_option('oyiso', ['agent_language' => 'pl_PL'], false);
-        self::assertStringContainsString('默认内容语言：pl_PL。当前对话中明确指定的语言优先于此默认设置。', Oyiso_Agent_Model::instructions());
+        self::assertStringNotContainsString('管理员助手偏好：', Oyiso_Agent_Model::instructions());
+        update_option('oyiso', ['agent_language' => 'pl_PL', 'agent_reply_language' => 'zh_CN', 'agent_reply_detail' => 'detailed'], false);
+        $instructions = Oyiso_Agent_Model::instructions();
+        self::assertStringContainsString('默认内容语言：pl_PL。仅用于生成商品、页面等文案，不限制聊天回复。', $instructions);
+        self::assertStringContainsString('默认聊天回复语言：zh_CN。', $instructions);
+        self::assertStringContainsString('回复详略：详细。', $instructions);
+        self::assertStringNotContainsString('回复详略：简洁。', $instructions);
+        self::assertStringContainsString('当前对话的明确要求优先于默认设置和助手偏好', $instructions);
+        self::assertStringContainsString('不限制所请求文案、代码等交付内容的完整性', $instructions);
     }
 
     public function testGlobalInstructionsReflectWriteGrantsAndProhibitBypassingThem(): void

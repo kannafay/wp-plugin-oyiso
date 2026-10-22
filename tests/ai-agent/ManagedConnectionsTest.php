@@ -307,19 +307,21 @@ final class ManagedConnectionsTest extends TestCase
         $sections = array_values(array_filter(CSF::$args['sections']['oyiso'], static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
         $form = (new ReflectionClass(CSF_Options::class))->newInstanceWithoutConstructor();
         $form->unique = 'oyiso'; $form->options = Oyiso_Agent_Config::options(); $form->pre_fields = array_merge(...array_column($sections, 'fields'));
-        $languageCatalogue = static fn(): array => ['cs_CZ' => ['native_name' => 'Čeština']];
+        $languageCatalogue = static fn(): array => ['cs_CZ' => ['native_name' => 'Čeština'], 'zh_CN' => ['native_name' => '简体中文']];
         add_filter('pre_site_transient_available_translations', $languageCatalogue);
         $previousPost = $_POST;
         try {
-            $payload = ['csf_options_nonceoyiso' => wp_create_nonce('csf_options_nonce'), 'oyiso' => ['agent_enabled' => '1', 'agent_selection' => $row['id'] . '|fixture-model', 'agent_language' => 'cs_CZ', 'agent_instructions' => '品牌写作要求', 'agent_custom_instructions' => '先说明结论。', 'agent_advanced' => ['max_steps' => '11', 'model' => 'native-preference']]];
+            $payload = ['csf_options_nonceoyiso' => wp_create_nonce('csf_options_nonce'), 'oyiso' => ['agent_enabled' => '1', 'agent_selection' => $row['id'] . '|fixture-model', 'agent_language' => 'cs_CZ', 'agent_reply_language' => 'zh_CN', 'agent_reply_detail' => 'detailed', 'agent_instructions' => '品牌写作要求', 'agent_custom_instructions' => '先说明结论。', 'agent_advanced' => ['max_steps' => '11', 'model' => 'native-preference']]];
             $_POST = ['data' => wp_slash(wp_json_encode($payload))];
             self::assertTrue($form->set_options(true));
             self::assertSame([], $form->errors);
             self::assertSame('', Oyiso_Agent_Config::text('selection'));
             self::assertSame(11, Oyiso_Agent_Config::maxSteps());
             self::assertSame('cs_CZ', Oyiso_Agent_Config::text('language'));
-            self::assertSame('品牌写作要求', Oyiso_Agent_Config::text('instructions'));
-            self::assertSame('先说明结论。', Oyiso_Agent_Config::text('custom_instructions'));
+            self::assertSame("品牌写作要求\n\n先说明结论。", Oyiso_Agent_Config::text('instructions'));
+            self::assertArrayNotHasKey('agent_custom_instructions', Oyiso_Agent_Config::options());
+            self::assertSame('zh_CN', Oyiso_Agent_Config::text('reply_language'));
+            self::assertSame('detailed', Oyiso_Agent_Personalization::replyDetail());
             self::assertSame('fixture-first-key', Oyiso_Agent_Config::secret(Oyiso_Agent_Connections::secretName($row['id'])));
             self::assertNotContains('agent_selection', array_column($form->pre_fields, 'id'));
             $payload['oyiso']['agent_language'] = 'misspelled-language'; $form->errors = [];
@@ -338,6 +340,21 @@ final class ManagedConnectionsTest extends TestCase
             self::assertTrue($form->set_options(true));
             self::assertSame('site-default', Oyiso_Agent_Config::text('language'));
             self::assertSame(Oyiso_Agent_Personalization::siteLanguage(), Oyiso_Agent_Personalization::language());
+            $payload['oyiso']['agent_reply_language'] = 'invalid-language';
+            $payload['oyiso']['agent_reply_detail'] = 'unknown'; $form->errors = [];
+            $_POST = ['data' => wp_slash(wp_json_encode($payload))];
+            self::assertTrue($form->set_options(true));
+            self::assertArrayHasKey('agent_reply_language', $form->errors);
+            self::assertArrayHasKey('agent_reply_detail', $form->errors);
+            self::assertSame('zh_CN', Oyiso_Agent_Config::text('reply_language'));
+            self::assertSame('detailed', Oyiso_Agent_Personalization::replyDetail());
+            $payload['oyiso']['agent_reply_language'] = '';
+            $payload['oyiso']['agent_reply_detail'] = 'brief'; $form->errors = [];
+            $_POST = ['data' => wp_slash(wp_json_encode($payload))];
+            self::assertTrue($form->set_options(true));
+            self::assertSame([], $form->errors);
+            self::assertSame('', Oyiso_Agent_Config::text('reply_language'));
+            self::assertSame('brief', Oyiso_Agent_Personalization::replyDetail());
         } finally {
             $_POST = $previousPost;
             remove_filter('pre_site_transient_available_translations', $languageCatalogue);

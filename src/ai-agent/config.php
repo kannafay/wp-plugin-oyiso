@@ -124,6 +124,7 @@ final class Oyiso_Agent_Config
      */
     public static function saveOptions(array $options): array
     {
+        $options = Oyiso_Agent_Personalization::mergePreferences($options);
         $options[Oyiso_Agent_Permissions::OPTION] = Oyiso_Agent_Permissions::sanitize($options[Oyiso_Agent_Permissions::OPTION] ?? []);
         unset($options['agent_allow_product_trash']);
         // Keep retired credentials encrypted for rollback, and discard obsolete plaintext inputs.

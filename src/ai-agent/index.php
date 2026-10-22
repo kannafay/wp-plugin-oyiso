@@ -26,6 +26,8 @@ require_once __DIR__ . '/live.php';
 require_once __DIR__ . '/admin.php';
 require_once __DIR__ . '/settings.php';
 
+// Expose legacy preferences to both the native settings form and model before the next save.
+add_filter('option_oyiso', static fn(mixed $options): mixed => is_array($options) ? Oyiso_Agent_Personalization::mergePreferences($options) : $options);
 add_filter('csf_oyiso_save', [Oyiso_Agent_Config::class, 'saveOptions']);
 add_action('init', [Oyiso_Agent_Connectors::class, 'register'], 5);
 add_action('wp_connectors_init', [Oyiso_Agent_Connectors::class, 'connectors']);

@@ -21,9 +21,12 @@ CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-personalization', 'title' => '个性化', 'icon' => 'fas fa-user-cog', 'priority' => 21,
     'fields' => [
         ['type' => 'heading', 'content' => '个性化'],
-        ['id' => 'agent_language', 'type' => 'select', 'title' => '内容语言', 'class' => 'oyiso-agent-model-field', 'default' => '', 'options' => Oyiso_Agent_Personalization::class . '::languageOptions', 'sanitize' => [Oyiso_Agent_Config::class, 'credential'], 'validate' => [Oyiso_Agent_Personalization::class, 'validateLanguage'], 'desc' => '可不指定，由 AI 根据任务和原文判断。也可选择站点推荐或固定语言；对话中明确指定的语言优先。'],
-        ['id' => 'agent_instructions', 'type' => 'textarea', 'title' => '写作要求', 'class' => 'oyiso-agent-model-field', 'attributes' => ['rows' => '4', 'maxlength' => '4000'], 'desc' => '品牌语气、内容结构和需保留的信息等长期要求。'],
-        ['id' => 'agent_custom_instructions', 'type' => 'textarea', 'title' => '自定义指令', 'class' => 'oyiso-agent-model-field', 'attributes' => ['rows' => '6', 'maxlength' => '4000'], 'desc' => '长期生效的助手偏好，例如回复方式、输出格式和工作习惯。'],
+        ['id' => 'agent_language', 'type' => 'select', 'title' => '内容语言', 'class' => 'oyiso-agent-model-field', 'default' => '', 'options' => Oyiso_Agent_Personalization::class . '::languageOptions', 'sanitize' => [Oyiso_Agent_Config::class, 'credential'], 'validate' => [Oyiso_Agent_Personalization::class, 'validateLanguage'], 'desc' => '用于生成商品、页面等文案。可自动判断、跟随站点或指定语言；当前对话的明确要求优先。'],
+        ['id' => 'agent_reply_language', 'type' => 'select', 'title' => '回复语言', 'class' => 'oyiso-agent-model-field', 'default' => '', 'options' => Oyiso_Agent_Personalization::class . '::replyLanguageOptions', 'sanitize' => [Oyiso_Agent_Config::class, 'credential'], 'validate' => [Oyiso_Agent_Personalization::class, 'validateReplyLanguage'], 'desc' => '用于聊天回复，默认跟随提问语言。可用中文沟通，同时生成其他语言的文案。'],
+        ['id' => 'agent_reply_detail', 'type' => 'select', 'title' => '回复详略', 'class' => 'oyiso-agent-model-field', 'default' => 'brief', 'options' => Oyiso_Agent_Personalization::class . '::replyDetailOptions', 'sanitize' => [Oyiso_Agent_Config::class, 'credential'], 'validate' => [Oyiso_Agent_Personalization::class, 'validateReplyDetail'], 'desc' => '控制聊天说明的详细程度，默认简洁；所需文案、代码等内容仍完整提供。'],
+        ['id' => 'agent_instructions', 'type' => 'textarea', 'title' => '助手偏好', 'class' => 'oyiso-agent-model-field', 'default' => '', 'attributes' => ['rows' => '8', 'maxlength' => '12000', 'placeholder' => '例如：保留商品参数和有用链接；先给结论，使用简短列表。'], 'desc' => '品牌语气、内容结构、回复方式和输出格式等长期偏好。对本站所有管理员生效，当前对话的明确要求优先。'],
+        // Accept old settings forms and imports; saveOptions merges and removes this retired value.
+        ['id' => 'agent_custom_instructions', 'type' => 'callback', 'class' => 'hidden', 'default' => ''],
     ],
 ]);
 CSF::createSection('oyiso', [

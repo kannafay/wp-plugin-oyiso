@@ -470,7 +470,7 @@ final class AgentTest extends TestCase
         $children = array_values(array_filter($sections, static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
         self::assertSame(['agent-model', 'agent-personalization', 'agent-advanced', 'agent-tools', 'agent-records', 'agent-files'], array_column($children, 'id'));
         self::assertSame(['模型配置', '个性化', '高级设置', '工具设置', '对话记录', '文件管理'], array_column($children, 'title'));
-        self::assertSame(['agent_language', 'agent_instructions', 'agent_custom_instructions'], array_values(array_filter(array_column($children[1]['fields'], 'id'))));
+        self::assertSame(['agent_language', 'agent_reply_language', 'agent_reply_detail', 'agent_instructions'], array_column(array_filter($children[1]['fields'], static fn(array $field): bool => ($field['class'] ?? '') !== 'hidden'), 'id'));
         self::assertNotContains('agent_language', array_column($children[0]['fields'], 'id'));
         self::assertSame('fieldset', $children[2]['fields'][1]['type']);
         self::assertSame(['agent_write_tools', 'agent_mcp_namespaces'], array_column($children[3]['fields'], 'id'));

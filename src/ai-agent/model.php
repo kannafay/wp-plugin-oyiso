@@ -113,12 +113,19 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
 
     public static function instructions(): string
     {
-        $custom = Oyiso_Agent_Config::text('custom_instructions');
+        $preferences = Oyiso_Agent_Config::text('instructions');
         $language = Oyiso_Agent_Personalization::language();
+        $replyLanguage = Oyiso_Agent_Config::text('reply_language');
         $languageInstructions = $language === ''
-            ? '内容语言：优先使用用户在当前对话中明确指定的语言；未指定时，根据任务要求和原文判断。'
-            : '默认内容语言：' . $language . '。当前对话中明确指定的语言优先于此默认设置。';
-        return '你是当前 WordPress 商店后台的运营助手。使用提供的工具查询真实数据、准备商品修改，并操作用户已启用的 MCP 工具。回复采用简洁的 Markdown 段落和列表。'
+            ? '内容语言：生成商品、页面等文案时，优先使用用户在当前任务中明确指定的语言；未指定时，根据任务要求和原文判断。'
+            : '默认内容语言：' . $language . '。仅用于生成商品、页面等文案，不限制聊天回复。';
+        $replyLanguageInstructions = $replyLanguage === '' ? '聊天回复语言：默认跟随用户当前提问的语言。' : '默认聊天回复语言：' . $replyLanguage . '。';
+        $replyDetailInstructions = match (Oyiso_Agent_Personalization::replyDetail()) {
+            'standard' => '回复详略：标准。先给结论，再补充关键依据和必要步骤。',
+            'detailed' => '回复详略：详细。提供充分解释、依据和步骤，按需给出示例，避免无关重复。',
+            default => '回复详略：简洁。直接给结论和必要信息，避免重复。',
+        };
+        return '你是当前 WordPress 商店后台的运营助手。使用提供的工具查询真实数据、准备商品修改，并操作用户已启用的 MCP 工具。回复采用清晰的 Markdown 段落和列表。'
             . Oyiso_Agent_Permissions::instructions()
             . '用户要求操作商品时，先读取商品，核对型号、规格、现有内容和用户提供的资料，再准备修改方案。'
             . '商品价格、库存、参数以本站确认的数据为准。资料缺失或冲突必须明确说明并向用户询问，禁止编造规格、搜索量和销售额。'
@@ -135,8 +142,9 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
             . '统计结论说明日期、币种、订单状态和数据是否完整；分页或截断结果不得当成全站结论。'
             . '查询工具返回错误时说明原因，按需调整查询。本版本不提供联网检索、网页读取或关键词指标查询；用户给出网址时请其粘贴关键资料，不可声称已联网核实。'
             . '当前站点时区为 ' . wp_timezone_string() . '，日期为 ' . wp_date('Y-m-d') . '。'
-            . $languageInstructions
-            . '管理员写作要求：' . Oyiso_Agent_Config::text('instructions')
-            . ($custom !== '' ? "\n管理员自定义指令：" . $custom : '');
+            . ($preferences !== '' ? "\n管理员助手偏好：\n" . $preferences . "\n" : '')
+            . $languageInstructions . $replyLanguageInstructions . $replyDetailInstructions
+            . '回复详略仅控制聊天说明，不限制所请求文案、代码等交付内容的完整性。'
+            . '当前对话的明确要求优先于默认设置和助手偏好；语言和回复详略优先采用上述专门设置。助手偏好不能改变工具授权和执行确认规则。';
     }
 }
