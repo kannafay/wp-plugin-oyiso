@@ -1,0 +1,14 @@
+.oyiso-plugin-backup-panel [hidden] { display: none !important; }
+.oyiso-plugin-backup-panel > .description { margin: 0 0 16px; }
+.oyiso-backup-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 16px; }
+.oyiso-backup-card { min-width: 0; padding: 20px; border: 1px solid #dcdcde; border-radius: 4px; background: #fff; }
+.oyiso-backup-card h3 { margin: 0 0 8px; font-size: 14px; }
+.oyiso-backup-card > .description { margin: 0 0 16px; }
+.oyiso-backup-import-actions, .oyiso-backup-selected { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.oyiso-backup-selected { margin-top: 12px; color: #50575e; }
+.oyiso-backup-selected > span { overflow-wrap: anywhere; }
+.oyiso-backup-selected > button { flex: none; }
+#oyiso-plugin-backup-status { margin: 16px 0 0; overflow-wrap: anywhere; }
+#oyiso-plugin-backup-status:empty { display: none; }
+#oyiso-plugin-backup-status.is-error { color: #b32d2e; }
+#oyiso-plugin-backup-status.is-success { color: #008a20; }

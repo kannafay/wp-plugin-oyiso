@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="../ai-agent/bootstrap.php" cacheResult="false" failOnWarning="true" failOnRisky="true">
+    <testsuites><testsuite name="Oyiso configuration backup"><file>BackupTest.php</file></testsuite></testsuites>
+    <source><include><file>../../src/update-backup/backup/index.php</file></include></source>
+</phpunit>

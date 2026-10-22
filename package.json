@@ -10,7 +10,8 @@
     "i18n:build": "node scripts/build-i18n.js",
     "test:agent-ui": "node --test tests/ai-agent/agent-ui.test.cjs tests/ai-agent/live-ui.test.cjs tests/ai-agent/model-settings.test.cjs tests/ai-agent/files-ui.test.cjs tests/ai-agent/mcp-settings.test.cjs",
     "test:checkout-maintenance": "node --test tests/checkout-maintenance/*.test.cjs",
-    "test:checkout-maintenance:php": "php tests/checkout-maintenance/checkout-maintenance.test.php"
+    "test:checkout-maintenance:php": "php tests/checkout-maintenance/checkout-maintenance.test.php",
+    "test:backup": "node --test tests/backup/*.test.cjs"
   },
   "devDependencies": {
     "archiver": "^7.0.1",
