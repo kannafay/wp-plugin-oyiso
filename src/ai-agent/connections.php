@@ -26,8 +26,8 @@ final class Oyiso_Agent_Connectors
     public static function protocols(): array
     {
         return [
-            'openai_responses' => ['name' => 'OpenAI Responses', 'url' => 'https://api.openai.com/v1'],
             'openai_chat' => ['name' => 'OpenAI Compatible', 'url' => 'https://api.openai.com/v1'],
+            'openai_responses' => ['name' => 'OpenAI Responses', 'url' => 'https://api.openai.com/v1'],
             'anthropic_messages' => ['name' => 'Anthropic', 'url' => 'https://api.anthropic.com/v1'],
             'gemini' => ['name' => 'Google Generative AI', 'url' => 'https://generativelanguage.googleapis.com/v1beta'],
         ];
@@ -36,9 +36,9 @@ final class Oyiso_Agent_Connectors
     /** @return array<string, array{name:string, url:string, model:string, docs:string, protocol:string}> */
     public static function connectionPresets(): array
     {
-        $presets = ['openai' => ['name' => 'OpenAI', 'url' => self::protocols()['openai_responses']['url'], 'model' => '', 'docs' => 'https://developers.openai.com/api/docs', 'protocol' => 'openai_responses']];
+        $presets = ['openai' => ['name' => 'OpenAI', 'url' => self::protocols()['openai_chat']['url'], 'model' => '', 'docs' => 'https://developers.openai.com/api/docs', 'protocol' => 'openai_chat']];
         foreach (self::presets() as $id => $preset) {
-            $row = $preset + ['protocol' => 'openai_responses'];
+            $row = $preset + ['protocol' => 'openai_chat'];
             // Only new connections use the native Gemini API; legacy endpoints keep their protocol.
             if ($id === 'gemini') {
                 $row['url'] = self::protocols()['gemini']['url'];

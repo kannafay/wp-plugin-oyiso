@@ -184,7 +184,7 @@
         const preset = presets[fields.preset.value];
         fields.name.value = row?.name || preset?.name || '';
         fields.url.value = row?.url || preset?.url || '';
-        fields.protocol.value = row?.protocol || preset?.protocol || 'openai_responses';
+        fields.protocol.value = row?.protocol || preset?.protocol || 'openai_chat';
         fields.url.placeholder = protocols[fields.protocol.value].url;
         setModels(row ? row.models : []);
         fields.key.value = ''; fields.key.disabled = false; fields.key.placeholder = row?.configured ? '已配置，留空保持' : '填写 API Key';
@@ -243,7 +243,7 @@
     fields.preset.addEventListener('change', () => {
         const preset = presets[fields.preset.value];
         fields.name.value = preset?.name || ''; fields.url.value = preset?.url || ''; setModels([]);
-        fields.protocol.value = preset?.protocol || 'openai_responses';
+        fields.protocol.value = preset?.protocol || 'openai_chat';
         fields.url.placeholder = protocols[fields.protocol.value].url;
     });
     fields.protocol.addEventListener('change', () => {

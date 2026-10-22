@@ -121,12 +121,12 @@ test('provider presets prefill independent forms and cancel clears credentials w
     assert.equal(f.field('preset').value, 'openai');
     assert.equal(f.field('name').value, 'OpenAI');
     assert.equal(f.field('url').value, 'https://api.openai.com/v1');
-    assert.equal(f.field('protocol').value, 'openai_responses');
+    assert.equal(f.field('protocol').value, 'openai_chat');
     assert.equal(f.field('models').value, '');
     f.field('preset').value = 'deepseek'; f.field('preset').dispatchEvent(new f.window.Event('change', { bubbles: true }));
     assert.equal(f.field('name').value, 'DeepSeek');
     assert.equal(f.field('url').value, 'https://api.deepseek.com');
-    assert.equal(f.field('protocol').value, 'openai_responses');
+    assert.equal(f.field('protocol').value, 'openai_chat');
     f.field('preset').value = 'gemini'; f.field('preset').dispatchEvent(new f.window.Event('change', { bubbles: true }));
     assert.equal(f.field('name').value, 'Gemini');
     assert.match(f.field('url').value, /generativelanguage/);
@@ -148,13 +148,13 @@ test('provider presets prefill independent forms and cancel clears credentials w
     assert.equal(f.field('key').type, 'password'); assert.equal(toggle.getAttribute('aria-pressed'), 'false');
     assert.equal(f.field('url').value, '');
     assert.equal(f.field('models').value, '');
-    assert.equal(f.field('protocol').value, 'openai_responses');
+    assert.equal(f.field('protocol').value, 'openai_chat');
     assert.equal(new f.window.FormData(document.querySelector('form')).has('key'), false);
 });
 test('API protocol changes preserve official, custom and empty URLs while presets fill their own defaults', t => {
     const f = fixture(t);
     f.$('[data-provider-add]').click();
-    assert.deepEqual(Array.from(f.field('protocol').options, option => option.value), ['openai_responses', 'openai_chat', 'anthropic_messages', 'gemini']);
+    assert.deepEqual(Array.from(f.field('protocol').options, option => option.value), ['openai_chat', 'openai_responses', 'anthropic_messages', 'gemini']);
     const change = (field, value) => { f.field(field).value = value; f.field(field).dispatchEvent(new f.window.Event('change', { bubbles: true })); };
     change('preset', 'gemini');
     assert.equal(f.field('protocol').value, 'gemini');
@@ -178,13 +178,13 @@ test('API protocol changes preserve official, custom and empty URLs while preset
     assert.equal(f.field('url').value, '');
     change('preset', 'deepseek');
     assert.equal(f.field('url').value, 'https://api.deepseek.com');
-    assert.equal(f.field('protocol').value, 'openai_responses');
+    assert.equal(f.field('protocol').value, 'openai_chat');
     change('preset', 'agnes');
-    assert.equal(f.field('protocol').value, 'openai_responses');
+    assert.equal(f.field('protocol').value, 'openai_chat');
     change('preset', 'custom');
-    assert.equal(f.field('protocol').value, 'openai_responses');
+    assert.equal(f.field('protocol').value, 'openai_chat');
     change('preset', 'openai');
-    assert.equal(f.field('protocol').value, 'openai_responses');
+    assert.equal(f.field('protocol').value, 'openai_chat');
     assert.equal(f.field('url').value, 'https://api.openai.com/v1');
 });
 
@@ -262,9 +262,9 @@ test('adding a duplicate preset saves through nonce protected REST once and upda
     assert.equal(f.calls.length, 1);
     const call = f.calls[0]; assert.equal(call.route, 'providers'); assert.equal(call.options.method, 'POST');
     assert.equal(call.options.credentials, 'same-origin'); assert.equal(call.options.headers['X-WP-Nonce'], 'fixture-nonce');
-    assert.equal(JSON.parse(call.options.body).protocol, 'openai_responses');
+    assert.equal(JSON.parse(call.options.body).protocol, 'openai_chat');
     assert.deepEqual(JSON.parse(call.options.body).models, ['second-model', 'reasoner']);
-    finish({ connections: [...rows, row('second', { name: 'DeepSeek 备用', protocol: 'openai_responses', models: ['second-model', 'reasoner'] })] }); await settle();
+    finish({ connections: [...rows, row('second', { name: 'DeepSeek 备用', protocol: 'openai_chat', models: ['second-model', 'reasoner'] })] }); await settle();
     assert.equal(f.$('dialog').open, false); assert.equal(f.field('key').value, '');
     assert.equal(f.$('[data-provider-rows]').children.length, 2);
     assert.equal(f.modelUpdates.at(-1)['second|reasoner'], 'DeepSeek 备用 / reasoner');
