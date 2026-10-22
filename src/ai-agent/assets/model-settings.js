@@ -1,5 +1,17 @@
 (() => {
     'use strict';
+    const legacyAdvanced = window.location.hash === '#tab=ai-agent/agent-advanced';
+    const advanced = document.querySelector('.oyiso-agent-model-advanced > .csf-fieldset-content');
+    if (advanced) {
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        details.className = 'oyiso-agent-advanced-options';
+        details.open = legacyAdvanced || Boolean(advanced.querySelector('.csf-error-text'));
+        summary.textContent = '高级选项';
+        advanced.before(details);
+        details.append(summary, advanced);
+    }
+    if (legacyAdvanced) window.location.replace('#tab=ai-agent/agent-model');
     const root = document.querySelector('[data-agent-settings]');
     const config = window.oyisoModelSettings;
     if (!root || !config) return;

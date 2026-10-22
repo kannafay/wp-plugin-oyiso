@@ -464,19 +464,22 @@ final class AgentTest extends TestCase
         self::assertStringContainsString('禁止编造', Oyiso_Agent_Model::instructions());
     }
 
-    public function testSettingsHaveSeparateModelPersonalizationAndAdvancedPagesAndHistoryRendersWithoutNestedForms(): void
+    public function testSettingsGroupAdvancedFieldsWithModelsAndHistoryRendersWithoutNestedForms(): void
     {
         $sections = CSF::$args['sections']['oyiso'];
         $children = array_values(array_filter($sections, static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
-        self::assertSame(['agent-model', 'agent-personalization', 'agent-advanced', 'agent-tools', 'agent-records', 'agent-files'], array_column($children, 'id'));
-        self::assertSame(['模型配置', '个性化', '高级设置', '工具设置', '对话记录', '文件管理'], array_column($children, 'title'));
+        self::assertSame(['agent-model', 'agent-personalization', 'agent-tools', 'agent-records', 'agent-files'], array_column($children, 'id'));
+        self::assertSame(['模型配置', '个性化', '工具设置', '对话记录', '文件管理'], array_column($children, 'title'));
         self::assertSame(['agent_language', 'agent_reply_language', 'agent_reply_detail', 'agent_instructions'], array_column(array_filter($children[1]['fields'], static fn(array $field): bool => ($field['class'] ?? '') !== 'hidden'), 'id'));
         self::assertNotContains('agent_language', array_column($children[0]['fields'], 'id'));
-        self::assertSame('fieldset', $children[2]['fields'][1]['type']);
-        self::assertSame(['agent_write_tools', 'agent_mcp_namespaces'], array_column($children[3]['fields'], 'id'));
-        self::assertSame('callback', $children[3]['fields'][1]['type']);
-        self::assertSame([], $children[3]['fields'][1]['default']);
-        self::assertSame(['woodmart'], $children[3]['fields'][2]['default']);
+        $advanced = $children[0]['fields'][array_key_last($children[0]['fields'])];
+        self::assertSame('agent_advanced', $advanced['id']);
+        self::assertSame('fieldset', $advanced['type']);
+        self::assertSame(['max_steps', 'model'], array_column($advanced['fields'], 'id'));
+        self::assertSame(['agent_write_tools', 'agent_mcp_namespaces'], array_column($children[2]['fields'], 'id'));
+        self::assertSame('callback', $children[2]['fields'][1]['type']);
+        self::assertSame([], $children[2]['fields'][1]['default']);
+        self::assertSame(['woodmart'], $children[2]['fields'][2]['default']);
         ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_Admin::history(); Oyiso_Agent_Admin::connection(); Oyiso_Agent_File_Manager::render(); $html = ob_get_clean();
         self::assertStringNotContainsString('oyiso-agent-chat', $html); self::assertStringContainsString('oyiso-agent-history', $html);
         self::assertStringNotContainsString('oyiso-agent-tasks', $html);
@@ -509,7 +512,7 @@ final class AgentTest extends TestCase
             CSF::$args['sections']['oyiso'] = [];
             require dirname(__DIR__, 2) . '/src/ai-agent/settings.php';
             $sections = CSF::$args['sections']['oyiso'];
-            self::assertCount(7, $sections);
+            self::assertCount(6, $sections);
             self::assertSame('ai-agent', $sections[0]['id']);
             self::assertNotContains('agent_selection', array_column($sections[1]['fields'], 'id'));
             $provider = array_values(array_filter($sections[1]['fields'], static fn(array $field): bool => ($field['class'] ?? '') === 'oyiso-agent-model-providers'))[0];
