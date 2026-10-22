@@ -84,7 +84,9 @@ final class Oyiso_Plugin_Backup
             wp_die(esc_html($json->get_error_message()), '', ['response' => $json->get_error_code() === 'oyiso_backup_size' ? 413 : 500]);
         }
 
-        $filename = 'oyiso-backup-' . wp_date('Ymd-His') . '.json';
+        $host = wp_parse_url(home_url('/'), PHP_URL_HOST);
+        $site = is_string($host) ? sanitize_file_name($host) : '';
+        $filename = ($site !== '' ? $site : 'site') . '-oyiso-backup-' . wp_date('Ymd-His') . '.json';
         nocache_headers();
         header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
         header('X-Content-Type-Options: nosniff');
