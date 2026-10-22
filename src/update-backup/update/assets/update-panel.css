@@ -72,7 +72,7 @@
 
 .oyiso-update-version--latest {
     border-inline-start: 1px solid #e5e7eb;
-    background: #fffaf6;
+    background: var(--oyiso-color-primary-soft, #f3f5fe);
 }
 
 .oyiso-update-version strong {
