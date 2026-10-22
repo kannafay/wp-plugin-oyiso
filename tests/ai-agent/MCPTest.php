@@ -306,7 +306,7 @@ final class MCPTest extends TestCase
         self::assertStringContainsString('agent_write_disabled', wp_json_encode($saved['messages']));
     }
 
-    public function testWriteCheckboxesAreInsideToolRowsAndReadOnlyToolsCannotBeGranted(): void
+    public function testMcpWritesAreGroupedByPluginAndReadOnlyToolsCannotBeGranted(): void
     {
         update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => []]), false);
         ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
@@ -314,12 +314,56 @@ final class MCPTest extends TestCase
         $xpath = new DOMXPath($dom);
         self::assertSame(0, $xpath->query('//input[@type="checkbox"][@checked]')->length);
         foreach (Oyiso_Agent_Permissions::writable() as $name => $ability) {
-            self::assertGreaterThanOrEqual(1, $xpath->query('//tr//input[@type="checkbox"][@name="oyiso[agent_write_tools][]"][@value="' . $name . '"]')->length, $name);
+            $type = str_starts_with($name, 'oyiso/') ? 'checkbox' : 'hidden';
+            self::assertSame(1, $xpath->query('//tr//input[@type="' . $type . '"][@name="oyiso[agent_write_tools][]"][@value="' . $name . '"]')->length, $name);
         }
+        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@type="checkbox"]')->length);
+        self::assertSame(4, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-mcp-grant][@disabled]')->length);
+        self::assertSame(0, $xpath->query('//tr[@data-agent-mcp-plugin]//details[@open]')->length);
         self::assertSame(0, $xpath->query('//input[@value="fixture-mcp/read"]')->length);
         self::assertStringNotContainsString('oyiso[agent_allow_product_trash]', $html);
         self::assertSame([], Oyiso_Agent_Permissions::sanitize(['*', 'fixture-mcp/read', 'unknown/write', ['fixture-mcp/write']]));
         self::assertFalse(Oyiso_Agent_Permissions::allows('fixture-mcp/write'));
         self::assertInstanceOf(WP_Error::class, Oyiso_Agent_Permissions::check('fixture-mcp/write'));
+    }
+
+    public function testPluginSwitchPreservesCompleteAndPartialLegacyWriteGrants(): void
+    {
+        $all = ['fixture-mcp/error', 'fixture-mcp/throws', 'fixture-mcp/unknown', 'fixture-mcp/write'];
+        foreach ([[], ['fixture-mcp/write'], $all] as $grants) {
+            update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => $grants]), false);
+            ob_start(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
+            $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
+            $xpath = new DOMXPath($dom);
+            $row = '//tr[@data-agent-mcp-plugin="fixture-mcp"]';
+            self::assertSame($grants === $all ? 1 : 0, $xpath->query($row . '//input[@data-agent-mcp-write][@checked]')->length);
+            self::assertSame($grants !== [] && $grants !== $all ? 1 : 0, $xpath->query($row . '//input[@data-agent-mcp-write][@data-partial="true"]')->length);
+            $submitted = [];
+            foreach ($xpath->query($row . '//input[@data-agent-mcp-grant][not(@disabled)]') as $input) $submitted[] = $input->getAttribute('value');
+            self::assertSame($grants, $submitted);
+            self::assertSame($grants, Oyiso_Agent_Permissions::sanitize($submitted));
+        }
+    }
+
+    public function testPluginPermissionAssetsWorkBeforeTheAgentIsEnabled(): void
+    {
+        update_option('oyiso', ['agent_enabled' => false], false);
+        wp_dequeue_script('oyiso-mcp-settings'); wp_deregister_script('oyiso-mcp-settings');
+        wp_dequeue_style('oyiso-mcp-settings'); wp_deregister_style('oyiso-mcp-settings');
+        try {
+            Oyiso_Agent_MCP::assets('index.php');
+            self::assertFalse(wp_script_is('oyiso-mcp-settings', 'enqueued'));
+            wp_set_current_user(0);
+            Oyiso_Agent_MCP::assets('plugins_page_oyiso');
+            self::assertFalse(wp_script_is('oyiso-mcp-settings', 'enqueued'));
+            wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
+            Oyiso_Agent_MCP::assets('plugins_page_oyiso');
+            self::assertTrue(wp_script_is('oyiso-mcp-settings', 'enqueued'));
+            self::assertTrue(wp_style_is('oyiso-mcp-settings', 'enqueued'));
+            self::assertFalse(Oyiso_Agent_Config::enabled());
+        } finally {
+            wp_dequeue_script('oyiso-mcp-settings'); wp_deregister_script('oyiso-mcp-settings');
+            wp_dequeue_style('oyiso-mcp-settings'); wp_deregister_style('oyiso-mcp-settings');
+        }
     }
 }

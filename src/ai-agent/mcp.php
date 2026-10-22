@@ -10,6 +10,13 @@ defined('ABSPATH') || exit;
  */
 final class Oyiso_Agent_MCP
 {
+    public static function assets(string $hook): void
+    {
+        if ($hook !== 'plugins_page_oyiso' || !current_user_can('manage_options') || is_network_admin() || is_user_admin()) return;
+        wp_enqueue_style('oyiso-mcp-settings', plugins_url('assets/mcp-settings.css', __FILE__), ['oyiso-admin-theme'], (string) filemtime(__DIR__ . '/assets/mcp-settings.css'));
+        wp_enqueue_script('oyiso-mcp-settings', plugins_url('assets/mcp-settings.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/mcp-settings.js'), true);
+    }
+
     /** @return array<string, WP_Ability> */
     public static function catalog(): array
     {
@@ -37,9 +44,19 @@ final class Oyiso_Agent_MCP
         }
         $options = [];
         foreach ($counts as $namespace => $count) {
-            $options[$namespace] = ($namespace === 'woodmart' ? 'WoodMart' : $namespace) . '（' . $count . ' 个工具）';
+            $options[$namespace] = self::namespaceLabel($namespace) . '（' . $count . ' 个工具）';
         }
         return $options;
+    }
+
+    private static function namespaceLabel(string $namespace): string
+    {
+        return match ($namespace) {
+            'woodmart' => 'WoodMart',
+            'woocommerce' => 'WooCommerce',
+            'ast-pro' => 'AST PRO',
+            default => $namespace,
+        };
     }
 
     /** @return array<string, WP_Ability> */
@@ -61,18 +78,46 @@ final class Oyiso_Agent_MCP
 
     public static function render(): void
     {
-        echo '<div class="oyiso-agent"><p>本站直接复用 WoodMart MCP 和其他插件公开的工具，无需另存应用程序密码。应用程序密码用于 Claude、Codex 等外部客户端连接本站。</p><p><a href="' . esc_url(admin_url('admin.php?page=xts_mcp')) . '">WoodMart MCP 设置</a> · <a href="https://woodmarttheme.com/docs/woodmart-mcp/" target="_blank" rel="noopener noreferrer">接入说明</a></p>';
+        echo '<div class="oyiso-agent oyiso-agent-mcp-settings"><p>本站直接复用 WoodMart MCP 和其他插件公开的工具，无需另存应用程序密码。应用程序密码用于 Claude、Codex 等外部客户端连接本站。</p><p><a href="' . esc_url(admin_url('admin.php?page=xts_mcp')) . '">WoodMart MCP 设置</a> · <a href="https://woodmarttheme.com/docs/woodmart-mcp/" target="_blank" rel="noopener noreferrer">接入说明</a></p>';
         $tools = self::catalog();
         if ($tools === []) {
             echo '<p>尚未发现 MCP 工具。请先启用 WoodMart MCP 或支持 WordPress Abilities API 的插件。</p></div>';
             return;
         }
-        echo '<p class="description">默认只读。新增、修改、删除等写入工具需逐项勾选并保存；未标明只读的工具同样需要授权。启用插件不代表允许写入。</p>';
-        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-mcp-table oyiso-agent-tools-table"><thead><tr><th>工具</th><th>用途</th><th>执行方式</th><th>写入授权</th></tr></thead><tbody>';
+        $plugins = [];
         foreach ($tools as $name => $ability) {
-            printf('<tr><td>%s<br><small>%s</small></td><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html($ability->get_label()), esc_html($name), esc_html(mb_substr($ability->get_description(), 0, 220)), esc_html(self::readonly($ability) ? '只读查询' : '授权后在对话中确认'), Oyiso_Agent_Permissions::cell($ability));
+            $plugins[explode('/', $name, 2)[0]][$name] = $ability;
         }
+        $granted = array_fill_keys(Oyiso_Agent_Permissions::granted(), true);
+        echo '<p class="description">默认只读。按插件开启写入权限并保存后，新增、修改、删除等操作仍需在对话中确认。</p>';
+        echo '<input type="hidden" name="oyiso[agent_write_tools][]" value="">';
+        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-mcp-table"><thead><tr><th scope="col">插件</th><th scope="col">工具</th><th scope="col">写入权限</th></tr></thead><tbody>';
+        foreach ($plugins as $namespace => $abilities) self::renderPlugin($namespace, $abilities, $granted);
         echo '</tbody></table></div><p class="description">WoodMart 区块和布局编辑适用于 Gutenberg；待处理的区块修改还需要在 AI Block Queue 中完成。</p></div>';
+    }
+
+    /** @param array<string, WP_Ability> $tools
+     * @param array<string, true> $granted
+     */
+    private static function renderPlugin(string $namespace, array $tools, array $granted): void
+    {
+        $label = self::namespaceLabel($namespace);
+        $writes = array_filter($tools, static fn(WP_Ability $ability): bool => !self::readonly($ability));
+        $allowed = array_intersect_key($writes, $granted);
+        $all = $writes !== [] && count($allowed) === count($writes);
+        $partial = $allowed !== [] && !$all;
+        printf('<tr data-agent-mcp-plugin="%s"><th scope="row">%s</th><td><span>查询 %d 项 · 写入 %d 项</span><details><summary>查看工具</summary><ul class="oyiso-agent-mcp-tools">', esc_attr($namespace), esc_html($label), count($tools) - count($writes), count($writes));
+        foreach ($tools as $ability) {
+            printf('<li><span>%s</span><span class="description">%s</span></li>', esc_html($ability->get_label()), self::readonly($ability) ? '只读' : '写入');
+        }
+        echo '</ul></details></td><td>';
+        printf('<label><input type="checkbox" data-agent-mcp-write data-partial="%s" aria-label="%s"%s%s> %s</label>', $partial ? 'true' : 'false', esc_attr('允许 ' . $label . ' 写入'), checked($all, true, false), disabled($writes === [], true, false), $writes === [] ? '仅查询' : '允许写入');
+        if ($partial) echo '<span class="description oyiso-agent-mcp-partial" data-agent-mcp-partial>部分工具已授权</span>';
+        // Keep the existing per-tool grants on the server, including legacy partial selections.
+        foreach ($writes as $name => $ability) {
+            printf('<input type="hidden" data-agent-mcp-grant name="oyiso[agent_write_tools][]" value="%s"%s>', esc_attr($name), disabled(!isset($granted[$name]), true, false));
+        }
+        echo '</td></tr>';
     }
 
     /** @param array<string, mixed> $input

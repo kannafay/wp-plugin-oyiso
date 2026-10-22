@@ -212,6 +212,7 @@ final class Oyiso_Agent_Admin
     {
         Oyiso_Agent_Model_Settings::assets($hook);
         Oyiso_Agent_File_Manager::assets($hook);
+        Oyiso_Agent_MCP::assets($hook);
         if (!self::available()) {
             return;
         }

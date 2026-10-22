@@ -381,7 +381,7 @@
     }
 
     const mayWrite = name => Array.isArray(config.writeTools) && config.writeTools.includes(name);
-    const writePermissionNotice = '此工具未获写入授权，请在「AI Agent」对应工具列表中勾选并保存。';
+    const writePermissionNotice = '此工具未获写入授权，请在「AI Agent」对应工具设置中授权并保存。';
 
     function renderChanges(changes) {
         const container = $('[data-agent-changes]');

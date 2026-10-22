@@ -13,7 +13,7 @@ CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-model', 'title' => '模型配置', 'icon' => 'fas fa-sliders-h', 'priority' => 20,
     'fields' => [
         ['type' => 'heading', 'content' => '模型配置'],
-        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询站内数据。', 'default' => false, 'desc' => '默认只读。写入工具需在工具列表逐项勾选并保存，执行时仍需在对话中确认。启用后保存配置并刷新页面，即可加载助手。'],
+        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询站内数据。', 'default' => false, 'desc' => '默认只读。写入权限需在工具设置中开启并保存，执行时仍需在对话中确认。启用后保存配置并刷新页面，即可加载助手。'],
         ['type' => 'callback', 'class' => 'oyiso-agent-model-providers', 'function' => [Oyiso_Agent_Model_Settings::class, 'render']],
     ],
 ]);
@@ -41,8 +41,8 @@ CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-mcp', 'title' => 'MCP 工具', 'icon' => 'fas fa-plug', 'priority' => 24,
     'fields' => [
         ['type' => 'heading', 'content' => 'MCP 工具'],
-        ['id' => 'agent_mcp_namespaces', 'type' => 'checkbox', 'title' => '启用插件工具', 'default' => ['woodmart'], 'options' => Oyiso_Agent_MCP::class . '::namespaceOptions', 'desc' => '选择允许助手查询的插件，WoodMart 默认启用。写入工具还须在下方列表逐项勾选，确认后执行。保存配置后生效。'],
-        ['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_MCP::class, 'render']],
+        ['id' => 'agent_mcp_namespaces', 'type' => 'checkbox', 'title' => '启用插件工具', 'default' => ['woodmart'], 'options' => Oyiso_Agent_MCP::class . '::namespaceOptions', 'desc' => '选择允许助手使用的插件，WoodMart 默认启用。下方按插件开启写入权限，保存配置后生效。'],
+        ['type' => 'callback', 'class' => 'oyiso-agent-mcp-field', 'function' => [Oyiso_Agent_MCP::class, 'render']],
     ],
 ]);
 CSF::createSection('oyiso', [
