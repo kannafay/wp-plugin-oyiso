@@ -483,7 +483,7 @@ final class AgentTest extends TestCase
         self::assertStringNotContainsString('执行记录', $html);
         self::assertStringContainsString('选择对话批量删除', $html);
         self::assertStringContainsString('oyiso-agent-files', $html);
-        self::assertStringContainsString('查询商品', $html); self::assertStringContainsString('授权后在操作卡片中确认', $html);
+        self::assertStringContainsString('查询商品', $html); self::assertStringContainsString('执行时仍需在对话中确认', $html);
         self::assertStringNotContainsString('<form', $html); self::assertStringContainsString('options-connectors.php', $html);
     }
 

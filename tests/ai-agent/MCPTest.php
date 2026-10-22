@@ -312,14 +312,15 @@ final class MCPTest extends TestCase
         ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
         $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
         $xpath = new DOMXPath($dom);
-        self::assertSame(0, $xpath->query('//input[@type="checkbox"][@name="oyiso[agent_write_tools][]"][@checked] | //input[@data-agent-mcp-write][@checked]')->length);
+        self::assertSame(0, $xpath->query('//input[@data-agent-write-toggle][@checked]')->length);
         foreach (Oyiso_Agent_Permissions::writable() as $name => $ability) {
-            $type = str_starts_with($name, 'oyiso/') ? 'checkbox' : 'hidden';
-            self::assertSame(1, $xpath->query('//tr//input[@type="' . $type . '"][@name="oyiso[agent_write_tools][]"][@value="' . $name . '"]')->length, $name);
+            self::assertSame(1, $xpath->query('//tr//input[@type="hidden"][@name="oyiso[agent_write_tools][]"][@value="' . $name . '"]')->length, $name);
         }
-        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-mcp-write]')->length);
+        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-write-toggle]')->length);
         self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@name="oyiso[agent_mcp_namespaces][]"][@value="fixture-mcp"][@checked]')->length);
-        self::assertSame(4, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-mcp-grant][@disabled]')->length);
+        self::assertSame(4, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-write-grant][@disabled]')->length);
+        self::assertSame(3, $xpath->query('//tr[@data-agent-tool-group]')->length);
+        self::assertSame(1, $xpath->query('//tr[@data-agent-tool-group]//input[@data-agent-write-toggle]')->length);
         self::assertSame(0, $xpath->query('//tr[@data-agent-mcp-plugin]//details[@open]')->length);
         self::assertSame(0, $xpath->query('//input[@value="fixture-mcp/read"]')->length);
         self::assertStringNotContainsString('oyiso[agent_allow_product_trash]', $html);
@@ -337,10 +338,10 @@ final class MCPTest extends TestCase
             $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
             $xpath = new DOMXPath($dom);
             $row = '//tr[@data-agent-mcp-plugin="fixture-mcp"]';
-            self::assertSame($grants === $all ? 1 : 0, $xpath->query($row . '//input[@data-agent-mcp-write][@checked]')->length);
-            self::assertSame($grants !== [] && $grants !== $all ? 1 : 0, $xpath->query($row . '//input[@data-agent-mcp-write][@data-partial="true"]')->length);
+            self::assertSame($grants === $all ? 1 : 0, $xpath->query($row . '//input[@data-agent-write-toggle][@checked]')->length);
+            self::assertSame($grants !== [] && $grants !== $all ? 1 : 0, $xpath->query($row . '//input[@data-agent-write-toggle][@data-partial="true"]')->length);
             $submitted = [];
-            foreach ($xpath->query($row . '//input[@data-agent-mcp-grant][not(@disabled)]') as $input) $submitted[] = $input->getAttribute('value');
+            foreach ($xpath->query($row . '//input[@data-agent-write-grant][not(@disabled)]') as $input) $submitted[] = $input->getAttribute('value');
             self::assertSame($grants, $submitted);
             self::assertSame($grants, Oyiso_Agent_Permissions::sanitize($submitted));
         }
@@ -354,9 +355,9 @@ final class MCPTest extends TestCase
         $previousPost = $_POST;
         try {
             foreach ([['fixture-mcp'], [], ['woodmart']] as $namespaces) {
-                update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => $namespaces, 'agent_write_tools' => ['fixture-mcp/write']], false);
+                update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => $namespaces, 'agent_write_tools' => ['oyiso/apply-product-update', 'fixture-mcp/write']], false);
                 $form->options = Oyiso_Agent_Config::options();
-                ob_start(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
+                ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
                 $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
                 $xpath = new DOMXPath($dom);
                 $fields = ['agent_enabled' => '1'];
@@ -369,7 +370,7 @@ final class MCPTest extends TestCase
                 self::assertTrue($form->set_options(true));
                 self::assertSame([], $form->errors);
                 self::assertSame($namespaces, Oyiso_Agent_Config::options()['agent_mcp_namespaces']);
-                self::assertSame(['fixture-mcp/write'], Oyiso_Agent_Permissions::granted());
+                self::assertSame(['oyiso/apply-product-update', 'fixture-mcp/write'], Oyiso_Agent_Permissions::granted());
                 self::assertSame(in_array('fixture-mcp', $namespaces, true), isset(Oyiso_Agent_MCP::selected()['fixture-mcp/read']));
                 self::assertSame(in_array('fixture-mcp', $namespaces, true), in_array('fixture-mcp/write', Oyiso_Agent_Permissions::granted(true), true));
             }
