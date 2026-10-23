@@ -901,6 +901,88 @@ test('conversation model selection is submitted and retained when an idle conver
     assert.equal(f.window.localStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:model'), 'second|model-b');
 });
 
+test('an unsent model choice survives a page reload and is used by the next message', async t => {
+    const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+    let selection = 'fixture|model-a';
+    const router = (route, options) => {
+        if (route === 'runs' && options.method === 'POST') selection = JSON.parse(options.body).selection;
+        if (route === 'runs/12' || route === 'runs' && options.method === 'POST') return task({ selection });
+    };
+    const original = fixture(t, router, {}, window => window.localStorage.setItem(key, '12'));
+    await settle();
+    const select = original.$('[data-agent-model]');
+    select.value = 'second|model-b'; select.dispatchEvent(new original.window.Event('change', { bubbles: true }));
+    const saved = Object.entries(original.window.localStorage);
+    const reloaded = fixture(t, router, {}, window => saved.forEach(([name, value]) => window.localStorage.setItem(name, value)));
+    await settle();
+    assert.equal(reloaded.$('[data-agent-model]').value, 'second|model-b');
+    reloaded.$('#oyiso-agent-prompt').value = 'Continue with my selected model';
+    reloaded.$('[data-agent-send]').click(); await settle();
+    assert.equal(selection, 'second|model-b');
+    assert.equal(JSON.parse(reloaded.calls.find(call => call.route === 'runs' && call.options.method === 'POST').options.body).selection, 'second|model-b');
+});
+
+test('unsent model choices stay with their own conversation when switching history', async t => {
+    const f = fixture(t, route => {
+        if (route === 'runs?page=1') return { items: [12, 13].map(id => ({ id, title: `Conversation ${id}`, status: 'completed', updated: '2026-10-23' })), pages: 1 };
+        if (route === 'runs/12' || route === 'runs/13') return task({ id: Number(route.split('/')[1]), selection: 'fixture|model-a' });
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const select = f.$('[data-agent-model]');
+    select.value = 'second|model-b'; select.dispatchEvent(new f.window.Event('change', { bubbles: true }));
+    f.$('#oyiso-agent-history [data-agent-run="13"]').click(); await settle();
+    assert.equal(select.value, 'fixture|model-a');
+    f.$('#oyiso-agent-history [data-agent-run="12"]').click(); await settle();
+    assert.equal(select.value, 'second|model-b');
+    f.$('[data-agent-new]').click();
+    assert.equal(select.value, 'second|model-b');
+});
+
+test('a removed unsent model remains unavailable after reloading rather than changing the connection', async t => {
+    const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+    const original = fixture(t, route => route === 'runs/12' ? task({ selection: 'fixture|model-a' }) : undefined, {}, window => window.localStorage.setItem(key, '12'));
+    await settle();
+    const select = original.$('[data-agent-model]');
+    select.value = 'second|model-b'; select.dispatchEvent(new original.window.Event('change', { bubbles: true }));
+    const saved = Object.entries(original.window.localStorage);
+    const reloaded = fixture(t, route => route === 'runs/12' ? task({ selection: 'fixture|model-a' }) : undefined, { models: { 'fixture|model-a': 'Original / model-a' } }, window => saved.forEach(([name, value]) => window.localStorage.setItem(name, value)));
+    await settle();
+    assert.equal(reloaded.$('[data-agent-model]').value, 'second|model-b');
+    assert.equal(reloaded.$('[data-agent-model]').selectedOptions[0].disabled, true);
+    assert.equal(reloaded.$('[data-agent-send]').disabled, true);
+});
+
+test('a running task replaces an older draft choice and does not restore it after completion', async t => {
+    const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+    const original = fixture(t, route => route === 'runs/12' ? task({ selection: 'fixture|model-a' }) : undefined, {}, window => window.localStorage.setItem(key, '12'));
+    await settle();
+    const select = original.$('[data-agent-model]');
+    select.value = 'second|model-b'; select.dispatchEvent(new original.window.Event('change', { bubbles: true }));
+    const saved = Object.entries(original.window.localStorage);
+    const running = fixture(t, route => route === 'runs/12' ? task({ status: 'running', selection: 'fixture|model-a' }) : undefined, {}, window => saved.forEach(([name, value]) => window.localStorage.setItem(name, value)));
+    await settle();
+    assert.equal(running.$('[data-agent-model]').value, 'fixture|model-a');
+    assert.equal(running.$('[data-agent-model]').disabled, true);
+    const afterRunning = Object.entries(running.window.localStorage);
+    const completed = fixture(t, route => route === 'runs/12' ? task({ selection: 'fixture|model-a' }) : undefined, {}, window => afterRunning.forEach(([name, value]) => window.localStorage.setItem(name, value)));
+    await settle();
+    assert.equal(completed.$('[data-agent-model]').value, 'fixture|model-a');
+    assert.equal(completed.$('[data-agent-model]').disabled, false);
+    completed.$('[data-agent-new]').click();
+    assert.equal(completed.$('[data-agent-model]').value, 'second|model-b');
+});
+
+test('a new conversation remembers the last chosen model across a page reload', async t => {
+    const original = fixture(t);
+    const select = original.$('[data-agent-model]');
+    select.value = 'second|model-b'; select.dispatchEvent(new original.window.Event('change', { bubbles: true }));
+    const saved = Object.entries(original.window.localStorage);
+    const reloaded = fixture(t, undefined, {}, window => saved.forEach(([name, value]) => window.localStorage.setItem(name, value)));
+    await settle();
+    assert.equal(reloaded.$('[data-agent-model]').value, 'second|model-b');
+    assert.equal(reloaded.$('[data-agent-model]').disabled, false);
+});
+
 test('history restores its own model and active tasks lock model switching', async t => {
     const f = fixture(t, route => route === 'runs/12' || route === 'runs/12/step' ? task({ status: 'running', selection: 'fixture|model-a' }) : undefined, {}, window => {
         const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';

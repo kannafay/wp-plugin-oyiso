@@ -35,6 +35,7 @@
     const liveOwners = new Map();
     let sendSequence = 0;
     const drafts = new Map();
+    const modelDrafts = new Map();
     let run = null;
     let runId = 0;
     let timer;
@@ -65,6 +66,16 @@
         if (selected) modelSelect.value = selected;
     }
 
+    function modelFor(id, fallback) {
+        if (modelDrafts.has(id)) return modelDrafts.get(id);
+        try { return localStorage.getItem(storageKey + ':model:' + id) || fallback; } catch { return fallback; }
+    }
+
+    function forgetModel(id) {
+        modelDrafts.delete(id);
+        try { localStorage.removeItem(storageKey + ':model:' + id); } catch { /* Storage is optional. */ }
+    }
+
     function rememberDraft() {
         drafts.set(runId, prompt.value);
         try {
@@ -87,6 +98,7 @@
 
     function forgetDraft(id) {
         drafts.delete(id);
+        forgetModel(id);
         composer?.clear(id);
         try { sessionStorage.removeItem(storageKey + ':draft:' + id); } catch { /* Storage is optional. */ }
     }
@@ -521,7 +533,13 @@
 
     function render(next) {
         if (next.id !== runId) return;
-        if ((!run || sending) && typeof next.selection === 'string') populateModels(config.models, next.selection);
+        const active = ['queued', 'running'].includes(next.status);
+        // Unsent choices belong to the conversation; active tasks use the server's model.
+        if (active && (!run || !['queued', 'running'].includes(run.status))) forgetModel(next.id);
+        if (!run || sending || active && modelSelect.value !== next.selection) {
+            const selected = active ? next.selection : modelFor(next.id, next.selection);
+            if (typeof selected === 'string') populateModels(config.models, selected);
+        }
         run = next;
         if (next.status === 'cancelled') liveRuns.delete(next.id);
         controls();
@@ -789,7 +807,12 @@
     prompt.addEventListener('change', event => event.stopPropagation());
     prompt.addEventListener('keypress', event => event.stopPropagation());
     prompt.addEventListener('input', rememberDraft);
-    modelSelect.addEventListener('change', event => { event.stopPropagation(); store(':model', modelSelect.value); controls(); });
+    modelSelect.addEventListener('change', event => {
+        event.stopPropagation();
+        store(':model', modelSelect.value);
+        if (runId) { modelDrafts.set(runId, modelSelect.value); store(':model:' + runId, modelSelect.value); }
+        controls();
+    });
     modelSelect.addEventListener('keypress', event => event.stopPropagation());
     document.addEventListener('oyiso-agent-models-updated', event => { populateModels(event.detail); controls(); initialNotice(); });
     document.addEventListener('oyiso-agent-files-deleted', event => {
