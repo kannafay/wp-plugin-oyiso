@@ -359,34 +359,7 @@ final class Oyiso_Agent_Admin
 
     public static function tools(): void
     {
-        echo '<div class="oyiso-agent oyiso-agent-permission-settings"><div class="oyiso-agent-heading"><div><h2>站内工具</h2><p class="description">默认只读。按功能组开启写入权限并保存，执行时仍需在对话中确认。</p></div></div>';
-        if (!Oyiso_Agent_Config::supported()) {
-            echo '<p>AI Agent 需要 WordPress 7.0 或以上版本，当前环境暂不可用。</p></div>';
-            return;
-        }
-        $groups = [
-            'products' => ['商品管理', '查询商品、修改内容，以及移入回收站和恢复。', ['search-products', 'get-product', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash']],
-            'orders' => ['订单统计', '按日期查看订单数量和销售金额。', ['order-summary']],
-        ];
-        $granted = array_fill_keys(Oyiso_Agent_Permissions::granted(), true);
-        $writable = Oyiso_Agent_Permissions::writable();
-        echo '<input type="hidden" name="oyiso[agent_write_tools][]" value="">';
-        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-tools-table oyiso-agent-permissions-table"><thead><tr><th scope="col">功能</th><th scope="col">用途</th><th scope="col">写入权限</th></tr></thead><tbody>';
-        foreach ($groups as $id => [$label, $description, $names]) {
-            $tools = [];
-            foreach ($names as $name) {
-                $ability = wp_get_ability('oyiso/' . $name);
-                if ($ability !== null) $tools[$ability->get_name()] = $ability;
-            }
-            if ($tools === []) continue;
-            printf('<tr data-agent-tool-group="%s" data-agent-write-group><th scope="row">%s</th><td><span>%s</span><details><summary>查看工具</summary><ul class="oyiso-agent-permission-tools">', esc_attr($id), esc_html($label), esc_html($description));
-            foreach ($tools as $ability) printf('<li>%s</li>', esc_html($ability->get_label()));
-            echo '</ul></details></td><td>';
-            $writes = array_intersect_key($writable, $tools);
-            echo $writes === [] ? '<span class="description">仅查询</span>' : Oyiso_Agent_Permissions::groupCell($writes, $granted, $label);
-            echo '</td></tr>';
-        }
-        echo '</tbody></table></div></div>';
+        Oyiso_Agent_MCP::render();
     }
 
     private static function missing(): WP_Error

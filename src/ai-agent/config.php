@@ -9,9 +9,15 @@ final class Oyiso_Agent_Config
     private const SECRETS = 'oyiso_agent_secrets';
 
     /** @return array<string, mixed> */
-    public static function options(): array
+    public static function options(bool $fresh = false): array
     {
-        $options = get_option('oyiso', []);
+        if ($fresh) {
+            global $wpdb;
+            $stored = $wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", 'oyiso'));
+            $options = is_string($stored) ? maybe_unserialize($stored) : [];
+        } else {
+            $options = get_option('oyiso', []);
+        }
         return is_array($options) ? $options : [];
     }
 
@@ -126,6 +132,17 @@ final class Oyiso_Agent_Config
     {
         $options = Oyiso_Agent_Personalization::mergePreferences($options);
         $options[Oyiso_Agent_Permissions::OPTION] = Oyiso_Agent_Permissions::sanitize($options[Oyiso_Agent_Permissions::OPTION] ?? []);
+        $previous = self::options();
+        if (!in_array($options[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [1, '1'], true) && in_array($previous[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [1, '1'], true)) {
+            // A settings tab opened before the upgrade must not re-enable a revoked built-in source.
+            $namespaces = $options['agent_mcp_namespaces'] ?? $previous['agent_mcp_namespaces'] ?? [];
+            $namespaces = is_array($namespaces) ? array_values(array_filter($namespaces, static fn(mixed $name): bool => is_string($name) && $name !== Oyiso_Agent_MCP::BUILTIN_NAMESPACE)) : [];
+            if (in_array(Oyiso_Agent_MCP::BUILTIN_NAMESPACE, Oyiso_Agent_MCP::namespaces($previous), true)) $namespaces[] = Oyiso_Agent_MCP::BUILTIN_NAMESPACE;
+            $options['agent_mcp_namespaces'] = $namespaces;
+            $options[Oyiso_Agent_MCP::SETTINGS_VERSION] = '1';
+        }
+        $options['agent_mcp_namespaces'] = Oyiso_Agent_MCP::sanitizeNamespaces(Oyiso_Agent_MCP::namespaces($options));
+        $options[Oyiso_Agent_MCP::SETTINGS_VERSION] = '1';
         unset($options['agent_allow_product_trash']);
         // Keep retired credentials encrypted for rollback, and discard obsolete plaintext inputs.
         foreach (['search_key', 'keywords_password'] as $name) {

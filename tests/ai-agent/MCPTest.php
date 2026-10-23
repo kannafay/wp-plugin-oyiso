@@ -86,7 +86,16 @@ final class MCPTest extends TestCase
 
     public function testCatalogAndDiscoveryOnlyExposePublicSelectedNamespaces(): void
     {
+        $reserved = Oyiso_Agent_MCP::BUILTIN_NAMESPACE . '/read';
+        WP_Abilities_Registry::get_instance()->register($reserved, [
+            'label' => 'Reserved source fixture', 'description' => 'The internal enable flag is not a public plugin namespace.', 'category' => 'oyiso-agent',
+            'input_schema' => ['type' => 'object'], 'output_schema' => ['type' => 'object'],
+            'permission_callback' => static fn(): bool => true, 'execute_callback' => static fn(): array => [],
+            'meta' => ['mcp' => ['public' => true], 'annotations' => ['readonly' => true]],
+        ]);
+        $this->registered[] = $reserved;
         $catalog = Oyiso_Agent_MCP::catalog();
+        self::assertArrayNotHasKey($reserved, $catalog);
         self::assertArrayNotHasKey('fixture-mcp/private', $catalog);
         self::assertArrayNotHasKey('mcp-adapter/execute-ability', $catalog);
         self::assertArrayNotHasKey('oyiso/apply-product-update', $catalog);
@@ -229,10 +238,10 @@ final class MCPTest extends TestCase
         $field = array_values(array_filter($section['fields'], static fn(array $item): bool => ($item['id'] ?? '') === 'agent_mcp_namespaces'))[0];
         ob_start(); CSF::field($field, ['woodmart'], 'oyiso'); $html = ob_get_clean();
         $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
-        self::assertSame(1, (new DOMXPath($dom))->query('//input[@value="woodmart"][@checked]')->length);
+        self::assertSame(1, (new DOMXPath($dom))->query('//input[@data-agent-plugin-member][@value="woodmart"][not(@disabled)]')->length);
         self::assertStringContainsString('woodmart/update-theme-setting', $html);
         self::assertStringNotContainsString('type="password"', $html);
-        self::assertStringContainsString('无需另存应用程序密码', $html);
+        self::assertStringContainsString('选择助手可用的插件', $html);
     }
 
     public function testReadOnlyDefaultHidesAndBlocksEveryUnapprovedMcpWriteIncludingUnknownAnnotations(): void
@@ -275,8 +284,9 @@ final class MCPTest extends TestCase
             foreach ([['agent_write_tools' => []], ['agent_mcp_namespaces' => []]] as $revoked) {
                 $wpdb->update($wpdb->options, ['option_value' => maybe_serialize(array_replace($options, $revoked))], ['option_name' => 'oyiso']);
                 self::assertTrue(Oyiso_Agent_Permissions::allows('fixture-mcp/write'), 'The old request still has a cached grant.');
-                self::assertSame('agent_write_disabled', $this->call($run, 'fixture-mcp/write')->get_error_code());
-                self::assertSame('agent_write_disabled', Oyiso_Agent_MCP::approve($run, $pending['action_id'], 'execute')->get_error_code());
+                $expected = array_key_exists('agent_mcp_namespaces', $revoked) ? 'agent_mcp_unavailable' : 'agent_write_disabled';
+                self::assertSame($expected, $this->call($run, 'fixture-mcp/write')->get_error_code());
+                self::assertSame($expected, Oyiso_Agent_MCP::approve($run, $pending['action_id'], 'execute')->get_error_code());
                 self::assertSame('pending', $run['mcp_actions'][0]['status']);
                 self::assertSame(0, $this->writes);
             }
@@ -310,7 +320,7 @@ final class MCPTest extends TestCase
     public function testMcpWritesAreGroupedByPluginAndReadOnlyToolsCannotBeGranted(): void
     {
         update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => []]), false);
-        ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
+        ob_start(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
         $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
         $xpath = new DOMXPath($dom);
         self::assertSame(0, $xpath->query('//input[@data-agent-write-toggle][@checked]')->length);
@@ -318,10 +328,15 @@ final class MCPTest extends TestCase
             self::assertSame(1, $xpath->query('//tr//input[@type="hidden"][@name="oyiso[agent_write_tools][]"][@value="' . $name . '"]')->length, $name);
         }
         self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-write-toggle]')->length);
-        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@name="oyiso[agent_mcp_namespaces][]"][@value="fixture-mcp"][@checked]')->length);
+        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-plugin-toggle][@checked]')->length);
+        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-plugin-member][@value="fixture-mcp"][not(@disabled)]')->length);
         self::assertSame(4, $xpath->query('//tr[@data-agent-mcp-plugin="fixture-mcp"]//input[@data-agent-write-grant][@disabled]')->length);
-        self::assertSame(2, $xpath->query('//tr[@data-agent-tool-group]')->length);
-        self::assertSame(1, $xpath->query('//tr[@data-agent-tool-group]//input[@data-agent-write-toggle]')->length);
+        self::assertSame(0, $xpath->query('//tr[@data-agent-tool-group]')->length);
+        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="woocommerce"]')->length);
+        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="woocommerce"]//input[@data-agent-write-toggle]')->length);
+        self::assertSame(1, $xpath->query('//tr[@data-agent-mcp-plugin="woocommerce"]//input[@data-agent-plugin-toggle]')->length);
+        self::assertStringContainsString('商品管理、订单统计', $html);
+        self::assertStringNotContainsString('站内工具', $html);
         self::assertSame(0, $xpath->query('//tr[@data-agent-mcp-plugin]//details[@open]')->length);
         self::assertSame(0, $xpath->query('//input[@value="fixture-mcp/read"]')->length);
         self::assertStringNotContainsString('oyiso[agent_allow_product_trash]', $html);
@@ -356,15 +371,15 @@ final class MCPTest extends TestCase
         $form->unique = 'oyiso'; $form->pre_fields = array_merge(...array_column($sections, 'fields'));
         $previousPost = $_POST;
         try {
-            foreach ([['fixture-mcp'], [], ['woodmart']] as $namespaces) {
-                update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => $namespaces, 'agent_write_tools' => ['oyiso/apply-product-update', 'fixture-mcp/write']], false);
+            foreach ([['fixture-mcp'], [], ['woodmart'], ['oyiso-woocommerce', 'woocommerce']] as $namespaces) {
+                update_option('oyiso', ['agent_enabled' => true, 'agent_plugin_tools_version' => '1', 'agent_mcp_namespaces' => $namespaces, 'agent_write_tools' => ['oyiso/apply-product-update', 'fixture-mcp/write']], false);
                 $form->options = Oyiso_Agent_Config::options();
                 ob_start();
                 foreach ($toolSection['fields'] as $field) CSF::field($field, $form->options[$field['id'] ?? ''] ?? '', 'oyiso');
                 $html = ob_get_clean();
                 $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
                 $xpath = new DOMXPath($dom);
-                $fields = ['agent_enabled' => '1'];
+                $fields = ['agent_enabled' => '1', 'agent_plugin_tools_version' => '1'];
                 foreach (['agent_mcp_namespaces', 'agent_write_tools'] as $field) {
                     $fields[$field] = [];
                     foreach ($xpath->query('//input[@name="oyiso[' . $field . '][]"][not(@disabled)][@type="hidden" or @checked]') as $input) $fields[$field][] = $input->getAttribute('value');
@@ -373,8 +388,9 @@ final class MCPTest extends TestCase
                 $_POST = ['data' => wp_slash(wp_json_encode($payload))];
                 self::assertTrue($form->set_options(true));
                 self::assertSame([], $form->errors);
-                self::assertSame($namespaces, Oyiso_Agent_Config::options()['agent_mcp_namespaces']);
-                self::assertSame(['oyiso/apply-product-update', 'fixture-mcp/write'], Oyiso_Agent_Permissions::granted());
+                self::assertEqualsCanonicalizing($namespaces, Oyiso_Agent_Config::options()['agent_mcp_namespaces']);
+                self::assertEqualsCanonicalizing(['oyiso/apply-product-update', 'fixture-mcp/write'], Oyiso_Agent_Permissions::configured());
+                self::assertSame(in_array('oyiso-woocommerce', $namespaces, true), in_array('oyiso/get-product', Oyiso_Agent_Abilities::allowed(), true));
                 self::assertSame(in_array('fixture-mcp', $namespaces, true), isset(Oyiso_Agent_MCP::selected()['fixture-mcp/read']));
                 self::assertSame(in_array('fixture-mcp', $namespaces, true), in_array('fixture-mcp/write', Oyiso_Agent_Permissions::granted(true), true));
             }
@@ -403,5 +419,63 @@ final class MCPTest extends TestCase
             wp_dequeue_script('oyiso-mcp-settings'); wp_deregister_script('oyiso-mcp-settings');
             wp_dequeue_style('oyiso-mcp-settings'); wp_deregister_style('oyiso-mcp-settings');
         }
+    }
+
+    public function testLegacySourceAndWriteSelectionsMigrateWithoutEnablingAdditionalTools(): void
+    {
+        $legacy = ['agent_enabled' => true, 'agent_mcp_namespaces' => ['fixture-mcp'], 'agent_write_tools' => ['oyiso/apply-product-update', 'fixture-mcp/write']];
+        update_option('oyiso', $legacy, false);
+        ob_start(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
+        $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new DOMXPath($dom);
+        $row = '//tr[@data-agent-mcp-plugin="woocommerce"]';
+        self::assertSame(1, $xpath->query($row . '//input[@data-agent-plugin-toggle][@data-partial="true"]')->length);
+        self::assertSame(1, $xpath->query($row . '//input[@data-agent-plugin-member][@value="oyiso-woocommerce"][not(@disabled)]')->length);
+        self::assertSame(1, $xpath->query($row . '//input[@data-agent-plugin-member][@value="woocommerce"][@disabled]')->length);
+        self::assertSame(1, $xpath->query($row . '//input[@data-agent-write-toggle][@data-partial="true"]')->length);
+        $saved = Oyiso_Agent_Config::saveOptions($legacy);
+        self::assertSame('1', $saved['agent_plugin_tools_version']);
+        self::assertEqualsCanonicalizing(['fixture-mcp', 'oyiso-woocommerce'], $saved['agent_mcp_namespaces']);
+        self::assertSame($legacy['agent_write_tools'], $saved['agent_write_tools']);
+        update_option('oyiso', $saved, false);
+        self::assertContains('oyiso/get-product', Oyiso_Agent_Abilities::allowed());
+        foreach (Oyiso_Agent_MCP::selected() as $name => $ability) self::assertFalse(str_starts_with($name, 'woocommerce/'));
+        $staleForm = array_replace($legacy, ['agent_mcp_namespaces' => []]);
+        update_option('oyiso', array_replace($saved, ['agent_mcp_namespaces' => []]), false);
+        $resaved = Oyiso_Agent_Config::saveOptions($staleForm);
+        self::assertSame([], $resaved['agent_mcp_namespaces']);
+        self::assertSame($legacy['agent_write_tools'], $resaved['agent_write_tools']);
+    }
+
+    public function testWooCommerceEnableSwitchAlsoBlocksNativePluginCallsAndOldMcpCards(): void
+    {
+        foreach (['read', 'write'] as $kind) {
+            $name = 'woocommerce/oyiso-fixture-' . $kind;
+            WP_Abilities_Registry::get_instance()->register($name, [
+                'label' => 'WooCommerce fixture ' . $kind, 'description' => 'WooCommerce enable test.', 'category' => 'oyiso-agent',
+                'input_schema' => ['type' => 'object', 'additionalProperties' => false, 'default' => new stdClass()],
+                'output_schema' => ['type' => 'object', 'additionalProperties' => true],
+                'permission_callback' => static fn(): bool => current_user_can('manage_options'),
+                'execute_callback' => function () use ($kind): array { if ($kind === 'write') $this->writes++; return ['ok' => true]; },
+                'meta' => ['mcp' => ['public' => true], 'annotations' => ['readonly' => $kind === 'read']],
+            ]);
+            $this->registered[] = $name;
+        }
+        $options = ['agent_enabled' => true, 'agent_plugin_tools_version' => '1', 'agent_mcp_namespaces' => ['oyiso-woocommerce', 'woocommerce'], 'agent_write_tools' => ['woocommerce/oyiso-fixture-write']];
+        update_option('oyiso', $options, false);
+        $run = $this->task();
+        self::assertIsArray($this->call($run, 'woocommerce/oyiso-fixture-read'));
+        $pending = $this->call($run, 'woocommerce/oyiso-fixture-write');
+        self::assertSame('pending', $pending['status']);
+        self::assertSame(0, $this->writes);
+        update_option('oyiso', array_replace($options, ['agent_mcp_namespaces' => []]), false);
+        self::assertNotContains('oyiso/get-product', Oyiso_Agent_Abilities::allowed());
+        self::assertInstanceOf(WP_Error::class, $this->call($run, 'woocommerce/oyiso-fixture-read'));
+        self::assertInstanceOf(WP_Error::class, $this->call($run, 'woocommerce/oyiso-fixture-write'));
+        self::assertInstanceOf(WP_Error::class, Oyiso_Agent_MCP::approve($run, $pending['action_id'], 'execute'));
+        self::assertSame(0, $this->writes);
+        update_option('oyiso', $options, false);
+        self::assertTrue(Oyiso_Agent_MCP::approve($run, $pending['action_id'], 'execute'));
+        self::assertSame(1, $this->writes);
     }
 }

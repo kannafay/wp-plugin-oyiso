@@ -12,8 +12,8 @@
 .oyiso-agent-permission-tools { max-height: 280px; margin: 10px 0 0; overflow-y: auto; }
 .oyiso-agent-permission-tools li { display: flex; justify-content: space-between; gap: 16px; margin: 0; padding: 7px 0; border-top: 1px solid #dcdcde; overflow-wrap: anywhere; }
 .oyiso-agent-permission-tools .description { flex-shrink: 0; }
-.oyiso-agent-write-partial { display: block; margin-top: 6px; }
-.oyiso-agent-write-partial[hidden] { display: none; }
+.oyiso-agent-write-partial, .oyiso-agent-plugin-partial { display: block; margin-top: 6px; }
+.oyiso-agent-write-partial[hidden], .oyiso-agent-plugin-partial[hidden] { display: none; }
 @media (max-width: 782px) {
     .oyiso-agent-permissions-table > thead > tr > th:first-child { width: 100px; }
     .oyiso-agent-permissions-table :is(th, td) { padding: 12px 10px; }

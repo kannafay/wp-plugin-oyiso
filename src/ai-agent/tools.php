@@ -33,6 +33,9 @@ final class Oyiso_Agent_Tools
         if (!Oyiso_Agent_Config::enabled() || !current_user_can('manage_options') || !Oyiso_Agent_Store::owned($this->run['id']) || (!in_array($name, ['revert-product-update', 'revert-product-trash'], true) && Oyiso_Agent_Store::cancelled($this->run['id']))) {
             return new WP_Error('agent_tool_forbidden', '当前任务已取消或没有执行权限。');
         }
+        if ($name !== 'dismiss-product-trash' && in_array($name, Oyiso_Agent_Abilities::WOOCOMMERCE, true) && !Oyiso_Agent_MCP::builtinEnabled(true)) {
+            return new WP_Error('agent_plugin_disabled', 'WooCommerce 工具未启用，请在插件工具中启用并保存。', ['status' => 403]);
+        }
         if (Oyiso_Agent_Permissions::required('oyiso/' . $name) !== null) {
             $permission = Oyiso_Agent_Permissions::check('oyiso/' . $name);
             if (is_wp_error($permission)) return $permission;

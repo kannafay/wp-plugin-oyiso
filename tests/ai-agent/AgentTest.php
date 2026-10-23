@@ -476,7 +476,7 @@ final class AgentTest extends TestCase
         self::assertSame('agent_advanced', $advanced['id']);
         self::assertSame('fieldset', $advanced['type']);
         self::assertSame(['max_steps', 'model'], array_column($advanced['fields'], 'id'));
-        self::assertSame(['agent_write_tools', 'agent_mcp_namespaces'], array_column($children[2]['fields'], 'id'));
+        self::assertSame(['agent_write_tools', 'agent_mcp_namespaces', 'agent_plugin_tools_version'], array_column($children[2]['fields'], 'id'));
         self::assertSame('callback', $children[2]['fields'][1]['type']);
         self::assertSame([], $children[2]['fields'][1]['default']);
         self::assertSame(['woodmart'], $children[2]['fields'][2]['default']);
@@ -487,7 +487,7 @@ final class AgentTest extends TestCase
         self::assertStringNotContainsString('执行记录', $html);
         self::assertStringContainsString('选择对话批量删除', $html);
         self::assertStringContainsString('oyiso-agent-files', $html);
-        self::assertStringContainsString('查询商品', $html); self::assertStringContainsString('执行时仍需在对话中确认', $html);
+        self::assertStringContainsString('查询商品', $html); self::assertStringContainsString('执行前仍需在对话中确认', $html);
         self::assertStringNotContainsString('<form', $html); self::assertStringContainsString('options-connectors.php', $html);
     }
 
@@ -1056,6 +1056,40 @@ final class AgentTest extends TestCase
         self::assertWPError($this->tool($run, 'apply-product-trash', ['proposal_id' => $proposal], 'apply'));
         self::assertSame('draft', get_post_status($product->get_id()));
         self::assertInstanceOf(WP_Post::class, get_post($product->get_id()));
+    }
+
+    public function testDisablingWooCommerceBlocksBuiltInReadsAndPendingWrites(): void
+    {
+        $run = $this->task(); $product = $this->product();
+        $before = Oyiso_Agent_Tools::fields($product);
+        $proposal = $this->proposal($run, $product);
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_plugin_tools_version' => '1', 'agent_mcp_namespaces' => []]), false);
+        foreach (['search-products', 'get-product', 'order-summary', 'prepare-product-update', 'prepare-product-trash'] as $name) {
+            self::assertNotContains('oyiso/' . $name, Oyiso_Agent_Abilities::allowed());
+            self::assertWPError((new Oyiso_Agent_Tools($run))->execute($name, ['product_id' => $product->get_id()]));
+        }
+        self::assertSame([], Oyiso_Agent_Permissions::granted(true));
+        self::assertWPError((new Oyiso_Agent_Tools($run, 'apply'))->execute('apply-product-update', ['proposal_id' => $proposal]));
+        self::assertGreaterThanOrEqual(400, $this->request('POST', 'runs/' . $run['id'] . '/changes/' . $proposal, ['action' => 'apply'])->get_status());
+        self::assertSame($before, Oyiso_Agent_Tools::fields(wc_get_product($product->get_id())));
+        self::assertSame('pending', Oyiso_Agent_Store::get($run['id'])['changes'][0]['status']);
+    }
+
+    public function testWooCommerceRevocationAfterAModelRequestBlocksEvenCachedReadTools(): void
+    {
+        global $wpdb;
+        $run = $this->task(); $product = $this->product();
+        $options = array_replace(Oyiso_Agent_Config::options(), ['agent_plugin_tools_version' => '1', 'agent_mcp_namespaces' => ['oyiso-woocommerce', 'woocommerce']]);
+        update_option('oyiso', $options, false);
+        self::assertContains('oyiso/get-product', Oyiso_Agent_Abilities::allowed());
+        $revoked = array_replace($options, ['agent_mcp_namespaces' => []]);
+        $wpdb->update($wpdb->options, ['option_value' => maybe_serialize($revoked)], ['option_name' => 'oyiso']);
+        try {
+            self::assertSame($options, get_option('oyiso'));
+            self::assertWPError((new Oyiso_Agent_Tools($run))->execute('get-product', ['product_id' => $product->get_id()]));
+            self::assertSame([], Oyiso_Agent_Permissions::granted(true));
+        } finally { wp_cache_delete('oyiso', 'options'); wp_cache_delete('alloptions', 'options'); }
     }
 
     private static function assertWPError(mixed $value): void

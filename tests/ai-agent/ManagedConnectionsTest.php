@@ -380,7 +380,8 @@ final class ManagedConnectionsTest extends TestCase
                 $_POST = ['data' => wp_slash(wp_json_encode($payload))];
                 self::assertTrue($form->set_options(true));
                 self::assertSame([], $form->errors);
-                self::assertSame($expected, Oyiso_Agent_Permissions::granted());
+                self::assertSame($expected, Oyiso_Agent_Permissions::configured());
+                self::assertSame(array_values(array_filter($expected, static fn(string $name): bool => str_starts_with($name, 'oyiso/'))), Oyiso_Agent_Permissions::granted());
                 self::assertSame($expected, Oyiso_Agent_Config::options()['agent_write_tools']);
                 self::assertArrayNotHasKey('agent_allow_product_trash', Oyiso_Agent_Config::options());
                 self::assertSame(in_array('oyiso/apply-product-trash', $expected, true), in_array('oyiso/prepare-product-trash', Oyiso_Agent_Abilities::allowed(), true));

@@ -6,7 +6,20 @@ defined('ABSPATH') || exit;
 
 final class Oyiso_Agent_Abilities
 {
+    public const WOOCOMMERCE = ['search-products', 'get-product', 'order-summary', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash'];
     private static ?Oyiso_Agent_Tools $context = null;
+
+    /** @return array<string, WP_Ability> */
+    public static function woocommerce(): array
+    {
+        $tools = [];
+        if (!function_exists('wc_get_product') || !function_exists('wp_get_ability')) return $tools;
+        foreach (self::WOOCOMMERCE as $name) {
+            $ability = wp_get_ability('oyiso/' . $name);
+            if ($ability !== null) $tools[$ability->get_name()] = $ability;
+        }
+        return $tools;
+    }
 
     public static function bind(?Oyiso_Agent_Tools $context): void
     {
@@ -74,12 +87,12 @@ final class Oyiso_Agent_Abilities
     public static function allowed(): array
     {
         $names = [];
-        if (function_exists('wc_get_product') && current_user_can('edit_products')) {
+        if (Oyiso_Agent_MCP::builtinEnabled() && function_exists('wc_get_product') && current_user_can('edit_products')) {
             $names = array_merge($names, ['oyiso/search-products', 'oyiso/get-product']);
             if (Oyiso_Agent_Permissions::allows('oyiso/prepare-product-update')) $names[] = 'oyiso/prepare-product-update';
             if (Oyiso_Agent_Permissions::allows('oyiso/prepare-product-trash') && current_user_can('delete_products')) $names[] = 'oyiso/prepare-product-trash';
         }
-        if (function_exists('wc_get_orders') && current_user_can('manage_woocommerce')) {
+        if (Oyiso_Agent_MCP::builtinEnabled() && function_exists('wc_get_orders') && current_user_can('manage_woocommerce')) {
             $names[] = 'oyiso/order-summary';
         }
         if (current_user_can('manage_options') && Oyiso_Agent_MCP::selected() !== []) {
