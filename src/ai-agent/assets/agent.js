@@ -46,6 +46,7 @@
     let pollRevision = 0;
     let pollController;
     let version = '';
+    let conversationVersion = '';
     let panelOpen = false;
     let cancelPanelMotion;
     let fullscreen = false;
@@ -282,7 +283,7 @@
                 }
                 if (latest.id === runId && run?.status === 'cancelled' && latest.status !== 'cancelled') return;
                 liveRuns.set(latest.id, latest);
-                if (latest.id === runId && panelOpen) render(latest);
+                if (latest.id === runId && panelOpen) render(latest, type === 'text');
             },
             close() { if (latest && liveOwners.get(latest.id) === owner) { liveOwners.delete(latest.id); liveRuns.delete(latest.id); } },
             get received() { return !!latest; },
@@ -531,7 +532,7 @@
         if (pending.runId === runId && run?.changes.some(change => change.id === pending.proposal && change.type === 'trash' && change.status === 'pending')) applyChange(pending.proposal, 'trash');
     });
 
-    function render(next) {
+    function render(next, animate = false) {
         if (next.id !== runId) return;
         const active = ['queued', 'running'].includes(next.status);
         // Unsent choices belong to the conversation; active tasks use the server's model.
@@ -547,9 +548,11 @@
         else if (next.status === 'cancelled') showNotice('任务已取消，后续步骤和待审核修改已停止。可新建对话继续。');
         else showNotice('');
         const signature = JSON.stringify([next.conversation, next.events, next.changes, next.mcp_actions]);
+        const conversationSignature = JSON.stringify(next.conversation);
         const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
-        if (signature !== version) {
-            version = signature;
+        let partial = $('[data-agent-partial]', messages);
+        if (!version || conversationSignature !== conversationVersion) {
+            conversationVersion = conversationSignature;
             composer?.syncFiles(next.conversation.flatMap(entry => entry.attachments || []));
             messages.replaceChildren();
             const legacyModels = [...new Set(next.events.filter(event => event.label === '模型已响应' && event.detail).map(event => event.detail))];
@@ -566,6 +569,10 @@
                 messages.append(item);
             }
             if (!next.conversation.length) messages.append(empty.cloneNode(true));
+            if (next.partial?.text && partial) messages.append(partial);
+        }
+        if (signature !== version) {
+            version = signature;
             const events = $('[data-agent-events]');
             events.replaceChildren();
             for (const event of next.events.slice(-15)) {
@@ -580,7 +587,6 @@
             }
             renderChanges(next.changes);
         }
-        let partial = $('[data-agent-partial]', messages);
         if (next.partial?.text) {
             if (!next.conversation.length) $('.oyiso-agent-empty', messages)?.remove();
             if (!partial) {
@@ -590,7 +596,7 @@
             }
             $('.oyiso-agent-message-role', partial).textContent = next.partial.model || 'AI';
             const partialContent = $('.oyiso-agent-message-content', partial);
-            if (window.oyisoAgentMarkdown) window.oyisoAgentMarkdown(partialContent, next.partial.text);
+            if (window.oyisoAgentMarkdown) window.oyisoAgentMarkdown(partialContent, next.partial.text, { streaming: active, animate, scroll });
             else partialContent.textContent = next.partial.text;
             partial.classList.toggle('is-streaming', ['queued', 'running'].includes(next.status));
         } else partial?.remove();

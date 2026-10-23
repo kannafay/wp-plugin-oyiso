@@ -23,6 +23,16 @@ const nativeNavigation = Array.from(fs.readFileSync(path.join(repo, 'src/_init.p
 const wpRoot = process.env.OYISO_WORDPRESS_ROOT || path.resolve(repo, '../../..');
 const jquery = fs.readFileSync(path.join(wpRoot, 'wp-includes/js/jquery/jquery.js'), 'utf8');
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve)); };
+function frameClock(window) {
+    let time = 0, sequence = 0;
+    const frames = new Map();
+    window.requestAnimationFrame = callback => { frames.set(++sequence, callback); return sequence; };
+    window.cancelAnimationFrame = id => frames.delete(id);
+    return {
+        tick(ms = 16) { time += ms; const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(time)); },
+        finish() { for (let i = 0; i < 40 && frames.size; i++) this.tick(); assert.equal(frames.size, 0); },
+    };
+}
 const chooseLayout = (f, mode) => { if (f.$('[data-agent-settings-menu]').hidden) f.$('[data-agent-settings-toggle]').click(); f.$(`[data-agent-layout-choice="${mode}"]`).click(); };
 
 const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42, conversation: [], events: [], changes: [], error: '', recoverable: false, ...extra });
@@ -403,6 +413,111 @@ test('Markdown blocks raw HTML unsafe links and automatic external image loads i
     f.$('[data-agent-refresh]').click(); await settle();
     assert.equal(f.$('[data-agent-partial] .oyiso-agent-message-content'), content);
     assert.equal(content.querySelector('li').textContent, '新项目');
+});
+
+test('streaming Markdown keeps completed blocks and text nodes while the last paragraph grows', async t => {
+    let state = task({ status: 'running', partial: { model: 'model-a', text: '# 标题\n\n固定 **段落**。\n\n正在' } });
+    const f = fixture(t, route => route === 'runs/12' ? state : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const content = f.$('[data-agent-partial] .oyiso-agent-message-content');
+    const heading = content.querySelector('h1'), strong = content.querySelector('strong'), tail = content.querySelector('p:last-child').firstChild;
+    state = { ...state, partial: { model: 'model-a', text: '# 标题\n\n固定 **段落**。\n\n正在逐步补充文字。' } };
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(content.querySelector('h1'), heading);
+    assert.equal(content.querySelector('strong'), strong);
+    assert.equal(content.querySelector('p:last-child').firstChild, tail);
+    assert.equal(tail.data, '正在逐步补充文字。');
+    assert.equal(content.querySelector('.oyiso-agent-stream-caret').parentElement, content.querySelector('p:last-child'));
+});
+
+test('progress events preserve the existing conversation and streaming bubble', async t => {
+    let state = task({ status: 'running', conversation: [{ role: 'assistant', text: 'Earlier reply' }], partial: { model: 'model-a', text: 'Current reply' } });
+    const f = fixture(t, route => route === 'runs/12' ? state : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const earlier = f.$('.is-assistant'), partial = f.$('[data-agent-partial]');
+    state = { ...state, events: [{ type: 'info', label: '模型已响应', detail: 'model-a' }] };
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('.is-assistant'), earlier);
+    assert.equal(f.$('[data-agent-partial]'), partial);
+    assert.match(f.$('[data-agent-events]').textContent, /模型已响应/);
+});
+
+test('live bursts reveal complete graphemes over frames and completion never waits for an animation', async t => {
+    const wire = liveWire(); let clock;
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? wire : undefined, {}, window => { liveSupport(window); clock = frameClock(window); }, { motion: true });
+    f.$('#oyiso-agent-prompt').value = 'Explain'; f.$('[data-agent-send]').click(); await settle();
+    wire.emit('state', task({ status: 'queued', conversation: [{ role: 'user', text: 'Explain' }] }));
+    const text = '👩‍💻你好，正在平滑显示这段回复，不应当一次跳出整个段落。';
+    wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: text }); await settle();
+    const content = f.$('[data-agent-partial] .oyiso-agent-message-content');
+    assert.equal(content.textContent, '👩‍💻');
+    clock.tick();
+    assert.ok(content.textContent.length > '👩‍💻'.length && content.textContent.length < text.length);
+    clock.finish(); assert.equal(content.textContent, text);
+    wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: '这是最后一段补充。' }); await settle();
+    const finalText = text + '这是最后一段补充。';
+    const final = task({ conversation: [{ role: 'user', text: 'Explain' }, { role: 'assistant', text: finalText }] });
+    wire.emit('done', final); wire.close(); await settle();
+    assert.equal(f.$('.is-assistant .oyiso-agent-message-content').textContent, finalText);
+    assert.equal(f.$('[data-agent-send]').disabled, false);
+    clock.finish(); assert.equal(f.$('[data-agent-partial]'), null);
+    assert.equal(f.$('.oyiso-agent-stream-caret'), null);
+});
+
+test('restored partial replies and reduced motion are shown immediately without retyping', async t => {
+    const text = '已经收到的回复不会在刷新后重新打字。'; let clock;
+    const restored = fixture(t, route => route === 'runs/12' ? task({ status: 'running', partial: { model: 'model-a', text } }) : undefined, {}, window => {
+        clock = frameClock(window); window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+    }, { motion: true });
+    await settle();
+    assert.equal(restored.$('[data-agent-partial] .oyiso-agent-message-content').textContent, text);
+    clock.finish();
+    const wire = liveWire();
+    const reduced = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? wire : undefined, {}, liveSupport);
+    reduced.$('#oyiso-agent-prompt').value = 'Explain'; reduced.$('[data-agent-send]').click(); await settle();
+    wire.emit('state', task({ status: 'queued' })); wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: text }); await settle();
+    assert.equal(reduced.$('[data-agent-partial] .oyiso-agent-message-content').textContent, text);
+    wire.close();
+});
+
+test('buffered typing follows the bottom but leaves manual scrollback in place', async t => {
+    const wire = liveWire(); let clock;
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? wire : undefined, {}, window => { liveSupport(window); clock = frameClock(window); }, { motion: true });
+    const scroll = f.$('.oyiso-agent-scroll');
+    Object.defineProperties(scroll, {
+        scrollHeight: { get: () => 1200 + f.$('[data-agent-messages]').textContent.length * 4 },
+        clientHeight: { value: 200 },
+    });
+    f.$('#oyiso-agent-prompt').value = 'Explain'; f.$('[data-agent-send]').click(); await settle();
+    wire.emit('state', task({ status: 'queued' }));
+    wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: '平滑显示回复，同时保持阅读位置。'.repeat(8) }); await settle();
+    scroll.scrollTop = scroll.scrollHeight - scroll.clientHeight;
+    const bottom = scroll.scrollTop; clock.tick();
+    assert.ok(scroll.scrollTop > bottom);
+    scroll.scrollTop = 75; clock.finish();
+    assert.equal(scroll.scrollTop, 75);
+    wire.close();
+});
+
+test('cancellation and changing conversations stop pending typing frames', async t => {
+    for (const action of ['cancel', 'new']) {
+        const wire = liveWire(); let clock;
+        const text = '这些已经收到的内容正在分帧显示，切换或取消后不能继续写入。';
+        const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? wire : route === 'runs/12/cancel' ? task({ status: 'cancelled', partial: { model: 'model-a', text } }) : undefined, {}, window => { liveSupport(window); clock = frameClock(window); }, { motion: true });
+        f.$('#oyiso-agent-prompt').value = 'Explain'; f.$('[data-agent-send]').click(); await settle();
+        wire.emit('state', task({ status: 'queued' })); wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: text }); await settle();
+        assert.notEqual(f.$('[data-agent-partial] .oyiso-agent-message-content').textContent, text);
+        f.$(`[data-agent-${action}]`).click(); await settle(); clock.finish();
+        if (action === 'cancel') {
+            assert.equal(f.$('[data-agent-partial] .oyiso-agent-message-content').textContent, text);
+            assert.equal(f.$('.oyiso-agent-stream-caret'), null);
+            assert.equal(f.$('[data-agent-status]').textContent, '已取消');
+        } else {
+            assert.equal(f.$('[data-agent-partial]'), null);
+            assert.ok(f.$('.oyiso-agent-empty'));
+        }
+        wire.close();
+    }
 });
 
 const trashProposal = (extra = {}) => ({ ...proposal(), type: 'trash', sku: 'SKU-99', product_type: 'variable', previous_status: 'publish', variation_count: 2, reason: '用户指定此商品移入回收站', before: {}, after: {}, ...extra });
