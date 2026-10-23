@@ -59,7 +59,20 @@
     function populateModels(choices = config.models || {}, selected = modelSelect.value) {
         config.models = Object.fromEntries(Object.entries(choices).filter(([id, name]) => id.includes('|') && typeof name === 'string'));
         modelSelect.replaceChildren();
-        for (const [id, name] of Object.entries(config.models)) modelSelect.add(new Option(name, id));
+        const groups = new Map();
+        for (const [id, name] of Object.entries(config.models)) {
+            const separator = id.indexOf('|');
+            const connection = id.slice(0, separator), model = id.slice(separator + 1);
+            let group = groups.get(connection);
+            if (!group) {
+                group = document.createElement('optgroup');
+                const suffix = ' / ' + model;
+                group.label = name.endsWith(suffix) ? name.slice(0, -suffix.length) : name;
+                groups.set(connection, group);
+                modelSelect.append(group);
+            }
+            group.append(new Option(model, id));
+        }
         if (selected && !Object.hasOwn(config.models, selected)) {
             const missing = new Option('原模型已不可用，请重新选择', selected); missing.disabled = true; modelSelect.add(missing);
         }

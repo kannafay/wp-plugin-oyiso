@@ -1006,9 +1006,12 @@ test('conversation model selection is submitted and retained when an idle conver
     await settle();
     const select = f.$('[data-agent-model]');
     assert.equal(select.value, 'fixture|model-a');
+    assert.equal(select.selectedOptions[0].textContent, 'model-a');
+    assert.deepEqual([...select.querySelectorAll('optgroup')].map(group => group.label), ['测试连接', '备用连接']);
     select.value = 'second|model-b'; select.dispatchEvent(new f.window.Event('change', { bubbles: true }));
     f.$('[data-agent-close]').click(); f.$('#oyiso-agent-launcher').click(); await settle();
     assert.equal(select.value, 'second|model-b');
+    assert.equal(select.selectedOptions[0].textContent, 'model-b');
     f.$('#oyiso-agent-prompt').value = 'Use the selected connection'; f.$('[data-agent-send]').click(); await settle();
     const sent = f.calls.find(call => call.route === 'runs' && call.options.method === 'POST');
     assert.equal(JSON.parse(sent.options.body).selection, 'second|model-b');
@@ -1119,6 +1122,8 @@ test('newly saved models update an empty picker and removed models cannot silent
     assert.match(f.$('[data-agent-notice]').textContent, /暂无可用模型/);
     f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-models-updated', { detail: { 'new|model': '<img src=x> / model' } }));
     assert.equal(select.value, 'new|model'); assert.equal(select.querySelector('img'), null);
+    assert.equal(select.selectedOptions[0].textContent, 'model');
+    assert.equal(select.querySelector('optgroup').label, '<img src=x>');
     assert.equal(f.$('[data-agent-send]').disabled, false);
     f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-models-updated', { detail: { 'other|model': 'Other / model' } }));
     assert.equal(select.value, 'new|model'); assert.equal(select.selectedOptions[0].disabled, true);
