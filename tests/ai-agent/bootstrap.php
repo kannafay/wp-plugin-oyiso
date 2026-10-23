@@ -26,10 +26,21 @@ add_filter('pre_wp_mail', '__return_true', PHP_INT_MIN);
 add_filter('action_scheduler_allow_async_request_runner', '__return_false');
 require_once $agentWpRoot . '/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/admin.php';
-$agentTestAdmins = get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID']);
-if ($agentTestAdmins === [] || !function_exists('wc_get_product') || !Oyiso_Agent_Config::supported()) {
-    throw new RuntimeException('集成检查需要 WordPress 7.0+、WooCommerce 和管理员账号。');
+if (!function_exists('wc_get_product') || !Oyiso_Agent_Config::supported()) {
+    throw new RuntimeException('集成检查需要 WordPress 7.0+ 和 WooCommerce。');
 }
-define('OYISO_AGENT_TEST_ADMIN', (int) $agentTestAdmins[0]);
+// Keep temporary conversations out of real administrators' history while checks run.
+$agentTestAdmin = wp_insert_user(['user_login' => 'oyiso-agent-test-' . wp_generate_uuid4(), 'user_pass' => wp_generate_password(48), 'role' => 'administrator']);
+if (is_wp_error($agentTestAdmin)) throw new RuntimeException('无法创建临时测试账号。');
+define('OYISO_AGENT_TEST_ADMIN', $agentTestAdmin);
+register_shutdown_function(static function (): void {
+    wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
+    foreach (get_posts(['post_type' => Oyiso_Agent_Store::TYPE, 'post_status' => 'any', 'author' => OYISO_AGENT_TEST_ADMIN, 'numberposts' => -1, 'fields' => 'ids']) as $id) {
+        Oyiso_Agent_Store::cancel($id);
+        Oyiso_Agent_Attachments::eraseRun($id);
+        wp_delete_post($id, true);
+    }
+    wp_delete_user(OYISO_AGENT_TEST_ADMIN);
+});
 wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
 wp_get_abilities();

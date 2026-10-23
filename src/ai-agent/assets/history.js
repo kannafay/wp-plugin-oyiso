@@ -1,6 +1,6 @@
 (() => {
     'use strict';
-    window.oyisoAgentHistory = ({ api, openRun, current, updated, removed, canDelete, deleting }) => {
+    window.oyisoAgentHistory = ({ api, openRun, current, updated, removed, unavailable, canDelete, deleting }) => {
         const panel = document.getElementById('oyiso-agent-panel');
         const dialog = document.querySelector('[data-agent-delete-dialog]');
         const find = (root, selector) => root.querySelector(selector);
@@ -10,7 +10,7 @@
         const trash = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>';
         const stop = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>';
         let pending = [], returnFocus, busy = false;
-        const deletedIds = new Set();
+        const unavailableIds = new Set();
 
         function icon(label, svg) {
             const button = node('button', 'oyiso-agent-icon-button'); button.type = 'button'; button.title = label; button.setAttribute('aria-label', label);
@@ -54,8 +54,14 @@
                     const cancel = icon('取消任务', stop);
                     cancel.addEventListener('click', async () => {
                         cancel.disabled = true;
-                        try { updated(await api(`runs/${item.id}/cancel`, { method: 'POST', body: '{}' })); reload(); }
-                        catch (error) { find(list.root, '[data-agent-history-notice]').textContent = error.message; cancel.disabled = false; }
+                        try { updated(await api(`runs/${item.id}/cancel`, { method: 'POST', body: '{}' })); reload(true); }
+                        catch (error) {
+                            if (error.status === 404 && error.code === 'agent_task_missing') unavailable(item.id);
+                            else {
+                                find(list.root, '[data-agent-history-notice]').textContent = error.message; cancel.disabled = false;
+                                if (error.status === 409) reload(true);
+                            }
+                        }
                     });
                     tools.append(cancel);
                 }
@@ -85,7 +91,7 @@
                 const data = await api(`runs?page=${list.page}`);
                 list.pages = Math.max(1, data.pages);
                 if (list.page > list.pages) { list.page = list.pages; list.loading = false; return load(list); }
-                list.items = data.items.filter(item => !deletedIds.has(item.id));
+                list.items = data.items.filter(item => !unavailableIds.has(item.id));
                 note.textContent = ''; renderList(list);
             } catch (error) { note.textContent = error.message; }
             finally { list.loading = false; refresh.setAttribute('aria-busy', 'false'); if (list.again) { list.again = false; load(list); } }
@@ -115,7 +121,7 @@
             submit.disabled = cancel.disabled = dismiss.disabled = true;
             try {
                 const result = await api('runs', { method: 'DELETE', body: JSON.stringify({ ids: pending }) });
-                result.deleted.forEach(id => deletedIds.add(id));
+                result.deleted.forEach(id => unavailableIds.add(id));
                 for (const list of lists) {
                     result.deleted.forEach(id => list.selected.delete(id));
                     list.items = list.items.filter(item => !result.deleted.includes(item.id)); renderList(list);
@@ -134,6 +140,14 @@
             find(list.root, '[data-agent-history-delete]').addEventListener('click', event => confirmDelete([...list.selected], event.currentTarget));
         }
         function reload(force = false) { lists.forEach(list => { if (force && list.loading) list.again = true; else load(list); }); }
-        return { reload, reloadPanel: () => { const list = lists.find(item => item.inline); if (list) load(list); }, setCurrent: id => lists.forEach(list => list.root.querySelectorAll('[data-agent-run]').forEach(button => { if (Number(button.dataset.agentRun) === id) button.setAttribute('aria-current', 'true'); else button.removeAttribute('aria-current'); })) };
+        function forget(id) {
+            unavailableIds.add(id);
+            for (const list of lists) {
+                list.selected.delete(id);
+                list.items = list.items.filter(item => item.id !== id); renderList(list);
+            }
+            reload(true);
+        }
+        return { reload, forget, reloadPanel: () => { const list = lists.find(item => item.inline); if (list) load(list); }, setCurrent: id => lists.forEach(list => list.root.querySelectorAll('[data-agent-run]').forEach(button => { if (Number(button.dataset.agentRun) === id) button.setAttribute('aria-current', 'true'); else button.removeAttribute('aria-current'); })) };
     };
 })();

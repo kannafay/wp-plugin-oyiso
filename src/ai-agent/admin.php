@@ -19,7 +19,7 @@ final class Oyiso_Agent_Admin
             return is_wp_error($result) ? $result : new WP_REST_Response($result);
         }]);
         register_rest_route($root, '/runs', [
-            ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response => new WP_REST_Response(Oyiso_Agent_Store::recent(max(1, (int) $request->get_param('page')))), 'args' => ['page' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]]],
+            ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response => new WP_REST_Response(Oyiso_Agent_Store::recent(max(1, (int) $request->get_param('page'))), 200, ['Cache-Control' => 'no-store, private']), 'args' => ['page' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]]],
             ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'send'], 'args' => ['message' => ['type' => 'string', 'required' => true, 'minLength' => 1, 'maxLength' => 4000], 'selection' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 251], 'run_id' => ['type' => 'integer', 'minimum' => 0, 'default' => 0]]],
             ['methods' => 'DELETE', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
                 $ids = $request->get_param('ids');
@@ -103,7 +103,7 @@ final class Oyiso_Agent_Admin
             return self::missing();
         }
         $run = Oyiso_Agent_Store::get($id);
-        return is_wp_error($run) ? $run : new WP_REST_Response(Oyiso_Agent_Store::view($run));
+        return is_wp_error($run) ? $run : new WP_REST_Response(Oyiso_Agent_Store::view($run), 200, ['Cache-Control' => 'no-store, private']);
     }
 
     /** @param WP_REST_Request<AgentRequest> $request */

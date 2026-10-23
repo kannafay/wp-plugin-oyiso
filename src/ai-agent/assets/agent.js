@@ -270,12 +270,17 @@
         const response = await fetch(config.url + path, {
             credentials: 'same-origin',
             ...init,
+            cache: 'no-store',
             headers: { ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...(streaming ? { Accept: 'text/event-stream' } : {}), 'X-WP-Nonce': config.nonce, ...options.headers },
         });
         if (response.ok && streaming && response.headers?.get('Content-Type')?.includes('text/event-stream') && response.body?.getReader) return window.oyisoAgentReadStream(response, live);
         let data;
         try { data = await response.json(); } catch { throw new Error('服务器未返回有效数据，请检查网络或刷新页面。'); }
-        if (!response.ok) throw new Error(data.message || `请求失败（HTTP ${response.status}）。`);
+        if (!response.ok) {
+            const error = new Error(data.message || `请求失败（HTTP ${response.status}）。`);
+            error.status = response.status; error.code = data.code;
+            throw error;
+        }
         return data;
     }
 
@@ -626,11 +631,23 @@
         const timeout = setTimeout(() => controller.abort(), 180000);
         api(`runs/${id}/step`, { method: 'POST', body: '{}', signal: controller.signal, live: receiver.event })
             .then(data => { if (id === runId && revision === pollRevision && panelOpen) render(data); })
-            .catch(error => { if (id === runId && revision === pollRevision && panelOpen && error.name !== 'AbortError') showNotice(error.message, true); })
+            .catch(error => {
+                if (id !== runId || revision !== pollRevision || !panelOpen || error.name === 'AbortError') return;
+                if (error.status === 404 && error.code === 'agent_task_missing') unavailableRun(id);
+                else showNotice(error.message, true);
+            })
             .finally(() => {
                 clearTimeout(timeout); receiver.close(); stepping.delete(id);
                 if (id === runId && panelOpen && ['queued', 'running'].includes(run?.status)) { clearTimeout(timer); timer = setTimeout(poll, 700); }
             });
+    }
+
+    function unavailableRun(id) {
+        liveRuns.delete(id); liveOwners.delete(id);
+        history?.forget(id);
+        if (id !== runId) return;
+        newConversation();
+        showNotice('该对话已不存在或无法访问，已从记录中移除。');
     }
 
     async function poll(force = false) {
@@ -656,6 +673,7 @@
             if (['queued', 'running'].includes(data.status)) timer = setTimeout(poll, 700);
         } catch (error) {
             if (id === runId && revision === pollRevision && panelOpen) {
+                if (error.status === 404 && error.code === 'agent_task_missing') { unavailableRun(id); return; }
                 loading = false;
                 refreshing = false;
                 controls();
@@ -872,12 +890,15 @@
         const id = runId;
         event.currentTarget.disabled = true;
         try { const data = await api(`runs/${id}/cancel`, { method: 'POST', body: '{}' }); if (id === runId) render(data); loadLists(); }
-        catch (error) { showNotice(error.message, true); }
+        catch (error) {
+            if (error.status === 404 && error.code === 'agent_task_missing') unavailableRun(id);
+            else { if (id === runId) showNotice(error.message, true); loadLists(); }
+        }
         finally { $('[data-agent-cancel]').disabled = false; }
     });
     composer = window.oyisoAgentComposer({ panel, prompt, key: storageKey, api, notice: showNotice });
     history = window.oyisoAgentHistory({
-        api, openRun, current: () => runId,
+        api, openRun, current: () => runId, unavailable: unavailableRun,
         updated: data => { if (data.id === runId) render(data); },
         canDelete: () => !sending && !changing.size,
         deleting: value => { deleting = value; controls(); },

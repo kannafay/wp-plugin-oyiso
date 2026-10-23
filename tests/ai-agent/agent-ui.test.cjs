@@ -1330,6 +1330,50 @@ test('panel history cancellation submits once and updates the record without clo
     assert.equal(f.$(`${panelRecords} li [aria-label="取消任务"]`), null);
 });
 
+test('a missing conversation is removed from both histories and no longer polled or restored', async t => {
+    let retries = 0;
+    const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+    const f = fixture(t, route => {
+        if (route === 'runs?page=1') return { items: [{ id: 12, title: '已失效的临时任务', status: 'queued', updated: '2026-10-23' }], pages: 1 };
+        if (route === 'runs/12') return { ok: false, status: 404, body: { code: 'agent_task_missing', message: '任务不存在或不属于当前用户。' } };
+    }, {}, window => {
+        window.localStorage.setItem(key, '12');
+        window.localStorage.setItem(key + ':history-open', '1');
+        const schedule = window.setTimeout.bind(window);
+        window.setTimeout = (callback, delay, ...args) => { if (delay === 6000) retries++; return schedule(callback, delay, ...args); };
+    });
+    await settle();
+    assert.equal(f.$('[data-agent-run="12"]'), null);
+    assert.equal(f.$(`${panelRecords} [aria-label="取消任务"]`), null);
+    assert.equal(f.window.localStorage.getItem(key), null);
+    assert.match(f.$('[data-agent-notice]').textContent, /已不存在或无法访问/);
+    assert.equal(f.$('[data-agent-send]').disabled, false);
+    assert.equal(retries, 0, 'a permanent 404 must not keep scheduling retries');
+    assert.equal(f.calls.find(call => call.route === 'runs/12').options.cache, 'no-store');
+    f.$('#oyiso-agent-history [data-agent-history-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-run="12"]'), null, 'an older list response must not revive the missing record');
+});
+
+test('cancelling a missing history record clears its actions but transient errors keep it retryable', async t => {
+    for (const status of [404, 500]) {
+        const f = fixture(t, route => {
+            if (route === 'runs?page=1') return { items: [{ id: 12, title: '等待执行的任务', status: 'queued', updated: '2026-10-23' }], pages: 1 };
+            if (route === 'runs/12/cancel') return { ok: false, status, body: { code: status === 404 ? 'agent_task_missing' : 'server_error', message: status === 404 ? '任务不存在或不属于当前用户。' : '服务器暂时不可用' } };
+        }, {}, undefined, { globalOnly: true });
+        f.$('[data-agent-history-toggle]').click(); await settle();
+        const cancel = f.$(`${panelRecords} [aria-label="取消任务"]`);
+        cancel.click(); await settle();
+        if (status === 404) {
+            assert.equal(f.$('[data-agent-run="12"]'), null);
+            assert.equal(f.$(`${panelRecords} [aria-label="取消任务"]`), null);
+        } else {
+            assert.equal(cancel.disabled, false);
+            assert.match(f.$(`${panelRecords} [data-agent-history-notice]`).textContent, /服务器暂时不可用/);
+            assert.ok(f.$('[data-agent-run="12"]'));
+        }
+    }
+});
+
 test('rapid switches ignore earlier conversation responses and sending clears the submitted draft', async t => {
     let oldResponse;
     let newResponse;

@@ -267,6 +267,29 @@ final class AgentTest extends TestCase
         self::assertContains($id, array_column($list['items'], 'id'));
     }
 
+    public function testIntegrationTasksDoNotAppearInTheRealAdministratorsHistory(): void
+    {
+        $account = get_userdata(OYISO_AGENT_TEST_ADMIN);
+        self::assertInstanceOf(WP_User::class, $account);
+        self::assertStringStartsWith('oyiso-agent-test-', $account->user_login);
+        $run = $this->task();
+        $admins = get_users(['role' => 'administrator', 'exclude' => [OYISO_AGENT_TEST_ADMIN], 'number' => 1, 'fields' => 'ID']);
+        self::assertNotEmpty($admins);
+        wp_set_current_user((int) $admins[0]);
+        try {
+            self::assertNotContains($run['id'], array_column($this->request('GET', 'runs')->get_data()['items'], 'id'));
+            self::assertSame(404, $this->request('GET', 'runs/' . $run['id'])->get_status());
+        } finally { wp_set_current_user(OYISO_AGENT_TEST_ADMIN); }
+    }
+
+    public function testConversationResponsesAreNotCacheable(): void
+    {
+        $run = $this->task();
+        foreach (['runs', 'runs/' . $run['id']] as $route) {
+            self::assertSame('no-store, private', $this->request('GET', $route)->get_headers()['Cache-Control'] ?? null);
+        }
+    }
+
     public function testConversationModelsAreValidatedStoredAndPassedToTheWorkerIndependently(): void
     {
         $input = ['name' => '对话模型', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_responses', 'models' => ['first-model', 'second-model'], 'key' => 'fixture-conversation-key'];
