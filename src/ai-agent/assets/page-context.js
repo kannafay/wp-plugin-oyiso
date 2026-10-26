@@ -64,7 +64,8 @@
     function check(payload) {
         const current = snapshot();
         if (current.post_id !== payload.post_id || current.editor === 'unsupported' || current.truncated) throw new Error('请在对应的完整内容编辑页填入此方案。');
-        for (const [key, expected] of Object.entries(payload.expected)) if (current.fields[key] !== expected) throw new Error('编辑器内容已改变，旧方案已过期。请重新发送修改要求生成新方案。');
+        const baselines = [payload.expected, ...(payload.restore_from || [])];
+        if (!baselines.some(fields => Object.entries(fields).every(([key, expected]) => current.fields[key] === expected))) throw new Error('编辑器内容已改变，旧方案已过期。请重新发送修改要求生成新方案。');
         return current;
     }
     function apply(payload) {

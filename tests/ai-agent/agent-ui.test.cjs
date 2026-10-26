@@ -300,6 +300,65 @@ test('expired editor proposals regenerate with current context and preserve unse
     });
 });
 
+test('filled proposals can be restored to classic and block editors after a reload without saving', async t => {
+    for (const type of ['post', 'page', 'product']) for (const editor of ['classic', 'gutenberg']) await t.test(`${type}: ${editor}`, async t => {
+        const product = type === 'product', field = product ? 'description' : 'content', summary = product ? 'short_description' : 'excerpt';
+        const saved = { title: 'Article', [field]: '<p>Saved body</p>', [summary]: '' };
+        const before = { ...saved, [field]: '<p>Previous unsaved version</p>', [summary]: product ? '' : 'Previous unsaved summary' };
+        const after = { ...before, [field]: '<p>Recovered AI version</p>' };
+        const restoreFields = product ? { [field]: after[field] } : { [field]: after[field], [summary]: after[summary] };
+        const baseline = values => Object.fromEntries(Object.keys(restoreFields).map(key => [key, values[key]]));
+        const change = product ? { ...proposal(), product_id: 7, before: saved, editor_before: before, after, status: 'filled' } : contentProposal({ post_type: type, before, saved, after });
+        const key = product ? 'changes' : 'content_changes';
+        const values = { title: 'My later title', content: saved[field], excerpt: '' }; let saves = 0;
+        const f = fixture(t, (route, options) => {
+            if (route === 'runs/12') return task({ [key]: [change] });
+            if (route === `runs/12/content/${change.id}`) {
+                if (JSON.parse(options.body).action === 'filled') return task({ [key]: [change] });
+                return { post_id: 7, expected: baseline(before), restore_from: [baseline(saved), baseline(after)], fields: restoreFields, signature: 'recovery-signature' };
+            }
+        }, { writeTools: [`oyiso/apply-${product ? 'product' : 'post'}-update`], pageContext: { screen: type, post_id: 7, post_type: type, editor, fields: saved } }, window => {
+            window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+            window.document.body.insertAdjacentHTML('beforeend', '<div id="poststuff"><input id="title" value="My later title"><textarea id="content">&lt;p&gt;Saved body&lt;/p&gt;</textarea><textarea id="excerpt"></textarea></div>');
+            if (editor === 'gutenberg') window.wp = { blocks: { parse: html => [{ html, isValid: true }] }, data: {
+                select: () => ({ getCurrentPostId: () => 7, getEditedPostAttribute: name => values[name], getEditedPostContent: () => values.content, isEditedPostDirty: () => true }),
+                dispatch: store => store === 'core/editor' ? { editPost: edits => Object.assign(values, edits), savePost: () => saves++ } : { resetBlocks: blocks => { values.content = blocks[0].html; } }, subscribe: () => () => {},
+            } };
+        });
+        await settle();
+        const button = [...f.$('[data-agent-changes]').querySelectorAll('button')].find(button => button.textContent === '重新填入当前编辑器');
+        assert.ok(button); assert.equal(button.disabled, false);
+        button.click(); button.click(); await settle();
+        assert.equal(editor === 'gutenberg' ? values.content : f.$('#content').value, after[field]);
+        assert.equal(editor === 'gutenberg' ? values.title : f.$('#title').value, 'My later title');
+        assert.equal(editor === 'gutenberg' ? values.excerpt : f.$('#excerpt').value, after[summary]);
+        assert.equal(saves, 0);
+        const requests = f.calls.filter(call => call.route.includes('/content/'));
+        assert.equal(requests.length, 2);
+        assert.equal(JSON.parse(requests[0].options.body).action, 'editor');
+        assert.equal(JSON.parse(requests[1].options.body).action, 'filled');
+        assert.equal(JSON.parse(requests[1].options.body).signature, 'recovery-signature');
+        assert.match(f.$('[data-agent-notice]').textContent, /尚未保存/);
+    });
+});
+
+test('recovery preserves newer editor changes and still requires the current write grant', async t => {
+    const saved = { content: '<p>Saved body</p>' }, change = contentProposal({ saved, before: saved, after: { content: '<p>AI version</p>' } });
+    const f = fixture(t, route => route === 'runs/12' ? task({ content_changes: [change] }) : undefined,
+        { writeTools: ['oyiso/apply-post-update'], pageContext: { screen: 'post', post_id: 7, post_type: 'post', editor: 'classic', fields: saved } }, window => {
+            window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+            window.document.body.insertAdjacentHTML('beforeend', '<div id="poststuff"><textarea id="content">My newer manual edit</textarea></div>');
+        });
+    await settle();
+    assert.equal(f.$('[data-agent-regenerate]').textContent, '按当前内容重新生成');
+    assert.equal([...f.$('[data-agent-changes]').querySelectorAll('button')].some(button => button.textContent === '重新填入当前编辑器'), false);
+    assert.equal(f.$('#content').value, 'My newer manual edit');
+    assert.equal(f.calls.some(call => call.route.includes('/content/')), false);
+    f.window.oyisoAgent.writeTools = [];
+    f.$('[data-agent-regenerate]').click(); await settle();
+    assert.equal(f.calls.some(call => call.route === 'runs' && call.options.method === 'POST'), false);
+});
+
 test('a late editor conflict offers regeneration and a failed regeneration remains retryable', async t => {
     const before = { title: 'Article', content: '<p>Original</p>', excerpt: '' };
     const change = { id: proposal().id, post_id: 7, post_type: 'post', kind: 'update', title: 'Article', status: 'pending', before, after: { ...before, content: '<p>AI text</p>' } };

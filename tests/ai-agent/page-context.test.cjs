@@ -60,6 +60,30 @@ test('visual TinyMCE content and selections are read and synchronized with its t
     assert.equal(f.input('content').value, content);
 });
 
+test('refilling after a reload accepts the saved baseline and preserves unrelated edits', t => {
+    const f = fixture(t);
+    const payload = { post_id: 7, expected: { content: '<p>Previous unsaved version</p>' }, restore_from: [{ content: '<p>Original</p>' }, { content: '<p>Recovered AI version</p>' }], fields: { content: '<p>Recovered AI version</p>' } };
+    f.input('title').value = 'My later title'; f.input('excerpt').value = 'My later summary';
+    f.page.apply(payload);
+    assert.equal(f.input('content').value, '<p>Recovered AI version</p>');
+    assert.equal(f.input('title').value, 'My later title'); assert.equal(f.input('excerpt').value, 'My later summary');
+    assert.doesNotThrow(() => f.page.apply(payload), 'Refilling an already present version is safe.');
+    f.input('content').value = '<p>Previous unsaved version</p>';
+    assert.doesNotThrow(() => f.page.apply(payload));
+    f.input('content').value = '<p>My newer manual edits</p>';
+    assert.throws(() => f.page.apply(payload), /编辑器内容已改变/);
+    assert.equal(f.input('content').value, '<p>My newer manual edits</p>');
+    assert.throws(() => f.page.apply({ ...payload, post_id: 8 }), /对应/);
+});
+
+test('a recovery cannot mix baseline versions to silently replace a partially edited proposal', t => {
+    const f = fixture(t);
+    const payload = { post_id: 7, expected: { content: '<p>Unsaved</p>', excerpt: 'Unsaved summary' }, restore_from: [{ content: '<p>Original</p>', excerpt: 'Summary' }, { content: '<p>AI</p>', excerpt: 'AI summary' }], fields: { content: '<p>AI</p>', excerpt: 'AI summary' } };
+    f.input('excerpt').value = 'AI summary';
+    assert.throws(() => f.page.apply(payload), /编辑器内容已改变/);
+    assert.equal(f.input('content').value, '<p>Original</p>'); assert.equal(f.input('excerpt').value, 'AI summary');
+});
+
 test('Gutenberg snapshots its live store and fills blocks through native editor actions', t => {
     let values = { title: 'Block title', content: '<!-- wp:paragraph --><p>Draft block</p><!-- /wp:paragraph -->', excerpt: 'Block excerpt' };
     let saves = 0, resets = 0;

@@ -221,7 +221,54 @@ final class PageContextTest extends TestCase
         self::assertSame('filled', $result->get_data()['content_changes'][0]['status']);
         self::assertSame('completed', $result->get_data()['status']);
         self::assertSame('<p>已保存的正文</p>', get_post($post->ID)->post_content);
+        self::assertSame(200, $this->control($run, $proposal, 'editor')->get_status());
+    }
+
+    public function testFilledProposalsCanBeRecoveredAfterReloadWithoutWritingToTheSite(): void
+    {
+        foreach (['post', 'page', 'product'] as $type) {
+            $post = $this->post($type); $run = $this->task();
+            $product = $type === 'product'; $field = $product ? 'description' : 'content';
+            $run['page_context'] = Oyiso_Agent_Page_Context::parse(wp_json_encode($this->context($post, [$field => '<p>之前未保存的内容</p>'])));
+            self::assertIsArray($this->tool($run, $product ? 'get-product' : 'get-post', [$product ? 'product_id' : 'post_id' => $post->ID]));
+            $proposal = $this->tool($run, $product ? 'prepare-product-update' : 'prepare-post-update', [$product ? 'product_id' : 'post_id' => $post->ID, 'fields' => [$field => '<p>需要恢复的 AI 内容</p>']]);
+            self::assertIsArray($proposal);
+            $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+            $extra = $product ? ['kind' => 'product'] : [];
+            $initial = $this->control($run, $proposal['proposal_id'], 'editor', $extra)->get_data();
+            self::assertArrayNotHasKey('restore_from', $initial);
+            self::assertSame(200, $this->control($run, $proposal['proposal_id'], 'filled', $extra + ['signature' => $initial['signature']])->get_status());
+            $restored = $this->control($run, $proposal['proposal_id'], 'editor', $extra);
+            self::assertSame(200, $restored->get_status());
+            $payload = $restored->get_data();
+            self::assertSame([$field => '<p>之前未保存的内容</p>'], $payload['expected']);
+            self::assertSame([[$field => '<p>已保存的正文</p>'], [$field => '<p>需要恢复的 AI 内容</p>']], $payload['restore_from']);
+            self::assertSame([$field => '<p>需要恢复的 AI 内容</p>'], $payload['fields']);
+            self::assertSame(409, $this->control($run, $proposal['proposal_id'], 'filled', $extra + ['signature' => 'invalid'])->get_status());
+            self::assertSame(200, $this->control($run, $proposal['proposal_id'], 'filled', $extra + ['signature' => $payload['signature']])->get_status());
+            self::assertSame('<p>已保存的正文</p>', get_post($post->ID)->post_content);
+            self::assertSame('原摘要', get_post($post->ID)->post_excerpt);
+            $allowed = Oyiso_Agent_Config::options();
+            update_option('oyiso', array_replace($allowed, ['agent_write_tools' => []]), false);
+            self::assertSame(403, $this->control($run, $proposal['proposal_id'], 'editor', $extra)->get_status());
+            self::assertSame(403, $this->control($run, $proposal['proposal_id'], 'filled', $extra + ['signature' => $payload['signature']])->get_status());
+            update_option('oyiso', $allowed, false);
+        }
+    }
+
+    public function testRecoveryRejectsDiscardedOrSavedProposalsAndCannotAcknowledgeADraftAsFilled(): void
+    {
+        $post = $this->post(); $run = $this->task(); $proposal = $this->prepare($run, $post);
+        $payload = $this->control($run, $proposal, 'editor')->get_data();
+        foreach (['superseded', 'dismissed', 'cancelled', 'applied', 'reverted'] as $status) {
+            $run['content_changes'][0]['status'] = $status; Oyiso_Agent_Store::save($run);
+            self::assertSame(409, $this->control($run, $proposal, 'editor')->get_status());
+            self::assertSame(409, $this->control($run, $proposal, 'filled', ['signature' => $payload['signature']])->get_status());
+        }
+        $run['content_changes'][0]['kind'] = 'draft'; $run['content_changes'][0]['status'] = 'pending'; Oyiso_Agent_Store::save($run);
         self::assertSame(409, $this->control($run, $proposal, 'editor')->get_status());
+        self::assertSame(409, $this->control($run, $proposal, 'filled', ['signature' => $payload['signature']])->get_status());
+        self::assertSame('<p>已保存的正文</p>', get_post($post->ID)->post_content);
     }
 
     public function testFollowUpChangesReadTheLatestEditorInsteadOfThePreviousTurnSnapshot(): void
@@ -251,6 +298,20 @@ final class PageContextTest extends TestCase
             self::assertSame($context['fields'], $payload['expected']);
             self::assertSame(['content' => '<p>第二轮正文</p>', 'excerpt' => '第二轮摘要'], $payload['fields']);
         }
+    }
+
+    public function testRecoveryAlsoRestoresEarlierUnsavedFieldsKeptByTheLatestProposal(): void
+    {
+        $post = $this->post(); $run = $this->task();
+        $run['page_context'] = Oyiso_Agent_Page_Context::parse(wp_json_encode($this->context($post, ['content' => '<p>前一版未保存的正文</p>', 'excerpt' => '前一版未保存的摘要'])));
+        $proposal = $this->prepare($run, $post);
+        $initial = $this->control($run, $proposal, 'editor')->get_data();
+        self::assertSame(['content' => '<p>新正文</p>'], $initial['fields']);
+        self::assertSame(200, $this->control($run, $proposal, 'filled', ['signature' => $initial['signature']])->get_status());
+        $payload = $this->control($run, $proposal, 'editor')->get_data();
+        self::assertSame(['content' => '<p>新正文</p>', 'excerpt' => '前一版未保存的摘要'], $payload['fields']);
+        self::assertSame(['content' => '<p>已保存的正文</p>', 'excerpt' => '原摘要'], $payload['restore_from'][0]);
+        self::assertSame('原摘要', get_post($post->ID)->post_excerpt);
     }
 
     public function testReadFirstValidationSearchAndTruncationGuards(): void

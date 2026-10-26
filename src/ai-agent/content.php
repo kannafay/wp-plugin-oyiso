@@ -158,13 +158,22 @@ final class Oyiso_Agent_Content
                 $permission = $product ? 'oyiso/apply-product-update' : ($change['kind'] === 'draft' ? 'oyiso/create-post-draft' : ($action === 'revert' ? 'oyiso/revert-post-update' : 'oyiso/apply-post-update'));
                 if ($action !== 'dismiss') { $grant = Oyiso_Agent_Permissions::check($permission); if (is_wp_error($grant)) return $grant; }
                 if ($action === 'editor') {
-                    if ($change['status'] !== 'pending' || $change['kind'] === 'draft') return new WP_Error('agent_content_state', '此方案当前不能填入编辑器。', ['status' => 409]);
+                    if (!in_array($change['status'], ['pending', 'filled'], true) || $change['kind'] === 'draft') return new WP_Error('agent_content_state', '此方案当前不能填入编辑器。', ['status' => 409]);
                     $expected = $change['editor_before'] ?? $change['before'];
-                    return new WP_REST_Response(['post_id' => $change['post_id'], 'expected' => $expected, 'fields' => array_diff_assoc($change['after'], $change['before']), 'signature' => wp_create_nonce('oyiso-agent-fill:' . $id . ':' . $proposal)]);
+                    $fields = array_diff_assoc($change['after'], $change['before']);
+                    $payload = ['post_id' => $change['post_id'], 'expected' => $expected, 'fields' => $fields, 'signature' => wp_create_nonce('oyiso-agent-fill:' . $id . ':' . $proposal)];
+                    if ($change['status'] === 'filled') {
+                        // A reload may restore the saved baseline rather than the previous unsaved editor state.
+                        $fields += array_diff_assoc($change['after'], $change['saved']);
+                        $payload['fields'] = $fields;
+                        $payload['expected'] = array_intersect_key($expected, $fields);
+                        $payload['restore_from'] = [array_intersect_key($change['saved'], $fields), array_intersect_key($change['after'], $fields)];
+                    }
+                    return new WP_REST_Response($payload);
                 }
                 if ($action === 'filled') {
                     $signature = $request->get_param('signature');
-                    if ($change['status'] !== 'pending' || !is_string($signature) || !wp_verify_nonce($signature, 'oyiso-agent-fill:' . $id . ':' . $proposal)) return new WP_Error('agent_content_state', '填入确认已失效。', ['status' => 409]);
+                    if (!in_array($change['status'], ['pending', 'filled'], true) || $change['kind'] === 'draft' || !is_string($signature) || !wp_verify_nonce($signature, 'oyiso-agent-fill:' . $id . ':' . $proposal)) return new WP_Error('agent_content_state', '填入确认已失效。', ['status' => 409]);
                     $items[$index]['status'] = 'filled';
                 } elseif ($action === 'dismiss') {
                     if ($change['status'] !== 'pending') return new WP_Error('agent_content_state', '此方案已经处理，不能再取消。', ['status' => 409]);
