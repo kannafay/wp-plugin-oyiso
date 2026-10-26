@@ -99,7 +99,7 @@
         state.streaming = !!options.streaming;
         state.scroll = options.scroll;
         state.target = text;
-        if (!options.animate || !state.streaming || reducedMotion?.matches || document.hidden || !text.startsWith(state.text)) {
+        if (!options.animate || reducedMotion?.matches || document.hidden || !text.startsWith(state.text)) {
             stop(state);
             paint(state, text);
             return;
@@ -107,10 +107,10 @@
         state.ends = segmenter
             ? Array.from(segmenter.segment(text), part => part.index + part.segment.length)
             : Array.from(text).reduce((ends, part) => { ends.push((ends[ends.length - 1] || 0) + part.length); return ends; }, []);
-        // Paint the first character immediately, then smooth bursts over roughly 180 ms at most.
+        // Keep live and buffered replies readable, including their final chunk. Never retype history.
         if (!state.text && state.ends.length) paint(state, text.slice(0, state.ends[0]));
         const remaining = state.ends.filter(end => end > state.text.length).length;
-        state.remaining = Math.min(180, Math.max(48, remaining * 12));
+        state.remaining = Math.min(900, Math.max(100, remaining * 18));
         if (remaining && !state.frame) state.frame = requestAnimationFrame(time => advance(state, time));
     };
 })();

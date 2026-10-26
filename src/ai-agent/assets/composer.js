@@ -160,6 +160,10 @@
             add(incoming);
         });
         const area = panel.querySelector('.oyiso-agent-composer');
+        area.addEventListener('pointerdown', event => {
+            if (event.button !== 0 || prompt.disabled || event.target.closest('button, a, input, textarea, select, label, [role="button"], [contenteditable]')) return;
+            event.preventDefault(); prompt.focus({ preventScroll: true });
+        });
         area.addEventListener('dragover', event => { if ([...(event.dataTransfer?.types || [])].includes('Files')) event.preventDefault(); });
         area.addEventListener('drop', event => { if (!event.dataTransfer?.files.length) return; event.preventDefault(); add([...event.dataTransfer.files]); });
         prompt.addEventListener('input', resize);

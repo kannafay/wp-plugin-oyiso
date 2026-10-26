@@ -253,7 +253,8 @@ final class Oyiso_Agent_Admin
             <header class="oyiso-agent-panel-heading" data-agent-drag tabindex="-1">
                 <h2 id="oyiso-agent-title">AI 助手</h2>
                 <div class="oyiso-agent-panel-actions">
-                    <button type="button" class="button" data-agent-new>新建对话</button>
+                    <button type="button" class="oyiso-agent-icon-button" data-agent-history-toggle aria-controls="oyiso-agent-panel-history" aria-expanded="false" aria-label="对话记录" title="对话记录"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.6 7M3 4v7h7M12 7v5l3 2"/></svg></button>
+                    <button type="button" class="button oyiso-agent-new" data-agent-new><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>新建对话</span></button>
                     <button type="button" class="oyiso-agent-icon-button" data-agent-refresh title="刷新当前对话" aria-label="刷新当前对话" aria-busy="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.36-6.36L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.36 6.36L3 16M8 16H3v5"/></svg></button>
                     <div class="oyiso-agent-settings-wrap">
                     <button type="button" class="oyiso-agent-icon-button" data-agent-settings-toggle title="设置" aria-label="设置" aria-haspopup="menu" aria-controls="oyiso-agent-settings-menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 3-.4 2.1-1.8 1-2-.7-2.5 4.3L4.5 11v2l-1.7 1.3 2.5 4.3 2-.7 1.8 1 .4 2.1h5l.4-2.1 1.8-1 2 .7 2.5-4.3-1.7-1.3v-2l1.7-1.3-2.5-4.3-2 .7-1.8-1-.4-2.1z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -264,7 +265,6 @@ final class Oyiso_Agent_Admin
                         <button type="button" role="menuitemradio" aria-checked="false" aria-label="悬浮窗" title="悬浮窗" data-agent-layout-choice="floating"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="13" height="12" rx="2"/><path d="M16 8V3H3v13h5"/></svg><span>悬浮</span></button>
                         <button type="button" role="menuitem" data-agent-reset aria-label="恢复默认大小和位置" title="重置窗口"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg><span>重置</span></button>
                     </div>
-                    <button type="button" role="menuitem" data-agent-history-toggle aria-controls="oyiso-agent-panel-history" aria-expanded="false" aria-label="对话记录"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>对话记录</span></button>
                     <a role="menuitem" class="oyiso-agent-settings-link" data-agent-tab="ai-agent/agent-model" href="<?php echo esc_url(admin_url('plugins.php?page=oyiso#tab=ai-agent/agent-model')); ?>" aria-label="模型配置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg><span>模型配置</span></a>
                     </div></div>
                     <button type="button" class="oyiso-agent-icon-button" data-agent-fullscreen-toggle title="全屏" aria-label="全屏" aria-pressed="false">
@@ -306,10 +306,11 @@ final class Oyiso_Agent_Admin
             <p class="oyiso-agent-page-context" data-agent-page-context hidden></p>
             <p class="oyiso-agent-notice" data-agent-notice role="status" aria-live="polite"></p>
             <div class="oyiso-agent-scroll">
-                <div class="oyiso-agent-messages" data-agent-messages role="log" aria-label="对话内容" aria-live="polite"><div class="oyiso-agent-empty"><h3>从一个具体任务开始</h3><p>查询站内数据，撰写文章和页面，完善商品内容。编辑页会自动附带当前内容。</p><p>内容修改和新建草稿会先生成预览。</p><div class="oyiso-agent-examples"><button type="button" class="button" data-agent-example="查找缺少短描述和 SEO 信息的商品，先列出需要完善的内容。">检查商品内容</button><button type="button" class="button" data-agent-example="我想完善一个商品的长短描述和 SEO 信息。请先询问商品 ID，再读取商品并核对现有信息，生成修改预览。">完善商品文案</button></div></div></div>
+                <div class="oyiso-agent-messages" data-agent-messages role="log" aria-label="对话内容" aria-live="polite"><div class="oyiso-agent-empty"><span class="oyiso-agent-empty-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8M10 14l1-4 8-8 3 3-8 8-4 1Z"/></svg></span><h3>一起完成当前的工作</h3><p>写文章、完善商品，或查询站内数据。告诉我你想做什么。</p><div class="oyiso-agent-examples"><button type="button" class="button" data-agent-example="查找缺少短描述和 SEO 信息的商品，先列出需要完善的内容。">检查商品内容</button><button type="button" class="button" data-agent-example="我想完善一个商品的长短描述和 SEO 信息。请先询问商品 ID，再读取商品并核对现有信息，生成修改预览。">完善商品文案</button></div><p class="oyiso-agent-empty-note">修改会先生成预览，由你确认后执行。</p></div></div>
                 <div data-agent-changes class="oyiso-agent-changes"></div>
+                <div class="oyiso-agent-response-status" data-agent-response-status role="status" aria-live="polite" hidden><span class="oyiso-agent-response-dot" aria-hidden="true"></span><span data-agent-response-label>正在准备回复…</span></div>
             </div>
-            <details class="oyiso-agent-progress"><summary>执行过程 <span data-agent-status>尚未开始</span></summary><div class="oyiso-agent-progress-body"><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></div></details>
+            <details class="oyiso-agent-progress" hidden><summary>执行过程 <span data-agent-status>尚未开始</span></summary><div class="oyiso-agent-progress-body"><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></div></details>
             <div class="oyiso-agent-composer">
                 <div class="oyiso-agent-composer-surface">
                     <label class="screen-reader-text" for="oyiso-agent-prompt">任务指令</label>
@@ -319,7 +320,7 @@ final class Oyiso_Agent_Admin
                         <button type="button" class="oyiso-agent-icon-button" data-agent-attach aria-label="添加附件" title="添加附件"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><input type="file" data-agent-file multiple accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.mp4,.webm,application/pdf,.txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.yaml,.yml,.css,.js,.ts,.php,.sql" hidden>
                         <select id="oyiso-agent-model" class="oyiso-agent-model-picker" data-agent-model aria-label="对话模型"><option value="">暂无可用模型</option></select>
                         <div>
-                            <button type="button" class="button oyiso-agent-composer-control" data-agent-cancel aria-label="取消任务" title="取消任务" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>
+                            <button type="button" class="button oyiso-agent-composer-control" data-agent-cancel aria-label="停止回复" title="停止回复" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
                             <button type="button" class="button button-primary oyiso-agent-composer-control" data-agent-send aria-label="发送" title="发送"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
                         </div>
                     </div>

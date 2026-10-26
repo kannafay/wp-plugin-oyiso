@@ -15,6 +15,7 @@
     const scroll = $('.oyiso-agent-scroll');
     const empty = messages.firstElementChild.cloneNode(true);
     const notice = $('[data-agent-notice]');
+    const responseStatus = $('[data-agent-response-status]');
     const panelHistory = $('#oyiso-agent-panel-history');
     const historyToggle = $('[data-agent-history-toggle]');
     const historyDismiss = $('[data-agent-history-dismiss]');
@@ -37,10 +38,12 @@
     const drafts = new Map();
     const modelDrafts = new Map();
     const recoveredFailures = new Set();
+    const messageEntries = new WeakMap();
     let run = null;
     let runId = 0;
     let timer;
     let sending = false;
+    const cancelling = new Set();
     let composing = false;
     const stepping = new Set();
     let loading = false;
@@ -310,7 +313,7 @@
                 }
                 if (latest.id === runId && run?.status === 'cancelled' && latest.status !== 'cancelled') return;
                 liveRuns.set(latest.id, latest);
-                if (latest.id === runId && panelOpen) render(latest, type === 'text');
+                if (latest.id === runId && panelOpen) render(latest, true);
             },
             close() { if (latest && liveOwners.get(latest.id) === owner) { liveOwners.delete(latest.id); liveRuns.delete(latest.id); } },
             get received() { return !!latest; },
@@ -413,19 +416,37 @@
     function controls() {
         const active = run && ['queued', 'running'].includes(run.status);
         const ready = config.enabled && config.supported;
-        $('[data-agent-send]').disabled = !ready || !Object.hasOwn(config.models || {}, modelSelect.value) || loading || sending || deleting || changing.size > 0 || active || run?.status === 'cancelled';
+        const stopping = cancelling.has(runId);
+        const sendButton = $('[data-agent-send]'), stopButton = $('[data-agent-cancel]');
+        sendButton.disabled = !ready || !Object.hasOwn(config.models || {}, modelSelect.value) || loading || sending || deleting || changing.size > 0 || active || run?.status === 'cancelled';
+        sendButton.hidden = !!active;
+        sendButton.classList.toggle('is-sending', sending);
+        sendButton.setAttribute('aria-label', sending ? '正在发送' : '发送');
+        sendButton.title = sending ? '正在发送' : '发送';
+        sendButton.setAttribute('aria-busy', String(sending));
+        stopButton.hidden = !active;
+        stopButton.disabled = stopping;
+        stopButton.setAttribute('aria-label', stopping ? '正在停止' : '停止回复');
+        stopButton.title = stopping ? '正在停止' : '停止回复';
         const retry = $('[data-agent-retry]'); if (retry) retry.disabled = $('[data-agent-send]').disabled;
         modelSelect.disabled = !ready || loading || sending || deleting || changing.size > 0 || active;
-        prompt.disabled = !ready || loading || sending || deleting || active || run?.status === 'cancelled';
+        prompt.disabled = !ready || loading || sending || deleting || run?.status === 'cancelled';
         $('[data-agent-attach]').disabled = prompt.disabled;
         $('[data-agent-file]').disabled = prompt.disabled;
         document.querySelectorAll('[data-agent-attachments] button').forEach(button => { button.disabled = prompt.disabled; });
         $('[data-agent-new]').disabled = sending || deleting || changing.size > 0;
         $('[data-agent-refresh]').disabled = !runId || loading || sending || changing.size > 0;
         $('[data-agent-refresh]').setAttribute('aria-busy', String(refreshing));
-        $('[data-agent-cancel]').hidden = !run || !['queued', 'running', 'waiting'].includes(run.status);
-        $('[data-agent-status]').textContent = loading ? '读取中' : run?.status === 'running' ? (run.partial?.text ? '回复中' : '思考中') : run ? statuses[run.status] || run.status : '尚未开始';
+        $('[data-agent-status]').textContent = sending ? '发送中' : loading ? '读取中' : run?.status === 'running' ? (run.partial?.text ? '回复中' : '思考中') : run ? statuses[run.status] || run.status : '尚未开始';
         $('[data-agent-usage]').textContent = run ? `本次任务 ${run.step} 轮 · 累计 ${Number(run.tokens).toLocaleString()} Token` : '';
+        $('.oyiso-agent-progress').hidden = !run && !sending && !loading;
+        const waiting = !loading && (sending || active) && !run?.partial?.text;
+        responseStatus.hidden = !waiting;
+        let state = sending ? '正在发送…' : '正在思考…';
+        if (active && run.status === 'queued') state = run.step > 0 ? '正在继续处理…' : '正在准备回复…';
+        if (stopping) state = '正在停止…';
+        $('[data-agent-response-label]').textContent = state;
+        messages.setAttribute('aria-busy', String(!!(sending || active || loading)));
     }
 
     // Build links as DOM nodes; model output never becomes executable HTML.
@@ -502,7 +523,7 @@
                 const before = change.before[name] || '';
                 if (before === after) continue;
                 const detail = node('details', 'oyiso-agent-field-diff');
-                detail.open = true;
+                detail.open = change.status === 'pending';
                 detail.append(node('summary', '', fields[name] || name));
                 const columns = node('div', 'oyiso-agent-diff-columns');
                 const previews = [];
@@ -557,7 +578,7 @@
             for (const [field, after] of Object.entries(change.after)) {
                 const before = change.before[field] || '';
                 if (before === after) continue;
-                const detail = node('details', 'oyiso-agent-field-diff'); detail.open = true;
+                const detail = node('details', 'oyiso-agent-field-diff'); detail.open = change.status === 'pending';
                 detail.append(node('summary', '', ({ title: '标题', content: '正文', excerpt: '摘要', ...fields })[field] || field));
                 const columns = node('div', 'oyiso-agent-diff-columns');
                 for (const [label, value] of [['原内容', before], ['拟修改', after]]) {
@@ -657,6 +678,7 @@
             const selected = active ? next.selection : modelFor(next.id, next.selection);
             if (typeof selected === 'string') populateModels(config.models, selected);
         }
+        const previous = run;
         run = next;
         if (next.status === 'cancelled') liveRuns.delete(next.id);
         if (next.status === 'failed') restoreFailedDraft(next);
@@ -671,22 +693,36 @@
         if (!version || conversationSignature !== conversationVersion) {
             conversationVersion = conversationSignature;
             composer?.syncFiles(next.conversation.flatMap(entry => entry.attachments || []));
-            messages.replaceChildren();
+            const fragment = document.createDocumentFragment();
+            const updated = [];
             const legacyModels = [...new Set(next.events.filter(event => event.label === '模型已响应' && event.detail).map(event => event.detail))];
-            for (const entry of next.conversation) {
+            for (const [index, entry] of next.conversation.entries()) {
                 const isUser = entry.role === 'user';
-                const item = node('article', `oyiso-agent-message is-${isUser ? 'user' : 'assistant'}`);
+                const last = index === next.conversation.length - 1;
+                const fromPartial = !isUser && last && partial && previous?.partial?.text && entry.text.startsWith(previous.partial.text);
+                const item = (fromPartial ? partial : $(`[data-agent-message-index="${index}"]`, messages)) || node('article', `oyiso-agent-message is-${isUser ? 'user' : 'assistant'}`);
+                if (fromPartial) { item.removeAttribute('data-agent-partial'); item.classList.remove('is-streaming'); partial = null; }
+                item.classList.toggle('is-user', isUser); item.classList.toggle('is-assistant', !isUser);
+                item.dataset.agentMessageIndex = String(index);
                 const model = entry.model || (legacyModels.length === 1 ? legacyModels[0] : 'AI');
-                item.append(node('strong', 'oyiso-agent-message-role', isUser ? '我' : model));
-                const content = node('div', 'oyiso-agent-message-content');
-                if (!isUser && window.oyisoAgentMarkdown) window.oyisoAgentMarkdown(content, entry.text);
-                else messageText(content, entry.text);
-                item.append(content);
-                composer?.renderFiles(item, entry.attachments);
-                messages.append(item);
+                const entrySignature = JSON.stringify([entry, model]);
+                if (messageEntries.get(item) !== entrySignature) {
+                    let role = $('.oyiso-agent-message-role', item), content = $('.oyiso-agent-message-content', item);
+                    if (!role) { role = node('strong', 'oyiso-agent-message-role'); item.append(role); }
+                    if (!content) { content = node('div', 'oyiso-agent-message-content'); item.append(content); }
+                    role.textContent = isUser ? '我' : model;
+                    if (!isUser && window.oyisoAgentMarkdown) updated.push(() => window.oyisoAgentMarkdown(content, entry.text, { animate: animate && last, scroll }));
+                    else { content.replaceChildren(); messageText(content, entry.text); }
+                    $('.oyiso-agent-message-attachments', item)?.remove();
+                    composer?.renderFiles(item, entry.attachments);
+                    messageEntries.set(item, entrySignature);
+                }
+                fragment.append(item);
             }
-            if (!next.conversation.length) messages.append(empty.cloneNode(true));
-            if (next.partial?.text && partial) messages.append(partial);
+            if (!next.conversation.length && !next.partial?.text && !active) fragment.append(empty.cloneNode(true));
+            if (next.partial?.text && partial) fragment.append(partial);
+            messages.replaceChildren(fragment);
+            updated.forEach(paint => paint());
         }
         if (signature !== version) {
             version = signature;
@@ -717,7 +753,6 @@
             else partialContent.textContent = next.partial.text;
             partial.classList.toggle('is-streaming', ['queued', 'running'].includes(next.status));
         } else partial?.remove();
-        messages.setAttribute('aria-busy', String(!!next.partial?.text && ['queued', 'running'].includes(next.status)));
         if (nearBottom) scroll.scrollTop = scroll.scrollHeight;
     }
 
@@ -729,7 +764,7 @@
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 180000);
         api(`runs/${id}/step`, { method: 'POST', body: '{}', signal: controller.signal, live: receiver.event })
-            .then(data => { if (id === runId && revision === pollRevision && panelOpen) render(data); })
+            .then(data => { if (id === runId && revision === pollRevision && panelOpen) render(data, true); })
             .catch(error => {
                 if (id !== runId || revision !== pollRevision || !panelOpen || error.name === 'AbortError') return;
                 if (error.status === 404 && error.code === 'agent_task_missing') unavailableRun(id);
@@ -793,6 +828,13 @@
         const message = generated ? override : prompt.value.trim() || (files.length ? '请分析附件。' : '');
         if (!message || $('[data-agent-send]').disabled) return;
         const source = runId, sequence = ++sendSequence;
+        $('[data-agent-pending]', messages)?.remove();
+        $('.oyiso-agent-empty', messages)?.remove();
+        const pending = node('article', 'oyiso-agent-message is-user'); pending.dataset.agentPending = '';
+        pending.append(node('strong', 'oyiso-agent-message-role', '我'));
+        const pendingText = node('div', 'oyiso-agent-message-content'); messageText(pendingText, message); pending.append(pendingText);
+        if (files.length) pending.append(node('span', 'description', files.map(file => file.name).join('、')));
+        messages.append(pending);
         let accepted = false, sentId = 0;
         const accept = next => {
             if (accepted) return;
@@ -808,6 +850,7 @@
         const timeout = setTimeout(() => controller.abort(), 180000);
         sending = true;
         controls();
+        scroll.scrollTop = scroll.scrollHeight;
         if (generated && run) renderChanges(run.changes);
         try {
             let body;
@@ -818,7 +861,7 @@
             } else body = JSON.stringify({ message, run_id: runId, selection: modelSelect.value, ...(pageContext ? { page_context: JSON.stringify(pageContext) } : {}) });
             const next = await api('runs', { method: 'POST', body, signal: controller.signal, live: receiver.event });
             if (!accepted) accept(next);
-            if (sentId === runId && sequence === sendSequence && panelOpen) render(next);
+            if (sentId === runId && sequence === sendSequence && panelOpen) render(next, true);
         } catch (error) { if (!sentId || sentId === runId) showNotice(error.name === 'AbortError' ? '回复连接超时，正在重新读取对话进度。' : error.message, true); }
         finally {
             clearTimeout(timeout); receiver.close();
@@ -1024,7 +1067,6 @@
         populateModels(config.models, Object.hasOwn(config.models || {}, preferred) ? preferred : '');
         messages.replaceChildren(empty.cloneNode(true));
         messages.setAttribute('aria-busy', 'false');
-        messages.setAttribute('aria-busy', 'false');
         $('[data-agent-events]').replaceChildren(node('li', 'description', '发送任务后，这里会显示查询和处理进度。'));
         $('[data-agent-changes]').replaceChildren();
         prompt.value = draft;
@@ -1034,15 +1076,16 @@
     }
     $('[data-agent-new]').addEventListener('click', newConversation);
 
-    $('[data-agent-cancel]').addEventListener('click', async event => {
+    $('[data-agent-cancel]').addEventListener('click', async () => {
+        if (cancelling.has(runId) || !run || !['queued', 'running'].includes(run.status)) return;
         const id = runId;
-        event.currentTarget.disabled = true;
+        cancelling.add(id); controls();
         try { const data = await api(`runs/${id}/cancel`, { method: 'POST', body: '{}' }); if (id === runId) render(data); loadLists(); }
         catch (error) {
             if (error.status === 404 && error.code === 'agent_task_missing') unavailableRun(id);
             else { if (id === runId) showNotice(error.message, true); loadLists(); }
         }
-        finally { $('[data-agent-cancel]').disabled = false; }
+        finally { cancelling.delete(id); controls(); }
     });
     composer = window.oyisoAgentComposer({ panel, prompt, key: storageKey, api, notice: showNotice });
     history = window.oyisoAgentHistory({

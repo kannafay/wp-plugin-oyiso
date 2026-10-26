@@ -31,7 +31,7 @@ function frameClock(window) {
     window.cancelAnimationFrame = id => frames.delete(id);
     return {
         tick(ms = 16) { time += ms; const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(time)); },
-        finish() { for (let i = 0; i < 40 && frames.size; i++) this.tick(); assert.equal(frames.size, 0); },
+        finish() { for (let i = 0; i < 80 && frames.size; i++) this.tick(); assert.equal(frames.size, 0); },
     };
 }
 const chooseLayout = (f, mode) => { if (f.$('[data-agent-settings-menu]').hidden) f.$('[data-agent-settings-toggle]').click(); f.$(`[data-agent-layout-choice="${mode}"]`).click(); };
@@ -305,14 +305,16 @@ test('Enter used to confirm IME composition never submits until composition has 
     assert.equal(f.calls.filter(call => call.route === 'runs' && call.options.method === 'POST').length, 1);
 });
 
-test('settings popover contains icon and text actions with keyboard dismissal and a separate refresh button', async t => {
+test('history is directly accessible in the toolbar and settings retain keyboard navigation', async t => {
     const f = fixture(t);
     const settings = f.$('[data-agent-settings-menu]'); const toggle = f.$('[data-agent-settings-toggle]');
-    for (const selector of ['[data-agent-layout-choice="left"]', '[data-agent-reset]', '[data-agent-history-toggle]']) {
+    for (const selector of ['[data-agent-layout-choice="left"]', '[data-agent-reset]']) {
         assert.equal(settings.contains(f.$(selector)), true);
         assert.ok(f.$(selector).querySelector('svg'));
         assert.ok(f.$(selector).textContent.trim());
     }
+    assert.equal(f.$('[data-agent-history-toggle]').parentElement, f.$('.oyiso-agent-panel-actions'));
+    assert.equal(settings.contains(f.$('[data-agent-history-toggle]')), false);
     assert.equal(toggle.parentElement.previousElementSibling, f.$('[data-agent-refresh]'));
     assert.equal(f.$('[data-agent-fullscreen-toggle]').nextElementSibling, f.$('[data-agent-close]'));
     toggle.click(); assert.equal(settings.hidden, false); assert.equal(toggle.getAttribute('aria-expanded'), 'true');
@@ -400,6 +402,104 @@ function liveWire() {
     const sse = new ReadableStream({ start(value) { controller = value; } });
     return { sse, emit(type, value) { controller.enqueue(new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`)); }, close() { controller.close(); } };
 }
+
+test('sending gives immediate feedback and generation replaces send with stop while preserving the next draft', async t => {
+    const wire = liveWire(); let accept;
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? new Promise(resolve => { accept = () => resolve(wire); }) : undefined, {}, liveSupport);
+    const input = f.$('#oyiso-agent-prompt'), send = f.$('[data-agent-send]'), stop = f.$('[data-agent-cancel]');
+    input.value = 'Rewrite this article'; send.click();
+    assert.match(f.$('[data-agent-messages]').textContent, /Rewrite this article/);
+    assert.equal(f.$('.oyiso-agent-empty'), null);
+    assert.equal(f.$('[data-agent-response-status]').hidden, false);
+    assert.match(f.$('[data-agent-response-label]').textContent, /正在发送/);
+    assert.equal(f.$('[data-agent-messages]').getAttribute('aria-busy'), 'true');
+    assert.equal(send.hidden, false); assert.equal(send.disabled, true); assert.equal(stop.hidden, true);
+    accept(); await settle();
+    const conversation = [{ role: 'user', text: 'Rewrite this article' }];
+    wire.emit('state', task({ status: 'queued', step: 0, selection: 'fixture|model-a', conversation })); await settle();
+    assert.equal(f.$('[data-agent-pending]'), null);
+    assert.equal(f.window.document.querySelectorAll('.is-user').length, 1);
+    assert.match(f.$('[data-agent-response-label]').textContent, /准备回复/);
+    assert.equal(send.hidden, true); assert.equal(stop.hidden, false); assert.equal(stop.disabled, false);
+    assert.equal(input.disabled, false);
+    input.value = 'My next request'; input.dispatchEvent(new f.window.Event('input', { bubbles: true }));
+    wire.emit('state', task({ status: 'running', selection: 'fixture|model-a', conversation })); await settle();
+    assert.match(f.$('[data-agent-response-label]').textContent, /思考/);
+    input.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await settle();
+    assert.equal(f.calls.filter(call => call.route === 'runs').length, 1);
+    wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: 'Rewritten article' }); await settle();
+    assert.equal(f.$('[data-agent-response-status]').hidden, true);
+    wire.emit('done', task({ selection: 'fixture|model-a', conversation: [...conversation, { role: 'assistant', text: 'Rewritten article', model: 'model-a' }] })); wire.close(); await settle();
+    assert.equal(send.hidden, false); assert.equal(send.disabled, false); assert.equal(stop.hidden, true);
+    assert.equal(input.value, 'My next request'); assert.equal(f.$('[data-agent-messages]').getAttribute('aria-busy'), 'false');
+});
+
+test('waiting for a proposal confirmation exposes send and the card actions without a generation stop button', async t => {
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', changes: [proposal()] }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(f.$('[data-agent-cancel]').hidden, true);
+    assert.equal(f.$('[data-agent-send]').hidden, false);
+    assert.equal(f.$('[data-agent-send]').disabled, false);
+    assert.equal(f.$('[data-agent-response-status]').hidden, true);
+    assert.match(f.$('[data-agent-changes]').textContent, /应用修改/);
+});
+
+test('stop submits once and keeps its pending state until the cancellation response arrives', async t => {
+    let finish;
+    const running = task({ status: 'running' });
+    const f = fixture(t, route => route === 'runs/12' ? running : route === 'runs/12/cancel' ? new Promise(resolve => { finish = () => resolve(task({ status: 'cancelled' })); }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const stop = f.$('[data-agent-cancel]'); stop.click(); stop.click(); await settle();
+    assert.equal(f.calls.filter(call => call.route === 'runs/12/cancel').length, 1);
+    assert.equal(stop.disabled, true); assert.equal(stop.getAttribute('aria-label'), '正在停止');
+    assert.equal(f.$('[data-agent-send]').hidden, true);
+    assert.match(f.$('[data-agent-response-label]').textContent, /正在停止/);
+    finish(); await settle();
+    assert.equal(stop.hidden, true); assert.equal(f.$('[data-agent-send]').hidden, false);
+    assert.equal(f.$('[data-agent-response-status]').hidden, true);
+});
+
+test('clicking composer space focuses the draft at its existing selection without intercepting controls', t => {
+    const f = fixture(t), input = f.$('#oyiso-agent-prompt');
+    input.value = 'Keep my caret'; input.setSelectionRange(3, 3);
+    f.$('.oyiso-agent-composer-surface').dispatchEvent(new f.window.MouseEvent('pointerdown', { button: 0, bubbles: true, cancelable: true }));
+    assert.equal(f.window.document.activeElement, input); assert.equal(input.selectionStart, 3);
+    const model = f.$('[data-agent-model]'); model.focus();
+    model.dispatchEvent(new f.window.MouseEvent('pointerdown', { button: 0, bubbles: true, cancelable: true }));
+    assert.equal(f.window.document.activeElement, model);
+    const attach = f.$('[data-agent-attach]'); attach.focus();
+    attach.dispatchEvent(new f.window.MouseEvent('pointerdown', { button: 0, bubbles: true, cancelable: true }));
+    assert.equal(f.window.document.activeElement, attach);
+});
+
+test('an older cancellation cannot disable or unlock the stop control of another conversation', async t => {
+    const pending = new Map();
+    const f = fixture(t, (route, options) => {
+        if (route.endsWith('/cancel')) return new Promise(resolve => pending.set(route, resolve));
+        if (route === 'runs' && options.method === 'POST' || route === 'runs/13') return task({ id: 13, status: 'running', conversation: [{ role: 'user', text: 'Another task' }] });
+        if (route === 'runs/12') return task({ status: 'running' });
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); f.$('[data-agent-cancel]').click(); await settle();
+    f.$('[data-agent-new]').click(); f.$('#oyiso-agent-prompt').value = 'Another task'; f.$('[data-agent-send]').click(); await settle();
+    const stop = f.$('[data-agent-cancel]'); assert.equal(stop.hidden, false); assert.equal(stop.disabled, false);
+    stop.click(); await settle(); assert.equal(stop.disabled, true);
+    pending.get('runs/12/cancel')(task({ status: 'cancelled' })); await settle();
+    assert.equal(stop.disabled, true); assert.equal(stop.hidden, false);
+    pending.get('runs/13/cancel')(task({ id: 13, status: 'cancelled' })); await settle();
+    assert.equal(stop.hidden, true); assert.equal(f.$('[data-agent-status]').textContent, '已取消');
+});
+
+test('a fully buffered fresh reply reveals over frames while saved history stays immediate', async t => {
+    let clock;
+    const text = 'A fully buffered answer should still arrive comfortably. '.repeat(16).trim();
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? task({ conversation: [{ role: 'user', text: 'Explain' }, { role: 'assistant', text }] }) : undefined, {}, window => { clock = frameClock(window); }, { motion: true });
+    f.$('#oyiso-agent-prompt').value = 'Explain'; f.$('[data-agent-send]').click(); await settle();
+    const content = f.$('.is-assistant .oyiso-agent-message-content');
+    assert.equal(content.textContent, 'A'); assert.equal(f.$('[data-agent-send]').disabled, false);
+    clock.tick(); assert.ok(content.textContent.length > 1 && content.textContent.length < text.length);
+    clock.finish(); assert.equal(content.textContent, text);
+    assert.equal(f.$('[data-agent-response-status]').hidden, true);
+});
 
 test('restoring a saved conversation shows a spinner immediately and never flashes welcome content', async t => {
     let resolve;
@@ -521,8 +621,8 @@ test('assistant Markdown renders structure with bounded type while user input st
     assert.match(assistant.querySelector('pre code').textContent, /<tag>/);
     assert.equal(assistant.querySelectorAll('table td').length, 2);
     assert.equal(assistant.querySelector('.oyiso-agent-markdown-table').tabIndex, 0);
-    assert.equal(f.window.getComputedStyle(assistant).fontSize, '13px');
-    assert.equal(f.window.getComputedStyle(assistant.querySelector('h1')).fontSize, '17px');
+    assert.equal(f.window.getComputedStyle(assistant).fontSize, '14px');
+    assert.equal(f.window.getComputedStyle(assistant.querySelector('h1')).fontSize, '20px');
     assert.equal(f.window.getComputedStyle(assistant.querySelector('pre')).whiteSpace, 'pre');
     assert.equal(f.$('.is-user .oyiso-agent-message-content').textContent, '**我的原文**');
     assert.equal(f.$('.is-user .oyiso-agent-message-content strong'), null);
@@ -576,7 +676,7 @@ test('progress events preserve the existing conversation and streaming bubble', 
     assert.match(f.$('[data-agent-events]').textContent, /模型已响应/);
 });
 
-test('live bursts reveal complete graphemes over frames and completion never waits for an animation', async t => {
+test('live bursts and the final chunk reveal smoothly without delaying completed controls or replacing the reply', async t => {
     const wire = liveWire(); let clock;
     const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? wire : undefined, {}, window => { liveSupport(window); clock = frameClock(window); }, { motion: true });
     f.$('#oyiso-agent-prompt').value = 'Explain'; f.$('[data-agent-send]').click(); await settle();
@@ -592,9 +692,11 @@ test('live bursts reveal complete graphemes over frames and completion never wai
     const finalText = text + '这是最后一段补充。';
     const final = task({ conversation: [{ role: 'user', text: 'Explain' }, { role: 'assistant', text: finalText }] });
     wire.emit('done', final); wire.close(); await settle();
-    assert.equal(f.$('.is-assistant .oyiso-agent-message-content').textContent, finalText);
+    assert.equal(f.$('.is-assistant .oyiso-agent-message-content'), content);
+    assert.notEqual(content.textContent, finalText, 'the completion frame must not dump buffered text');
     assert.equal(f.$('[data-agent-send]').disabled, false);
     clock.finish(); assert.equal(f.$('[data-agent-partial]'), null);
+    assert.equal(content.textContent, finalText);
     assert.equal(f.$('.oyiso-agent-stream-caret'), null);
 });
 
@@ -1336,6 +1438,12 @@ test('request failures preserve prompt and restore send control', async t => {
     assert.equal(f.$('#oyiso-agent-prompt').value, '保留这条指令');
     assert.equal(f.$('[data-agent-send]').disabled, false);
     assert.match(f.$('[data-agent-notice]').textContent, /配置模型/);
+    assert.equal(f.$('[data-agent-response-status]').hidden, true);
+    assert.equal(f.$('[data-agent-cancel]').hidden, true);
+    assert.equal(f.$('[data-agent-send]').hidden, false);
+    assert.match(f.$('[data-agent-messages]').textContent, /保留这条指令/);
+    f.$('[data-agent-send]').click(); await settle();
+    assert.equal(f.window.document.querySelectorAll('.is-user').length, 1, 'retrying an unaccepted request does not duplicate the optimistic message');
 });
 
 test('model text and field previews never execute HTML', async t => {
