@@ -3316,6 +3316,47 @@ test('settings shortcut closes the panel before normal navigation from another a
     assert.equal(f.calls.some(call => call.route.endsWith('/cancel')), false);
 });
 
+test('context ring uses the latest request input and follows the selected model without accumulating usage', async t => {
+    let current = task({ selection: 'fixture|model-a', tokens: 900000, context_usage: { selection: 'fixture|model-a', input: 250000, output: 10000 } });
+    const f = fixture(t, route => route === 'runs/12' ? current : undefined, { contextModels: { 'fixture|model-a': { limit: 1000000, source: 'preset' }, 'second|model-b': { limit: 524288, source: 'catalog' } } }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(f.$('[data-agent-context-percent]').textContent, '25%');
+    assert.equal(f.$('.oyiso-agent-context-value').getAttribute('stroke-dashoffset'), '75');
+    assert.match(f.$('[data-agent-context-count]').textContent, /250,000/);
+    assert.match(f.$('[data-agent-context-limit]').textContent, /1,000,000.*官方预设/);
+    f.$('[data-agent-context-button]').focus();
+    assert.equal(f.window.document.activeElement, f.$('[data-agent-context-button]'));
+    const escape = new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    f.$('[data-agent-context-button]').dispatchEvent(escape);
+    assert.equal(f.$('[data-agent-context]').dataset.dismissed, 'true'); assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+    f.$('[data-agent-model]').value = 'second|model-b'; f.$('[data-agent-model]').dispatchEvent(new f.window.Event('change', { bubbles: true }));
+    assert.equal(f.$('[data-agent-context-percent]').textContent, '—');
+    assert.match(f.$('[data-agent-context-limit]').textContent, /524,288.*接口返回/);
+    f.$('[data-agent-model]').value = 'fixture|model-a'; f.$('[data-agent-model]').dispatchEvent(new f.window.Event('change', { bubbles: true }));
+    f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-context-models-updated', { detail: { 'fixture|model-a': { limit: 500000, source: 'catalog' } } }));
+    assert.equal(f.$('[data-agent-context-percent]').textContent, '50%');
+    current = task({ ...current, context_usage: { selection: 'fixture|model-a', input: 400000, output: 10000 } });
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-context]').dataset.level, 'warning');
+    current = task({ ...current, context_usage: { selection: 'fixture|model-a', input: 550000, output: 10000 } });
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-context-percent]').textContent, '110%'); assert.equal(f.$('[data-agent-context]').dataset.level, 'high');
+    assert.equal(f.$('.oyiso-agent-context-value').getAttribute('stroke-dashoffset'), '0');
+    f.$('[data-agent-new]').click(); await settle();
+    assert.equal(f.$('[data-agent-context-percent]').textContent, '—');
+});
+
+test('unknown context capacities and old conversations show an explicit unknown state', async t => {
+    for (const extra of [{ tokens: 900000 }, { context_usage: { selection: 'fixture|model-a', input: 2000, output: 50 } }, { context_usage: { selection: 'fixture|model-a', input: -1, output: 0 } }]) await t.test(JSON.stringify(extra), async t => {
+        const f = fixture(t, route => route === 'runs/12' ? task({ selection: 'fixture|model-a', ...extra }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+        await settle();
+        assert.equal(f.$('[data-agent-context-percent]').textContent, '—');
+        assert.equal(f.$('[data-agent-context]').dataset.level, 'unknown');
+        assert.match(f.$('[data-agent-context-limit]').textContent, /容量未知/);
+        assert.doesNotMatch(f.$('[data-agent-context-button]').getAttribute('aria-label'), /NaN|undefined|900,000/);
+    });
+});
+
 test('opening a settings shortcut in a new tab preserves the current assistant', async t => {
     const f = fixture(t, undefined, {}, undefined, { globalOnly: true });
     for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey']) {

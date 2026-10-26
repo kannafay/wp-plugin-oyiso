@@ -7,7 +7,7 @@ defined('ABSPATH') || exit;
 final class Oyiso_Agent_Model_Catalog
 {
     /** @param array<string, mixed> $input
-     * @return array{models:list<array{id:string, name:string}>, truncated:bool}|WP_Error
+     * @return array{models:list<array{id:string, name:string,context_window?:int}>, truncated:bool}|WP_Error
      */
     public static function fetch(array $input): array|WP_Error
     {
@@ -79,6 +79,8 @@ final class Oyiso_Agent_Model_Catalog
                 $name = is_string($name) && !str_contains($name, $key) ? trim(wp_strip_all_tags($name)) : $model;
                 if (!isset($models[$model]) && count($models) >= 5000) { $truncated = true; break; }
                 $models[$model] = ['id' => $model, 'name' => $name !== '' ? mb_substr($name, 0, 200) : $model];
+                $limit = $item[$gemini ? 'inputTokenLimit' : 'context_window'] ?? $item['context_length'] ?? $item['max_input_tokens'] ?? null;
+                if (Oyiso_Agent_Context::validLimit($limit)) $models[$model]['context_window'] = $limit;
             }
             $next = $gemini ? ($data['nextPageToken'] ?? '') : ($anthropic && !empty($data['has_more']) ? ($data['last_id'] ?? '') : '');
             if ($next === '') {

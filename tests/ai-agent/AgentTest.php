@@ -501,6 +501,27 @@ final class AgentTest extends TestCase
         self::assertSame('cancelled', $fresh['status']); self::assertSame([], $fresh['snapshots']);
     }
 
+    public function testContextUsageStoresOnlyTheLatestReportedInputAndSurvivesReload(): void
+    {
+        $run = $this->task(); $run['selection'] = 'fixture|fixture-model';
+        Oyiso_Agent_Runner::message($run, 'First request');
+        $first = $this->turn('First answer'); $second = $this->turn('Second answer');
+        $gateway = new OyisoAgentScriptedModel([
+            new Oyiso_Agent_Turn($first->message, 70000, 'fixture-model', 60000, 10000),
+            new Oyiso_Agent_Turn($second->message, 2500, 'fixture-model', 2000, 500),
+            $this->turn('Provider omitted usage'),
+        ]);
+        $runner = new Oyiso_Agent_Runner($gateway); $runner->step($run['id']);
+        $run = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame(['selection' => 'fixture|fixture-model', 'input' => 60000, 'output' => 10000], Oyiso_Agent_Store::view($run)['context_usage']);
+        Oyiso_Agent_Runner::message($run, 'Second request'); $runner->step($run['id']);
+        $run = Oyiso_Agent_Store::get($run['id']); $view = Oyiso_Agent_Store::view($run);
+        self::assertSame(72500, $run['tokens']); self::assertSame(2000, $view['context_usage']['input']);
+        self::assertSame(500, $view['context_usage']['output']); self::assertArrayNotHasKey('messages', $view);
+        Oyiso_Agent_Runner::message($run, 'Third request'); $runner->step($run['id']);
+        self::assertArrayNotHasKey('context_usage', Oyiso_Agent_Store::view(Oyiso_Agent_Store::get($run['id'])));
+    }
+
     public function testRunnerContinuesToolsAndFollowUpsAfterSixtyThousandTokens(): void
     {
         $run = $this->task(); Oyiso_Agent_Runner::message($run, 'Read current page');

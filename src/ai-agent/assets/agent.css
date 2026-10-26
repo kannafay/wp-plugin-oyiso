@@ -180,6 +180,21 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-composer-actions .oyiso-agent-model-picker { flex: 0 1 auto; min-width: 0; max-width: 360px; width: auto; height: 34px; min-height: 34px; margin: 0; padding: 0 26px 0 8px; border: 0; border-radius: 0; background-color: transparent; color: #50575e; box-shadow: none; font-size: 13px; text-overflow: ellipsis; cursor: pointer; }
 .oyiso-agent-composer-actions .oyiso-agent-model-picker:is(:hover, :focus, :focus-visible) { border: 0; outline: none; box-shadow: none; background-color: transparent; }
 .oyiso-agent-composer-actions .oyiso-agent-composer-control { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; min-height: 34px; margin: 0; padding: 0; border-radius: 4px; line-height: 1; }
+.oyiso-agent-context { position: relative; display: inline-flex; flex: none; align-items: center; }
+.oyiso-agent-context-button { display: inline-flex; align-items: center; gap: 5px; height: 34px; margin: 0; padding: 0 7px; border: 0; border-radius: 4px; background: transparent; color: #646970; box-shadow: none; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; cursor: help; white-space: nowrap; }
+.oyiso-agent-context-button:is(:hover, :focus-visible) { background: #f0f0f1; color: #1d2327; }
+.oyiso-agent-context-button:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: 1px; }
+.oyiso-agent-context-button svg { display: block; flex: none; width: 20px; height: 20px; fill: none; stroke-width: 2.5; }
+.oyiso-agent-context-track { stroke: #dcdcde; }
+.oyiso-agent-context-value { stroke: var(--wp-admin-theme-color, #3858e9); stroke-linecap: round; transform: rotate(-90deg); transform-origin: 12px 12px; }
+.oyiso-agent-context[data-level="warning"] .oyiso-agent-context-value { stroke: #996800; }
+.oyiso-agent-context[data-level="high"] .oyiso-agent-context-value { stroke: #b32d2e; }
+.oyiso-agent-context[data-level="unknown"] .oyiso-agent-context-track { stroke-dasharray: 2 2; }
+.oyiso-agent-context-detail { display: none; position: absolute; z-index: 25; right: 0; bottom: calc(100% + 9px); width: 250px; max-width: calc(100vw - 64px); padding: 12px 14px; box-sizing: border-box; border: 1px solid #dcdcde; border-radius: 6px; background: #fff; color: #50575e; box-shadow: 0 4px 16px rgb(0 0 0 / 12%); font-size: 12px; line-height: 1.65; pointer-events: none; }
+.oyiso-agent-context-detail > * { display: block; }
+.oyiso-agent-context-detail strong { margin-bottom: 5px; color: #1d2327; font-size: 13px; font-weight: 600; }
+.oyiso-agent-context-note { margin-top: 7px; color: #646970; }
+.oyiso-agent-context:not([data-dismissed]):is(:hover, :focus-within) .oyiso-agent-context-detail { display: block; }
 .oyiso-agent-composer-actions [data-agent-cancel] { border-color: #1d2327; background: #1d2327; color: #fff; }
 .oyiso-agent-composer-actions [data-agent-cancel]:hover:not(:disabled) { border-color: #3c434a; background: #3c434a; color: #fff; }
 .oyiso-agent-composer-actions [data-agent-cancel] rect { fill: currentColor; stroke: none; }

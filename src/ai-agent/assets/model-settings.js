@@ -37,6 +37,11 @@
     let manualBaseModels = [];
     let modelRequest = 0;
     let modelController;
+    let modelContexts = {};
+    let modelContextEndpoint = '';
+    let catalogEndpoint = '';
+    const contextEndpoint = () => `${fields.url.value.trim().replace(/\/+$/, '')}|${fields.protocol.value}`;
+    const validContext = value => Number.isSafeInteger(value) && value >= 1024 && value <= 16777216;
     const make = (tag, text, className = '') => { const element = document.createElement(tag); if (text !== undefined) element.textContent = text; element.className = className; return element; };
     const notify = (text, error = false) => { const notice = $('[data-provider-notice]'); notice.textContent = text; notice.hidden = !text; notice.classList.toggle('is-error', error); };
     function setKeyVisible(visible = false) {
@@ -129,7 +134,8 @@
             if (request !== modelRequest || !modelDialog.open || modelMode !== 'catalog') return;
             if (!unchanged()) { $('[data-model-status]').textContent = '连接配置已变更，请重新获取模型列表。'; return; }
             if (!Array.isArray(result.models)) throw new Error('模型列表格式无法识别，请手动添加模型。');
-            catalog = result.models.filter(item => typeof item.id === 'string' && item.id && validModel(item.id)).map(item => ({ id: item.id, name: typeof item.name === 'string' ? item.name : item.id }));
+            catalog = result.models.filter(item => typeof item.id === 'string' && item.id && validModel(item.id)).map(item => ({ id: item.id, name: typeof item.name === 'string' ? item.name : item.id, ...(validContext(item.context_window) ? { context_window: item.context_window } : {}) }));
+            catalogEndpoint = contextEndpoint();
             catalogLoaded = true;
             $('[data-model-status]').textContent = result.truncated ? `已获取 ${catalog.length} 个模型，列表未完整返回；其他模型可手动添加。` : catalog.length ? `已获取 ${catalog.length} 个模型。` : '接口未返回可选模型，可以手动添加。';
             renderCatalog();
@@ -157,9 +163,19 @@
         if (entered.some(id => !validModel(id))) { $('[data-model-notice]').textContent = '模型 ID 不能包含空白或竖线，且最长为 200 个字符。'; return; }
         const next = modelMode === 'manual' ? uniqueModels([...manualBaseModels, ...entered]) : entered;
         if (next.length > 30) { $('[data-model-notice]').textContent = '最多选择 30 个模型，请减少选择后重试。'; return; }
+        if (modelMode === 'catalog' && catalogEndpoint === contextEndpoint()) {
+            if (modelContextEndpoint !== catalogEndpoint) modelContexts = {};
+            for (const model of catalog) {
+                const savedId = next.find(id => modelKey(id) === modelKey(model.id));
+                if (savedId && validContext(model.context_window)) modelContexts[savedId] = model.context_window;
+            }
+            modelContextEndpoint = catalogEndpoint;
+        }
         setModels(next); closeModelDialog();
     }
     function announceModels() {
+        const contexts = Object.fromEntries(rows.filter(row => row.configured).flatMap(row => row.models.filter(model => validContext(row.context_limits?.[model]?.limit)).map(model => [`${row.id}|${model}`, row.context_limits[model]])));
+        document.dispatchEvent(new CustomEvent('oyiso-agent-context-models-updated', { detail: contexts }));
         const models = Object.fromEntries(rows.filter(row => row.configured).flatMap(row => row.models.map(model => [`${row.id}|${model}`, `${row.name} / ${model}`])));
         document.dispatchEvent(new CustomEvent('oyiso-agent-models-updated', { detail: models }));
     }
@@ -197,6 +213,7 @@
         fields.name.value = row?.name || preset?.name || '';
         fields.url.value = row?.url || preset?.url || '';
         fields.protocol.value = row?.protocol || preset?.protocol || 'openai_chat';
+        modelContexts = { ...(row?.context_windows || {}) }; modelContextEndpoint = contextEndpoint();
         fields.url.placeholder = protocols[fields.protocol.value].url;
         setModels(row ? row.models : []);
         fields.key.value = ''; fields.key.disabled = false; fields.key.placeholder = row?.configured ? '已配置，留空保持' : '填写 API Key';
@@ -214,6 +231,10 @@
     async function save() {
         if (busy || modelDialog.open || !dialog.open || dialog.classList.contains('is-closing')) return;
         const data = { preset: fields.preset.value, name: fields.name.value.trim(), url: fields.url.value.trim(), protocol: fields.protocol.value, models: getModels(), key: fields.key.value, clear_key: fields.clear_key.checked };
+        if (modelContextEndpoint === contextEndpoint()) {
+            const windows = Object.fromEntries(Object.entries(modelContexts).filter(([model, limit]) => data.models.includes(model) && validContext(limit)));
+            if (Object.keys(windows).length) data.context_windows = windows;
+        }
         if (!data.name) { $('[data-provider-dialog-notice]').textContent = '请填写连接名称。'; return; }
         if (!data.url) { $('[data-provider-dialog-notice]').textContent = '请填写 Base URL。'; return; }
         busy = true; $('[data-provider-save]').disabled = true; render();

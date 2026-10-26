@@ -231,6 +231,7 @@ final class Oyiso_Agent_Admin
         wp_enqueue_script('oyiso-agent-live', plugins_url('assets/live.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/live.js'), true);
         wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-page', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer', 'oyiso-agent-live'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
         wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'writeTools' => Oyiso_Agent_Permissions::granted(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxImage' => min(Oyiso_Agent_Attachments::MAX_IMAGE_UPLOAD, wp_max_upload_size()), 'attachmentMaxVideo' => min(Oyiso_Agent_Attachments::MAX_VIDEO_UPLOAD, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_UPLOAD_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536)), 'attachmentTextPreview' => Oyiso_Agent_Attachments::MAX_TEXT_PREVIEW]);
+        wp_add_inline_script('oyiso-agent-panel', 'window.oyisoAgent.contextModels = ' . wp_json_encode(Oyiso_Agent_Context::models()) . ';', 'after');
     }
 
     private static function available(): bool
@@ -325,6 +326,10 @@ final class Oyiso_Agent_Admin
                         <button type="button" class="oyiso-agent-icon-button" data-agent-attach aria-label="添加附件" title="添加附件"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><input type="file" data-agent-file multiple accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.mp4,.webm,application/pdf,.txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.yaml,.yml,.css,.js,.ts,.php,.sql" hidden>
                         <select id="oyiso-agent-model" class="oyiso-agent-model-picker" data-agent-model aria-label="对话模型"><option value="">暂无可用模型</option></select>
                         <div>
+                            <span class="oyiso-agent-context" data-agent-context>
+                                <button type="button" class="oyiso-agent-context-button" data-agent-context-button aria-label="上下文用量尚未获取" aria-describedby="oyiso-agent-context-detail"><svg viewBox="0 0 24 24" aria-hidden="true"><circle class="oyiso-agent-context-track" cx="12" cy="12" r="9"/><circle class="oyiso-agent-context-value" cx="12" cy="12" r="9" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg><span data-agent-context-percent>—</span></button>
+                                <span class="oyiso-agent-context-detail" id="oyiso-agent-context-detail" role="tooltip"><strong>上下文用量</strong><span data-agent-context-count>等待首次请求</span><span data-agent-context-limit>模型容量尚未获取</span><span class="oyiso-agent-context-note" data-agent-context-note>显示最近一次请求的输入用量，响应后更新。</span></span>
+                            </span>
                             <button type="button" class="button oyiso-agent-composer-control" data-agent-cancel aria-label="停止回复" title="停止回复" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
                             <button type="button" class="button button-primary oyiso-agent-composer-control" data-agent-send aria-label="发送" title="发送"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
                         </div>

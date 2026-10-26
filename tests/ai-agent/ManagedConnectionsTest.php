@@ -67,6 +67,34 @@ final class ManagedConnectionsTest extends TestCase
         return $result;
     }
 
+    public function testContextCapacitiesMatchPresetsAndPreferEndpointMetadata(): void
+    {
+        foreach ([['openai', 'gpt-6.1-sol', 1050000], ['deepseek', 'deepseek-flash', 1048576], ['gemini', 'models/gemini-3.8-flash', 1048576], ['agnes', 'agnes-3.0-flash', 524288], ['agnes', 'agnes-2.5-pro', 1048576]] as [$preset, $model, $limit]) self::assertSame($limit, Oyiso_Agent_Context::presetLimit($preset, $model));
+        self::assertNull(Oyiso_Agent_Context::presetLimit('custom', 'deepseek-flash'));
+        self::assertNull(Oyiso_Agent_Context::presetLimit('agnes', 'agnes-future-model'));
+        $row = $this->create(['preset' => 'agnes', 'models' => ['agnes-3.0-flash', 'agnes-2.5-pro', 'unknown-model'], 'context_windows' => ['agnes-3.0-flash' => 262144]]);
+        $view = Oyiso_Agent_Connections::view()[0]; $contexts = Oyiso_Agent_Context::models();
+        self::assertSame(['limit' => 262144, 'source' => 'catalog'], $view['context_limits']['agnes-3.0-flash']);
+        self::assertSame(['limit' => 1048576, 'source' => 'preset'], $contexts[$row['id'] . '|agnes-2.5-pro']);
+        self::assertArrayNotHasKey('unknown-model', $view['context_limits']);
+        Oyiso_Agent_Config::setSecret(Oyiso_Agent_Connections::secretName($row['id']), '');
+        self::assertSame([], Oyiso_Agent_Context::models());
+    }
+
+    public function testContextMetadataValidationAndEndpointChangesPreventStaleCapacity(): void
+    {
+        $row = $this->create(['models' => ['fixture-model'], 'context_windows' => ['fixture-model' => 8192]]);
+        foreach ([null, '8192', ['fixture-model' => '8192'], ['fixture-model' => 0], ['fixture-model' => -1], ['fixture-model' => 16777217], ['other-model' => 8192]] as $invalid) {
+            $response = $this->request('PUT', 'providers/' . $row['id'], $this->input(['models' => ['fixture-model'], 'context_windows' => $invalid]));
+            self::assertSame(400, $response->get_status());
+        }
+        $updated = Oyiso_Agent_Connections::save($this->input(['name' => 'Renamed', 'models' => ['fixture-model']]), $row['id']);
+        self::assertIsArray($updated); self::assertSame(['fixture-model' => 8192], $updated['context_windows']);
+        $updated = Oyiso_Agent_Connections::save($this->input(['url' => 'https://other.example.com/v1', 'models' => ['fixture-model']]), $row['id']);
+        self::assertIsArray($updated); self::assertArrayNotHasKey('context_windows', $updated);
+        self::assertSame([], Oyiso_Agent_Connections::view()[0]['context_limits']);
+    }
+
     public function testMigrationPreservesLegacyCredentialsEndpointAndSelectedModelOnce(): void
     {
         $options = Oyiso_Agent_Config::saveOptions(['agent_enabled' => true, 'agent_provider' => 'oyiso-gemini', 'agent_gemini_key' => 'fixture-legacy-key', 'agent_gemini_url' => 'https://legacy.example.com/v1', 'agent_gemini_model' => 'legacy-model']);
@@ -533,6 +561,8 @@ final class ManagedConnectionsTest extends TestCase
             $turn = (new Oyiso_Agent_Model())->generate([(new UserMessage([new MessagePart('读取商品')]))->toArray()], ['oyiso/get-product']);
             self::assertInstanceOf(Oyiso_Agent_Turn::class, $turn, $turn instanceof WP_Error ? $turn->get_error_message() : '');
             self::assertSame($model, $turn->model); self::assertSame(10, $turn->tokens);
+            self::assertSame($anthropic ? 7 : 2, $turn->inputTokens);
+            self::assertSame($anthropic ? 3 : 8, $turn->outputTokens);
             self::assertSame('已读取。', $turn->message->getParts()[0]->getText());
         }
     }

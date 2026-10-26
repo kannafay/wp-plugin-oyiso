@@ -113,6 +113,7 @@ final class StreamTest extends TestCase
             $turn = (new Oyiso_Agent_Model())->generate([(new UserMessage([new MessagePart('Hello')]))->toArray()], ['oyiso/get-product'], $row['id'] . '|fixture-model', static function (string $delta) use (&$text): void { $text .= $delta; });
             self::assertInstanceOf(Oyiso_Agent_Turn::class, $turn, $turn instanceof WP_Error ? $turn->get_error_message() : '');
             self::assertSame('你好', $text); self::assertSame(3, $turn->tokens);
+            self::assertSame(1, $turn->inputTokens); self::assertSame(2, $turn->outputTokens);
             $calls = array_values(array_filter($turn->message->getParts(), static fn($part) => $part->getFunctionCall() !== null));
             self::assertCount(1, $calls); self::assertSame(['product_id' => 123], $calls[0]->getFunctionCall()->getArgs());
         }

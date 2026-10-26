@@ -53,6 +53,23 @@ final class ModelCatalogTest extends TestCase
         return ['headers' => [], 'body' => is_string($data) ? $data : wp_json_encode($data), 'response' => ['code' => $status, 'message' => 'Fixture'], 'cookies' => [], 'filename' => null];
     }
 
+    public function testModelContextMetadataIsReadWithoutGuessingFromModelNames(): void
+    {
+        foreach (['openai_chat', 'openai_responses', 'anthropic_messages', 'gemini'] as $protocol) {
+            $gemini = $protocol === 'gemini';
+            $this->mock(static fn() => self::response([$gemini ? 'models' : 'data' => [
+                [$gemini ? 'name' : 'id' => $gemini ? 'models/known' : 'known', $gemini ? 'inputTokenLimit' : 'context_window' => 524288],
+                [$gemini ? 'name' : 'id' => 'unknown'],
+                [$gemini ? 'name' : 'id' => 'invalid', $gemini ? 'inputTokenLimit' : 'context_window' => -1],
+            ]]));
+            $response = $this->request($this->input(['protocol' => $protocol]));
+            self::assertSame(200, $response->get_status());
+            $models = array_column($response->get_data()['models'], null, 'id');
+            self::assertSame(524288, $models['known']['context_window']);
+            self::assertArrayNotHasKey('context_window', $models['unknown']); self::assertArrayNotHasKey('context_window', $models['invalid']);
+        }
+    }
+
     public function testEachProtocolUsesItsModelsEndpointHeadersAndDraftWithoutSaving(): void
     {
         foreach (Oyiso_Agent_Connectors::protocols() as $protocol => $defaults) {

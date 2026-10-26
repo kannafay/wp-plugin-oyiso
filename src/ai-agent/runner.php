@@ -129,6 +129,13 @@ final class Oyiso_Agent_Runner
                 return;
             }
             $run['tokens'] += $turn->tokens;
+            // Context occupancy comes from one request's reported input, never cumulative usage.
+            if ($turn->inputTokens !== null && $turn->inputTokens > 0) {
+                $run['context_usage'] = ['selection' => $run['selection'] ?? '', 'input' => $turn->inputTokens, 'output' => max(0, $turn->outputTokens ?? 0)];
+                $checkpoint['context_usage'] = $run['context_usage'];
+            } else {
+                unset($run['context_usage'], $checkpoint['context_usage']);
+            }
             unset($run['partial']);
             $run['messages'][] = $turn->message->toArray();
             if (trim($text) !== '') {

@@ -57,6 +57,7 @@ final class Oyiso_Agent_Model_Settings
         foreach (['name', 'preset', 'url', 'protocol', 'models', 'key', 'clear_key'] as $field) {
             $payload[$field] = $input[$field] ?? ($field === 'key' ? '' : null);
         }
+        if (array_key_exists('context_windows', $input)) $payload['context_windows'] = $input['context_windows'];
         $id = $request->get_url_params()['id'] ?? '';
         $id = is_string($id) ? $id : '';
         $result = Oyiso_Agent_Connections::save($payload, $id);

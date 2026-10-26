@@ -15,8 +15,9 @@ function fixture(t, rows = [], router = () => ({ connections: rows }), { reduced
     const dom = new JSDOM(`<form class="csf-content">${markup}</form>`, { url: 'https://vape.local/wp-admin/plugins.php?page=oyiso', runScripts: 'outside-only' });
     const { window } = dom; const document = window.document; const root = document.querySelector('[data-agent-settings]');
     const state = JSON.parse(root.dataset.state); state.connections = rows; root.dataset.state = JSON.stringify(state);
-    const errors = []; const calls = []; const modelUpdates = [];
+    const errors = []; const calls = []; const modelUpdates = []; const contextUpdates = [];
     document.addEventListener('oyiso-agent-models-updated', event => modelUpdates.push(event.detail));
+    document.addEventListener('oyiso-agent-context-models-updated', event => contextUpdates.push(event.detail));
     window.addEventListener('error', event => errors.push(event.error));
     window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
     window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new window.Event('close')); };
@@ -27,7 +28,7 @@ function fixture(t, rows = [], router = () => ({ connections: rows }), { reduced
     window.eval(modalScript); window.eval(script);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
     const $ = selector => document.querySelector(selector);
-    return { window, $, calls, modelUpdates, field: name => $(`[data-provider-field="${name}"]`) };
+    return { window, $, calls, modelUpdates, contextUpdates, field: name => $(`[data-provider-field="${name}"]`) };
 }
 function transitionEnd(f, target = f.$('dialog'), propertyName = 'transform') {
     const event = new f.window.Event('transitionend', { bubbles: true });
@@ -433,6 +434,37 @@ test('checkbox limit feedback preserves focus and list scroll while allowing a d
     modelCheckbox(f, 'model-30', true); f.$('[data-model-apply]').click();
     assert.equal(f.field('models').value.split('\n').length, 30); assert.equal(f.field('models').value.split('\n').includes('model-0'), false);
     assert.equal(f.field('models').value.split('\n').includes('model-30'), true);
+});
+
+test('model-list context capacities are saved for selected models and discarded after endpoint changes', async t => {
+    for (const changeEndpoint of [false, true]) await t.test(changeEndpoint ? 'changed endpoint' : 'same endpoint', async t => {
+        let payload;
+        const f = fixture(t, [row('first', { models: [] })], (route, options) => {
+            if (route === 'providers/models') return { models: [{ id: 'known-model', name: 'Known', context_window: 32768 }, { id: 'invalid-model', name: 'Invalid', context_window: -1 }] };
+            payload = JSON.parse(options.body);
+            return { connections: [row('first', { models: payload.models, context_windows: payload.context_windows, context_limits: payload.context_windows ? { 'known-model': { limit: 32768, source: 'catalog' } } : {} })] };
+        });
+        f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click();
+        f.$('[data-model-fetch]').click(); await settle();
+        modelCheckbox(f, 'known-model', true); modelCheckbox(f, 'invalid-model', true); f.$('[data-model-apply]').click();
+        if (changeEndpoint) f.field('url').value = 'https://another.example.com/v1';
+        f.$('[data-provider-save]').click(); await settle();
+        assert.deepEqual(payload.context_windows, changeEndpoint ? undefined : { 'known-model': 32768 });
+        assert.deepEqual(JSON.parse(JSON.stringify(f.contextUpdates.at(-1))), changeEndpoint ? {} : { 'first|known-model': { limit: 32768, source: 'catalog' } });
+    });
+});
+
+test('Gemini context capacities preserve an existing models prefix', async t => {
+    let payload;
+    const f = fixture(t, [row('first', { preset: 'gemini', protocol: 'gemini', models: ['models/gemini-fixture'] })], (route, options) => {
+        if (route === 'providers/models') return { models: [{ id: 'gemini-fixture', name: 'Gemini', context_window: 1048576 }] };
+        payload = JSON.parse(options.body); return { connections: [row('first', payload)] };
+    });
+    f.$('[data-provider-rows] .oyiso-agent-provider-actions button:nth-child(2)').click(); f.$('[data-model-fetch]').click(); await settle();
+    assert.equal(f.$('[data-model-catalog] input').value, 'models/gemini-fixture');
+    f.$('[data-model-apply]').click(); f.$('[data-provider-save]').click(); await settle();
+    assert.deepEqual(payload.context_windows, { 'models/gemini-fixture': 1048576 });
+    assert.deepEqual(payload.models, ['models/gemini-fixture']);
 });
 
 test('retry, empty and partial lists remain usable and Escape cancels only the model dialog', async t => {

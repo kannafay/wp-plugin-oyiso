@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
-/** @phpstan-type AgentConnection array{id:string, name:string, preset:string, url:string, protocol:string, models:list<string>} */
+/** @phpstan-type AgentConnection array{id:string, name:string, preset:string, url:string, protocol:string, models:list<string>,context_windows?:array<string,int>} */
 final class Oyiso_Agent_Connections
 {
     private const OPTION = 'oyiso_agent_connections';
@@ -55,7 +55,7 @@ final class Oyiso_Agent_Connections
     /** @return list<array<string, mixed>> */
     public static function view(): array
     {
-        return array_map(static fn(array $row): array => array_intersect_key($row, array_flip(['id', 'name', 'preset', 'url', 'protocol', 'models'])) + ['configured' => Oyiso_Agent_Config::hasSecret(self::secretName($row['id']))], self::all());
+        return array_map(static fn(array $row): array => array_intersect_key($row, array_flip(['id', 'name', 'preset', 'url', 'protocol', 'models', 'context_windows'])) + ['configured' => Oyiso_Agent_Config::hasSecret(self::secretName($row['id'])), 'context_limits' => Oyiso_Agent_Context::connectionModels($row)], self::all());
     }
 
     /** @return array<string, string> */
@@ -181,11 +181,20 @@ final class Oyiso_Agent_Connections
                 $clean[] = $model;
             }
             $models = array_values(array_unique($clean));
+            $previous = $index !== false ? $rows[$index] : null;
+            $contextWindows = array_key_exists('context_windows', $input) ? $input['context_windows'] : ($previous !== null && $previous['url'] === $url && $previous['protocol'] === $protocol && $previous['preset'] === $preset ? array_intersect_key($previous['context_windows'] ?? [], array_flip($models)) : []);
+            if (!is_array($contextWindows) || count($contextWindows) > 30) return new WP_Error('agent_context_windows', '模型上下文容量无效，请重新获取模型列表。', ['status' => 400]);
+            $validContexts = [];
+            foreach ($contextWindows as $model => $limit) {
+                if (!is_string($model) || !in_array($model, $models, true) || !Oyiso_Agent_Context::validLimit($limit)) return new WP_Error('agent_context_windows', '模型上下文容量无效，请重新获取模型列表。', ['status' => 400]);
+                $validContexts[$model] = $limit;
+            }
             $id = $id !== '' ? $id : wp_generate_uuid4();
             if (($key !== '' || !empty($input['clear_key'])) && !Oyiso_Agent_Config::setSecret(self::secretName($id), !empty($input['clear_key']) ? '' : $key)) {
                 return new WP_Error('agent_connection_encrypt', 'API Key 加密保存失败，请重试。', ['status' => 500]);
             }
             $row = ['id' => $id, 'name' => $name, 'preset' => $preset, 'url' => $url, 'protocol' => $protocol, 'models' => $models];
+            if ($validContexts !== []) $row['context_windows'] = $validContexts;
             if ($index === false) {
                 $rows[] = $row;
             } else {

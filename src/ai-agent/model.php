@@ -10,7 +10,7 @@ use WordPress\AiClient\Providers\Http\DTO\RequestOptions;
 
 final readonly class Oyiso_Agent_Turn
 {
-    public function __construct(public Message $message, public int $tokens, public string $model)
+    public function __construct(public Message $message, public int $tokens, public string $model, public ?int $inputTokens = null, public ?int $outputTokens = null)
     {
     }
 }
@@ -115,7 +115,8 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
             if (is_wp_error($result)) {
                 return new WP_Error('agent_model_request', Oyiso_Agent_Config::error($result->get_error_message()));
             }
-            return new Oyiso_Agent_Turn($result->getCandidates()[0]->getMessage(), $result->getTokenUsage()->getTotalTokens(), $result->getModelMetadata()->getId());
+            $usage = $result->getTokenUsage();
+            return new Oyiso_Agent_Turn($result->getCandidates()[0]->getMessage(), $usage->getTotalTokens(), $result->getModelMetadata()->getId(), $usage->getPromptTokens() > 0 ? $usage->getPromptTokens() : null, $usage->getCompletionTokens());
         } catch (Throwable $error) {
             return new WP_Error('agent_model_error', Oyiso_Agent_Config::error($error->getMessage()));
         }

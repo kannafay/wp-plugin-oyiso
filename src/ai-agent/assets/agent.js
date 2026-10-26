@@ -11,6 +11,7 @@
     const $ = (selector, root = panel) => root?.querySelector(selector);
     const prompt = $('#oyiso-agent-prompt');
     const modelSelect = $('[data-agent-model]');
+    const contextMeter = $('[data-agent-context]');
     const messages = $('[data-agent-messages]');
     const scroll = $('.oyiso-agent-scroll');
     const empty = messages.firstElementChild.cloneNode(true);
@@ -508,7 +509,28 @@
         history?.setCurrent(id);
     }
 
+    function renderContext() {
+        if (!contextMeter) return;
+        const selected = modelSelect.value;
+        const model = config.contextModels?.[selected];
+        const limit = Number.isSafeInteger(model?.limit) && model.limit > 0 ? model.limit : null;
+        const usage = run?.context_usage?.selection === selected ? run.context_usage : null;
+        const used = Number.isSafeInteger(usage?.input) && usage.input > 0 ? usage.input : null;
+        const ratio = used !== null && limit !== null ? used / limit : null;
+        const percent = ratio === null ? '—' : ratio > 0 && ratio < 0.001 ? '<0.1%' : `${Number((ratio * 100).toFixed(1))}%`;
+        contextMeter.dataset.level = ratio === null ? 'unknown' : ratio >= 0.95 ? 'high' : ratio >= 0.8 ? 'warning' : 'normal';
+        $('[data-agent-context-percent]', contextMeter).textContent = percent;
+        $('.oyiso-agent-context-value', contextMeter).setAttribute('stroke-dashoffset', String(100 - Math.min(1, Math.max(0, ratio || 0)) * 100));
+        const count = used !== null ? `最近输入：${used.toLocaleString()} Token` : '等待当前模型的请求结果';
+        const capacity = limit !== null ? `模型容量：${limit.toLocaleString()} Token（${model.source === 'catalog' ? '接口返回' : '官方预设'}）` : '模型容量未知，无法计算占比';
+        $('[data-agent-context-count]', contextMeter).textContent = count;
+        $('[data-agent-context-limit]', contextMeter).textContent = capacity;
+        $('[data-agent-context-note]', contextMeter).textContent = '按最近一次请求的输入统计，响应后更新；不含待发送内容。';
+        $('[data-agent-context-button]', contextMeter).setAttribute('aria-label', `上下文用量${ratio === null ? '尚无法计算占比' : percent}。${count}。${capacity}。`);
+    }
+
     function controls() {
+        renderContext();
         if (refillConfirmation && !currentRefill()) closeRefillConfirmation();
         const active = run && ['queued', 'running'].includes(run.status);
         const ready = config.enabled && config.supported;
@@ -1203,6 +1225,14 @@
     });
     modelSelect.addEventListener('keypress', event => event.stopPropagation());
     document.addEventListener('oyiso-agent-models-updated', event => { populateModels(event.detail); controls(); initialNotice(); });
+    document.addEventListener('oyiso-agent-context-models-updated', event => { config.contextModels = event.detail || {}; renderContext(); });
+    if (contextMeter) {
+        for (const type of ['mouseenter', 'focusin']) contextMeter.addEventListener(type, () => { delete contextMeter.dataset.dismissed; });
+        contextMeter.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault(); event.stopPropagation(); contextMeter.dataset.dismissed = 'true';
+        });
+    }
     document.addEventListener('oyiso-agent-files-deleted', event => {
         if (!run || !Array.isArray(event.detail)) return;
         for (const entry of run.conversation) for (const file of entry.attachments || []) if (event.detail.includes(file.id)) file.deleted = true;
