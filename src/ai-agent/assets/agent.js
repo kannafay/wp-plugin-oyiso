@@ -352,6 +352,7 @@
         const copy = progress.cloneNode(true);
         $('[data-agent-response-status]', copy)?.remove();
         for (const name of ['status', 'usage', 'events']) $(`[data-agent-${name}]`, copy)?.removeAttribute(`data-agent-${name}`);
+        $('.oyiso-agent-progress-title', copy).hidden = false;
         $('.oyiso-agent-progress-state', copy).hidden = false;
         return copy;
     }
@@ -566,6 +567,7 @@
         progress.dataset.status = pending ? sending ? 'queued' : 'failed' : run?.status || 'idle';
         const waiting = !loading && (sending || active) && !run?.partial?.text;
         responseStatus.hidden = !waiting;
+        $('.oyiso-agent-progress-title', progress).hidden = waiting;
         progressState.hidden = waiting;
         let state = sending ? '正在发送…' : '正在思考…';
         if (active && run.status === 'queued') state = run.step > 0 ? '正在继续处理…' : '正在准备回复…';
@@ -803,13 +805,15 @@
             if (action.status === 'pending') {
                 const operation = action.plugin?.after === 'active' ? '启用' : '停用';
                 section.append(node('p', 'description', mayWrite(action.name) ? action.plugin ? `确认后将${operation}此插件，可能影响站点相关功能。` : '确认后将调用此工具修改站点。' : writePermissionNotice));
+                const buttons = node('div', 'oyiso-agent-mcp-actions');
                 for (const [decision, label] of [['dismiss', '取消'], ['execute', action.plugin ? `确认${operation}` : '确认执行']]) {
                     const button = node('button', `button${decision === 'execute' ? ' button-primary' : ''}`, changing.has(action.id) ? '处理中…' : label);
                     button.type = 'button';
                     button.disabled = !config.enabled || (decision === 'execute' && !mayWrite(action.name)) || ['queued', 'running', 'cancelled'].includes(run.status) || changing.has(action.id) || sending;
                     button.addEventListener('click', () => applyChange(action.id, decision, 'mcp'));
-                    section.append(button);
+                    buttons.append(button);
                 }
+                section.append(buttons);
             }
             container.append(section);
         }

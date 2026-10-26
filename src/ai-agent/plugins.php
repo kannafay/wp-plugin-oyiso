@@ -17,6 +17,32 @@ final class Oyiso_Agent_Plugins
         return in_array('oyiso-wordpress', Oyiso_Agent_MCP::namespaces(Oyiso_Agent_Config::options($fresh)), true);
     }
 
+    /** A textual promise cannot stand in for a persisted confirmation card.
+     * @param Run $run
+     */
+    public static function missingConfirmation(array $run, string $text): bool
+    {
+        $index = null;
+        foreach ($run['conversation'] as $key => $entry) if ($entry['role'] === 'user') $index = $key;
+        if ($index === null) return false;
+        $request = $run['conversation'][$index]['text'];
+        if (preg_match('/如何|怎么|为什么|为何|(?:只|仅|先)(?:想)?(?:讨论|解释|了解)|\b(?:how|why|explain|describe)\b/iu', $request) === 1) return false;
+        $operation = '/启用|停用|\b(?:activat|deactivat|enabl|disabl)(?:e|ed|ing)\b/iu';
+        if (preg_match($operation, $request) !== 1 || preg_match($operation, $text) !== 1) return false;
+        $claim = '/已(?:经)?(?:为你|帮你)?(?:生成|创建|准备)[^\r\n]{0,100}(?:确认|卡片)|(?:确认卡片|确认卡)[^\r\n]{0,40}已(?:生成|创建|准备)|\b(?:created|generated|prepared)\b[^\r\n]{0,140}\b(?:confirmation|approval)\b/iu';
+        if (preg_match($claim, $text) !== 1) return false;
+        foreach ($run['mcp_actions'] ?? [] as $action) {
+            if (in_array($action['name'], self::ACTIONS, true) && (in_array($action['status'], ['pending', 'executing'], true) || ($action['message_index'] ?? -1) > $index)) return false;
+        }
+        if (preg_match('/插件|\bplugins?\b/iu', $request . ' ' . $text) === 1) return true;
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        foreach (get_plugins() as $file => $plugin) {
+            $name = wp_strip_all_tags($plugin['Name']);
+            if ($name !== '' && mb_stripos($request . ' ' . $text, $name) !== false || str_contains($text, $file)) return true;
+        }
+        return false;
+    }
+
     /** @param Run $run
      * @param array<string,mixed> $input
      * @return array<string,mixed>|WP_Error

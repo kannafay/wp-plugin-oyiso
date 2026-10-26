@@ -265,6 +265,10 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-plugin-preview { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px 12px; margin: 0 0 16px; font-size: 13px; line-height: 1.7; }
 .oyiso-agent-plugin-preview dt { color: #646970; }
 .oyiso-agent-plugin-preview dd { margin: 0; overflow-wrap: anywhere; }
+.oyiso-agent-mcp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+#oyiso-agent-panel .oyiso-agent-mcp-actions > .button { display: inline-flex; align-items: center; justify-content: center; min-width: 64px; min-height: 32px; margin: 0; padding: 0 12px; box-sizing: border-box; font-size: 13px; line-height: 30px; }
+#oyiso-agent-panel .oyiso-agent-mcp-actions > .button:not(.button-primary, :disabled) { color: #50575e; border-color: #c3c4c7; background: #fff; }
+#oyiso-agent-panel .oyiso-agent-mcp-actions > .button:not(.button-primary, :disabled):hover { color: #1d2327; border-color: #8c8f94; background: #f6f7f7; }
 .oyiso-agent-mcp-table :is(th, td):last-child { min-width: 120px; white-space: nowrap; }
 .oyiso-agent-table-wrap { overflow-x: auto; }
 .oyiso-agent-table-wrap th { white-space: nowrap; }

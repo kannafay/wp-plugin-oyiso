@@ -41,7 +41,7 @@ final class Oyiso_Agent_Runner
     {
         Oyiso_Agent_Store::beginExecution($run);
         // Read-before-write snapshots belong to one user turn, not the whole conversation.
-        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['context_retry']);
+        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['plugin_retry'], $run['context_retry']);
         $run['snapshots'] = [];
         foreach ($run['messages'] as &$previous) unset($previous['oyiso_page_context']);
         unset($previous, $run['page_context']);
@@ -160,6 +160,23 @@ final class Oyiso_Agent_Runner
             }
             unset($run['partial']);
             $run['messages'][] = $turn->message->toArray();
+            if ($calls === [] && Oyiso_Agent_Plugins::missingConfirmation($run, $text)) {
+                if (array_intersect($allowed, Oyiso_Agent_Plugins::ACTIONS) === []) {
+                    $this->fail($run, '未生成插件确认卡片。请先在工具权限中允许 WordPress 写入并保存，再重试此消息。');
+                    return;
+                }
+                if (!empty($run['plugin_retry'])) {
+                    $this->fail($run, '模型未调用工具生成插件确认卡片，本次启停尚未执行。请重试此消息。');
+                    return;
+                }
+                $run['plugin_retry'] = true;
+                $run['messages'][] = (new UserMessage([new MessagePart('执行结果校验：本轮没有生成插件启停确认卡片，上一条文字中声称已生成卡片没有工具结果支持。请立即在本轮调用 list-plugins 重新查询插件，再按用户要求调用 activate-plugin 或 deactivate-plugin 生成实际确认卡片。若权限不足或工具返回错误，明确说明；不得只用文字承诺已有卡片，也不得绕过确认直接执行。')]))->toArray();
+                $run['status'] = 'queued';
+                Oyiso_Agent_Store::event($run, 'info', '正在补全插件确认卡片');
+                Oyiso_Agent_Store::save($run);
+                if ($onText === null) self::enqueue($id);
+                return;
+            }
             if (trim($text) !== '') {
                 $label = str_ends_with($modelLabel, ' / ' . $requestedModel) ? substr($modelLabel, 0, -strlen($requestedModel)) . $turn->model : Oyiso_Agent_Connections::label($run['selection'] ?? null, $turn->model);
                 $run['conversation'][] = ['role' => 'assistant', 'text' => $text, 'model' => $turn->model, 'model_label' => $label];

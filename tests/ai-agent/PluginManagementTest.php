@@ -300,4 +300,78 @@ final class PluginManagementTest extends TestCase
         self::assertFalse(is_plugin_active($this->base));
         $view = Oyiso_Agent_Store::view($saved); self::assertArrayNotHasKey('plugin_fingerprint', $view['mcp_actions'][0]);
     }
+
+    public function testUnsupportedEnableCardClaimIsRepairedAfterAnEarlierConfirmedDeactivation(): void
+    {
+        self::assertNull(activate_plugin($this->base));
+        $run = $this->task(); Oyiso_Agent_Runner::message($run, '停用插件');
+        $id = $this->prepare($run, $this->base, false);
+        $run['conversation'][] = ['role' => 'assistant', 'text' => '插件启停方案已生成，尚未执行。'];
+        $run['mcp_actions'][0]['message_index'] = 1; Oyiso_Agent_Store::save($run);
+        self::assertSame('completed', $this->confirm($run, $id)->get_data()['mcp_actions'][0]['status']);
+        $run = Oyiso_Agent_Store::get($run['id']); Oyiso_Agent_Runner::message($run, '帮我启用 Oyiso fixture base');
+        $parts = [];
+        foreach (['list-plugins' => ['search' => $this->base], 'activate-plugin' => ['plugin_file' => $this->base]] as $name => $args) $parts[] = new MessagePart(new FunctionCall('repair-' . $name, WP_AI_Client_Ability_Function_Resolver::ability_name_to_function_name('oyiso/' . $name), $args));
+        $model = new OyisoAgentScriptedModel([
+            new Oyiso_Agent_Turn(new ModelMessage([new MessagePart('已生成启用 Oyiso fixture base 的确认卡片，尚未启用。')]), 10, 'fixture-model'),
+            new Oyiso_Agent_Turn(new ModelMessage($parts), 20, 'fixture-model'),
+        ]);
+        $runner = new Oyiso_Agent_Runner($model); $runner->step($run['id']);
+        $repair = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('queued', $repair['status']); self::assertTrue($repair['plugin_retry']);
+        self::assertSame('user', end($repair['conversation'])['role']); self::assertCount(1, $repair['mcp_actions']);
+        self::assertStringContainsString('执行结果校验', wp_json_encode(end($repair['messages']), JSON_UNESCAPED_UNICODE));
+        self::assertFalse(is_plugin_active($this->base));
+        $runner->step($run['id']); $saved = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('waiting', $saved['status']); self::assertCount(2, $saved['mcp_actions']);
+        self::assertSame('oyiso/activate-plugin', $saved['mcp_actions'][1]['name']); self::assertSame('pending', $saved['mcp_actions'][1]['status']);
+        self::assertGreaterThan($saved['mcp_actions'][0]['message_index'], $saved['mcp_actions'][1]['message_index']);
+        self::assertStringContainsString('插件启停方案已生成', end($saved['conversation'])['text']);
+        self::assertFalse(is_plugin_active($this->base)); self::assertSame(1, $this->hookCount($this->base, 'activated'));
+        self::assertArrayNotHasKey('plugin_retry', Oyiso_Agent_Store::view($saved));
+    }
+
+    public function testRepeatedUnsupportedCardClaimsFailClearlyWithoutLosingTheRequestOrRetryingForever(): void
+    {
+        $run = $this->task(); Oyiso_Agent_Runner::message($run, '帮我启用插件');
+        $claim = new Oyiso_Agent_Turn(new ModelMessage([new MessagePart('已生成启用插件的确认卡片，请确认。')]), 10, 'fixture-model');
+        $model = new OyisoAgentScriptedModel([$claim, $claim]); $runner = new Oyiso_Agent_Runner($model);
+        $runner->step($run['id']); $runner->step($run['id']);
+        $saved = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('failed', $saved['status']); self::assertSame(2, $model->calls);
+        self::assertStringContainsString('未调用工具生成插件确认卡片', $saved['error']);
+        self::assertSame([['role' => 'user', 'text' => '帮我启用插件']], $saved['conversation']);
+        self::assertEmpty($saved['mcp_actions'] ?? []); self::assertFalse(is_plugin_active($this->base));
+        Oyiso_Agent_Runner::message($saved, '重试启用插件'); self::assertArrayNotHasKey('plugin_retry', $saved);
+    }
+
+    public function testMissingCardWithNoWriteGrantReportsThePermissionWithoutAutomaticToolCalls(): void
+    {
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => []]), false);
+        $run = $this->task(); Oyiso_Agent_Runner::message($run, '帮我启用插件');
+        $model = new OyisoAgentScriptedModel([new Oyiso_Agent_Turn(new ModelMessage([new MessagePart('已生成启用插件的确认卡片。')]), 10, 'fixture-model')]);
+        (new Oyiso_Agent_Runner($model))->step($run['id']); $saved = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('failed', $saved['status']); self::assertSame(1, $model->calls);
+        self::assertStringContainsString('允许 WordPress 写入', $saved['error']); self::assertEmpty($saved['mcp_actions'] ?? []);
+        self::assertSame('帮我启用插件', $saved['conversation'][0]['text']); self::assertFalse(is_plugin_active($this->base));
+    }
+
+    public function testCardClaimCheckLeavesDiscussionErrorsAndExistingCurrentCardsAlone(): void
+    {
+        $run = $this->task();
+        self::assertFalse(Oyiso_Agent_Plugins::missingConfirmation($run, '已生成启用插件的确认卡片。'));
+        Oyiso_Agent_Runner::message($run, '如何启用插件？');
+        self::assertFalse(Oyiso_Agent_Plugins::missingConfirmation($run, '启用插件时，已生成的确认卡片需要用户点击。'));
+        Oyiso_Agent_Runner::message($run, '帮我启用插件');
+        self::assertFalse(Oyiso_Agent_Plugins::missingConfirmation($run, '没有生成卡片，启用权限尚未开放。'));
+        self::assertFalse(Oyiso_Agent_Plugins::missingConfirmation($run, '请先确认要启用哪个插件。'));
+        $id = $this->prepare($run, $this->base);
+        self::assertFalse(Oyiso_Agent_Plugins::missingConfirmation($run, '已生成启用插件的确认卡片。'));
+        $run['mcp_actions'][0]['status'] = 'completed'; $run['mcp_actions'][0]['message_index'] = count($run['conversation']);
+        self::assertFalse(Oyiso_Agent_Plugins::missingConfirmation($run, '已生成启用插件的确认卡片。'));
+        $other = $this->task(); Oyiso_Agent_Runner::message($other, 'Enable Oyiso fixture base');
+        self::assertTrue(Oyiso_Agent_Plugins::missingConfirmation($other, 'I have created a confirmation card to enable Oyiso fixture base.'));
+        Oyiso_Agent_Runner::message($other, 'Enable a feature');
+        self::assertFalse(Oyiso_Agent_Plugins::missingConfirmation($other, 'I have created a confirmation card to enable a feature.'));
+    }
 }

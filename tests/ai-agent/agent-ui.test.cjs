@@ -638,6 +638,25 @@ test('waiting for a proposal confirmation exposes send and the card actions with
     assert.match(f.$('[data-agent-changes]').textContent, /应用修改/);
 });
 
+test('live waiting uses one disclosure label and historical execution titles are restored', async t => {
+    let current = task({ status: 'queued', step: 2, conversation: [{ role: 'user', text: '启用测试插件' }], executions: [{ index: 0, status: 'queued', step: 2, tokens: 42, events: [] }] });
+    const f = fixture(t, route => route === 'runs/12' ? current : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); const progress = f.$('.oyiso-agent-progress');
+    assert.equal(progress.querySelector('.oyiso-agent-progress-title').hidden, true);
+    assert.equal(progress.querySelector('.oyiso-agent-progress-state').hidden, true);
+    assert.equal(progress.querySelector('[data-agent-response-status]').hidden, false);
+    assert.equal(progress.querySelector('[data-agent-response-label]').textContent, '正在继续处理…');
+    current = task({ conversation: [...current.conversation, { role: 'assistant', text: '第一轮完成' }, { role: 'user', text: '下一轮' }, { role: 'assistant', text: '第二轮完成' }], executions: [{ index: 0, status: 'completed', step: 2, tokens: 42, events: [] }, { index: 2, status: 'completed', step: 1, tokens: 10, events: [] }] });
+    f.$('[data-agent-refresh]').click(); await settle();
+    const rows = [...f.window.document.querySelectorAll('.oyiso-agent-scroll .oyiso-agent-progress')];
+    assert.equal(rows.length, 2);
+    for (const row of rows) {
+        assert.equal(row.querySelector('.oyiso-agent-progress-title').hidden, false);
+        assert.equal(row.querySelector('.oyiso-agent-progress-state').hidden, false);
+    }
+    assert.equal(f.$('[data-agent-response-status]').hidden, true);
+});
+
 test('stop submits once and keeps its pending state until the cancellation response arrives', async t => {
     let finish;
     const running = task({ status: 'running' });
@@ -1227,6 +1246,8 @@ test('plugin confirmation cards identify the exact plugin and state change and e
         assert.equal(card.textContent.includes(action.name), false);
         assert.equal(f.calls.some(call => call.route.includes('/mcp/')), false);
         const button = [...card.querySelectorAll('button')].find(button => button.textContent === (enable ? '确认启用' : '确认停用'));
+        assert.equal(button.parentElement.className, 'oyiso-agent-mcp-actions');
+        assert.deepEqual([...button.parentElement.children].map(button => button.textContent), ['取消', enable ? '确认启用' : '确认停用']);
         button.click(); button.click(); await settle();
         assert.equal(f.calls.filter(call => call.route === 'runs/12/mcp/plugin-action').length, 1);
         assert.equal(JSON.parse(f.calls.find(call => call.route.includes('/mcp/')).options.body).action, 'execute');
