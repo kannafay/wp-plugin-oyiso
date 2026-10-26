@@ -160,6 +160,22 @@ test('new article drafts are previewed and created only after clicking the confi
     assert.equal(f.$('[data-agent-changes] a').textContent, '打开草稿');
 });
 
+test('a separate draft requested from an editor is clearly labeled and leaves the current editor untouched', async t => {
+    const change = { id: proposal().id, post_id: 0, post_type: 'post', kind: 'draft', title: 'Another article', before: {}, after: { title: 'Another article', content: '<p>New article</p>', excerpt: '' }, saved: {}, status: 'pending' };
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', content_changes: [change] }) : route.includes('/content/') ? task({ content_changes: [{ ...change, post_id: 91, status: 'applied' }] }) : undefined,
+        { writeTools: ['oyiso/create-post-draft'], pageContext: { screen: 'post', post_id: 7, post_type: 'post', editor: 'classic', fields: { title: 'Current article', content: '<p>My current edits</p>', excerpt: '' } } }, window => {
+            window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+            window.document.body.insertAdjacentHTML('beforeend', '<div id="poststuff"><input id="title" value="Current article"><textarea id="content">&lt;p&gt;My current edits&lt;/p&gt;</textarea><textarea id="excerpt"></textarea></div>');
+        });
+    await settle();
+    assert.match(f.$('[data-agent-changes]').textContent, /独立草稿/);
+    const create = Array.from(f.window.document.querySelectorAll('[data-agent-changes] button')).find(button => button.textContent === '另外创建草稿');
+    assert.ok(create); assert.equal(f.calls.some(call => call.route.includes('/content/')), false);
+    create.click(); await settle();
+    assert.equal(JSON.parse(f.calls.find(call => call.route.includes('/content/')).options.body).action, 'apply');
+    assert.equal(f.$('#title').value, 'Current article'); assert.equal(f.$('#content').value, '<p>My current edits</p>');
+});
+
 test('expired editor proposals regenerate with current context and preserve unsent text and attachments', async t => {
     for (const type of ['post', 'page', 'product']) await t.test(type, async t => {
         const product = type === 'product', field = product ? 'description' : 'content', summary = product ? 'short_description' : 'excerpt';

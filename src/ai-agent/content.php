@@ -39,15 +39,7 @@ final class Oyiso_Agent_Content
             foreach ($query->posts as $post) if ($post instanceof WP_Post && current_user_can('edit_post', $post->ID)) $items[] = ['id' => $post->ID, 'title' => $post->post_title, 'post_type' => $post->post_type, 'status' => $post->post_status];
             return ['items' => $items, 'total' => (int) $query->found_posts, 'pages' => (int) $query->max_num_pages];
         }
-        if ($name === 'prepare-post-draft') {
-            $type = ($input['post_type'] ?? 'post') === 'page' ? 'page' : 'post';
-            $object = get_post_type_object($type);
-            if ($object === null || !current_user_can($object->cap->create_posts)) return new WP_Error('agent_content_forbidden', '没有创建此类草稿的权限。', ['status' => 403]);
-            $after = self::sanitize($input['fields'] ?? null, ['title' => '', 'content' => '', 'excerpt' => '']);
-            if (is_wp_error($after)) return $after;
-            if (trim($after['title']) === '' || trim($after['content']) === '') return new WP_Error('agent_content_empty', '新草稿需要标题和正文。');
-            return self::proposal($run, ['id' => wp_generate_uuid4(), 'post_id' => 0, 'post_type' => $type, 'title' => $after['title'], 'before' => [], 'after' => $after, 'saved' => [], 'status' => 'pending', 'kind' => 'draft']);
-        }
+        if ($name === 'prepare-post-draft') return self::writing($run, $input);
         $id = is_int($input['post_id'] ?? null) ? $input['post_id'] : 0;
         $post = self::post($id);
         if (is_wp_error($post)) return $post;
@@ -75,6 +67,35 @@ final class Oyiso_Agent_Content
         unset($change);
         $run['content_changes'] = $changes;
         return self::proposal($run, ['id' => wp_generate_uuid4(), 'post_id' => $id, 'post_type' => $post->post_type, 'title' => $post->post_title, 'before' => $snapshot['fields'], 'after' => $after, 'saved' => $saved, 'status' => 'pending', 'kind' => 'update']);
+    }
+
+    /** @param Run $run
+     * @param array<string, mixed> $input
+     * @return array<string, mixed>|WP_Error
+     */
+    private static function writing(array &$run, array $input): array|WP_Error
+    {
+        $destination = $input['destination'] ?? 'auto';
+        if (!in_array($destination, ['auto', 'current_editor', 'new_draft'], true)) return new WP_Error('agent_editor_target', '写作目标无效。');
+        $page = $run['page_context'] ?? null;
+        $current = $page !== null && $page['post_id'] > 0 && in_array($page['post_type'], ['post', 'page'], true);
+        if ($destination === 'current_editor' && !$current) return new WP_Error('agent_editor_target', '没有当前文章或页面编辑器，请打开目标内容后重新生成。');
+        if ($destination !== 'new_draft' && $current) {
+            $permission = Oyiso_Agent_Permissions::check('oyiso/apply-post-update');
+            if (is_wp_error($permission)) return $permission;
+            if (!in_array($page['editor'], ['classic', 'gutenberg'], true)) return new WP_Error('agent_editor_unsupported', '当前编辑器暂不支持直接填入，请使用经典或区块编辑器。');
+            if ($page['truncated']) return new WP_Error('agent_context_truncated', '当前编辑内容过长，不能基于截断内容覆盖正文。请缩小修改范围。');
+            $read = self::execute($run, 'get-post', ['post_id' => $page['post_id']]);
+            if (is_wp_error($read)) return $read;
+            return self::execute($run, 'prepare-post-update', ['post_id' => $page['post_id'], 'fields' => $input['fields'] ?? null]);
+        }
+        $type = ($input['post_type'] ?? 'post') === 'page' ? 'page' : 'post';
+        $object = get_post_type_object($type);
+        if ($object === null || !current_user_can($object->cap->create_posts)) return new WP_Error('agent_content_forbidden', '没有创建此类草稿的权限。', ['status' => 403]);
+        $after = self::sanitize($input['fields'] ?? null, ['title' => '', 'content' => '', 'excerpt' => '']);
+        if (is_wp_error($after)) return $after;
+        if (trim($after['title']) === '' || trim($after['content']) === '') return new WP_Error('agent_content_empty', '新草稿需要标题和正文。');
+        return self::proposal($run, ['id' => wp_generate_uuid4(), 'post_id' => 0, 'post_type' => $type, 'title' => $after['title'], 'before' => [], 'after' => $after, 'saved' => [], 'status' => 'pending', 'kind' => 'draft']);
     }
 
     /** @param Run $run

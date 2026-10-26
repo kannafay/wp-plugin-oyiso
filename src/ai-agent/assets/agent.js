@@ -570,9 +570,11 @@
                 const permission = change.kind === 'draft' ? 'oyiso/create-post-draft' : change.status === 'applied' ? 'oyiso/revert-post-update' : 'oyiso/apply-post-update';
                 if (!mayWrite(permission)) section.append(node('p', 'description', writePermissionNotice));
                 const { inEditor, changed } = editorReview(change.post_id, change.editor_before || change.before);
+                const separateDraft = change.kind === 'draft' && window.oyisoAgentPage?.snapshot().post_id > 0;
+                if (separateDraft) section.append(node('p', 'description', '此方案将另外创建一份独立草稿。'));
                 if (inEditor && change.status === 'pending' && change.kind !== 'draft') section.append(node('p', 'description', changed ? '当前内容已更新，可以按原要求重新生成预览。' : '填入后请检查内容，再使用 WordPress 的保存按钮。'));
                 const editorAction = changed ? ['regenerate', '按当前内容重新生成'] : ['editor', '填入当前编辑器'];
-                const options = change.status === 'applied' ? [['revert', '撤回修改']] : change.kind === 'draft' ? [['apply', '创建草稿'], ['dismiss', '取消']] : [inEditor ? editorAction : ['apply', '保存到站点'], ['dismiss', '取消']];
+                const options = change.status === 'applied' ? [['revert', '撤回修改']] : change.kind === 'draft' ? [['apply', separateDraft ? '另外创建草稿' : '创建草稿'], ['dismiss', '取消']] : [inEditor ? editorAction : ['apply', '保存到站点'], ['dismiss', '取消']];
                 for (const [action, label] of options) {
                     const button = node('button', 'button' + (action === 'apply' ? ' button-primary' : ''), label); button.type = 'button';
                     button.disabled = !config.enabled || action !== 'dismiss' && !mayWrite(permission) || ['queued', 'running', 'cancelled'].includes(run.status) || changing.has(change.id) || sending;

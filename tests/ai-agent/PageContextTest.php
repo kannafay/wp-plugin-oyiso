@@ -156,6 +156,60 @@ final class PageContextTest extends TestCase
         self::assertSame(400, $this->control($run, $proposal['proposal_id'], 'publish')->get_status());
     }
 
+    public function testWritingFromAnEditorTargetsTheCurrentArticleOrPageWithoutCreatingAnotherPost(): void
+    {
+        foreach (['post', 'page'] as $type) foreach (['draft', 'auto-draft'] as $status) {
+            $post = $this->post($type); $run = $this->task();
+            if ($status === 'auto-draft') { wp_update_post(['ID' => $post->ID, 'post_status' => $status]); $post = get_post($post->ID); }
+            $run['page_context'] = Oyiso_Agent_Page_Context::parse(wp_json_encode($this->context($post, ['content' => '<p>编辑器里未保存的正文</p>', 'excerpt' => '保留这份摘要'])));
+            $counts = (array) wp_count_posts($type);
+            $proposal = $this->tool($run, 'prepare-post-draft', ['fields' => ['title' => '新写作标题', 'content' => '<p>生成的文章正文</p>']]);
+            self::assertIsArray($proposal);
+            $change = $run['content_changes'][0];
+            self::assertSame($post->ID, $change['post_id']); self::assertSame('update', $change['kind']);
+            self::assertSame('保留这份摘要', $change['after']['excerpt']);
+            self::assertSame('<p>编辑器里未保存的正文</p>', $change['before']['content']);
+            $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+            $payload = $this->control($run, $proposal['proposal_id'], 'editor'); self::assertSame(200, $payload->get_status());
+            self::assertSame($post->ID, $payload->get_data()['post_id']);
+            self::assertSame(['title' => '新写作标题', 'content' => '<p>生成的文章正文</p>'], $payload->get_data()['fields']);
+            self::assertSame(200, $this->control($run, $proposal['proposal_id'], 'filled', ['signature' => $payload->get_data()['signature']])->get_status());
+            self::assertSame($post->post_title, get_post($post->ID)->post_title);
+            self::assertSame($post->post_content, get_post($post->ID)->post_content);
+            self::assertSame($status, get_post_status($post->ID));
+            self::assertSame($counts, (array) wp_count_posts($type));
+        }
+    }
+
+    public function testExplicitSeparateDraftFromAnEditorStillRequiresItsOwnConfirmation(): void
+    {
+        $post = $this->post(); $run = $this->task();
+        $run['page_context'] = Oyiso_Agent_Page_Context::parse(wp_json_encode($this->context($post)));
+        $proposal = $this->tool($run, 'prepare-post-draft', ['destination' => 'new_draft', 'fields' => ['title' => '另外一篇文章', 'content' => '<p>新草稿正文</p>']]);
+        self::assertIsArray($proposal); self::assertSame('draft', $run['content_changes'][0]['kind']); self::assertSame(0, $run['content_changes'][0]['post_id']);
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        $response = $this->control($run, $proposal['proposal_id'], 'apply'); self::assertSame(200, $response->get_status());
+        $created = $response->get_data()['content_changes'][0]['post_id']; $this->posts[] = $created;
+        self::assertNotSame($post->ID, $created); self::assertSame('draft', get_post_status($created));
+        self::assertSame($post->post_content, get_post($post->ID)->post_content);
+    }
+
+    public function testWritingDestinationKeepsUpdateGrantsAndEditorGuards(): void
+    {
+        $post = $this->post(); $run = $this->task();
+        $run['page_context'] = Oyiso_Agent_Page_Context::parse(wp_json_encode($this->context($post)));
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => ['oyiso/create-post-draft']]), false);
+        self::assertSame('agent_write_disabled', $this->tool($run, 'prepare-post-draft', ['fields' => ['title' => '标题', 'content' => '正文']])->get_error_code());
+        self::assertSame([], $run['content_changes'] ?? []);
+        $run['page_context']['truncated'] = true;
+        update_option('oyiso', array_replace(Oyiso_Agent_Config::options(), ['agent_write_tools' => ['oyiso/create-post-draft', 'oyiso/apply-post-update']]), false);
+        self::assertSame('agent_context_truncated', $this->tool($run, 'prepare-post-draft', ['fields' => ['title' => '标题', 'content' => '正文']])->get_error_code());
+        $run['page_context']['truncated'] = false; $run['page_context']['editor'] = 'unsupported';
+        self::assertSame('agent_editor_unsupported', $this->tool($run, 'prepare-post-draft', ['fields' => ['title' => '标题', 'content' => '正文']])->get_error_code());
+        unset($run['page_context']);
+        self::assertSame('agent_editor_target', $this->tool($run, 'prepare-post-draft', ['destination' => 'current_editor', 'fields' => ['title' => '标题', 'content' => '正文']])->get_error_code());
+    }
+
     public function testEditorFillDoesNotSaveAndRequiresAFreshGrantAndAcknowledgement(): void
     {
         $post = $this->post(); $run = $this->task(); $proposal = $this->prepare($run, $post);
