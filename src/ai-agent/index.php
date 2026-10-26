@@ -22,6 +22,7 @@ require_once __DIR__ . '/model-settings.php';
 require_once __DIR__ . '/product-trash.php';
 require_once __DIR__ . '/page-context.php';
 require_once __DIR__ . '/content.php';
+require_once __DIR__ . '/plugins.php';
 require_once __DIR__ . '/tools.php';
 require_once __DIR__ . '/abilities.php';
 require_once __DIR__ . '/model.php';

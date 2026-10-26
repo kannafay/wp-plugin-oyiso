@@ -779,22 +779,31 @@
             const heading = node('div', 'oyiso-agent-change-heading');
             const states = { pending: '等待确认', executing: '已提交执行，请核对实际结果', completed: '已执行', dismissed: '已取消', failed: '执行失败，请先核对实际结果' };
             heading.append(node('h4', '', action.label), node('span', 'description', states[action.status] || action.status));
-            section.append(heading, node('p', 'description', action.name));
-            const detail = node('details', 'oyiso-agent-field-diff');
-            detail.open = action.status === 'pending';
-            detail.append(node('summary', '', '操作参数'));
-            let parameters = action.input_json;
-            try { parameters = JSON.stringify(JSON.parse(parameters), null, 2); } catch { /* Show stored text if an old record is malformed. */ }
-            detail.append(node('pre', 'oyiso-agent-mcp-result', parameters));
-            section.append(detail);
+            section.append(heading);
+            if (action.plugin) {
+                const preview = node('dl', 'oyiso-agent-plugin-preview');
+                const state = value => ({ active: '已启用', inactive: '已停用', network_active: '网络启用' })[value] || value;
+                for (const [label, value] of [['插件标识', action.plugin.file], ['版本', action.plugin.version || '未标注'], ['状态变化', `${state(action.plugin.before)} → ${state(action.plugin.after)}`]]) preview.append(node('dt', '', label), node('dd', '', value));
+                section.append(preview);
+            } else {
+                section.append(node('p', 'description', action.name));
+                const detail = node('details', 'oyiso-agent-field-diff');
+                detail.open = action.status === 'pending';
+                detail.append(node('summary', '', '操作参数'));
+                let parameters = action.input_json;
+                try { parameters = JSON.stringify(JSON.parse(parameters), null, 2); } catch { /* Show stored text if an old record is malformed. */ }
+                detail.append(node('pre', 'oyiso-agent-mcp-result', parameters));
+                section.append(detail);
+            }
             if (action.result) {
                 const result = node('details', 'oyiso-agent-field-diff');
                 result.append(node('summary', '', '执行结果'), node('pre', 'oyiso-agent-mcp-result', action.result));
                 section.append(result);
             }
             if (action.status === 'pending') {
-                section.append(node('p', 'description', mayWrite(action.name) ? '确认后将调用此工具修改站点。' : writePermissionNotice));
-                for (const [decision, label] of [['dismiss', '取消'], ['execute', '确认执行']]) {
+                const operation = action.plugin?.after === 'active' ? '启用' : '停用';
+                section.append(node('p', 'description', mayWrite(action.name) ? action.plugin ? `确认后将${operation}此插件，可能影响站点相关功能。` : '确认后将调用此工具修改站点。' : writePermissionNotice));
+                for (const [decision, label] of [['dismiss', '取消'], ['execute', action.plugin ? `确认${operation}` : '确认执行']]) {
                     const button = node('button', `button${decision === 'execute' ? ' button-primary' : ''}`, changing.has(action.id) ? '处理中…' : label);
                     button.type = 'button';
                     button.disabled = !config.enabled || (decision === 'execute' && !mayWrite(action.name)) || ['queued', 'running', 'cancelled'].includes(run.status) || changing.has(action.id) || sending;

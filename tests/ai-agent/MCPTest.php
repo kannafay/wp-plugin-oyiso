@@ -108,10 +108,10 @@ final class MCPTest extends TestCase
         self::assertFalse($info['readonly']);
         self::assertArrayHasKey('value', $info['input_schema']['properties']);
         self::assertTrue(Oyiso_Agent_MCP::call('mcp-describe-tool', ['name' => 'fixture-mcp/read'], $run)['readonly']);
-        update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => 'invalid'], false);
+        update_option('oyiso', ['agent_enabled' => true, 'agent_plugin_tools_version' => '2', 'agent_mcp_namespaces' => 'invalid'], false);
         self::assertSame([], Oyiso_Agent_MCP::selected());
         self::assertNotContains('oyiso/mcp-call-tool', Oyiso_Agent_Abilities::allowed());
-        update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => ['mcp-adapter']], false);
+        update_option('oyiso', ['agent_enabled' => true, 'agent_plugin_tools_version' => '2', 'agent_mcp_namespaces' => ['mcp-adapter']], false);
         self::assertSame([], Oyiso_Agent_MCP::selected());
     }
 
@@ -127,6 +127,49 @@ final class MCPTest extends TestCase
         self::assertLessThanOrEqual(24000, strlen($large['output']));
         $this->permission = false;
         self::assertSame('agent_mcp_forbidden', $this->call($run, 'fixture-mcp/read')->get_error_code());
+    }
+
+    public function testOfficialExposurePolicyHonorsPublicFallbackOverridesAndToolType(): void
+    {
+        $cases = [
+            'public' => [['public' => true], true],
+            'null-mcp' => [['public' => true, 'mcp' => null], true],
+            'null-override' => [['public' => true, 'mcp' => ['public' => null]], true],
+            'opt-out' => [['public' => true, 'mcp' => ['public' => false]], false],
+            'opt-in' => [['public' => false, 'mcp' => ['public' => true]], true],
+            'private' => [[], false],
+            'malformed' => [['public' => true, 'mcp' => 'invalid'], false],
+            'resource' => [['public' => true, 'mcp' => ['type' => 'resource']], false],
+            'prompt' => [['public' => true, 'mcp' => ['type' => 'prompt']], false],
+        ];
+        foreach ($cases as $key => [$meta, $public]) {
+            $name = 'fixture-exposure/' . $key;
+            self::assertInstanceOf(WP_Ability::class, WP_Abilities_Registry::get_instance()->register($name, [
+                'label' => 'Exposure ' . $key, 'description' => 'Official MCP exposure regression.', 'category' => 'oyiso-agent',
+                'input_schema' => ['type' => 'object'], 'output_schema' => ['type' => 'object'],
+                'execute_callback' => static fn(): array => [], 'permission_callback' => static fn(): bool => true,
+                'meta' => $meta,
+            ]));
+            $this->registered[] = $name;
+        }
+        $catalog = Oyiso_Agent_MCP::catalog();
+        foreach ($cases as $key => [$meta, $public]) self::assertSame($public, isset($catalog['fixture-exposure/' . $key]), $key);
+        foreach (['core/get-site-info', 'core/get-user-info', 'core/get-environment-info'] as $name) {
+            self::assertArrayHasKey($name, $catalog);
+            self::assertSame('oyiso-wordpress', Oyiso_Agent_Permissions::source($name));
+            self::assertTrue(Oyiso_Agent_MCP::readonly($catalog[$name]));
+        }
+        update_option('oyiso', ['agent_enabled' => true, 'agent_plugin_tools_version' => '2', 'agent_mcp_namespaces' => ['oyiso-wordpress']], false);
+        $run = $this->task();
+        self::assertIsArray($this->call($run, 'core/get-site-info'));
+        ob_start(); Oyiso_Agent_MCP::render(); $html = ob_get_clean();
+        $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new DOMXPath($dom);
+        self::assertStringContainsString(wp_get_ability('core/get-site-info')->get_label(), $xpath->query('//tr[@data-agent-mcp-plugin="wordpress"]')->item(0)->textContent);
+        self::assertSame(0, $xpath->query('//tr[@data-agent-mcp-plugin="core"]')->length);
+        update_option('oyiso', ['agent_enabled' => true, 'agent_plugin_tools_version' => '2', 'agent_mcp_namespaces' => []], false);
+        self::assertArrayNotHasKey('core/get-site-info', Oyiso_Agent_MCP::selected(true));
+        self::assertInstanceOf(WP_Error::class, $this->call($run, 'core/get-site-info'));
     }
 
     public function testWritesWaitForApprovalAndCannotExecuteTwice(): void
@@ -248,7 +291,7 @@ final class MCPTest extends TestCase
     {
         update_option('oyiso', ['agent_enabled' => true, 'agent_mcp_namespaces' => ['fixture-mcp'], 'agent_allow_product_trash' => true], false);
         $run = $this->task();
-        self::assertSame(['fixture-mcp/large', 'fixture-mcp/read'], array_column(Oyiso_Agent_MCP::call('mcp-list-tools', [], $run)['tools'], 'name'));
+        self::assertSame(['fixture-mcp/large', 'fixture-mcp/read'], array_column(Oyiso_Agent_MCP::call('mcp-list-tools', ['search' => 'fixture-mcp/'], $run)['tools'], 'name'));
         self::assertIsArray($this->call($run, 'fixture-mcp/read'));
         foreach (['write', 'unknown', 'throws', 'error'] as $kind) {
             $name = 'fixture-mcp/' . $kind;
@@ -333,8 +376,9 @@ final class MCPTest extends TestCase
         self::assertSame(1, $xpath->query($wordpress . '//input[@data-agent-plugin-member][@value="oyiso-wordpress"][not(@disabled)]')->length);
         self::assertSame(1, $xpath->query($wordpress . '//input[@data-agent-plugin-toggle][@checked]')->length);
         self::assertSame(1, $xpath->query($wordpress . '//input[@data-agent-write-toggle][not(@disabled)][not(@checked)]')->length);
-        self::assertSame(3, $xpath->query($wordpress . '//input[@data-agent-write-grant][@disabled]')->length);
-        self::assertStringContainsString('文章、页面的查询、修改和新建草稿', $html);
+        self::assertSame(5, $xpath->query($wordpress . '//input[@data-agent-write-grant][@disabled]')->length);
+        self::assertStringContainsString('文章、页面、插件管理和站点信息', $html);
+        foreach (Oyiso_Agent_Plugins::ACTIONS as $name) self::assertSame(1, $xpath->query($wordpress . '//input[@data-agent-write-grant][@value="' . $name . '"]')->length);
         foreach (Oyiso_Agent_Permissions::writable() as $name => $ability) {
             self::assertSame(1, $xpath->query('//tr//input[@type="hidden"][@name="oyiso[agent_write_tools][]"][@value="' . $name . '"]')->length, $name);
         }

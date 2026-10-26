@@ -41,7 +41,7 @@ final class Oyiso_Agent_Runner
     {
         Oyiso_Agent_Store::beginExecution($run);
         // Read-before-write snapshots belong to one user turn, not the whole conversation.
-        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['context_retry']);
+        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['context_retry']);
         $run['snapshots'] = [];
         foreach ($run['messages'] as &$previous) unset($previous['oyiso_page_context']);
         unset($previous, $run['page_context']);
@@ -218,7 +218,8 @@ final class Oyiso_Agent_Runner
                 foreach ($run['changes'] as $index => $proposal) if ($index >= $proposalStarts['changes']) { $proposal['message_index'] = $owner; $run['changes'][$index] = $proposal; }
                 foreach ($run['content_changes'] ?? [] as $index => $proposal) if ($index >= $proposalStarts['content_changes']) { $proposal['message_index'] = $owner; $run['content_changes'][$index] = $proposal; }
                 foreach ($run['mcp_actions'] ?? [] as $index => $proposal) if ($index >= $proposalStarts['mcp_actions']) { $proposal['message_index'] = $owner; $run['mcp_actions'][$index] = $proposal; }
-                $run['conversation'][] = ['role' => 'assistant', 'text' => count($run['mcp_actions'] ?? []) > $mcpBefore ? 'MCP 操作尚未执行。请查看工具和参数，再选择是否执行。' : $review, 'model' => $turn->model];
+                $pluginActions = array_filter(array_slice($run['mcp_actions'] ?? [], $mcpBefore), static fn(array $action): bool => in_array($action['name'], Oyiso_Agent_Plugins::ACTIONS, true));
+                $run['conversation'][] = ['role' => 'assistant', 'text' => $pluginActions !== [] ? '插件启停方案已生成，尚未执行。请核对插件名称和状态，再确认是否执行。' : (count($run['mcp_actions'] ?? []) > $mcpBefore ? 'MCP 操作尚未执行。请查看工具和参数，再选择是否执行。' : $review), 'model' => $turn->model];
             } elseif ($calls === []) {
                 $run['status'] = $pending ? 'waiting' : 'completed';
                 if (trim($text) === '') {

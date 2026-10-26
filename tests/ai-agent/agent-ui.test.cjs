@@ -1210,6 +1210,46 @@ test('MCP review cards show escaped arguments and require an explicit action wit
     assert.equal(f.calls.filter(call => call.route.includes('/mcp/')).length, 1);
 });
 
+test('plugin confirmation cards identify the exact plugin and state change and execute only on approval', async t => {
+    for (const enable of [true, false]) await t.test(enable ? 'activate' : 'deactivate', async t => {
+        const action = { id: 'plugin-action', name: `oyiso/${enable ? 'activate' : 'deactivate'}-plugin`, label: `${enable ? '启用' : '停用'}插件：Example <script>plugin</script>`, input_json: '{}', status: 'pending', result: '', message_index: 1,
+            plugin: { file: 'example/<script>.php', version: '1.2.3', before: enable ? 'inactive' : 'active', after: enable ? 'active' : 'inactive' } };
+        const conversation = [{ role: 'user', text: '管理测试插件' }, { role: 'assistant', text: '等待确认' }];
+        const state = task({ status: 'waiting', conversation, mcp_actions: [action] }); let finish;
+        const f = fixture(t, route => route === 'runs/12' ? state : route.includes('/mcp/') ? new Promise(resolve => { finish = () => resolve(task({ conversation, mcp_actions: [{ ...action, status: 'completed' }] })); }) : undefined,
+            { writeTools: [action.name] }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+        await settle();
+        const card = f.$('[data-agent-proposal-id="plugin-action"]');
+        assert.equal(card.closest('[data-agent-message-index]').dataset.agentMessageIndex, '1');
+        assert.equal(card.querySelector('script'), null);
+        assert.deepEqual([...card.querySelectorAll('dl dd')].map(element => element.textContent), ['example/<script>.php', '1.2.3', enable ? '已停用 → 已启用' : '已启用 → 已停用']);
+        assert.match(card.textContent, /可能影响站点相关功能/);
+        assert.equal(card.textContent.includes(action.name), false);
+        assert.equal(f.calls.some(call => call.route.includes('/mcp/')), false);
+        const button = [...card.querySelectorAll('button')].find(button => button.textContent === (enable ? '确认启用' : '确认停用'));
+        button.click(); button.click(); await settle();
+        assert.equal(f.calls.filter(call => call.route === 'runs/12/mcp/plugin-action').length, 1);
+        assert.equal(JSON.parse(f.calls.find(call => call.route.includes('/mcp/')).options.body).action, 'execute');
+        finish(); await settle();
+        assert.match(f.$('[data-agent-proposal-id="plugin-action"]').textContent, /已执行/);
+        assert.equal(f.$('[data-agent-proposal-id="plugin-action"] button'), null);
+    });
+});
+
+test('ungranted plugin cards disable execution while still allowing cancellation', async t => {
+    const action = { id: 'plugin-action', name: 'oyiso/deactivate-plugin', label: '停用测试插件', input_json: '{}', status: 'pending', result: '', plugin: { file: 'example/main.php', version: '', before: 'active', after: 'inactive' } };
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', mcp_actions: [action] }) : route.includes('/mcp/') ? task({ mcp_actions: [{ ...action, status: 'dismissed' }] }) : undefined,
+        { writeTools: [] }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); const card = f.$('[data-agent-proposal-id="plugin-action"]');
+    const buttons = [...card.querySelectorAll('button')];
+    assert.equal(buttons.find(button => button.textContent === '确认停用').disabled, true);
+    assert.match(card.textContent, /未标注/); assert.match(card.textContent, /未获写入授权/);
+    buttons.find(button => button.textContent === '确认停用').click(); await settle();
+    assert.equal(f.calls.some(call => call.route.includes('/mcp/')), false);
+    buttons.find(button => button.textContent === '取消').click(); await settle();
+    assert.equal(JSON.parse(f.calls.find(call => call.route.includes('/mcp/')).options.body).action, 'dismiss');
+});
+
 test('switching conversations loads quietly and only explicit refresh spins the header refresh button', async t => {
     let resolveSwitch, resolveRefresh, reads = 0;
     const f = fixture(t, route => {

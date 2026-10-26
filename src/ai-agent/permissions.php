@@ -7,7 +7,7 @@ defined('ABSPATH') || exit;
 final class Oyiso_Agent_Permissions
 {
     public const OPTION = 'agent_write_tools';
-    private const INTERNAL = ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash', 'oyiso/apply-post-update', 'oyiso/revert-post-update', 'oyiso/create-post-draft'];
+    private const INTERNAL = ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash', 'oyiso/apply-post-update', 'oyiso/revert-post-update', 'oyiso/create-post-draft', 'oyiso/activate-plugin', 'oyiso/deactivate-plugin'];
 
     public static function required(string $name): ?string
     {
@@ -62,8 +62,9 @@ final class Oyiso_Agent_Permissions
 
     public static function source(string $name): string
     {
+        if (str_starts_with($name, 'core/')) return 'oyiso-wordpress';
         if (!str_starts_with($name, 'oyiso/')) return explode('/', $name, 2)[0];
-        return in_array(substr($name, 6), Oyiso_Agent_Content::TOOLS, true) ? 'oyiso-wordpress' : Oyiso_Agent_MCP::BUILTIN_NAMESPACE;
+        return in_array(substr($name, 6), array_merge(Oyiso_Agent_Content::TOOLS, Oyiso_Agent_Plugins::TOOLS), true) ? 'oyiso-wordpress' : Oyiso_Agent_MCP::BUILTIN_NAMESPACE;
     }
 
     public static function allows(string $name): bool

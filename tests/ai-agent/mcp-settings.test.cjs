@@ -8,13 +8,14 @@ const script = fs.readFileSync(path.join(__dirname, '../../src/ai-agent/assets/m
 
 const productWrites = ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash'];
 const wooWrites = [...productWrites, 'woocommerce/product-update', 'woocommerce/product-delete'];
+const wordpressWrites = ['oyiso/apply-post-update', 'oyiso/revert-post-update', 'oyiso/create-post-draft', 'oyiso/activate-plugin', 'oyiso/deactivate-plugin'];
 
 function fixture(t, grants = [], productGrants = [productWrites[0]], enabled = ['oyiso-woocommerce', 'fixture-b']) {
     const selected = [...productGrants, ...grants];
     const names = ['fixture-a/create', 'fixture-a/delete', 'fixture-b/update'];
     const grantInput = name => `<input type="hidden" data-agent-write-grant name="oyiso[agent_write_tools][]" value="${name}"${selected.includes(name) ? '' : ' disabled'}>`;
     const group = (plugin, tools) => {
-        const members = plugin === 'woocommerce' ? ['oyiso-woocommerce', 'woocommerce'] : [plugin];
+        const members = plugin === 'woocommerce' ? ['oyiso-woocommerce', 'woocommerce'] : plugin === 'wordpress' ? ['oyiso-wordpress'] : [plugin];
         const active = members.filter(name => enabled.includes(name)).length;
         const partialEnabled = active > 0 && active < members.length;
         const allowed = tools.filter(name => selected.includes(name)).length;
@@ -28,7 +29,7 @@ function fixture(t, grants = [], productGrants = [productWrites[0]], enabled = [
         </td></tr>`;
     };
     const dom = new JSDOM(`<form><table><tbody>
-        ${group('woocommerce', wooWrites)}${group('fixture-a', names.slice(0, 2))}${group('fixture-b', names.slice(2))}${group('fixture-readonly', [])}
+        ${group('wordpress', wordpressWrites)}${group('woocommerce', wooWrites)}${group('fixture-a', names.slice(0, 2))}${group('fixture-b', names.slice(2))}${group('fixture-readonly', [])}
     </tbody></table></form>`, { runScripts: 'outside-only' });
     const errors = [];
     dom.window.addEventListener('error', event => errors.push(event.error));
@@ -107,4 +108,17 @@ test('the WooCommerce enable switch preserves legacy partial state until changed
     assert.deepEqual(f.plugins(), ['fixture-b']);
     assert.equal(f.enabled('fixture-b').checked, true);
     assert.deepEqual(f.submitted(), [productWrites[0]], 'disabling a plugin keeps its configured grants inactive for later reuse');
+});
+
+test('one WordPress switch controls content and plugin management while preserving existing partial grants', t => {
+    const f = fixture(t, [wordpressWrites[0]]);
+    assert.equal(f.toggle('wordpress').indeterminate, true);
+    assert.deepEqual(f.submitted(), [wordpressWrites[0], productWrites[0]]);
+    f.enabled('wordpress').click();
+    assert.deepEqual(f.plugins(), ['oyiso-wordpress', 'oyiso-woocommerce', 'fixture-b']);
+    assert.deepEqual(f.submitted(), [wordpressWrites[0], productWrites[0]], 'enabling WordPress does not grant new writes');
+    f.toggle('wordpress').click();
+    assert.deepEqual(f.submitted(), [...wordpressWrites, productWrites[0]]);
+    f.toggle('wordpress').click();
+    assert.deepEqual(f.submitted(), [productWrites[0]]);
 });

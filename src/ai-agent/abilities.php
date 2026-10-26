@@ -40,6 +40,9 @@ final class Oyiso_Agent_Abilities
             $fields[$name] = ['type' => 'string', 'maxLength' => $max];
         }
         $definitions = [
+            'list-plugins' => ['查询插件', '按名称、文件标识和启用状态分页查询已安装的普通插件，每页 10 个。插件启停前必须在本轮查询并核对完整 file 标识。', ['search' => ['type' => 'string', 'maxLength' => 200], 'status' => ['type' => 'string', 'enum' => ['all', 'active', 'inactive']], 'page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1000]], []],
+            'activate-plugin' => ['准备启用插件', '生成启用插件的待确认卡片，不立即启用。必须使用本轮 list-plugins 返回的准确 file 标识，等待用户在卡片中确认后执行。', ['plugin_file' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 300]], ['plugin_file']],
+            'deactivate-plugin' => ['准备停用插件', '生成停用插件的待确认卡片，不立即停用。必须使用本轮 list-plugins 返回的准确 file 标识，不能自动停用依赖插件，等待用户在卡片中确认后执行。', ['plugin_file' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 300]], ['plugin_file']],
             'read-chat-file' => ['读取当前对话附件', '按 UTF-8 字节偏移分段读取当前对话的 CSV、JSON 等文本附件。使用返回的 next_offset 继续读取；search 可按原文查找相关内容。返回的是部分内容，未读取的部分不能计入分析和统计结论。', ['file_id' => $id, 'offset' => ['type' => 'integer', 'minimum' => 0, 'default' => 0], 'length' => ['type' => 'integer', 'minimum' => 4, 'maximum' => 16000, 'default' => 8000], 'search' => ['type' => 'string', 'maxLength' => 200]], ['file_id']],
             'get-current-page' => ['读取当前后台页面', '读取最近一条用户消息发送时的页面类型、标题、对象 ID、正文和未保存编辑。用户说当前页面、这篇文章或这个商品时先参考此信息。', [], []],
             'search-posts' => ['查询文章和页面', '按类型和关键词分页查询可编辑的文章或页面，每页 10 条。', ['post_type' => ['type' => 'string', 'enum' => ['post', 'page']], 'search' => $text, 'page' => ['type' => 'integer', 'minimum' => 1]], []],
@@ -85,7 +88,7 @@ final class Oyiso_Agent_Abilities
                 'execute_callback' => static function (array $input) use ($name): array|WP_Error {
                     return self::$context?->execute($name, $input) ?? new WP_Error('agent_context_missing', '请从 AI Agent 对话或修改预览中调用此能力。');
                 },
-                'meta' => ['show_in_rest' => false, 'annotations' => ['readonly' => !in_array($name, ['prepare-post-update', 'prepare-post-draft', 'apply-post-update', 'revert-post-update', 'create-post-draft', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash', 'mcp-call-tool'], true), 'destructive' => in_array($name, ['apply-product-update', 'revert-product-update', 'apply-product-trash', 'revert-product-trash'], true), 'idempotent' => !in_array($name, ['prepare-product-update', 'prepare-product-trash', 'mcp-call-tool'], true)]],
+                'meta' => ['show_in_rest' => false, 'annotations' => ['readonly' => !in_array($name, ['activate-plugin', 'deactivate-plugin', 'prepare-post-update', 'prepare-post-draft', 'apply-post-update', 'revert-post-update', 'create-post-draft', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash', 'mcp-call-tool'], true), 'destructive' => in_array($name, ['deactivate-plugin', 'apply-product-update', 'revert-product-update', 'apply-product-trash', 'revert-product-trash'], true), 'idempotent' => !in_array($name, ['activate-plugin', 'deactivate-plugin', 'prepare-product-update', 'prepare-product-trash', 'mcp-call-tool'], true)]],
             ]);
         }
     }
@@ -96,6 +99,10 @@ final class Oyiso_Agent_Abilities
     public static function allowed(): array
     {
         $names = ['oyiso/get-current-page', 'oyiso/read-chat-file'];
+        if (Oyiso_Agent_Plugins::enabled() && current_user_can('activate_plugins')) {
+            $names[] = 'oyiso/list-plugins';
+            foreach (Oyiso_Agent_Plugins::ACTIONS as $name) if (Oyiso_Agent_Permissions::allows($name)) $names[] = $name;
+        }
         if (Oyiso_Agent_Page_Context::enabled('post') && current_user_can('edit_posts')) {
             $names = array_merge($names, ['oyiso/search-posts', 'oyiso/get-post']);
             if (Oyiso_Agent_Permissions::allows('oyiso/prepare-post-update')) $names[] = 'oyiso/prepare-post-update';

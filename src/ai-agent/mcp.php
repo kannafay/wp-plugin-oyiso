@@ -36,10 +36,10 @@ final class Oyiso_Agent_MCP
     private static function plugins(): array
     {
         $plugins = [];
-        if (function_exists('wp_get_ability')) foreach (Oyiso_Agent_Content::TOOLS as $name) { $ability = wp_get_ability('oyiso/' . $name); if ($ability !== null) $plugins['wordpress'][$ability->get_name()] = $ability; }
+        if (function_exists('wp_get_ability')) foreach (array_merge(Oyiso_Agent_Content::TOOLS, Oyiso_Agent_Plugins::TOOLS) as $name) { $ability = wp_get_ability('oyiso/' . $name); if ($ability !== null) $plugins['wordpress'][$ability->get_name()] = $ability; }
         $builtins = Oyiso_Agent_Abilities::woocommerce();
         if ($builtins !== []) $plugins['woocommerce'] = $builtins;
-        foreach (self::catalog() as $name => $ability) $plugins[explode('/', $name, 2)[0]][$name] = $ability;
+        foreach (self::catalog() as $name => $ability) { $namespace = explode('/', $name, 2)[0]; $plugins[$namespace === 'core' ? 'wordpress' : $namespace][$name] = $ability; }
         ksort($plugins);
         return isset($plugins['wordpress']) ? ['wordpress' => $plugins['wordpress']] + $plugins : $plugins;
     }
@@ -61,11 +61,20 @@ final class Oyiso_Agent_MCP
             $namespace = explode('/', $name, 2)[0];
             $mcp = $ability->get_meta_item('mcp');
             // Never expose generic dispatchers: they could bypass the selected namespaces.
-            if (in_array($namespace, ['oyiso', self::BUILTIN_NAMESPACE, 'oyiso-wordpress', 'mcp-adapter'], true) || !is_array($mcp) || ($mcp['public'] ?? false) !== true) continue;
+            if (in_array($namespace, ['oyiso', self::BUILTIN_NAMESPACE, 'oyiso-wordpress', 'mcp-adapter'], true) || !self::publicTool($ability, $mcp)) continue;
             $tools[$name] = $ability;
         }
         ksort($tools);
         return $tools;
+    }
+
+    private static function publicTool(WP_Ability $ability, mixed $mcp): bool
+    {
+        // Match MCP Adapter's resolved exposure policy, including explicit opt-out and malformed metadata.
+        if ($mcp !== null && !is_array($mcp)) return false;
+        $mcp ??= [];
+        if (($mcp['type'] ?? 'tool') !== 'tool') return false;
+        return isset($mcp['public']) ? (bool) $mcp['public'] : $ability->get_meta_item('public') === true;
     }
 
     /** @return array<string, string> */
@@ -103,7 +112,7 @@ final class Oyiso_Agent_MCP
     public static function selected(bool $fresh = false): array
     {
         $namespaces = self::namespaces(Oyiso_Agent_Config::options($fresh));
-        return array_filter(self::catalog(), static fn(WP_Ability $ability): bool => in_array(explode('/', $ability->get_name(), 2)[0], $namespaces, true));
+        return array_filter(self::catalog(), static fn(WP_Ability $ability): bool => in_array(Oyiso_Agent_Permissions::source($ability->get_name()), $namespaces, true));
     }
 
     public static function readonly(WP_Ability $ability): bool
@@ -148,7 +157,7 @@ final class Oyiso_Agent_MCP
         $members = array_values(array_unique(array_map([Oyiso_Agent_Permissions::class, 'source'], array_keys($tools))));
         $enabled = count(array_intersect($members, $namespaces));
         $partial = $enabled > 0 && $enabled < count($members);
-        $description = match ($namespace) { 'wordpress' => '文章、页面的查询、修改和新建草稿，', 'woocommerce' => '商品管理、订单统计等，', default => '' };
+        $description = match ($namespace) { 'wordpress' => '文章、页面、插件管理和站点信息，', 'woocommerce' => '商品管理、订单统计等，', default => '' };
         printf('<tr data-agent-mcp-plugin="%s" data-agent-write-group><th scope="row">%s</th><td>%s</td><td><span>%s共 %d 个工具</span><details><summary>查看工具</summary><ul class="oyiso-agent-permission-tools">', esc_attr($namespace), esc_html($label), $namespace === 'wordpress' ? '系统' : '插件', esc_html($description), count($tools));
         foreach ($tools as $ability) {
             $kind = isset($writes[$ability->get_name()]) ? '写入' : (Oyiso_Agent_Permissions::required($ability->get_name()) !== null ? '方案预览' : '只读');
@@ -238,7 +247,8 @@ final class Oyiso_Agent_MCP
                 $run['messages'][] = (new \WordPress\AiClient\Messages\DTO\UserMessage([new \WordPress\AiClient\Messages\DTO\MessagePart('用户已取消 MCP 操作 ' . $action['name'] . '（' . $id . '），尚未执行。用户再次明确要求之前，不要重新提交。')]))->toArray();
                 return true;
             }
-            $ability = self::selected(true)[$action['name']] ?? null;
+            $pluginAction = in_array($action['name'], Oyiso_Agent_Plugins::ACTIONS, true);
+            $ability = $pluginAction && Oyiso_Agent_Plugins::enabled(true) ? wp_get_ability($action['name']) : (self::selected(true)[$action['name']] ?? null);
             if ($ability === null) return new WP_Error('agent_mcp_unavailable', '该 MCP 工具未启用或已不可用。', ['status' => 400]);
             // Recheck the saved grant even for an old card or a changed tool annotation.
             $permission = Oyiso_Agent_Permissions::check($action['name']);
@@ -248,7 +258,7 @@ final class Oyiso_Agent_MCP
             $run['mcp_actions'][$index] = array_replace($action, ['status' => 'executing']);
             Oyiso_Agent_Store::save($run);
             try {
-                $result = self::result($ability->execute($input === [] && array_key_exists('default', $ability->get_input_schema()) ? null : $input));
+                $result = self::result($pluginAction ? Oyiso_Agent_Plugins::apply($run, $id) : $ability->execute($input === [] && array_key_exists('default', $ability->get_input_schema()) ? null : $input));
             } catch (Throwable $error) {
                 $result = new WP_Error('agent_mcp_execute', Oyiso_Agent_Config::error($error->getMessage()));
             }
