@@ -41,6 +41,7 @@ final class Oyiso_Agent_Tools
             if (is_wp_error($permission)) return $permission;
         }
         return match ($name) {
+            'get-current-page', 'search-posts', 'get-post', 'prepare-post-update', 'prepare-post-draft' => Oyiso_Agent_Content::execute($this->run, $name, $input),
             'search-products' => $this->search($input),
             'get-product' => $this->product(self::integer($input, 'product_id')),
             'order-summary' => $this->orders($input),
@@ -181,6 +182,8 @@ final class Oyiso_Agent_Tools
         unset($change);
         $proposal = wp_generate_uuid4();
         $this->run['changes'][] = ['id' => $proposal, 'product_id' => $id, 'name' => $product->get_name(), 'before' => $before, 'after' => $after, 'status' => 'pending'];
+        $page = $this->run['page_context'] ?? null;
+        if ($page !== null && $page['post_id'] === $id && !$page['truncated']) $this->run['changes'][array_key_last($this->run['changes'])]['editor_before'] = array_intersect_key($page['fields'], $before);
         return ['proposal_id' => $proposal, 'product_id' => $id, 'status' => 'awaiting_user_review', 'notice' => '修改方案已生成，尚未写入商品。请用户查看前后对照并点击应用修改。'];
     }
 

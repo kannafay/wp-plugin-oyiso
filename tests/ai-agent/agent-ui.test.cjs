@@ -14,6 +14,7 @@ const panelScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/panel.j
 const markdownVendor = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/lib/markdown-it.min.js'), 'utf8');
 const markdownScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/markdown.js'), 'utf8');
 const historyScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/history.js'), 'utf8');
+const pageScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/page-context.js'), 'utf8');
 const modalScript = fs.readFileSync(path.join(repo, 'src/admin/assets/modal-motion.js'), 'utf8');
 const composerScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/composer.js'), 'utf8');
 const previewScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/file-preview.js'), 'utf8');
@@ -68,6 +69,7 @@ function fixture(t, router = () => undefined, settings = {}, before = () => {}, 
     window.eval(modalScript); window.eval(historyScript);
     window.eval(previewScript); window.eval(composerScript);
     window.eval(liveScript);
+    window.eval(pageScript);
     view.afterGeometry?.(window);
     window.eval(script);
     t.after(() => { window.close(); assert.deepEqual(errors, []); });
@@ -111,6 +113,31 @@ test('disabled or unsupported agent shows guidance and prevents sending', async 
     assert.equal(f.$('[data-agent-send]').disabled, true);
     assert.match(f.$('[data-agent-notice]').textContent, /模型配置/);
     assert.equal(f.$('#oyiso-agent-prompt').disabled, true);
+});
+
+test('a message automatically carries the current editor context and latest unsaved body', async t => {
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? task() : undefined, {
+        pageContext: { screen: 'post', label: 'Current article', post_id: 7, post_type: 'post', editor: 'classic', signature: 'signed-fixture', fields: { title: 'Current article', content: '<p>Saved</p>', excerpt: '' } },
+    }, window => window.document.body.insertAdjacentHTML('beforeend', '<div id="poststuff"><input id="title" value="Current article"><textarea id="content">&lt;p&gt;Unpublished changes&lt;/p&gt;</textarea><textarea id="excerpt"></textarea></div>'));
+    f.$('#oyiso-agent-prompt').value = '我当前在哪里'; f.$('[data-agent-send]').click(); await settle();
+    const body = JSON.parse(f.calls.find(call => call.route === 'runs' && call.options.method === 'POST').options.body);
+    const context = JSON.parse(body.page_context);
+    assert.equal(context.post_id, 7); assert.equal(context.fields.content, '<p>Unpublished changes</p>'); assert.equal(context.dirty, true);
+    assert.match(f.$('[data-agent-page-context]').textContent, /当前文章.*Current article/);
+});
+
+test('new article drafts are previewed and created only after clicking the confirmation card', async t => {
+    const change = { id: proposal().id, post_id: 0, post_type: 'post', kind: 'draft', title: '<img src=x> Article', before: {}, after: { title: 'Article', content: '<p>New article</p>', excerpt: '' }, saved: {}, status: 'pending' };
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', content_changes: [change] }) : route.includes('/content/') ? task({ content_changes: [{ ...change, post_id: 91, status: 'applied', url: 'https://vape.local/wp-admin/post.php?post=91&action=edit' }] }) : undefined,
+        { writeTools: ['oyiso/create-post-draft'] }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(f.$('[data-agent-changes] img'), null);
+    assert.equal(f.calls.some(call => call.route.includes('/content/')), false);
+    const create = Array.from(f.window.document.querySelectorAll('[data-agent-changes] button')).find(button => button.textContent === '创建草稿');
+    create.click(); create.click(); await settle();
+    assert.equal(f.calls.filter(call => call.route.includes('/content/')).length, 1);
+    assert.match(f.$('[data-agent-changes]').textContent, /草稿已创建/);
+    assert.equal(f.$('[data-agent-changes] a').textContent, '打开草稿');
 });
 
 test('example and keyboard submit use current prompt and CSRF-protected REST', async t => {

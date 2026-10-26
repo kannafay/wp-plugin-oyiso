@@ -182,7 +182,7 @@ final class ConnectorTest extends TestCase
             self::assertSame('https://api.example.com/v1/chat/completions', $url);
             $body = json_decode($args['body'], true);
             self::assertSame('fixture-custom-model', $body['model']);
-            self::assertStringContainsString('当前 WordPress 商店后台', $body['messages'][0]['content']);
+            self::assertStringContainsString('当前 WordPress 后台', $body['messages'][0]['content']);
             self::assertArrayHasKey('tools', $body);
             return self::response(self::completion(['content' => '已读取。']));
         });

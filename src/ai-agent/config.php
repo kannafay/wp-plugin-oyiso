@@ -133,7 +133,7 @@ final class Oyiso_Agent_Config
         $options = Oyiso_Agent_Personalization::mergePreferences($options);
         $options[Oyiso_Agent_Permissions::OPTION] = Oyiso_Agent_Permissions::sanitize($options[Oyiso_Agent_Permissions::OPTION] ?? []);
         $previous = self::options();
-        if (!in_array($options[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [1, '1'], true) && in_array($previous[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [1, '1'], true)) {
+        if (!in_array($options[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [1, '1', 2, '2'], true) && in_array($previous[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [1, '1', 2, '2'], true)) {
             // A settings tab opened before the upgrade must not re-enable a revoked built-in source.
             $namespaces = $options['agent_mcp_namespaces'] ?? $previous['agent_mcp_namespaces'] ?? [];
             $namespaces = is_array($namespaces) ? array_values(array_filter($namespaces, static fn(mixed $name): bool => is_string($name) && $name !== Oyiso_Agent_MCP::BUILTIN_NAMESPACE)) : [];
@@ -141,8 +141,15 @@ final class Oyiso_Agent_Config
             $options['agent_mcp_namespaces'] = $namespaces;
             $options[Oyiso_Agent_MCP::SETTINGS_VERSION] = '1';
         }
+        if (!in_array($options[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [2, '2'], true) && in_array($previous[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [2, '2'], true)) {
+            $sources = Oyiso_Agent_MCP::namespaces($options);
+            $sources = array_values(array_diff($sources, ['oyiso-wordpress']));
+            if (in_array('oyiso-wordpress', Oyiso_Agent_MCP::namespaces($previous), true)) $sources[] = 'oyiso-wordpress';
+            $options['agent_mcp_namespaces'] = $sources;
+            $options[Oyiso_Agent_MCP::SETTINGS_VERSION] = '2';
+        }
         $options['agent_mcp_namespaces'] = Oyiso_Agent_MCP::sanitizeNamespaces(Oyiso_Agent_MCP::namespaces($options));
-        $options[Oyiso_Agent_MCP::SETTINGS_VERSION] = '1';
+        $options[Oyiso_Agent_MCP::SETTINGS_VERSION] = '2';
         unset($options['agent_allow_product_trash']);
         // Keep retired credentials encrypted for rollback, and discard obsolete plaintext inputs.
         foreach (['search_key', 'keywords_password'] as $name) {

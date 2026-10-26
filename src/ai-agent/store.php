@@ -6,11 +6,13 @@ defined('ABSPATH') || exit;
 
 /**
  * @phpstan-type Fields array<string, string>
- * @phpstan-type Change array{id:string, product_id:int, name:string, before:Fields, after:Fields, status:string, type?:string, sku?:string, product_type?:string, reason?:string, previous_status?:string, variation_count?:int, variation_statuses?:array<int,string>, fingerprint?:string}
+ * @phpstan-type Change array{id:string, product_id:int, name:string, before:Fields, after:Fields, status:string, type?:string, sku?:string, product_type?:string, reason?:string, previous_status?:string, variation_count?:int, variation_statuses?:array<int,string>, fingerprint?:string,editor_before?:Fields}
+ * @phpstan-import-type PageContext from Oyiso_Agent_Page_Context
+ * @phpstan-import-type ContentChange from Oyiso_Agent_Content
  * @phpstan-type RunEvent array{time:string, type:string, label:string, detail:string}
  * @phpstan-type MCPAction array{id:string,name:string,label:string,input_json:string,status:string,result:string}
  * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
- * @phpstan-type Run array{id:int, selection?:string, partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, product_snapshots?:array<int,string>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
+ * @phpstan-type Run array{id:int, selection?:string, page_context?:PageContext,content_changes?:list<ContentChange>,post_snapshots?:array<int,array{fields:Fields,saved:Fields}>,partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, product_snapshots?:array<int,string>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
  */
 final class Oyiso_Agent_Store
 {
@@ -91,6 +93,7 @@ final class Oyiso_Agent_Store
                 }
             }
             unset($change);
+            foreach ($run['content_changes'] ?? [] as $index => $change) if ($change['status'] === 'pending') $run['content_changes'][$index]['status'] = 'cancelled';
             foreach ($run['mcp_actions'] ?? [] as $index => $action) {
                 if ($action['status'] === 'pending') $run['mcp_actions'][$index]['status'] = 'cancelled';
             }
@@ -187,7 +190,7 @@ final class Oyiso_Agent_Store
             unset($file);
         }
         unset($entry);
-        $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'changes', 'error']));
+        $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'changes', 'content_changes', 'page_context', 'error']));
         if (self::cancelled($run['id'])) {
             $view['status'] = 'cancelled';
         }

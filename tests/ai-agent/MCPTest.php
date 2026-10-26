@@ -372,14 +372,14 @@ final class MCPTest extends TestCase
         $previousPost = $_POST;
         try {
             foreach ([['fixture-mcp'], [], ['woodmart'], ['oyiso-woocommerce', 'woocommerce']] as $namespaces) {
-                update_option('oyiso', ['agent_enabled' => true, 'agent_plugin_tools_version' => '1', 'agent_mcp_namespaces' => $namespaces, 'agent_write_tools' => ['oyiso/apply-product-update', 'fixture-mcp/write']], false);
+                update_option('oyiso', ['agent_enabled' => true, 'agent_plugin_tools_version' => '2', 'agent_mcp_namespaces' => $namespaces, 'agent_write_tools' => ['oyiso/apply-product-update', 'fixture-mcp/write']], false);
                 $form->options = Oyiso_Agent_Config::options();
                 ob_start();
                 foreach ($toolSection['fields'] as $field) CSF::field($field, $form->options[$field['id'] ?? ''] ?? '', 'oyiso');
                 $html = ob_get_clean();
                 $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
                 $xpath = new DOMXPath($dom);
-                $fields = ['agent_enabled' => '1', 'agent_plugin_tools_version' => '1'];
+                $fields = ['agent_enabled' => '1', 'agent_plugin_tools_version' => '2'];
                 foreach (['agent_mcp_namespaces', 'agent_write_tools'] as $field) {
                     $fields[$field] = [];
                     foreach ($xpath->query('//input[@name="oyiso[' . $field . '][]"][not(@disabled)][@type="hidden" or @checked]') as $input) $fields[$field][] = $input->getAttribute('value');
@@ -434,8 +434,8 @@ final class MCPTest extends TestCase
         self::assertSame(1, $xpath->query($row . '//input[@data-agent-plugin-member][@value="woocommerce"][@disabled]')->length);
         self::assertSame(1, $xpath->query($row . '//input[@data-agent-write-toggle][@data-partial="true"]')->length);
         $saved = Oyiso_Agent_Config::saveOptions($legacy);
-        self::assertSame('1', $saved['agent_plugin_tools_version']);
-        self::assertEqualsCanonicalizing(['fixture-mcp', 'oyiso-woocommerce'], $saved['agent_mcp_namespaces']);
+        self::assertSame('2', $saved['agent_plugin_tools_version']);
+        self::assertEqualsCanonicalizing(['fixture-mcp', 'oyiso-woocommerce', 'oyiso-wordpress'], $saved['agent_mcp_namespaces']);
         self::assertSame($legacy['agent_write_tools'], $saved['agent_write_tools']);
         update_option('oyiso', $saved, false);
         self::assertContains('oyiso/get-product', Oyiso_Agent_Abilities::allowed());

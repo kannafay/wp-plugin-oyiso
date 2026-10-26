@@ -525,7 +525,7 @@ final class ManagedConnectionsTest extends TestCase
                 self::assertSame($anthropic ? 'https://claude.example.com/v1/messages' : ($responses ? 'https://openai.example.com/v1/responses' : 'https://gemini.example.com/v1beta/models/gemini-fixture:generateContent'), $url);
                 self::assertSame(($responses ? 'Bearer ' : '') . 'fixture-' . $protocol . '-key', $args['headers'][$anthropic ? 'x-api-key' : ($responses ? 'Authorization' : 'x-goog-api-key')]);
                 $body = json_decode($args['body'], true);
-                self::assertStringContainsString('当前 WordPress 商店后台', $anthropic ? $body['system'] : ($responses ? $body['instructions'] : $body['systemInstruction']['parts'][0]['text']));
+                self::assertStringContainsString('当前 WordPress 后台', $anthropic ? $body['system'] : ($responses ? $body['instructions'] : $body['systemInstruction']['parts'][0]['text']));
                 self::assertNotEmpty($body['tools']);
                 self::assertSame(4096, $anthropic ? $body['max_tokens'] : ($responses ? $body['max_output_tokens'] : $body['generationConfig']['maxOutputTokens']));
                 return self::response(self::nativeResponse($protocol, [$anthropic ? ['type' => 'text', 'text' => '已读取。'] : ($responses ? self::responsesMessage('已读取。') : ['text' => '已读取。'])]));

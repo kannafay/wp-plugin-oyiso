@@ -7,13 +7,15 @@ defined('ABSPATH') || exit;
 final class Oyiso_Agent_Permissions
 {
     public const OPTION = 'agent_write_tools';
-    private const INTERNAL = ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash'];
+    private const INTERNAL = ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash', 'oyiso/apply-post-update', 'oyiso/revert-post-update', 'oyiso/create-post-draft'];
 
     public static function required(string $name): ?string
     {
         return match ($name) {
             'oyiso/prepare-product-update' => 'oyiso/apply-product-update',
             'oyiso/prepare-product-trash' => 'oyiso/apply-product-trash',
+            'oyiso/prepare-post-update' => 'oyiso/apply-post-update',
+            'oyiso/prepare-post-draft' => 'oyiso/create-post-draft',
             default => in_array($name, self::INTERNAL, true) ? $name : null,
         };
     }
@@ -55,7 +57,13 @@ final class Oyiso_Agent_Permissions
         if ($fresh && empty($options['agent_enabled'])) return [];
         $granted = self::sanitize($options[self::OPTION] ?? []);
         $namespaces = Oyiso_Agent_MCP::namespaces($options);
-        return array_values(array_filter($granted, static fn(string $name): bool => in_array(str_starts_with($name, 'oyiso/') ? Oyiso_Agent_MCP::BUILTIN_NAMESPACE : explode('/', $name, 2)[0], $namespaces, true)));
+        return array_values(array_filter($granted, static fn(string $name): bool => in_array(self::source($name), $namespaces, true)));
+    }
+
+    public static function source(string $name): string
+    {
+        if (!str_starts_with($name, 'oyiso/')) return explode('/', $name, 2)[0];
+        return in_array(substr($name, 6), Oyiso_Agent_Content::TOOLS, true) ? 'oyiso-wordpress' : Oyiso_Agent_MCP::BUILTIN_NAMESPACE;
     }
 
     public static function allows(string $name): bool

@@ -22,7 +22,8 @@ final class Oyiso_Agent_MCP
         $stored = $options['agent_mcp_namespaces'] ?? ['woodmart'];
         $namespaces = is_array($stored) ? array_values(array_filter($stored, 'is_string')) : [];
         // Older settings always enabled built-in WooCommerce tools independently of MCP.
-        if (!in_array($options[self::SETTINGS_VERSION] ?? null, [1, '1'], true)) $namespaces[] = self::BUILTIN_NAMESPACE;
+        if (!in_array($options[self::SETTINGS_VERSION] ?? null, [1, '1', 2, '2'], true)) $namespaces[] = self::BUILTIN_NAMESPACE;
+        if (!in_array($options[self::SETTINGS_VERSION] ?? null, [2, '2'], true)) $namespaces[] = 'oyiso-wordpress';
         return array_values(array_unique($namespaces));
     }
 
@@ -35,6 +36,7 @@ final class Oyiso_Agent_MCP
     private static function plugins(): array
     {
         $plugins = [];
+        if (function_exists('wp_get_ability')) foreach (Oyiso_Agent_Content::TOOLS as $name) { $ability = wp_get_ability('oyiso/' . $name); if ($ability !== null) $plugins['wordpress'][$ability->get_name()] = $ability; }
         $builtins = Oyiso_Agent_Abilities::woocommerce();
         if ($builtins !== []) $plugins['woocommerce'] = $builtins;
         foreach (self::catalog() as $name => $ability) $plugins[explode('/', $name, 2)[0]][$name] = $ability;
@@ -59,7 +61,7 @@ final class Oyiso_Agent_MCP
             $namespace = explode('/', $name, 2)[0];
             $mcp = $ability->get_meta_item('mcp');
             // Never expose generic dispatchers: they could bypass the selected namespaces.
-            if (in_array($namespace, ['oyiso', self::BUILTIN_NAMESPACE, 'mcp-adapter'], true) || !is_array($mcp) || ($mcp['public'] ?? false) !== true) continue;
+            if (in_array($namespace, ['oyiso', self::BUILTIN_NAMESPACE, 'oyiso-wordpress', 'mcp-adapter'], true) || !is_array($mcp) || ($mcp['public'] ?? false) !== true) continue;
             $tools[$name] = $ability;
         }
         ksort($tools);
@@ -82,6 +84,7 @@ final class Oyiso_Agent_MCP
         if (!is_array($value)) return [];
         $known = self::namespaceOptions();
         $known[self::BUILTIN_NAMESPACE] = 'WooCommerce 内置工具';
+        $known['oyiso-wordpress'] = 'WordPress 内容工具';
         return array_values(array_unique(array_filter($value, static fn(mixed $namespace): bool => is_string($namespace) && isset($known[$namespace]))));
     }
 
@@ -90,6 +93,7 @@ final class Oyiso_Agent_MCP
         return match ($namespace) {
             'woodmart' => 'WoodMart',
             'woocommerce' => 'WooCommerce',
+            'wordpress' => 'WordPress',
             'ast-pro' => 'AST PRO',
             default => $namespace,
         };
@@ -119,7 +123,7 @@ final class Oyiso_Agent_MCP
             return;
         }
         $plugins = self::plugins();
-        echo '<input type="hidden" name="oyiso[' . self::SETTINGS_VERSION . ']" value="1"><input type="hidden" name="oyiso[agent_mcp_namespaces][]" value=""><input type="hidden" name="oyiso[agent_write_tools][]" value="">';
+        echo '<input type="hidden" name="oyiso[' . self::SETTINGS_VERSION . ']" value="2"><input type="hidden" name="oyiso[agent_mcp_namespaces][]" value=""><input type="hidden" name="oyiso[agent_write_tools][]" value="">';
         if ($plugins === []) {
             echo '<p>尚未发现可用的插件工具。</p></div>';
             return;
@@ -141,7 +145,7 @@ final class Oyiso_Agent_MCP
     {
         $label = self::namespaceLabel($namespace);
         $writes = array_intersect_key(Oyiso_Agent_Permissions::writable(), $tools);
-        $members = array_values(array_unique(array_map(static fn(string $name): string => str_starts_with($name, 'oyiso/') ? self::BUILTIN_NAMESPACE : explode('/', $name, 2)[0], array_keys($tools))));
+        $members = array_values(array_unique(array_map([Oyiso_Agent_Permissions::class, 'source'], array_keys($tools))));
         $enabled = count(array_intersect($members, $namespaces));
         $partial = $enabled > 0 && $enabled < count($members);
         printf('<tr data-agent-mcp-plugin="%s" data-agent-write-group><th scope="row">%s</th><td><span>%s共 %d 个工具</span><details><summary>查看工具</summary><ul class="oyiso-agent-permission-tools">', esc_attr($namespace), esc_html($label), $namespace === 'woocommerce' ? '商品管理、订单统计等，' : '', count($tools));

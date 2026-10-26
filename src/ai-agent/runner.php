@@ -10,6 +10,7 @@ use WordPress\AiClient\Tools\DTO\FunctionResponse;
 
 /** @phpstan-import-type Run from Oyiso_Agent_Store
  * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
+ * @phpstan-import-type PageContext from Oyiso_Agent_Page_Context
  */
 final class Oyiso_Agent_Runner
 {
@@ -33,11 +34,15 @@ final class Oyiso_Agent_Runner
 
     /** @param Run $run
      * @param list<Attachment> $attachments
+     * @param PageContext|null $context
      */
-    public static function message(array &$run, string $text, array $attachments = []): void
+    public static function message(array &$run, string $text, array $attachments = [], ?array $context = null): void
     {
         unset($run['partial']);
+        foreach ($run['messages'] as &$previous) unset($previous['oyiso_page_context']);
+        unset($previous, $run['page_context']);
         $message = (new UserMessage([new MessagePart($text)]))->toArray();
+        if ($context !== null) { $run['page_context'] = $context; $message['oyiso_page_context'] = $context; }
         if ($attachments !== []) $message['oyiso_attachments'] = array_column($attachments, 'id');
         $run['messages'][] = $message;
         $entry = ['role' => 'user', 'text' => $text];
@@ -128,7 +133,7 @@ final class Oyiso_Agent_Runner
             $tools = new Oyiso_Agent_Tools($run);
             Oyiso_Agent_Abilities::bind($tools);
             $responses = [];
-            $proposalsBefore = count($run['changes']);
+            $proposalsBefore = count($run['changes']) + count($run['content_changes'] ?? []);
             $mcpBefore = count($run['mcp_actions'] ?? []);
             foreach ($calls as $call) {
                 if (Oyiso_Agent_Store::cancelled($id)) {
@@ -169,10 +174,10 @@ final class Oyiso_Agent_Runner
             if ($responses !== []) {
                 $run['messages'][] = (new UserMessage($responses))->toArray();
             }
-            $pending = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0 || Oyiso_Agent_MCP::pending($run);
-            if (count($run['changes']) > $proposalsBefore || count($run['mcp_actions'] ?? []) > $mcpBefore) {
+            $pending = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0 || Oyiso_Agent_Content::pending($run) || Oyiso_Agent_MCP::pending($run);
+            if (count($run['changes']) + count($run['content_changes'] ?? []) > $proposalsBefore || count($run['mcp_actions'] ?? []) > $mcpBefore) {
                 $run['status'] = 'waiting';
-                $trash = count(array_filter(array_slice($run['changes'], $proposalsBefore), static fn(array $change): bool => ($change['type'] ?? '') === 'trash')) > 0;
+                $trash = count(array_filter($run['changes'], static fn(array $change): bool => ($change['type'] ?? '') === 'trash' && $change['status'] === 'pending')) > 0;
                 $review = $trash ? '商品操作方案已生成，尚未执行。请核对卡片中的商品，再确认是否移入回收站。' : '修改方案已生成。请查看前后对照，再选择是否应用。';
                 $run['conversation'][] = ['role' => 'assistant', 'text' => count($run['mcp_actions'] ?? []) > $mcpBefore ? 'MCP 操作尚未执行。请查看工具和参数，再选择是否执行。' : $review, 'model' => $turn->model];
             } elseif ($calls === []) {

@@ -574,7 +574,7 @@ final class AgentTest extends TestCase
         self::assertStringNotContainsString('data-agent-tab="ai-agent/agent-records"', $html);
         self::assertStringNotContainsString('title="拖动调整宽度', $html);
         self::assertStringNotContainsString('<form', $html);
-        wp_dequeue_script('oyiso-agent'); wp_dequeue_script('oyiso-agent-panel'); wp_dequeue_style('oyiso-agent');
+        wp_dequeue_script('oyiso-agent'); wp_dequeue_script('oyiso-agent-page'); wp_dequeue_script('oyiso-agent-panel'); wp_dequeue_style('oyiso-agent');
         wp_set_current_user(0);
         Oyiso_Agent_Admin::assets('index.php');
         self::assertFalse(wp_script_is('oyiso-agent', 'enqueued'));
@@ -586,7 +586,7 @@ final class AgentTest extends TestCase
     public function testDisabledAgentEmitsNoGlobalMarkupOrAssetsEvenOnItsSettingsPage(): void
     {
         update_option('oyiso', array_merge(Oyiso_Agent_Config::options(), ['agent_enabled' => false]), false);
-        foreach (['oyiso-agent', 'oyiso-agent-panel'] as $handle) {
+        foreach (['oyiso-agent', 'oyiso-agent-panel', 'oyiso-agent-page'] as $handle) {
             wp_dequeue_script($handle);
             wp_deregister_script($handle);
         }
@@ -594,7 +594,7 @@ final class AgentTest extends TestCase
         wp_deregister_style('oyiso-agent');
         foreach (['index.php', 'plugins_page_oyiso'] as $hook) {
             Oyiso_Agent_Admin::assets($hook);
-            foreach (['oyiso-agent', 'oyiso-agent-panel'] as $handle) {
+            foreach (['oyiso-agent', 'oyiso-agent-panel', 'oyiso-agent-page'] as $handle) {
                 self::assertFalse(wp_script_is($handle, 'enqueued'));
                 self::assertFalse(wp_script_is($handle, 'registered'));
             }

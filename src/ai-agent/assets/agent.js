@@ -423,7 +423,7 @@
             const section = node('section', 'oyiso-agent-change');
             const heading = node('div', 'oyiso-agent-change-heading');
             heading.append(node('h4', '', `${change.name}（#${change.product_id}）`));
-            const state = change.type === 'trash' ? { pending: '等待确认', applied: '已移入回收站', reverted: '已恢复', dismissed: '已取消' } : { pending: '尚未保存', applied: '已保存', reverted: '已撤回' };
+            const state = change.type === 'trash' ? { pending: '等待确认', applied: '已移入回收站', reverted: '已恢复', dismissed: '已取消' } : { pending: '尚未保存', applied: '已保存', reverted: '已撤回', filled: '已填入编辑器，尚未保存' };
             heading.append(node('span', 'description', state[change.status] || change.status));
             section.append(heading);
             if (change.type === 'trash') {
@@ -484,8 +484,48 @@
                 if (!mayWrite(`oyiso/${action}-product-update`)) section.append(node('p', 'description', writePermissionNotice));
                 button.disabled = !config.enabled || !mayWrite(`oyiso/${action}-product-update`) || ['queued', 'running'].includes(run.status) || (action === 'apply' && run.status === 'cancelled') || changing.has(change.id);
                 button.addEventListener('click', () => applyChange(change.id, action));
-                section.append(button);
+                if (!(change.status === 'pending' && window.oyisoAgentPage?.snapshot().post_id === change.product_id)) section.append(button);
+                if (change.status === 'pending' && window.oyisoAgentPage?.snapshot().post_id === change.product_id) {
+                    const fill = node('button', 'button button-primary', '填入当前编辑器'); fill.type = 'button'; fill.disabled = button.disabled;
+                    fill.addEventListener('click', () => fillEditor(change, 'product')); section.append(fill);
+                }
             }
+            container.append(section);
+        }
+        const contentChanges = (run?.content_changes || []).filter(change => !['superseded', 'cancelled', 'dismissed'].includes(change.status));
+        if (contentChanges.length) container.append(node('h3', '', '文章与页面'));
+        for (const change of contentChanges) {
+            const section = node('section', 'oyiso-agent-change');
+            const heading = node('div', 'oyiso-agent-change-heading');
+            const states = { pending: '尚未保存', applied: change.kind === 'draft' ? '草稿已创建' : '已保存', filled: '已填入编辑器，尚未保存', reverted: '已撤回' };
+            heading.append(node('h4', '', `${change.title || '未命名'}${change.post_id ? `（#${change.post_id}）` : '（新草稿）'}`), node('span', 'description', states[change.status] || change.status));
+            section.append(heading);
+            for (const [field, after] of Object.entries(change.after)) {
+                const before = change.before[field] || '';
+                if (before === after) continue;
+                const detail = node('details', 'oyiso-agent-field-diff'); detail.open = true;
+                detail.append(node('summary', '', ({ title: '标题', content: '正文', excerpt: '摘要', ...fields })[field] || field));
+                const columns = node('div', 'oyiso-agent-diff-columns');
+                for (const [label, value] of [['原内容', before], ['拟修改', after]]) {
+                    const column = node('div'); column.append(node('p', 'description', label), node('pre', '', (['content', 'excerpt'].includes(field) ? contentText(value) : value) || '（空）')); columns.append(column);
+                }
+                detail.append(columns); section.append(detail);
+            }
+            if (change.status === 'pending' || change.status === 'applied' && change.kind !== 'draft') {
+                const actions = node('div', 'oyiso-agent-content-actions');
+                const permission = change.kind === 'draft' ? 'oyiso/create-post-draft' : change.status === 'applied' ? 'oyiso/revert-post-update' : 'oyiso/apply-post-update';
+                if (!mayWrite(permission)) section.append(node('p', 'description', writePermissionNotice));
+                const inEditor = window.oyisoAgentPage?.snapshot().post_id === change.post_id;
+                if (inEditor && change.status === 'pending' && change.kind !== 'draft') section.append(node('p', 'description', '填入后请检查内容，再使用 WordPress 的保存按钮。'));
+                const options = change.status === 'applied' ? [['revert', '撤回修改']] : change.kind === 'draft' ? [['apply', '创建草稿'], ['dismiss', '取消']] : [[inEditor ? 'editor' : 'apply', inEditor ? '填入当前编辑器' : '保存到站点'], ['dismiss', '取消']];
+                for (const [action, label] of options) {
+                    const button = node('button', 'button' + (action === 'apply' ? ' button-primary' : ''), label); button.type = 'button';
+                    button.disabled = !config.enabled || action !== 'dismiss' && !mayWrite(permission) || ['queued', 'running', 'cancelled'].includes(run.status) || changing.has(change.id);
+                    button.addEventListener('click', () => action === 'editor' ? fillEditor(change) : applyContent(change, action)); actions.append(button);
+                }
+                section.append(actions);
+            }
+            if (change.url) { const link = node('a', 'button', '打开草稿'); link.href = change.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; section.append(link); }
             container.append(section);
         }
         const actions = (run?.mcp_actions || []).filter(action => action.status !== 'cancelled');
@@ -565,7 +605,7 @@
         if (next.error) showNotice(!next.selection && next.error.startsWith('尚无可用的工具调用模型') ? '此对话尚未选择模型。请在下方选择已添加的模型后重新发送。' : next.error, true);
         else if (next.status === 'cancelled') showNotice('任务已取消，后续步骤和待审核修改已停止。可新建对话继续。');
         else showNotice('');
-        const signature = JSON.stringify([next.conversation, next.events, next.changes, next.mcp_actions]);
+        const signature = JSON.stringify([next.conversation, next.events, next.changes, next.content_changes, next.mcp_actions]);
         const conversationSignature = JSON.stringify(next.conversation);
         const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
         let partial = $('[data-agent-partial]', messages);
@@ -707,9 +747,11 @@
         controls();
         try {
             let body;
+            const pageContext = window.oyisoAgentPage?.snapshot();
             if (files.length) {
                 body = new FormData(); body.append('message', message); body.append('run_id', String(runId)); body.append('selection', modelSelect.value); files.forEach(file => body.append('files[]', file, file.name));
-            } else body = JSON.stringify({ message, run_id: runId, selection: modelSelect.value });
+                if (pageContext) body.append('page_context', JSON.stringify(pageContext));
+            } else body = JSON.stringify({ message, run_id: runId, selection: modelSelect.value, ...(pageContext ? { page_context: JSON.stringify(pageContext) } : {}) });
             const next = await api('runs', { method: 'POST', body, signal: controller.signal, live: receiver.event });
             if (!accepted) accept(next);
             if (sentId === runId && sequence === sendSequence && panelOpen) render(next);
@@ -730,6 +772,9 @@
         const permission = kind === 'mcp' ? run?.mcp_actions?.find(item => item.id === proposal)?.name : `oyiso/${decision}-product-${operation}`;
         if (action !== 'dismiss' && !mayWrite(permission)) return;
         const id = runId;
+        if (action === 'apply' && change && operation === 'update' && window.oyisoAgentPage?.snapshot().post_id === change.product_id) {
+            try { window.oyisoAgentPage.check({ post_id: change.product_id, expected: change.editor_before || change.before }); } catch (error) { showNotice(error.message, true); return; }
+        }
         changing.add(proposal);
         controls();
         renderChanges(run.changes);
@@ -739,6 +784,35 @@
             loadLists();
         } catch (error) { if (id === runId) showNotice(error.message, true); }
         finally { changing.delete(proposal); controls(); if (runId === id && run) renderChanges(run.changes); }
+    }
+
+    async function fillEditor(change, kind = 'post') {
+        if (changing.has(change.id)) return;
+        const id = runId;
+        changing.add(change.id); controls(); renderChanges(run.changes);
+        try {
+            const payload = await api(`runs/${id}/content/${change.id}`, { method: 'POST', body: JSON.stringify({ action: 'editor', kind }) });
+            if (id !== runId) return;
+            if (!window.oyisoAgentPage) throw new Error('请在对应的内容编辑页使用此操作。');
+            window.oyisoAgentPage.apply(payload);
+            const next = await api(`runs/${id}/content/${change.id}`, { method: 'POST', body: JSON.stringify({ action: 'filled', kind, signature: payload.signature }) });
+            if (id === runId) { version = ''; render(next); showNotice('内容已填入当前编辑器，尚未保存。请检查后使用 WordPress 的保存按钮。'); }
+            loadLists();
+        } catch (error) { if (id === runId) showNotice(error.message, true); }
+        finally { changing.delete(change.id); controls(); if (runId === id && run) renderChanges(run.changes); }
+    }
+
+    async function applyContent(change, action) {
+        if (changing.has(change.id)) return;
+        const id = runId;
+        try {
+            if (action === 'apply' && change.kind !== 'draft' && window.oyisoAgentPage?.snapshot().post_id === change.post_id) window.oyisoAgentPage.check({ post_id: change.post_id, expected: change.before });
+            changing.add(change.id); controls(); renderChanges(run.changes);
+            const next = await api(`runs/${id}/content/${change.id}`, { method: 'POST', body: JSON.stringify({ action }) });
+            if (id === runId) { version = ''; render(next); }
+            loadLists();
+        } catch (error) { if (id === runId) showNotice(error.message, true); }
+        finally { changing.delete(change.id); controls(); if (runId === id && run) renderChanges(run.changes); }
     }
 
     async function openRun(id) {

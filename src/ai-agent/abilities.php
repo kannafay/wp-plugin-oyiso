@@ -40,6 +40,14 @@ final class Oyiso_Agent_Abilities
             $fields[$name] = ['type' => 'string', 'maxLength' => $max];
         }
         $definitions = [
+            'get-current-page' => ['读取当前后台页面', '读取最近一条用户消息发送时的页面类型、标题、对象 ID、正文和未保存编辑。用户说当前页面、这篇文章或这个商品时先参考此信息。', [], []],
+            'search-posts' => ['查询文章和页面', '按类型和关键词分页查询可编辑的文章或页面，每页 10 条。', ['post_type' => ['type' => 'string', 'enum' => ['post', 'page']], 'search' => $text, 'page' => ['type' => 'integer', 'minimum' => 1]], []],
+            'get-post' => ['读取文章或页面', '读取标题、正文、摘要和 SEO 字段。当前编辑对象优先返回未保存的编辑器内容；修改前必须先读取。', ['post_id' => $id], ['post_id']],
+            'prepare-post-update' => ['准备文章或页面修改', '生成修改预览，不保存。content 使用 HTML 或保留原结构的 Gutenberg 区块序列化内容，不要把 Markdown 直接写入正文。仅提交需要修改的字段。', ['post_id' => $id, 'fields' => ['type' => 'object', 'properties' => ['title' => $text, 'content' => ['type' => 'string', 'maxLength' => 60000], 'excerpt' => ['type' => 'string', 'maxLength' => 4000], 'seo_title' => $text, 'seo_description' => ['type' => 'string', 'maxLength' => 1000], 'seo_keywords' => ['type' => 'string', 'maxLength' => 1000]], 'additionalProperties' => false, 'minProperties' => 1]], ['post_id', 'fields']],
+            'prepare-post-draft' => ['准备新建文章或页面草稿', '生成新建草稿的预览，不创建或发布。用户在卡片中确认后才创建 WordPress 草稿。', ['post_type' => ['type' => 'string', 'enum' => ['post', 'page']], 'fields' => ['type' => 'object', 'properties' => ['title' => $text, 'content' => ['type' => 'string', 'maxLength' => 60000], 'excerpt' => ['type' => 'string', 'maxLength' => 4000]], 'additionalProperties' => false, 'required' => ['title', 'content']]], ['fields']],
+            'apply-post-update' => ['保存文章或页面修改', '仅供用户在内容预览卡片中确认保存，保持原发布状态。', ['proposal_id' => $text], ['proposal_id']],
+            'revert-post-update' => ['撤回文章或页面修改', '仅供用户在内容卡片中确认撤回，拒绝覆盖后续人工修改。', ['proposal_id' => $text], ['proposal_id']],
+            'create-post-draft' => ['创建文章或页面草稿', '仅供用户在新建草稿预览卡片中确认，不发布。', ['proposal_id' => $text], ['proposal_id']],
             'search-products' => ['查询商品', '分页查询商品，返回名称、SKU 和缺失的内容字段。category 为商品分类 slug，每页 10 条。', ['search' => $text, 'category' => $text, 'page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1000]], []],
             'get-product' => ['读取商品', '读取商品真实参数、长短描述和 SEOPress 信息。准备修改前必须先读取。', ['product_id' => $id], ['product_id']],
             'order-summary' => ['订单统计', '统计指定日期区间内 processing/completed 订单数量及分币种总额，最多取 500 单，不返回客户个人信息。', ['start_date' => ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}$'], 'end_date' => ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}$']], ['start_date', 'end_date']],
@@ -76,7 +84,7 @@ final class Oyiso_Agent_Abilities
                 'execute_callback' => static function (array $input) use ($name): array|WP_Error {
                     return self::$context?->execute($name, $input) ?? new WP_Error('agent_context_missing', '请从 AI Agent 对话或修改预览中调用此能力。');
                 },
-                'meta' => ['show_in_rest' => false, 'annotations' => ['readonly' => !in_array($name, ['prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash', 'mcp-call-tool'], true), 'destructive' => in_array($name, ['apply-product-update', 'revert-product-update', 'apply-product-trash', 'revert-product-trash'], true), 'idempotent' => !in_array($name, ['prepare-product-update', 'prepare-product-trash', 'mcp-call-tool'], true)]],
+                'meta' => ['show_in_rest' => false, 'annotations' => ['readonly' => !in_array($name, ['prepare-post-update', 'prepare-post-draft', 'apply-post-update', 'revert-post-update', 'create-post-draft', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash', 'mcp-call-tool'], true), 'destructive' => in_array($name, ['apply-product-update', 'revert-product-update', 'apply-product-trash', 'revert-product-trash'], true), 'idempotent' => !in_array($name, ['prepare-product-update', 'prepare-product-trash', 'mcp-call-tool'], true)]],
             ]);
         }
     }
@@ -86,7 +94,12 @@ final class Oyiso_Agent_Abilities
      */
     public static function allowed(): array
     {
-        $names = [];
+        $names = ['oyiso/get-current-page'];
+        if (Oyiso_Agent_Page_Context::enabled('post') && current_user_can('edit_posts')) {
+            $names = array_merge($names, ['oyiso/search-posts', 'oyiso/get-post']);
+            if (Oyiso_Agent_Permissions::allows('oyiso/prepare-post-update')) $names[] = 'oyiso/prepare-post-update';
+            if (Oyiso_Agent_Permissions::allows('oyiso/prepare-post-draft')) $names[] = 'oyiso/prepare-post-draft';
+        }
         if (Oyiso_Agent_MCP::builtinEnabled() && function_exists('wc_get_product') && current_user_can('edit_products')) {
             $names = array_merge($names, ['oyiso/search-products', 'oyiso/get-product']);
             if (Oyiso_Agent_Permissions::allows('oyiso/prepare-product-update')) $names[] = 'oyiso/prepare-product-update';

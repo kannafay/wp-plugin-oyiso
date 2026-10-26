@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
-/** @phpstan-type AgentRequest array{id?:int|string, run_id?:int, message?:string, selection?:string, page?:int, action?:string, proposal?:string} */
+/** @phpstan-type AgentRequest array{id?:int|string, run_id?:int, message?:string, selection?:string, page?:int, action?:string, proposal?:string,page_context?:string} */
 final class Oyiso_Agent_Admin
 {
     public static function routes(): void
@@ -20,7 +20,7 @@ final class Oyiso_Agent_Admin
         }]);
         register_rest_route($root, '/runs', [
             ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response => new WP_REST_Response(Oyiso_Agent_Store::recent(max(1, (int) $request->get_param('page'))), 200, ['Cache-Control' => 'no-store, private']), 'args' => ['page' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]]],
-            ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'send'], 'args' => ['message' => ['type' => 'string', 'required' => true, 'minLength' => 1, 'maxLength' => 4000], 'selection' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 251], 'run_id' => ['type' => 'integer', 'minimum' => 0, 'default' => 0]]],
+            ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'send'], 'args' => ['message' => ['type' => 'string', 'required' => true, 'minLength' => 1, 'maxLength' => 4000], 'selection' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 251], 'run_id' => ['type' => 'integer', 'minimum' => 0, 'default' => 0], 'page_context' => ['type' => 'string', 'maxLength' => 110000]]],
             ['methods' => 'DELETE', 'permission_callback' => $permission, 'callback' => static function (WP_REST_Request $request): WP_REST_Response|WP_Error {
                 $ids = $request->get_param('ids');
                 if (!is_array($ids)) return new WP_Error('agent_delete_ids', '请选择要删除的对话。', ['status' => 400]);
@@ -36,6 +36,7 @@ final class Oyiso_Agent_Admin
         foreach (['step', 'cancel'] as $action) {
             register_rest_route($root, '/runs/(?P<id>\d+)/' . $action, ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => static fn(WP_REST_Request $request): WP_REST_Response|WP_Error => self::control($request, $action)]);
         }
+        register_rest_route($root, '/runs/(?P<id>[0-9]+)/content/(?P<proposal>[a-f0-9-]{36})', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [Oyiso_Agent_Content::class, 'control']]);
         register_rest_route($root, '/runs/(?P<id>\d+)/changes/(?P<proposal>[a-f0-9-]{36})', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'change'], 'args' => ['action' => ['type' => 'string', 'enum' => ['apply', 'trash', 'restore', 'revert', 'dismiss'], 'required' => true]]]);
         register_rest_route($root, '/runs/(?P<id>\d+)/mcp/(?P<proposal>[a-f0-9-]{36})', ['methods' => 'POST', 'permission_callback' => $permission, 'callback' => [self::class, 'mcp'], 'args' => ['action' => ['type' => 'string', 'enum' => ['execute', 'dismiss'], 'required' => true]]]);
     }
@@ -49,6 +50,8 @@ final class Oyiso_Agent_Admin
         $message = trim((string) $request->get_param('message'));
         $uploads = Oyiso_Agent_Attachments::uploads($request);
         if (is_wp_error($uploads)) return $uploads;
+        $context = Oyiso_Agent_Page_Context::parse($request->get_param('page_context'));
+        if (is_wp_error($context)) return $context;
         if ($message === '' && $uploads !== []) $message = '请分析附件。';
         if ($message === '') {
             return new WP_Error('agent_message_empty', '请输入要处理的任务。', ['status' => 400]);
@@ -86,7 +89,7 @@ final class Oyiso_Agent_Admin
             $run['selection'] = $selection;
             $attachments = Oyiso_Agent_Attachments::save($id, $uploads);
             if (is_wp_error($attachments)) return $attachments;
-            Oyiso_Agent_Runner::message($run, $message, $attachments);
+            Oyiso_Agent_Runner::message($run, $message, $attachments, $context);
         } finally {
             Oyiso_Agent_Store::unlock('run_' . $id);
         }
@@ -170,7 +173,7 @@ final class Oyiso_Agent_Admin
             if ($result === null) {
                 return new WP_Error('agent_ability_missing', '商品修改能力尚未注册。', ['status' => 400]);
             }
-            $run['status'] = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0 || Oyiso_Agent_MCP::pending($run) ? 'waiting' : 'completed';
+            $run['status'] = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0 || Oyiso_Agent_Content::pending($run) || Oyiso_Agent_MCP::pending($run) ? 'waiting' : 'completed';
             $run['error'] = '';
             Oyiso_Agent_Store::save($run);
             return new WP_REST_Response(Oyiso_Agent_Store::view($run));
@@ -195,7 +198,7 @@ final class Oyiso_Agent_Admin
             $decision = (string) $request->get_param('action');
             $result = Oyiso_Agent_MCP::approve($run, $proposal, $decision);
             if (is_wp_error($result)) return $result;
-            $pending = Oyiso_Agent_MCP::pending($run) || count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0;
+            $pending = Oyiso_Agent_MCP::pending($run) || Oyiso_Agent_Content::pending($run) || count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0;
             $executed = count(array_filter($run['mcp_actions'] ?? [], static fn(array $action): bool => $action['id'] === $proposal && $action['status'] === 'completed')) > 0;
             $run['status'] = $pending ? 'waiting' : ($decision === 'execute' && $executed ? 'queued' : 'completed');
             if ($run['status'] === 'queued') $run['step'] = 0;
@@ -219,12 +222,14 @@ final class Oyiso_Agent_Admin
         Oyiso_Agent_File_Manager::previewAssets();
         wp_enqueue_style('oyiso-agent', plugins_url('assets/agent.css', __FILE__), ['oyiso-modals'], (string) filemtime(__DIR__ . '/assets/agent.css'));
         wp_enqueue_script('oyiso-agent-panel', plugins_url('assets/panel.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/panel.js'), true);
+        wp_enqueue_script('oyiso-agent-page', plugins_url('assets/page-context.js', __FILE__), ['oyiso-agent-panel'], (string) filemtime(__DIR__ . '/assets/page-context.js'), true);
+        wp_add_inline_script('oyiso-agent-page', 'window.oyisoAgent.pageContext = ' . wp_json_encode(Oyiso_Agent_Page_Context::current()) . ';', 'before');
         wp_enqueue_script('oyiso-agent-markdown-it', plugins_url('assets/lib/markdown-it.min.js', __FILE__), [], '15.0.3', true);
         wp_enqueue_script('oyiso-agent-markdown', plugins_url('assets/markdown.js', __FILE__), ['oyiso-agent-markdown-it'], (string) filemtime(__DIR__ . '/assets/markdown.js'), true);
         wp_enqueue_script('oyiso-agent-history', plugins_url('assets/history.js', __FILE__), ['oyiso-modal-motion'], (string) filemtime(__DIR__ . '/assets/history.js'), true);
         wp_enqueue_script('oyiso-agent-composer', plugins_url('assets/composer.js', __FILE__), ['oyiso-agent-file-preview'], (string) filemtime(__DIR__ . '/assets/composer.js'), true);
         wp_enqueue_script('oyiso-agent-live', plugins_url('assets/live.js', __FILE__), [], (string) filemtime(__DIR__ . '/assets/live.js'), true);
-        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer', 'oyiso-agent-live'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
+        wp_enqueue_script('oyiso-agent', plugins_url('assets/agent.js', __FILE__), ['jquery', 'oyiso-agent-panel', 'oyiso-agent-page', 'oyiso-agent-markdown', 'oyiso-agent-history', 'oyiso-agent-composer', 'oyiso-agent-live'], (string) filemtime(__DIR__ . '/assets/agent.js'), true);
         wp_localize_script('oyiso-agent-panel', 'oyisoAgent', ['url' => rest_url('oyiso-agent/v1/'), 'nonce' => wp_create_nonce('wp_rest'), 'user' => get_current_user_id(), 'enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'writeTools' => Oyiso_Agent_Permissions::granted(), 'models' => Oyiso_Agent_Connections::choices(), 'attachmentMaxFile' => min(Oyiso_Agent_Attachments::MAX_FILE, wp_max_upload_size()), 'attachmentMaxImage' => min(Oyiso_Agent_Attachments::MAX_IMAGE_UPLOAD, wp_max_upload_size()), 'attachmentMaxVideo' => min(Oyiso_Agent_Attachments::MAX_VIDEO_UPLOAD, wp_max_upload_size()), 'attachmentMaxTotal' => min(Oyiso_Agent_Attachments::MAX_UPLOAD_TOTAL, max(0, wp_convert_hr_to_bytes(ini_get('post_max_size') ?: '8M') - 65536))]);
     }
 
@@ -298,9 +303,10 @@ final class Oyiso_Agent_Admin
     {
         ?>
         <div id="oyiso-agent-chat" class="oyiso-agent">
+            <p class="oyiso-agent-page-context" data-agent-page-context hidden></p>
             <p class="oyiso-agent-notice" data-agent-notice role="status" aria-live="polite"></p>
             <div class="oyiso-agent-scroll">
-                <div class="oyiso-agent-messages" data-agent-messages role="log" aria-label="对话内容" aria-live="polite"><div class="oyiso-agent-empty"><h3>从一个具体任务开始</h3><p>查询站内数据，完善商品长短描述和 SEO 信息。可以指定商品 ID，或粘贴参考资料。</p><p>商品修改会先生成预览。</p><div class="oyiso-agent-examples"><button type="button" class="button" data-agent-example="查找缺少短描述和 SEO 信息的商品，先列出需要完善的内容。">检查商品内容</button><button type="button" class="button" data-agent-example="我想完善一个商品的长短描述和 SEO 信息。请先询问商品 ID，再读取商品并核对现有信息，生成修改预览。">完善商品文案</button></div></div></div>
+                <div class="oyiso-agent-messages" data-agent-messages role="log" aria-label="对话内容" aria-live="polite"><div class="oyiso-agent-empty"><h3>从一个具体任务开始</h3><p>查询站内数据，撰写文章和页面，完善商品内容。编辑页会自动附带当前内容。</p><p>内容修改和新建草稿会先生成预览。</p><div class="oyiso-agent-examples"><button type="button" class="button" data-agent-example="查找缺少短描述和 SEO 信息的商品，先列出需要完善的内容。">检查商品内容</button><button type="button" class="button" data-agent-example="我想完善一个商品的长短描述和 SEO 信息。请先询问商品 ID，再读取商品并核对现有信息，生成修改预览。">完善商品文案</button></div></div></div>
                 <div data-agent-changes class="oyiso-agent-changes"></div>
             </div>
             <details class="oyiso-agent-progress"><summary>执行过程 <span data-agent-status>尚未开始</span></summary><div class="oyiso-agent-progress-body"><p class="description" data-agent-usage></p><ol data-agent-events><li class="description">发送任务后，这里会显示查询和处理进度。</li></ol></div></details>
