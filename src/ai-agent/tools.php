@@ -34,7 +34,7 @@ final class Oyiso_Agent_Tools
             return new WP_Error('agent_tool_forbidden', '当前任务已取消或没有执行权限。');
         }
         if ($name !== 'dismiss-product-trash' && in_array($name, Oyiso_Agent_Abilities::WOOCOMMERCE, true) && !Oyiso_Agent_MCP::builtinEnabled(true)) {
-            return new WP_Error('agent_plugin_disabled', 'WooCommerce 工具未启用，请在插件工具中启用并保存。', ['status' => 403]);
+            return new WP_Error('agent_plugin_disabled', 'WooCommerce 工具未启用，请在工具权限中启用并保存。', ['status' => 403]);
         }
         if (Oyiso_Agent_Permissions::required('oyiso/' . $name) !== null) {
             $permission = Oyiso_Agent_Permissions::check('oyiso/' . $name);

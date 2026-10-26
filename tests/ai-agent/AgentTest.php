@@ -492,7 +492,11 @@ final class AgentTest extends TestCase
         $sections = CSF::$args['sections']['oyiso'];
         $children = array_values(array_filter($sections, static fn(array $section): bool => ($section['parent'] ?? '') === 'ai-agent'));
         self::assertSame(['agent-model', 'agent-personalization', 'agent-tools', 'agent-records', 'agent-files'], array_column($children, 'id'));
-        self::assertSame(['模型配置', '个性化', '工具设置', '对话记录', '文件管理'], array_column($children, 'title'));
+        self::assertSame(['模型配置', '个性化', '工具权限', '对话记录', '文件管理'], array_column($children, 'title'));
+        foreach ($children as $section) {
+            self::assertSame('heading', $section['fields'][0]['type']);
+            self::assertSame($section['title'], $section['fields'][0]['content']);
+        }
         self::assertSame(['agent_language', 'agent_reply_language', 'agent_reply_detail', 'agent_instructions'], array_column(array_filter($children[1]['fields'], static fn(array $field): bool => ($field['class'] ?? '') !== 'hidden'), 'id'));
         self::assertNotContains('agent_language', array_column($children[0]['fields'], 'id'));
         $advanced = $children[0]['fields'][array_key_last($children[0]['fields'])];
@@ -506,7 +510,8 @@ final class AgentTest extends TestCase
         ob_start(); Oyiso_Agent_Admin::tools(); Oyiso_Agent_Admin::history(); Oyiso_Agent_Admin::connection(); Oyiso_Agent_File_Manager::render(); $html = ob_get_clean();
         self::assertStringNotContainsString('oyiso-agent-chat', $html); self::assertStringContainsString('oyiso-agent-history', $html);
         self::assertStringNotContainsString('oyiso-agent-tasks', $html);
-        self::assertStringContainsString('<h2>对话记录</h2>', $html);
+        self::assertStringNotContainsString('<h2>对话记录</h2>', $html);
+        self::assertStringNotContainsString('<h2>文件管理</h2>', $html);
         self::assertStringNotContainsString('执行记录', $html);
         self::assertStringContainsString('选择对话批量删除', $html);
         self::assertStringContainsString('oyiso-agent-files', $html);

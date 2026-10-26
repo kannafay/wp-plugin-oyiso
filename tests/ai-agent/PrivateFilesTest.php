@@ -310,7 +310,7 @@ final class PrivateFilesTest extends TestCase
     {
         update_option('oyiso', ['agent_enabled' => false], false);
         ob_start(); Oyiso_Agent_File_Manager::render(); $markup = ob_get_clean();
-        self::assertStringContainsString('文件管理', $markup); self::assertStringContainsString('PDF', $markup);
+        self::assertStringContainsString('id="oyiso-agent-files"', $markup); self::assertStringContainsString('PDF', $markup);
         Oyiso_Agent_File_Manager::assets('plugins_page_oyiso');
         self::assertTrue(wp_script_is('oyiso-agent-files', 'enqueued'));
         self::assertSame(200, $this->request('GET', 'files')->get_status());

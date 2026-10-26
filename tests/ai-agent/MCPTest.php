@@ -241,7 +241,7 @@ final class MCPTest extends TestCase
         self::assertSame(1, (new DOMXPath($dom))->query('//input[@data-agent-plugin-member][@value="woodmart"][not(@disabled)]')->length);
         self::assertStringContainsString('woodmart/update-theme-setting', $html);
         self::assertStringNotContainsString('type="password"', $html);
-        self::assertStringContainsString('选择助手可用的插件', $html);
+        self::assertStringContainsString('选择助手可用的工具', $html);
     }
 
     public function testReadOnlyDefaultHidesAndBlocksEveryUnapprovedMcpWriteIncludingUnknownAnnotations(): void
@@ -324,6 +324,17 @@ final class MCPTest extends TestCase
         $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
         $xpath = new DOMXPath($dom);
         self::assertSame(0, $xpath->query('//input[@data-agent-write-toggle][@checked]')->length);
+        $wordpress = '//tr[@data-agent-mcp-plugin="wordpress"]';
+        self::assertSame('wordpress', $xpath->query('//tbody/tr')->item(0)->getAttribute('data-agent-mcp-plugin'));
+        self::assertSame('类型', $xpath->query('//thead/tr/th')->item(1)->textContent);
+        foreach (['wordpress' => '系统', 'woocommerce' => '插件', 'fixture-mcp' => '插件'] as $source => $type) {
+            self::assertSame($type, $xpath->query('//tr[@data-agent-mcp-plugin="' . $source . '"]/td')->item(0)->textContent);
+        }
+        self::assertSame(1, $xpath->query($wordpress . '//input[@data-agent-plugin-member][@value="oyiso-wordpress"][not(@disabled)]')->length);
+        self::assertSame(1, $xpath->query($wordpress . '//input[@data-agent-plugin-toggle][@checked]')->length);
+        self::assertSame(1, $xpath->query($wordpress . '//input[@data-agent-write-toggle][not(@disabled)][not(@checked)]')->length);
+        self::assertSame(3, $xpath->query($wordpress . '//input[@data-agent-write-grant][@disabled]')->length);
+        self::assertStringContainsString('文章、页面的查询、修改和新建草稿', $html);
         foreach (Oyiso_Agent_Permissions::writable() as $name => $ability) {
             self::assertSame(1, $xpath->query('//tr//input[@type="hidden"][@name="oyiso[agent_write_tools][]"][@value="' . $name . '"]')->length, $name);
         }

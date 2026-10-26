@@ -353,7 +353,7 @@ final class Oyiso_Agent_Admin
             echo '<p class="description">请先启用 AI Agent 并保存配置，刷新页面后查看对话记录。</p>';
             return;
         }
-        echo '<div id="oyiso-agent-history" class="oyiso-agent" data-agent-runs="history"><div class="oyiso-agent-heading"><div><h2>对话记录</h2><p class="description">查看对话和执行过程，或选择对话批量删除。</p></div><div><button type="button" class="button" data-agent-history-manage aria-pressed="false">选择对话</button> <button type="button" class="button" data-agent-history-refresh>刷新记录</button></div></div>';
+        echo '<div id="oyiso-agent-history" class="oyiso-agent" data-agent-runs="history"><div class="oyiso-agent-heading"><p class="description">查看对话和执行过程，或选择对话批量删除。</p><div><button type="button" class="button" data-agent-history-manage aria-pressed="false">选择对话</button> <button type="button" class="button" data-agent-history-refresh>刷新记录</button></div></div>';
         self::historySelection();
         echo '<p role="status" aria-live="polite" data-agent-history-notice></p><div class="oyiso-agent-table-wrap"><table class="widefat striped"><thead><tr><th data-agent-history-select-column hidden>选择</th><th>对话</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody data-agent-history-body><tr><td colspan="5">正在读取记录…</td></tr></tbody></table></div><div class="oyiso-agent-pagination"><button type="button" class="button" data-agent-history-prev>上一页</button><span data-agent-history-page></span><button type="button" class="button" data-agent-history-next>下一页</button></div></div>';
     }

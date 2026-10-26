@@ -13,7 +13,7 @@ CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-model', 'title' => '模型配置', 'icon' => 'fas fa-sliders-h', 'priority' => 20,
     'fields' => [
         ['type' => 'heading', 'content' => '模型配置'],
-        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询站内数据。', 'default' => false, 'desc' => '默认只读。写入权限需在工具设置中开启并保存，执行时仍需在对话中确认。启用后保存配置并刷新页面，即可加载助手。'],
+        ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询站内数据。', 'default' => false, 'desc' => '默认只读。写入权限需在工具权限中开启并保存，执行时仍需在对话中确认。启用后保存配置并刷新页面，即可加载助手。'],
         ['type' => 'callback', 'class' => 'oyiso-agent-model-providers', 'function' => [Oyiso_Agent_Model_Settings::class, 'render']],
         ['id' => 'agent_advanced', 'type' => 'fieldset', 'class' => 'oyiso-agent-model-advanced', 'default' => ['max_steps' => Oyiso_Agent_Config::text('max_steps', '8'), 'model' => Oyiso_Agent_Config::text('model')], 'fields' => [
             ['id' => 'max_steps', 'type' => 'number', 'title' => '每次任务最多轮次', 'default' => '8', 'attributes' => ['min' => '2', 'max' => '15', 'step' => '1'], 'desc' => '范围 2–15。一次模型响应计为一轮，每轮最多调用 4 个工具。'],
@@ -34,9 +34,9 @@ CSF::createSection('oyiso', [
     ],
 ]);
 CSF::createSection('oyiso', [
-    'parent' => 'ai-agent', 'id' => 'agent-tools', 'title' => '工具设置', 'icon' => 'fas fa-tools', 'priority' => 24,
+    'parent' => 'ai-agent', 'id' => 'agent-tools', 'title' => '工具权限', 'icon' => 'fas fa-tools', 'priority' => 24,
     'fields' => [
-        ['type' => 'heading', 'content' => '插件工具'],
+        ['type' => 'heading', 'content' => '工具权限'],
         ['id' => Oyiso_Agent_Permissions::OPTION, 'type' => 'callback', 'class' => 'hidden', 'default' => [], 'sanitize' => [Oyiso_Agent_Permissions::class, 'sanitize'], 'function' => static function (): void {}],
         ['id' => 'agent_mcp_namespaces', 'type' => 'callback', 'class' => 'oyiso-agent-tool-settings', 'default' => ['woodmart'], 'sanitize' => [Oyiso_Agent_MCP::class, 'sanitizeNamespaces'], 'function' => [Oyiso_Agent_MCP::class, 'render']],
         ['id' => Oyiso_Agent_MCP::SETTINGS_VERSION, 'type' => 'callback', 'class' => 'hidden', 'default' => '0', 'sanitize' => [Oyiso_Agent_Config::class, 'credential'], 'function' => static function (): void {}],
@@ -44,9 +44,15 @@ CSF::createSection('oyiso', [
 ]);
 CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-records', 'title' => '对话记录', 'icon' => 'fas fa-history', 'priority' => 40,
-    'fields' => [['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'history']]],
+    'fields' => [
+        ['type' => 'heading', 'content' => '对话记录'],
+        ['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_Admin::class, 'history']],
+    ],
 ]);
 CSF::createSection('oyiso', [
     'parent' => 'ai-agent', 'id' => 'agent-files', 'title' => '文件管理', 'icon' => 'fas fa-folder-open', 'priority' => 41,
-    'fields' => [['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_File_Manager::class, 'render']]],
+    'fields' => [
+        ['type' => 'heading', 'content' => '文件管理'],
+        ['type' => 'callback', 'class' => 'oyiso-agent-panel', 'function' => [Oyiso_Agent_File_Manager::class, 'render']],
+    ],
 ]);

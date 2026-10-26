@@ -1,7 +1,6 @@
 .oyiso-agent-files { color: #1d2327; }
 .oyiso-agent-files [hidden] { display: none !important; }
 .oyiso-agent-files-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
-.oyiso-agent-files-heading h2 { margin: 0 0 6px; font-size: 18px; }
 .oyiso-agent-files .description { margin: 0; color: #646970; font-size: 12px; }
 .oyiso-agent-files-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
 .oyiso-agent-files-filters input[type="search"] { width: 260px; max-width: 100%; margin: 0; }

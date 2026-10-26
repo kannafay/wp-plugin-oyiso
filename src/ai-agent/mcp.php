@@ -41,7 +41,7 @@ final class Oyiso_Agent_MCP
         if ($builtins !== []) $plugins['woocommerce'] = $builtins;
         foreach (self::catalog() as $name => $ability) $plugins[explode('/', $name, 2)[0]][$name] = $ability;
         ksort($plugins);
-        return $plugins;
+        return isset($plugins['wordpress']) ? ['wordpress' => $plugins['wordpress']] + $plugins : $plugins;
     }
 
     public static function assets(string $hook): void
@@ -117,7 +117,7 @@ final class Oyiso_Agent_MCP
 
     public static function render(): void
     {
-        echo '<div class="oyiso-agent oyiso-agent-mcp-settings oyiso-agent-permission-settings"><p class="description">选择助手可用的插件。默认只读，写入需单独授权并保存，执行前仍需在对话中确认。</p>';
+        echo '<div class="oyiso-agent oyiso-agent-mcp-settings oyiso-agent-permission-settings"><p class="description">选择助手可用的工具。默认只读，按来源开启写入权限并保存，执行前仍需在对话中确认。</p>';
         if (!Oyiso_Agent_Config::supported()) {
             echo '<p>AI Agent 需要 WordPress 7.0 或以上版本，当前环境暂不可用。</p></div>';
             return;
@@ -125,12 +125,12 @@ final class Oyiso_Agent_MCP
         $plugins = self::plugins();
         echo '<input type="hidden" name="oyiso[' . self::SETTINGS_VERSION . ']" value="2"><input type="hidden" name="oyiso[agent_mcp_namespaces][]" value=""><input type="hidden" name="oyiso[agent_write_tools][]" value="">';
         if ($plugins === []) {
-            echo '<p>尚未发现可用的插件工具。</p></div>';
+            echo '<p>尚未发现可用的工具。</p></div>';
             return;
         }
         $granted = array_fill_keys(Oyiso_Agent_Permissions::configured(), true);
         $namespaces = self::namespaces();
-        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-mcp-table oyiso-agent-permissions-table"><thead><tr><th scope="col">插件</th><th scope="col">工具</th><th scope="col">启用工具</th><th scope="col">写入权限</th></tr></thead><tbody>';
+        echo '<div class="oyiso-agent-table-wrap"><table class="widefat striped oyiso-agent-mcp-table oyiso-agent-permissions-table"><thead><tr><th scope="col">来源</th><th scope="col">类型</th><th scope="col">工具</th><th scope="col">启用工具</th><th scope="col">写入权限</th></tr></thead><tbody>';
         foreach ($plugins as $namespace => $abilities) self::renderPlugin($namespace, $abilities, $granted, $namespaces);
         echo '</tbody></table></div>';
         if (isset($plugins['woodmart'])) echo '<p class="description">WoodMart 区块和布局编辑适用于 Gutenberg；待处理的区块修改还需要在 AI Block Queue 中完成。</p>';
@@ -148,7 +148,8 @@ final class Oyiso_Agent_MCP
         $members = array_values(array_unique(array_map([Oyiso_Agent_Permissions::class, 'source'], array_keys($tools))));
         $enabled = count(array_intersect($members, $namespaces));
         $partial = $enabled > 0 && $enabled < count($members);
-        printf('<tr data-agent-mcp-plugin="%s" data-agent-write-group><th scope="row">%s</th><td><span>%s共 %d 个工具</span><details><summary>查看工具</summary><ul class="oyiso-agent-permission-tools">', esc_attr($namespace), esc_html($label), $namespace === 'woocommerce' ? '商品管理、订单统计等，' : '', count($tools));
+        $description = match ($namespace) { 'wordpress' => '文章、页面的查询、修改和新建草稿，', 'woocommerce' => '商品管理、订单统计等，', default => '' };
+        printf('<tr data-agent-mcp-plugin="%s" data-agent-write-group><th scope="row">%s</th><td>%s</td><td><span>%s共 %d 个工具</span><details><summary>查看工具</summary><ul class="oyiso-agent-permission-tools">', esc_attr($namespace), esc_html($label), $namespace === 'wordpress' ? '系统' : '插件', esc_html($description), count($tools));
         foreach ($tools as $ability) {
             $kind = isset($writes[$ability->get_name()]) ? '写入' : (Oyiso_Agent_Permissions::required($ability->get_name()) !== null ? '方案预览' : '只读');
             if ($ability->get_name() === 'oyiso/dismiss-product-trash') $kind = '取消方案';
