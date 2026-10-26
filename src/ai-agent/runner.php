@@ -38,7 +38,9 @@ final class Oyiso_Agent_Runner
      */
     public static function message(array &$run, string $text, array $attachments = [], ?array $context = null): void
     {
-        unset($run['partial']);
+        // Read-before-write snapshots belong to one user turn, not the whole conversation.
+        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots']);
+        $run['snapshots'] = [];
         foreach ($run['messages'] as &$previous) unset($previous['oyiso_page_context']);
         unset($previous, $run['page_context']);
         $message = (new UserMessage([new MessagePart($text)]))->toArray();

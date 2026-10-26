@@ -170,6 +170,35 @@ final class PageContextTest extends TestCase
         self::assertSame(409, $this->control($run, $proposal, 'editor')->get_status());
     }
 
+    public function testFollowUpChangesReadTheLatestEditorInsteadOfThePreviousTurnSnapshot(): void
+    {
+        foreach (['post', 'page'] as $type) foreach ([false, true] as $saveFirst) {
+            $post = $this->post($type); $run = $this->task();
+            Oyiso_Agent_Runner::message($run, '优化当前内容', [], Oyiso_Agent_Page_Context::parse(wp_json_encode($this->context($post))));
+            $first = ['content' => '<p>第一轮已填入的正文</p>', 'excerpt' => '第一轮摘要'];
+            $proposal = $this->prepare($run, $post, $first);
+            $payload = $this->control($run, $proposal, 'editor')->get_data();
+            self::assertSame(200, $this->control($run, $proposal, 'filled', ['signature' => $payload['signature']])->get_status());
+            $run = Oyiso_Agent_Store::get($run['id']);
+            if ($saveFirst) wp_update_post(['ID' => $post->ID, 'post_content' => $first['content'], 'post_excerpt' => $first['excerpt']]);
+            $context = Oyiso_Agent_Page_Context::parse(wp_json_encode($this->context($post, $first)));
+            $context['dirty'] = !$saveFirst;
+            Oyiso_Agent_Runner::message($run, '继续扩写刚才的内容', [], $context);
+            self::assertArrayNotHasKey('post_snapshots', $run);
+            self::assertSame('agent_content_not_read', $this->tool($run, 'prepare-post-update', ['post_id' => $post->ID, 'fields' => ['content' => '不能沿用第一轮读取结果']])->get_error_code());
+            $proposal = $this->prepare($run, $post, ['content' => '<p>第二轮正文</p>', 'excerpt' => '第二轮摘要']);
+            $change = $run['content_changes'][array_key_last($run['content_changes'])];
+            self::assertCount(2, $run['content_changes']);
+            self::assertSame('filled', $run['content_changes'][0]['status']);
+            self::assertSame($first['content'], $change['before']['content']);
+            self::assertSame($first['excerpt'], $change['before']['excerpt']);
+            self::assertSame($saveFirst ? $first['content'] : $post->post_content, $change['saved']['content']);
+            $payload = $this->control($run, $proposal, 'editor')->get_data();
+            self::assertSame($context['fields'], $payload['expected']);
+            self::assertSame(['content' => '<p>第二轮正文</p>', 'excerpt' => '第二轮摘要'], $payload['fields']);
+        }
+    }
+
     public function testReadFirstValidationSearchAndTruncationGuards(): void
     {
         $post = $this->post(); $run = $this->task();

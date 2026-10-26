@@ -22,7 +22,8 @@
         if (!seed.post_id || !Object.keys(seed.fields || {}).length) return page;
         page.fields = { ...seed.fields };
         const store = blockEditor();
-        if (store && Number(store.getCurrentPostId()) === seed.post_id) {
+        const inBlockEditor = store && Number(store.getCurrentPostId()) === seed.post_id;
+        if (inBlockEditor) {
             page.editor = 'gutenberg';
             for (const key of ['title', 'content', 'excerpt']) {
                 const value = key === 'content' ? store.getEditedPostContent() : store.getEditedPostAttribute(key);
@@ -42,7 +43,8 @@
             for (const [key, value] of Object.entries(values)) if (typeof value === 'string') page.fields[key] = value;
         } else page.editor = 'unsupported';
         for (const [key, id] of Object.entries(seo)) if (typeof input(id)?.value === 'string' && Object.hasOwn(seed.fields, key)) page.fields[key] = input(id).value;
-        page.dirty ||= Object.entries(page.fields).some(([key, value]) => value !== seed.fields[key]);
+        // Gutenberg keeps its saved baseline up to date after savePost without a page reload.
+        page.dirty ||= Object.entries(page.fields).some(([key, value]) => (!inBlockEditor || Object.hasOwn(seo, key)) && value !== seed.fields[key]);
         const selectedInEditor = window.tinymce?.get('content')?.selection?.getContent({ format: 'text' });
         if (selectedInEditor) page.selection = cut(selectedInEditor, 5000);
         for (const [key, value] of Object.entries(page.fields)) {
@@ -62,7 +64,7 @@
     function check(payload) {
         const current = snapshot();
         if (current.post_id !== payload.post_id || current.editor === 'unsupported' || current.truncated) throw new Error('请在对应的完整内容编辑页填入此方案。');
-        for (const [key, expected] of Object.entries(payload.expected)) if (current.fields[key] !== expected) throw new Error('编辑器内容已改变，请重新发送要求生成方案，避免覆盖你的修改。');
+        for (const [key, expected] of Object.entries(payload.expected)) if (current.fields[key] !== expected) throw new Error('编辑器内容已改变，旧方案已过期。请重新发送修改要求生成新方案。');
         return current;
     }
     function apply(payload) {

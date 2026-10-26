@@ -75,6 +75,23 @@ test('Gutenberg snapshots its live store and fills blocks through native editor 
     assert.equal(resets, 1); assert.equal(saves, 0);
 });
 
+test('Gutenberg save clears the unsaved badge using the live store rather than the page load baseline', t => {
+    let dirty = false;
+    const values = { title: 'Hello world!', content: '<p>Original</p>', excerpt: 'Summary' };
+    const f = fixture(t, { editor: 'gutenberg' }, window => {
+        window.wp = { data: { select: () => ({ getCurrentPostId: () => 7, getEditedPostAttribute: key => values[key], getEditedPostContent: () => values.content, isEditedPostDirty: () => dirty }), subscribe: () => () => {} } };
+    });
+    values.content = '<p>Saved after AI fill</p>'; values.excerpt = 'New summary'; dirty = true;
+    f.page.refresh();
+    assert.match(f.badge.textContent, /含未保存内容/);
+    dirty = false; f.page.refresh();
+    assert.equal(f.page.snapshot().dirty, false);
+    assert.equal(f.page.snapshot().fields.content, values.content);
+    assert.doesNotMatch(f.badge.textContent, /含未保存内容/);
+    f.window.document.querySelector('[name="seopress_titles_title"]').value = 'Unsaved SEO title';
+    assert.equal(f.page.snapshot().dirty, true, 'Untracked SEO form edits still require saving.');
+});
+
 test('product fields map to classic long and short descriptions and preserve unrelated data', t => {
     const f = fixture(t, { screen: 'product', post_type: 'product', fields: { title: 'Product', description: '<p>Original</p>', short_description: 'Summary' } });
     f.input('title').value = 'Product';
