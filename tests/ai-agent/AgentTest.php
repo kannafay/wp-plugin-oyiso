@@ -120,13 +120,13 @@ final class AgentTest extends TestCase
         return $proposal['proposal_id'];
     }
 
-    private function turn(string $text = '', array $calls = []): Oyiso_Agent_Turn
+    private function turn(string $text = '', array $calls = [], int $tokens = 40): Oyiso_Agent_Turn
     {
         $parts = $text !== '' ? [new MessagePart($text)] : [];
         foreach ($calls as [$name, $args]) {
             $parts[] = new MessagePart(new FunctionCall(wp_generate_uuid4(), WP_AI_Client_Ability_Function_Resolver::ability_name_to_function_name('oyiso/' . $name), $args));
         }
-        return new Oyiso_Agent_Turn(new ModelMessage($parts ?: [new MessagePart('')]), 40, 'fixture-model');
+        return new Oyiso_Agent_Turn(new ModelMessage($parts ?: [new MessagePart('')]), $tokens, 'fixture-model');
     }
 
     private function request(string $method, string $route, array $params = []): WP_REST_Response
@@ -501,13 +501,63 @@ final class AgentTest extends TestCase
         self::assertSame('cancelled', $fresh['status']); self::assertSame([], $fresh['snapshots']);
     }
 
+    public function testRunnerContinuesToolsAndFollowUpsAfterSixtyThousandTokens(): void
+    {
+        $run = $this->task(); Oyiso_Agent_Runner::message($run, 'Read current page');
+        $gateway = new OyisoAgentScriptedModel([
+            $this->turn('', [['get-current-page', []]], 60000),
+            $this->turn('Read complete', [], 10000),
+            $this->turn('Follow-up complete'),
+        ]);
+        $runner = new Oyiso_Agent_Runner($gateway);
+        $runner->step($run['id']);
+        $run = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('queued', $run['status']); self::assertSame(60000, $run['tokens']);
+        $runner->step($run['id']);
+        $run = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('completed', $run['status']); self::assertSame('', $run['error']);
+        self::assertSame(70000, $run['tokens']); self::assertSame(2, $run['step']);
+        $first = $run['executions'][0]; $conversation = $run['conversation'];
+        self::assertSame(70000, $first['tokens']);
+        Oyiso_Agent_Runner::message($run, 'Continue in the same conversation');
+        $runner->step($run['id']);
+        $fresh = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame(3, $gateway->calls); self::assertSame('completed', $fresh['status']);
+        self::assertSame('', $fresh['error']); self::assertSame(70040, $fresh['tokens']); self::assertSame(1, $fresh['step']);
+        self::assertSame($first, $fresh['executions'][0]); self::assertSame(40, $fresh['executions'][1]['tokens']);
+        self::assertSame($conversation, array_slice($fresh['conversation'], 0, count($conversation)));
+        self::assertSame('Follow-up complete', $fresh['conversation'][count($fresh['conversation']) - 1]['text']);
+    }
+
+    public function testPreviouslyLimitedConversationCanRetryWithoutResettingUsageOrHistory(): void
+    {
+        $connection = Oyiso_Agent_Connections::save(['name' => 'Fixture', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_chat', 'models' => ['fixture-model'], 'key' => 'fixture-token-limit-key']);
+        self::assertIsArray($connection);
+        $run = $this->task(); $run['selection'] = $connection['id'] . '|fixture-model';
+        Oyiso_Agent_Runner::message($run, 'Original request');
+        $run['tokens'] = 69460; $run['status'] = 'failed';
+        $run['error'] = '已达到执行轮次或对话用量上限。请缩小范围，或新建对话继续。';
+        Oyiso_Agent_Store::save($run);
+        $failed = Oyiso_Agent_Store::get($run['id'])['executions'][0];
+        $response = $this->request('POST', 'runs', ['run_id' => $run['id'], 'message' => 'Retry original request']);
+        self::assertSame(201, $response->get_status()); self::assertSame(69460, $response->get_data()['tokens']);
+        $gateway = new OyisoAgentScriptedModel([$this->turn('Recovered answer')]);
+        (new Oyiso_Agent_Runner($gateway))->step($run['id']);
+        $fresh = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame(1, $gateway->calls); self::assertSame('completed', $fresh['status']);
+        self::assertSame('', $fresh['error']); self::assertSame(69500, $fresh['tokens']);
+        self::assertSame($failed, $fresh['executions'][0]); self::assertSame(40, $fresh['executions'][1]['tokens']);
+        self::assertSame(['Original request', 'Retry original request', 'Recovered answer'], array_column($fresh['conversation'], 'text'));
+    }
+
     public function testLimitsErrorsAndDisabledAgentStopExecution(): void
     {
-        $run = $this->task(); Oyiso_Agent_Runner::message($run, 'Budget limited');
+        $run = $this->task(); Oyiso_Agent_Runner::message($run, 'Step limited');
         $run['step'] = 8; Oyiso_Agent_Store::save($run);
         $gateway = new OyisoAgentScriptedModel([]);
         (new Oyiso_Agent_Runner($gateway))->step($run['id']);
         self::assertSame(0, $gateway->calls); self::assertSame('failed', Oyiso_Agent_Store::get($run['id'])['status']);
+        self::assertSame('本次任务已达到执行轮次上限。请缩小任务范围后重试。', Oyiso_Agent_Store::get($run['id'])['error']);
         $run = $this->task(); Oyiso_Agent_Runner::message($run, 'Provider error');
         (new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([new WP_Error('fixture', 'Provider unavailable')])))->step($run['id']);
         self::assertSame('Provider unavailable', Oyiso_Agent_Store::get($run['id'])['error']);

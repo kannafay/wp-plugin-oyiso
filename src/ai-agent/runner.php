@@ -83,8 +83,8 @@ final class Oyiso_Agent_Runner
                 $this->fail($run, 'Agent 未启用、运行环境不支持或任务发起人已无权限。');
                 return;
             }
-            if ($run['step'] >= Oyiso_Agent_Config::maxSteps() || $run['tokens'] >= 60000) {
-                $this->fail($run, '已达到执行轮次或对话用量上限。请缩小范围，或新建对话继续。');
+            if ($run['step'] >= Oyiso_Agent_Config::maxSteps()) {
+                $this->fail($run, '本次任务已达到执行轮次上限。请缩小任务范围后重试。');
                 return;
             }
             $run['status'] = 'running';
