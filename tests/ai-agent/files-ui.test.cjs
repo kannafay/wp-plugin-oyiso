@@ -106,6 +106,9 @@ test('image preview uses authenticated bytes and safely renders filenames then r
     await settle();
     const trigger = f.$('[aria-label^="在线预览："]'); trigger.click(); await settle();
     assert.equal(f.$('.oyiso-agent-file-preview').open, true);
+    assert.equal(f.$('.oyiso-agent-file-preview').classList.contains('oyiso-confirm-dialog'), true);
+    assert.equal(f.$('.oyiso-agent-file-preview-actions .button-primary').textContent, '下载');
+    assert.equal(f.window.document.activeElement.textContent, '关闭');
     assert.equal(f.$('.oyiso-agent-file-preview h2').textContent, photo.name);
     assert.equal(f.$('.oyiso-agent-file-preview img').src, 'blob:https://vape.local/preview-1');
     assert.equal(f.$('.oyiso-agent-file-preview img').alt, photo.name);
@@ -151,7 +154,7 @@ test('preview rejects active file content and offers retry after access or netwo
     const f = fixture(t, route => route !== 'files/5' ? page([photo]) : ++attempt === 1 ? { ok: false, status: 401, body: { message: '请重新登录' } } : { name: 'bad.html', mime: 'text/html', data: btoa('<script>alert(1)</script>') });
     await settle(); f.$('[aria-label^="在线预览："]').click(); await settle();
     assert.match(f.$('.oyiso-agent-file-preview-status').textContent, /重新登录/);
-    f.$('.oyiso-agent-file-preview > .button').click(); await settle();
+    f.$('.oyiso-agent-file-preview-retry').click(); await settle();
     assert.match(f.$('.oyiso-agent-file-preview-status').textContent, /暂不支持/);
     assert.equal(f.$('.oyiso-agent-file-preview-content').childElementCount, 0); assert.equal(f.objects.length, 0);
     assert.equal(f.window.oyisoAgentFilePreview.can({ mime: 'image/svg+xml' }), false);

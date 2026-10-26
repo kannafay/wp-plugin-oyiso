@@ -4,7 +4,7 @@
     const localMime = file => supported(file?.type) ? file.type : ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', mp4: 'video/mp4', webm: 'video/webm' }[file?.name?.split('.').pop().toLowerCase()] || '');
     const node = (tag, text) => { const element = document.createElement(tag); if (text !== undefined) element.textContent = text; return element; };
     const size = bytes => bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
-    let dialog, title, detail, body, status, save, retry, current, sequence = 0, url = '', controller;
+    let dialog, title, detail, body, status, save, retry, footerClose, current, sequence = 0, url = '', controller;
 
     function release() {
         controller?.abort(); controller = null;
@@ -24,21 +24,24 @@
 
     function create() {
         if (dialog) return;
-        dialog = node('dialog'); dialog.className = 'oyiso-agent-file-preview'; dialog.setAttribute('aria-labelledby', 'oyiso-agent-file-preview-title');
-        const header = node('div'); header.className = 'oyiso-agent-file-preview-header';
-        const heading = node('div'); title = node('h2'); title.id = 'oyiso-agent-file-preview-title'; detail = node('p'); heading.append(title, detail);
-        const actions = node('div'); actions.className = 'oyiso-agent-file-preview-actions';
-        save = node('button', '下载'); save.type = 'button'; save.className = 'button'; save.disabled = true;
+        dialog = node('dialog'); dialog.className = 'oyiso-agent-file-preview oyiso-confirm-dialog'; dialog.setAttribute('aria-labelledby', 'oyiso-agent-file-preview-title'); dialog.setAttribute('aria-describedby', 'oyiso-agent-file-preview-meta');
+        const header = node('div'); header.className = 'oyiso-agent-file-preview-header oyiso-confirm-dialog__heading';
+        const heading = node('div'); title = node('h2'); title.id = 'oyiso-agent-file-preview-title'; detail = node('p'); detail.id = 'oyiso-agent-file-preview-meta'; heading.append(title, detail);
+        const actions = node('div'); actions.className = 'oyiso-agent-file-preview-actions oyiso-confirm-dialog__footer';
+        save = node('button', '下载'); save.type = 'button'; save.className = 'button button-primary'; save.disabled = true;
         save.addEventListener('click', () => {
             if (!url || !current) return;
             const link = node('a'); link.href = url; link.download = current.file.name; document.body.append(link); link.click(); link.remove();
         });
-        const dismiss = node('button', '×'); dismiss.type = 'button'; dismiss.className = 'oyiso-agent-file-preview-close'; dismiss.setAttribute('aria-label', '关闭预览'); dismiss.addEventListener('click', close);
-        actions.append(save, dismiss); header.append(heading, actions);
+        const dismiss = node('button', '×'); dismiss.type = 'button'; dismiss.className = 'oyiso-agent-file-preview-close oyiso-confirm-dialog__close'; dismiss.setAttribute('aria-label', '关闭预览'); dismiss.addEventListener('click', close);
+        header.append(heading, dismiss);
         status = node('div'); status.className = 'oyiso-agent-file-preview-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-        retry = node('button', '重试'); retry.type = 'button'; retry.className = 'button'; retry.hidden = true; retry.addEventListener('click', load);
+        retry = node('button', '重试'); retry.type = 'button'; retry.className = 'button oyiso-agent-file-preview-retry'; retry.hidden = true; retry.addEventListener('click', load);
+        footerClose = node('button', '关闭'); footerClose.type = 'button'; footerClose.className = 'button'; footerClose.addEventListener('click', close);
         body = node('div'); body.className = 'oyiso-agent-file-preview-content';
-        dialog.append(header, status, retry, body); document.body.append(dialog);
+        const content = node('div'); content.className = 'oyiso-agent-file-preview-body oyiso-confirm-dialog__body'; content.append(status, body);
+        actions.append(retry, footerClose, save);
+        dialog.append(header, content, actions); document.body.append(dialog);
         dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
         dialog.addEventListener('keydown', event => { if (event.key === 'Escape' || event.key === 'Tab') event.stopPropagation(); });
         dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
@@ -93,6 +96,7 @@
             if (!file || file.deleted || !supported(file.mime)) return;
             create(); current = { file, api, trigger, blob }; title.textContent = file.name; title.title = file.name; detail.textContent = size(file.size);
             window.oyisoModalMotion.show(dialog);
+            footerClose.focus();
             load();
         },
         close,
