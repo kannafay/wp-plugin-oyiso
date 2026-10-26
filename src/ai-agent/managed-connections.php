@@ -69,6 +69,24 @@ final class Oyiso_Agent_Connections
         return $choices;
     }
 
+    public static function label(?string $selection = null, string $model = ''): string
+    {
+        $selection ??= self::selection();
+        [$id, $selected] = array_pad(explode('|', $selection, 2), 2, '');
+        $model = $model !== '' ? $model : $selected;
+        $matches = [];
+        foreach (self::all() as $row) {
+            if ($row['id'] === $id && $model !== '') return $row['name'] . ' / ' . $model;
+            if (in_array($model, $row['models'], true)) $matches[] = $row['name'] . ' / ' . $model;
+        }
+        if (count($matches) === 1) return $matches[0];
+        if (str_starts_with($selection, 'wp:') && $model !== '') {
+            $provider = Oyiso_Agent_Config::providers()[substr($selection, 3)] ?? '';
+            if ($provider !== '') return $provider . ' / ' . $model;
+        }
+        return $model !== '' ? $model : 'AI';
+    }
+
     public static function selection(): string
     {
         $rows = self::all();

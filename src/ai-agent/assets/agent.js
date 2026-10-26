@@ -321,7 +321,7 @@
                 if (type === 'text') {
                     if (!latest || data.id !== latest.id || typeof data.delta !== 'string') throw new Error('回复片段无效，请刷新对话。');
                     const previous = latest.step === data.step ? latest.partial?.text || '' : '';
-                    latest = { ...latest, step: data.step, status: 'running', partial: { model: data.model, text: previous + data.delta } };
+                    latest = { ...latest, step: data.step, status: 'running', partial: { model: data.model, model_label: latest.partial?.model_label || latest.executions?.at(-1)?.model_label, text: previous + data.delta } };
                 } else {
                     if (!Number.isSafeInteger(data.id) || !Array.isArray(data.conversation)) throw new Error('对话数据无效，请刷新重试。');
                     if (!latest) { accepted?.(data); liveOwners.set(data.id, owner); }
@@ -392,6 +392,34 @@
             progressRecords.set(record.index, element); fillProgress(element, record === latest ? { ...record, status: next.status, step: next.step } : record);
         }
         return progressRecords;
+    }
+
+    function displayModel(model = '', label = '', selection = run?.selection) {
+        if (label && label !== 'AI') return label;
+        model ||= selection?.split('|').slice(1).join('|') || '';
+        const matches = Object.entries(config.models || {}).filter(([id]) => id.endsWith(`|${model}`));
+        return matches.length === 1 ? matches[0][1] : model || label || 'AI';
+    }
+
+    function placeExecutions(next, rows, partial) {
+        const currentIndex = [...rows.keys()].at(-1);
+        for (const [index, element] of rows) {
+            const boundary = next.conversation.findIndex((entry, position) => position > index && entry.role === 'user');
+            const reply = next.conversation.findIndex((entry, position) => position > index && (boundary === -1 || position < boundary) && entry.role === 'assistant');
+            let target = reply >= 0 ? $(`[data-agent-message-index="${reply}"]`, messages) : index === currentIndex ? partial : null;
+            if (!target) {
+                target = $(`[data-agent-execution-view="${index}"]`, messages);
+                if (!target) {
+                    target = node('article', 'oyiso-agent-message is-assistant'); target.dataset.agentExecutionView = String(index);
+                    target.append(node('strong', 'oyiso-agent-message-role'));
+                    messages.insertBefore(target, boundary >= 0 ? $(`[data-agent-message-index="${boundary}"]`, messages) : null);
+                }
+                const record = next.executions?.find(record => record.index === index);
+                $('.oyiso-agent-message-role', target).textContent = displayModel('', record?.model_label, index === currentIndex ? next.selection : '');
+            }
+            target.insertBefore(element, $('.oyiso-agent-message-content', target));
+        }
+        for (const placeholder of messages.querySelectorAll('[data-agent-execution-view]')) if (!$('.oyiso-agent-progress', placeholder)) placeholder.remove();
     }
 
     const connectionSnapshot = preset => JSON.stringify(Array.from(document.querySelectorAll(`[data-agent-connection="${preset}"]`), input => [input.name, input.type === 'checkbox' ? input.checked : input.value]));
@@ -789,7 +817,6 @@
             composer?.syncFiles(next.conversation.flatMap(entry => entry.attachments || []));
             const fragment = document.createDocumentFragment();
             const updated = [];
-            if (executionRows.has(-1)) fragment.append(executionRows.get(-1));
             const legacyModels = [...new Set(next.events.filter(event => event.label === '模型已响应' && event.detail).map(event => event.detail))];
             for (const [index, entry] of next.conversation.entries()) {
                 const isUser = entry.role === 'user';
@@ -799,7 +826,7 @@
                 if (fromPartial) { item.removeAttribute('data-agent-partial'); item.classList.remove('is-streaming'); partial = null; }
                 item.classList.toggle('is-user', isUser); item.classList.toggle('is-assistant', !isUser);
                 item.dataset.agentMessageIndex = String(index);
-                const model = entry.model || (legacyModels.length === 1 ? legacyModels[0] : 'AI');
+                const model = displayModel(entry.model || (legacyModels.length === 1 ? legacyModels[0] : ''), entry.model_label);
                 const entrySignature = JSON.stringify([entry, model]);
                 if (messageEntries.get(item) !== entrySignature) {
                     let role = $('.oyiso-agent-message-role', item), content = $('.oyiso-agent-message-content', item);
@@ -813,7 +840,6 @@
                     messageEntries.set(item, entrySignature);
                 }
                 fragment.append(item);
-                if (isUser && executionRows.has(index)) fragment.append(executionRows.get(index));
             }
             if (!next.conversation.length && !next.partial?.text && !active) fragment.append(empty.cloneNode(true));
             if (next.partial?.text && partial) fragment.append(partial);
@@ -831,12 +857,13 @@
                 partial.append(node('strong', 'oyiso-agent-message-role'), node('div', 'oyiso-agent-message-content'));
                 messages.append(partial);
             }
-            $('.oyiso-agent-message-role', partial).textContent = next.partial.model || 'AI';
+            $('.oyiso-agent-message-role', partial).textContent = displayModel(next.partial.model, next.partial.model_label || next.executions?.at(-1)?.model_label);
             const partialContent = $('.oyiso-agent-message-content', partial);
             if (window.oyisoAgentMarkdown) window.oyisoAgentMarkdown(partialContent, next.partial.text, { streaming: active, animate, scroll });
             else partialContent.textContent = next.partial.text;
             partial.classList.toggle('is-streaming', ['queued', 'running'].includes(next.status));
-        } else partial?.remove();
+        } else { partial?.remove(); partial = null; }
+        placeExecutions(next, executionRows, partial);
         if (nearBottom) scroll.scrollTop = scroll.scrollHeight;
     }
 
@@ -921,7 +948,9 @@
         messages.append(pending);
         freezeProgress(); progress.dataset.executionIndex = 'pending'; progress.open = false;
         progressEvents.replaceChildren(); progressUsage.textContent = ''; progressVersions.delete(progress);
-        messages.append(progress);
+        const response = node('article', 'oyiso-agent-message is-assistant'); response.dataset.agentExecutionView = 'pending';
+        response.append(node('strong', 'oyiso-agent-message-role', config.models?.[modelSelect.value] || 'AI'), progress);
+        messages.append(response);
         let accepted = false, sentId = 0;
         const accept = next => {
             if (accepted) return;

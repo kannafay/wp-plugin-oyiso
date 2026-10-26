@@ -10,10 +10,10 @@ defined('ABSPATH') || exit;
  * @phpstan-import-type PageContext from Oyiso_Agent_Page_Context
  * @phpstan-import-type ContentChange from Oyiso_Agent_Content
  * @phpstan-type RunEvent array{time:string, type:string, label:string, detail:string}
- * @phpstan-type Execution array{index:int,status:string,step:int,tokens:int,token_start:int,events:list<RunEvent>,legacy?:bool,truncated?:bool}
+ * @phpstan-type Execution array{index:int,status:string,step:int,tokens:int,token_start:int,events:list<RunEvent>,model_label?:string,legacy?:bool,truncated?:bool}
  * @phpstan-type MCPAction array{id:string,name:string,label:string,input_json:string,status:string,result:string}
  * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
- * @phpstan-type Run array{id:int, selection?:string, page_context?:PageContext,content_changes?:list<ContentChange>,post_snapshots?:array<int,array{fields:Fields,saved:Fields}>,partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, product_snapshots?:array<int,string>,executions?:list<Execution>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
+ * @phpstan-type Run array{id:int, selection?:string, page_context?:PageContext,content_changes?:list<ContentChange>,post_snapshots?:array<int,array{fields:Fields,saved:Fields}>,partial?:array{text:string,model:string,model_label?:string}, mcp_actions?:list<MCPAction>, product_snapshots?:array<int,string>,executions?:list<Execution>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string,model_label?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
  */
 final class Oyiso_Agent_Store
 {
@@ -109,7 +109,7 @@ final class Oyiso_Agent_Store
     public static function beginExecution(array &$run): void
     {
         $executions = self::updateExecutions(($run['executions'] ?? []) ?: self::legacyExecutions($run), $run['status'], $run['step'], $run['tokens']);
-        $executions[] = ['index' => count($run['conversation']), 'status' => 'queued', 'step' => 0, 'tokens' => 0, 'token_start' => $run['tokens'], 'events' => []];
+        $executions[] = ['index' => count($run['conversation']), 'status' => 'queued', 'step' => 0, 'tokens' => 0, 'token_start' => $run['tokens'], 'events' => [], 'model_label' => Oyiso_Agent_Connections::label($run['selection'] ?? null)];
         $run['executions'] = $executions;
     }
 
@@ -239,6 +239,9 @@ final class Oyiso_Agent_Store
     public static function view(array $run): array
     {
         foreach ($run['conversation'] as &$entry) {
+            if ($entry['role'] === 'assistant' && isset($entry['model']) && !isset($entry['model_label'])) {
+                $entry['model_label'] = Oyiso_Agent_Connections::label('', $entry['model']);
+            }
             if (isset($entry['attachments'])) foreach ($entry['attachments'] as &$file) $file = Oyiso_Agent_Attachments::metadata($file['id']) ?? ($file + ['deleted' => true]);
             unset($file);
         }

@@ -366,6 +366,38 @@ final class AgentTest extends TestCase
         }
     }
 
+    public function testResponseModelLabelsKeepTheirOriginalGroupAfterSwitchingOrDeletingConnections(): void
+    {
+        $input = ['name' => 'DeepSeek', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_chat', 'models' => ['fixture-model'], 'key' => 'fixture-label-key'];
+        $first = Oyiso_Agent_Connections::save($input); $second = Oyiso_Agent_Connections::save(array_replace($input, ['name' => 'Other provider']));
+        self::assertIsArray($first); self::assertIsArray($second);
+        self::assertSame('fixture-model', Oyiso_Agent_Connections::label('', 'fixture-model'), 'An ambiguous legacy model must not be assigned to an arbitrary group.');
+        $run = $this->task(); $run['selection'] = $first['id'] . '|fixture-model';
+        Oyiso_Agent_Runner::message($run, 'First request');
+        self::assertSame('DeepSeek / fixture-model', $run['executions'][0]['model_label']);
+        $runner = new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([
+            function (?Closure $onText) use ($run): Oyiso_Agent_Turn {
+                $onText?->__invoke('First response');
+                self::assertSame('DeepSeek / fixture-model', Oyiso_Agent_Store::get($run['id'])['partial']['model_label']);
+                $connections = get_option('oyiso_agent_connections'); $connections[0]['name'] = 'Renamed during reply';
+                update_option('oyiso_agent_connections', $connections, false);
+                return $this->turn('First response');
+            },
+            $this->turn('Second response'),
+        ]));
+        $runner->step($run['id'], static function (string $text, int $step, string $model): void {});
+        $run = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('DeepSeek / fixture-model', $run['conversation'][1]['model_label']);
+        $run['selection'] = $second['id'] . '|fixture-model'; Oyiso_Agent_Runner::message($run, 'Second request');
+        self::assertSame('Other provider / fixture-model', $run['executions'][1]['model_label']);
+        $runner->step($run['id']); $run = Oyiso_Agent_Store::get($run['id']);
+        delete_option('oyiso_agent_connections');
+        $view = Oyiso_Agent_Store::view($run);
+        self::assertSame('DeepSeek / fixture-model', $view['conversation'][1]['model_label']);
+        self::assertSame('Other provider / fixture-model', $view['conversation'][3]['model_label']);
+        self::assertStringNotContainsString('fixture-label-key', wp_json_encode($view));
+    }
+
     public function testConversationModelsAreValidatedStoredAndPassedToTheWorkerIndependently(): void
     {
         $input = ['name' => '对话模型', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_responses', 'models' => ['first-model', 'second-model'], 'key' => 'fixture-conversation-key'];
@@ -781,9 +813,9 @@ final class AgentTest extends TestCase
         Oyiso_Agent_Runner::message($run, 'Follow-up'); $runner->step($run['id']);
         self::assertSame([
             ['role' => 'user', 'text' => 'Hello'],
-            ['role' => 'assistant', 'text' => 'First reply', 'model' => 'first-model'],
+            ['role' => 'assistant', 'text' => 'First reply', 'model' => 'first-model', 'model_label' => 'first-model'],
             ['role' => 'user', 'text' => 'Follow-up'],
-            ['role' => 'assistant', 'text' => 'Second reply', 'model' => 'second-model'],
+            ['role' => 'assistant', 'text' => 'Second reply', 'model' => 'second-model', 'model_label' => 'second-model'],
         ], $this->request('GET', 'runs/' . $run['id'])->get_data()['conversation']);
     }
 
@@ -797,7 +829,7 @@ final class AgentTest extends TestCase
             self::assertSame(1, ignore_user_abort());
             $publish('你');
             $view = $this->request('GET', 'runs/' . $run['id'])->get_data();
-            self::assertSame(['text' => '你', 'model' => 'fixture-model'], $view['partial']);
+            self::assertSame(['text' => '你', 'model' => 'fixture-model', 'model_label' => 'fixture-model'], $view['partial']);
             self::assertSame('running', $view['status']); self::assertFalse($view['recoverable']);
             (new Oyiso_Agent_Runner($model))->step($run['id']); self::assertSame(1, $model->calls);
             $publish('好');

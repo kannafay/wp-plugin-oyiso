@@ -540,8 +540,8 @@ test('sending gives immediate feedback and generation replaces send with stop wh
     const input = f.$('#oyiso-agent-prompt'), send = f.$('[data-agent-send]'), stop = f.$('[data-agent-cancel]');
     input.value = 'Rewrite this article'; send.click();
     assert.match(f.$('[data-agent-messages]').textContent, /Rewrite this article/);
-    assert.equal(f.$('[data-agent-pending]').nextElementSibling, f.$('.oyiso-agent-progress'));
-    assert.equal(f.$('.oyiso-agent-progress').parentElement, f.$('[data-agent-messages]'));
+    assert.equal(f.$('[data-agent-pending]').nextElementSibling, f.$('.oyiso-agent-progress').parentElement);
+    assert.equal(f.$('.oyiso-agent-progress').previousElementSibling.textContent, '测试连接 / model-a');
     assert.equal(f.$('.oyiso-agent-empty'), null);
     assert.equal(f.$('[data-agent-response-status]').hidden, false);
     assert.match(f.$('[data-agent-response-label]').textContent, /正在发送/);
@@ -672,7 +672,7 @@ test('a live send paints text before completion and refresh cannot replace it wi
     f.$('[data-agent-refresh]').click(); await settle();
     assert.equal(f.$('[data-agent-partial]'), bubble); assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /Stale snapshot/);
     wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: '好 **世界**' }); await settle();
-    assert.equal(f.$('[data-agent-partial]'), bubble); assert.equal(bubble.querySelector('strong').textContent, 'model-a');
+    assert.equal(f.$('[data-agent-partial]'), bubble); assert.equal(bubble.querySelector('strong').textContent, '测试连接 / model-a');
     assert.equal(bubble.querySelector('.oyiso-agent-message-content strong').textContent, '世界');
     const final = task({ selection: 'fixture|model-a', conversation: [...conversation, { role: 'assistant', model: 'model-a', text: '你好 **世界**' }] });
     wire.emit('state', final); wire.emit('done', final); wire.close(); await settle();
@@ -819,11 +819,11 @@ test('execution records stay before their own replies, survive refresh and retai
     const f = fixture(t, route => route === 'runs/12' ? state : undefined, {}, restore);
     await settle();
     const first = f.$('[data-execution-index="0"]'), current = f.$('[data-execution-index="2"]');
-    assert.equal(first.parentElement, f.$('[data-agent-messages]')); assert.equal(current.parentElement, first.parentElement);
-    assert.equal(f.$('[data-agent-message-index="0"]').nextElementSibling, first);
-    assert.equal(first.nextElementSibling, f.$('[data-agent-message-index="1"]'));
-    assert.equal(f.$('[data-agent-message-index="2"]').nextElementSibling, current);
-    assert.equal(current.nextElementSibling, f.$('[data-agent-partial]'));
+    assert.equal(first.parentElement, f.$('[data-agent-message-index="1"]')); assert.equal(current.parentElement, f.$('[data-agent-partial]'));
+    assert.equal(f.$('[data-agent-message-index="0"]').nextElementSibling, first.parentElement);
+    assert.equal(first.previousElementSibling.className, 'oyiso-agent-message-role');
+    assert.equal(f.$('[data-agent-message-index="2"]').nextElementSibling, current.parentElement);
+    assert.equal(current.nextElementSibling.className, 'oyiso-agent-message-content');
     assert.match(first.textContent, /First turn tool/); assert.doesNotMatch(first.textContent, /Second turn tool/);
     assert.match(current.textContent, /Second turn tool/); assert.doesNotMatch(current.textContent, /First turn tool/);
     assert.match(first.textContent, /80 Token/); assert.equal(f.window.document.querySelectorAll('[data-agent-status]').length, 1);
@@ -840,7 +840,7 @@ test('execution records stay before their own replies, survive refresh and retai
     scroll.scrollTop = 17;
     state = { ...state, status: 'completed', tokens: 120, partial: undefined, conversation: [...conversation, { role: 'assistant', text: 'Second reply', model: 'model-a' }], executions: [executions[0], { ...state.executions[1], status: 'completed', tokens: 40 }] };
     f.$('[data-agent-refresh]').click(); await settle();
-    assert.equal(current.nextElementSibling, f.$('[data-agent-message-index="3"]'));
+    assert.equal(current.parentElement, f.$('[data-agent-message-index="3"]'));
     assert.match(current.textContent, /40 Token/); assert.doesNotMatch(current.textContent, /120 Token/);
     assert.match(first.textContent, /80 Token/); assert.equal(first.open, true);
     assert.equal(scroll.scrollTop, 17, 'manual scrollback is not moved when execution records or the final reply update');
@@ -858,7 +858,7 @@ test('continuing a conversation preserves the earlier execution node and its exp
     f.$('#oyiso-agent-prompt').value = 'Next'; f.$('[data-agent-send]').click(); await settle();
     const previous = f.$('[data-execution-index="0"]');
     assert.equal(previous.open, true); assert.match(previous.textContent, /Original event/);
-    assert.equal(f.$('[data-agent-pending]').nextElementSibling.dataset.executionIndex, 'pending');
+    assert.equal(f.$('[data-agent-pending]').nextElementSibling.querySelector('.oyiso-agent-progress').dataset.executionIndex, 'pending');
     const next = task({ status: 'queued', conversation: [...initial.conversation, { role: 'user', text: 'Next' }], executions: [...initial.executions, { index: 2, status: 'queued', step: 0, tokens: 0, events: [{ type: 'info', label: 'New event' }] }] });
     wire.emit('state', next); await settle();
     assert.equal(f.$('[data-execution-index="0"]'), previous); assert.equal(previous.open, true);
@@ -878,7 +878,7 @@ test('legacy combined execution history is labeled and its content remains safe 
     assert.match(record.textContent, /历史合并记录/); assert.match(record.textContent, /<img src=x/);
     assert.equal(record.querySelector('img, script'), null); assert.equal(record.querySelector('a').rel, 'noopener noreferrer');
     assert.equal(f.window.document.querySelectorAll('.oyiso-agent-scroll .oyiso-agent-progress').length, 1);
-    assert.equal(f.$('[data-agent-message-index="2"]').nextElementSibling, record);
+    assert.equal(f.$('[data-agent-message-index="2"]').nextElementSibling, record.parentElement);
 });
 
 test('live bursts and the final chunk reveal smoothly without delaying completed controls or replacing the reply', async t => {
@@ -1699,14 +1699,56 @@ test('chat bubbles label me and each responding model without relabeling history
     }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
     await settle();
     const labels = () => Array.from(f.window.document.querySelectorAll('.oyiso-agent-message-role'), label => label.textContent);
-    assert.deepEqual(labels(), ['我', 'model-a', '<img src=x> / model-b']);
+    assert.deepEqual(labels(), ['我', '测试连接 / model-a', '<img src=x> / model-b']);
     assert.equal(f.$('.oyiso-agent-message-role img'), null);
     assert.equal(f.$('.oyiso-agent-message').classList.contains('is-user'), true);
     assert.equal(f.$('[data-agent-message-index="1"]').classList.contains('is-assistant'), true);
     f.$('[data-agent-model]').value = 'second|model-b';
     f.$('[data-agent-model]').dispatchEvent(new f.window.Event('change', { bubbles: true }));
     f.$('[data-agent-close]').click(); f.$('#oyiso-agent-launcher').click(); await settle();
-    assert.deepEqual(labels(), ['我', 'model-a', '<img src=x> / model-b']);
+    assert.deepEqual(labels(), ['我', '测试连接 / model-a', '<img src=x> / model-b']);
+});
+
+test('recorded provider names stay above each execution when connections disappear or share model IDs', async t => {
+    const state = task({ selection: 'second|shared-model', conversation: [
+        { role: 'user', text: 'First request' }, { role: 'assistant', text: 'First answer', model: 'shared-model', model_label: 'DeepSeek / shared-model' },
+        { role: 'user', text: 'Second request' }, { role: 'assistant', text: 'Second answer', model: 'shared-model', model_label: 'Other provider / shared-model' },
+    ], executions: [
+        { index: 0, status: 'completed', step: 1, tokens: 10, events: [] },
+        { index: 2, status: 'completed', step: 1, tokens: 10, events: [] },
+    ] });
+    const f = fixture(t, route => route === 'runs/12' ? state : undefined, { models: {} }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    for (const [index, label] of [[1, 'DeepSeek / shared-model'], [3, 'Other provider / shared-model']]) {
+        const reply = f.$(`[data-agent-message-index="${index}"]`);
+        assert.equal(reply.firstElementChild.textContent, label);
+        assert.equal(reply.children[1].className, 'oyiso-agent-progress');
+        assert.equal(reply.children[2].textContent, index === 1 ? 'First answer' : 'Second answer');
+    }
+    f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-models-updated', { detail: { 'new|shared-model': 'Renamed group / shared-model' } }));
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-message-index="1"]').firstElementChild.textContent, 'DeepSeek / shared-model');
+    assert.equal(f.$('[data-agent-message-index="3"]').firstElementChild.textContent, 'Other provider / shared-model');
+});
+
+test('the full model header remains first from waiting through streaming and final reply', async t => {
+    const execution = { index: 0, status: 'running', step: 1, tokens: 0, model_label: 'DeepSeek / deepseek-flash', events: [] };
+    let current = task({ status: 'running', selection: 'removed|deepseek-flash', conversation: [{ role: 'user', text: 'Hello' }], executions: [execution] });
+    const f = fixture(t, route => route === 'runs/12' ? current : undefined, { models: {} }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const progress = f.$('[data-execution-index="0"]');
+    assert.equal(progress.previousElementSibling.textContent, 'DeepSeek / deepseek-flash');
+    current = { ...current, partial: { model: 'deepseek-flash', text: 'Hello back' } };
+    f.$('[data-agent-refresh]').click(); await settle();
+    const partial = f.$('[data-agent-partial]');
+    assert.equal(partial.firstElementChild.textContent, 'DeepSeek / deepseek-flash');
+    assert.equal(partial.children[1], progress); assert.equal(partial.children[2].textContent, 'Hello back');
+    assert.equal(f.$('[data-agent-execution-view]'), null);
+    current = { ...current, status: 'completed', partial: undefined, conversation: [...current.conversation, { role: 'assistant', text: 'Hello back', model: 'deepseek-flash', model_label: 'DeepSeek / deepseek-flash' }] };
+    f.$('[data-agent-refresh]').click(); await settle();
+    const reply = f.$('[data-agent-message-index="1"]');
+    assert.equal(reply, partial); assert.equal(reply.firstElementChild.textContent, 'DeepSeek / deepseek-flash');
+    assert.equal(reply.children[1], progress); assert.equal(f.$('[data-agent-partial]'), null);
 });
 
 test('old model errors explain how to retry and known legacy replies keep their recorded model name', async t => {

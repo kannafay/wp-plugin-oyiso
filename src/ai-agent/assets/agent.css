@@ -136,7 +136,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-message-role { max-width: 85%; color: #787c82; font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
 .oyiso-agent-message.is-user .oyiso-agent-message-role { display: none; }
 .oyiso-agent-message-content { max-width: min(85%, 720px); padding: 10px 14px; box-sizing: border-box; border-radius: 6px; background: #f1f2f4; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 14px; }
-.oyiso-agent-message.is-user .oyiso-agent-message-content { border-radius: 6px 6px 2px 6px; color: #1d2327; }
+.oyiso-agent-message.is-user .oyiso-agent-message-content { border-radius: 6px 6px 2px 6px; background: var(--wp-admin-theme-color, #3858e9); color: #fff; }
 .oyiso-agent-message.is-user .oyiso-agent-message-content a { color: inherit; text-decoration: underline; }
 .oyiso-agent-message.is-assistant .oyiso-agent-message-content { width: 100%; max-width: 76ch; min-width: 0; padding: 0; border-radius: 0; background: transparent; white-space: normal; font-size: 14px; line-height: 1.8; }
 .oyiso-agent-message-content :is(p, ul, ol, blockquote, pre, .oyiso-agent-markdown-table) { margin: 0 0 10px; font-size: inherit; line-height: inherit; }
@@ -189,6 +189,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-composer { background: #fff; }
 .oyiso-agent-progress { width: 100%; max-width: 76ch; margin: 0 0 24px; box-sizing: border-box; border: 1px solid var(--oyiso-agent-line, #e7e9ec); border-radius: 4px; background: var(--oyiso-agent-subtle, #f6f7f8); color: #50575e; }
 .oyiso-agent-progress summary { display: flex; align-items: center; gap: 9px; padding: 10px 12px; list-style: none; cursor: pointer; font-size: 12px; }
+.oyiso-agent-message > .oyiso-agent-progress { width: 100%; margin: 0 0 8px; box-sizing: border-box; }
 .oyiso-agent-progress summary::-webkit-details-marker { display: none; }
 .oyiso-agent-progress summary::before { content: ''; flex: none; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
 .oyiso-agent-progress[open] > summary::before { transform: rotate(45deg); }
@@ -300,7 +301,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-message-attachments { display: flex; flex-wrap: wrap; justify-content: inherit; gap: 6px; max-width: 85%; }
 .oyiso-agent-message-attachments button { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 6px 10px; overflow: hidden; border: 1px solid #dcdcde; border-radius: 4px; background: #fff; font: inherit; font-size: 12px; line-height: 1.5; cursor: pointer; }
 .oyiso-agent-message-file-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.oyiso-agent-message-attachments button.is-image { padding: 0; border: 0; border-radius: 4px; background: transparent; }
+.oyiso-agent-message-attachments button.is-image { padding: 3px; border: 1px solid #dcdcde; border-radius: 4px; background: #fff; }
 .oyiso-agent-message-thumb { display: grid; place-items: center; flex: none; width: 64px; height: 64px; overflow: hidden; border-radius: 4px; background: #f5f5f5; color: #787c82; }
 .oyiso-agent-message-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .oyiso-agent-message-attachments button:focus-visible { outline: 2px solid var(--oyiso-color-primary, #3858e9); outline-offset: 2px; }

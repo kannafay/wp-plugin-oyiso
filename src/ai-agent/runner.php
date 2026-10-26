@@ -95,7 +95,9 @@ final class Oyiso_Agent_Runner
             $checkpoint = $run;
             $allowed = Oyiso_Agent_Abilities::allowed();
             $savedAt = 0.0;
-            $run['partial'] = ['text' => '', 'model' => explode('|', $run['selection'] ?? '|AI', 2)[1] ?? 'AI'];
+            $run['partial'] = ['text' => '', 'model' => explode('|', $run['selection'] ?? '|AI', 2)[1] ?? 'AI', 'model_label' => Oyiso_Agent_Connections::label($run['selection'] ?? null)];
+            $requestedModel = $run['partial']['model'];
+            $modelLabel = $run['partial']['model_label'];
             $turn = $this->model->generate($run['messages'], $allowed, $run['selection'] ?? null, static function (string $text) use (&$run, &$savedAt, $id, $onText): void {
                 if (Oyiso_Agent_Store::cancelled($id)) throw new RuntimeException('任务已取消。');
                 if ($text === '') return;
@@ -130,7 +132,8 @@ final class Oyiso_Agent_Runner
             unset($run['partial']);
             $run['messages'][] = $turn->message->toArray();
             if (trim($text) !== '') {
-                $run['conversation'][] = ['role' => 'assistant', 'text' => $text, 'model' => $turn->model];
+                $label = str_ends_with($modelLabel, ' / ' . $requestedModel) ? substr($modelLabel, 0, -strlen($requestedModel)) . $turn->model : Oyiso_Agent_Connections::label($run['selection'] ?? null, $turn->model);
+                $run['conversation'][] = ['role' => 'assistant', 'text' => $text, 'model' => $turn->model, 'model_label' => $label];
             }
             Oyiso_Agent_Store::event($run, 'info', '模型已响应', $turn->model);
             $tools = new Oyiso_Agent_Tools($run);
