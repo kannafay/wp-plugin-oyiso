@@ -579,6 +579,77 @@ final class ManagedConnectionsTest extends TestCase
         }
     }
 
+    public function testEveryProtocolSendsTheCurrentPageAbilityWithAnObjectPropertiesMap(): void
+    {
+        foreach (['openai_chat', 'openai_responses', 'anthropic_messages', 'gemini'] as $protocol) {
+            $row = $this->create(['preset' => 'custom', 'protocol' => $protocol]);
+            $this->mockHttp(static function ($pre, $args) use ($protocol) {
+                $body = json_decode($args['body']);
+                $schema = match ($protocol) {
+                    'openai_chat' => $body->tools[0]->function->parameters,
+                    'openai_responses' => $body->tools[0]->parameters,
+                    'anthropic_messages' => $body->tools[0]->input_schema,
+                    default => $body->tools[0]->functionDeclarations[0]->parametersJsonSchema,
+                };
+                self::assertSame('object', $schema->type);
+                self::assertInstanceOf(stdClass::class, $schema->properties, $protocol);
+                self::assertSame([], $schema->required);
+                self::assertFalse($schema->additionalProperties);
+                return self::schemaReply($protocol);
+            });
+            foreach ([false, true] as $stream) {
+                $turn = (new Oyiso_Agent_Model())->generate([(new UserMessage([new MessagePart('我当前在哪个页面')]))->toArray()], ['oyiso/get-current-page'], $row['id'] . '|fixture-model', $stream ? static function (string $delta): void {} : null);
+                self::assertInstanceOf(Oyiso_Agent_Turn::class, $turn, $turn instanceof WP_Error ? $turn->get_error_message() : $protocol);
+            }
+        }
+    }
+
+    public function testSchemaNormalizationPreservesListsAndNestedEmptyObjectDefinitions(): void
+    {
+        $schema = ['type' => 'object', 'properties' => [
+            'options' => ['type' => 'object', 'properties' => [], 'required' => [], 'additionalProperties' => false],
+            'rows' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => []], 'default' => []],
+            'choice' => ['anyOf' => [['type' => 'object', 'properties' => []], ['type' => 'null']]],
+            'required' => ['type' => 'array', 'items' => ['type' => 'string'], 'default' => []],
+        ], 'required' => ['options'], 'additionalProperties' => false];
+        foreach (['openai_chat', 'openai_responses', 'anthropic_messages', 'gemini'] as $protocol) {
+            $row = $this->create(['preset' => 'custom', 'protocol' => $protocol]);
+            $this->mockHttp(static function ($pre, $args) use ($protocol) {
+                $body = json_decode($args['body']);
+                $tools = $protocol === 'gemini' ? $body->tools[0]->functionDeclarations : $body->tools;
+                $schemas = array_map(static fn($tool) => match ($protocol) {
+                    'openai_chat' => $tool->function->parameters,
+                    'openai_responses' => $tool->parameters,
+                    'anthropic_messages' => $tool->input_schema,
+                    default => $tool->parametersJsonSchema,
+                }, $tools);
+                $schema = $schemas[0];
+                self::assertInstanceOf(stdClass::class, $schema->properties->options->properties);
+                self::assertInstanceOf(stdClass::class, $schema->properties->rows->items->properties);
+                self::assertInstanceOf(stdClass::class, $schema->properties->choice->anyOf[0]->properties);
+                self::assertSame([], $schema->properties->options->required);
+                self::assertSame([], $schema->properties->rows->default);
+                self::assertSame([], $schema->properties->required->default);
+                self::assertSame(['options'], $schema->required);
+                self::assertFalse($schema->additionalProperties);
+                foreach (array_slice($schemas, 1) as $empty) { self::assertSame('object', $empty->type); self::assertInstanceOf(stdClass::class, $empty->properties); }
+                return self::schemaReply($protocol);
+            });
+            $result = wp_ai_client_prompt([new UserMessage([new MessagePart('Schema fixture')])])
+                ->using_model(Oyiso_Agent_Connections::model($row['id'], 'fixture-model'))
+                ->using_function_declarations(new FunctionDeclaration('schema_fixture', 'Nested schema.', $schema), new FunctionDeclaration('empty_fixture', 'Empty schema.', []), new FunctionDeclaration('null_fixture', 'No schema.'))
+                ->generate_text_result();
+            self::assertNotInstanceOf(WP_Error::class, $result, $result instanceof WP_Error ? $result->get_error_message() : $protocol);
+        }
+    }
+
+    private static function schemaReply(string $protocol): array
+    {
+        if ($protocol === 'openai_chat') return self::response(['choices' => [['message' => ['role' => 'assistant', 'content' => 'OK'], 'finish_reason' => 'stop']], 'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2]]);
+        if ($protocol === 'openai_responses') return self::response(self::responsesResponse([self::responsesMessage('OK')]));
+        return self::response(self::nativeResponse($protocol, [$protocol === 'anthropic_messages' ? ['type' => 'text', 'text' => 'OK'] : ['text' => 'OK']]));
+    }
+
     public function testNativeFailuresRejectMalformedOrTruncatedCallsAndNeverExposeKeys(): void
     {
         foreach (['anthropic_messages', 'gemini'] as $protocol) {

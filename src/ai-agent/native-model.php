@@ -336,11 +336,7 @@ final class Oyiso_Agent_Native_Model extends AbstractApiBasedModel implements Te
     /** @return array<string, mixed> */
     private static function schema(FunctionDeclaration $declaration): array
     {
-        $schema = $declaration->getParameters() ?? ['type' => 'object'];
-        if (($schema['type'] ?? null) === 'object' && empty($schema['properties'])) {
-            $schema['properties'] = new stdClass();
-        }
-        return $schema;
+        return Oyiso_Agent_Tool_Schema::parameters($declaration->getParameters());
     }
 
     /** @return array<string, mixed> */

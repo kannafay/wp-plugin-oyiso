@@ -23,7 +23,9 @@ use WordPress\AiClient\Providers\Models\DTO\SupportedOption;
 use WordPress\AiClient\Providers\Models\Enums\CapabilityEnum;
 use WordPress\AiClient\Providers\Models\Enums\OptionEnum;
 use WordPress\AiClient\Providers\OpenAiCompatibleImplementation\AbstractOpenAiCompatibleTextGenerationModel;
+use WordPress\AiClient\Tools\DTO\FunctionDeclaration;
 
+require_once __DIR__ . '/tool-schema.php';
 require_once __DIR__ . '/native-model.php';
 require_once __DIR__ . '/stream.php';
 
@@ -167,6 +169,20 @@ final class Oyiso_Agent_Compatible_Model extends AbstractOpenAiCompatibleTextGen
         $options->setMaxRedirects(0);
         $options->setTimeout($options->getTimeout() ?? 45.0);
         return new Request($method, $connection->url . '/' . ltrim($path, '/'), $headers, $data, $options);
+    }
+
+    /** @param list<FunctionDeclaration> $functionDeclarations
+     * @return list<array<string, mixed>>
+     */
+    protected function prepareToolsParam(array $functionDeclarations): array
+    {
+        $tools = [];
+        foreach ($functionDeclarations as $declaration) {
+            $function = $declaration->toArray();
+            $function['parameters'] = Oyiso_Agent_Tool_Schema::parameters($declaration->getParameters());
+            $tools[] = ['type' => 'function', 'function' => $function];
+        }
+        return $tools;
     }
 
     protected function prepareMessagesParam(array $messages, ?string $systemInstruction = null): array
