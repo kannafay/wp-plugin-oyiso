@@ -556,6 +556,8 @@
 
     function renderChanges(changes) {
         const container = $('[data-agent-changes]');
+        const previousHistory = $('[data-agent-content-history]', container);
+        const historyOpen = previousHistory?.open && previousHistory.dataset.agentContentHistory === String(runId);
         container.replaceChildren();
         const visible = changes.filter(change => !['superseded', 'cancelled'].includes(change.status));
         if (visible.length) container.append(node('h3', '', visible.some(change => change.type === 'trash') ? '商品操作' : '商品修改'));
@@ -636,9 +638,20 @@
             container.append(section);
         }
         const contentChanges = (run?.content_changes || []).filter(change => !['superseded', 'cancelled', 'dismissed'].includes(change.status));
+        const latestContent = new Map();
+        for (const change of contentChanges) if (change.post_id > 0 && change.kind !== 'draft') latestContent.set(change.post_id, change);
+        const historical = new Set(contentChanges.filter(change => change.post_id > 0 && change.kind !== 'draft' && latestContent.get(change.post_id) !== change && ['filled', 'applied', 'reverted'].includes(change.status)));
+        let contentHistory;
+        if (historical.size) {
+            contentHistory = node('details', 'oyiso-agent-change-history');
+            contentHistory.dataset.agentContentHistory = String(runId);
+            contentHistory.open = !!historyOpen;
+            contentHistory.append(node('summary', '', `历史方案（${historical.size}）`));
+        }
         if (contentChanges.length) container.append(node('h3', '', '文章与页面'));
         for (const change of contentChanges) {
             const section = node('section', 'oyiso-agent-change');
+            section.dataset.agentContentChange = change.id;
             const heading = node('div', 'oyiso-agent-change-heading');
             const states = { pending: '尚未保存', applied: change.kind === 'draft' ? '草稿已创建' : '已保存', filled: '已填入编辑器，尚未保存', reverted: '已撤回' };
             heading.append(node('h4', '', `${change.title || '未命名'}${change.post_id ? `（#${change.post_id}）` : '（新草稿）'}`), node('span', 'description', states[change.status] || change.status));
@@ -673,8 +686,9 @@
                 section.append(actions);
             }
             if (change.url) { const link = node('a', 'button', '打开草稿'); link.href = change.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; section.append(link); }
-            container.append(section);
+            (historical.has(change) ? contentHistory : container).append(section);
         }
+        if (contentHistory) container.append(contentHistory);
         const actions = (run?.mcp_actions || []).filter(action => action.status !== 'cancelled');
         if (actions.length) container.append(node('h3', '', 'MCP 操作'));
         for (const action of actions) {

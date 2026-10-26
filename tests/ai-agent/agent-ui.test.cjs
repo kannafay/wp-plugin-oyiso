@@ -38,6 +38,7 @@ const chooseLayout = (f, mode) => { if (f.$('[data-agent-settings-menu]').hidden
 
 const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42, conversation: [], events: [], changes: [], error: '', recoverable: false, ...extra });
 const proposal = () => ({ id: '12345678-1234-1234-1234-123456789abc', product_id: 99, name: '商品示例', before: { description: '<p>Original</p>' }, after: { description: '<p>Proposed</p>' }, status: 'pending' });
+const contentProposal = (extra = {}) => ({ id: 'content-latest', post_id: 7, post_type: 'post', kind: 'update', title: 'Article', before: { content: '<p>Original</p>', excerpt: '' }, after: { content: '<p>Latest</p>', excerpt: '' }, status: 'filled', ...extra });
 
 function fixture(t, router = () => undefined, settings = {}, before = () => {}, view = {}) {
     const navigation = view.nativeNavigation ? '<nav class="csf-nav csf-nav-options"><ul><li class="csf-tab-item"><a data-tab-id="ai-agent" class="csf-arrow" href="#tab=ai-agent">AI Agent</a><ul><li><a data-tab-id="ai-agent/agent-model" href="#tab=ai-agent/agent-model">模型配置</a></li><li><a data-tab-id="ai-agent/agent-records" href="#tab=ai-agent/agent-records">对话记录</a></li></ul></li></ul></nav>' : '';
@@ -174,6 +175,77 @@ test('a separate draft requested from an editor is clearly labeled and leaves th
     create.click(); await settle();
     assert.equal(JSON.parse(f.calls.find(call => call.route.includes('/content/')).options.body).action, 'apply');
     assert.equal(f.$('#title').value, 'Current article'); assert.equal(f.$('#content').value, '<p>My current edits</p>');
+});
+
+test('earlier filled article proposals are collapsed as history instead of stacked beside the latest proposal', async t => {
+    const changes = [
+        contentProposal({ id: 'content-first', after: { content: '<p>First version</p>', excerpt: 'First summary' } }),
+        contentProposal({ id: 'content-second', after: { content: '<p>Second version</p>', excerpt: '' } }),
+        contentProposal(),
+    ];
+    let current = task({ content_changes: changes, conversation: [{ role: 'user', text: 'Translate the article' }, { role: 'assistant', text: 'Preview ready' }] });
+    const f = fixture(t, route => route === 'runs/12' ? current : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const container = f.$('[data-agent-changes]');
+    assert.deepEqual([...container.querySelectorAll(':scope > [data-agent-content-change]')].map(card => card.dataset.agentContentChange), ['content-latest']);
+    const history = f.$('[data-agent-content-history]');
+    assert.equal(history.open, false);
+    assert.equal(history.querySelector('summary').textContent, '历史方案（2）');
+    assert.deepEqual([...history.querySelectorAll('[data-agent-content-change]')].map(card => card.dataset.agentContentChange), ['content-first', 'content-second']);
+    assert.match(history.textContent, /First version/); assert.match(history.textContent, /Second version/);
+    assert.doesNotMatch(f.$('[data-agent-content-change="content-latest"]').textContent, /First version|Second version/);
+    history.open = true;
+    current = { ...current, events: [{ time: '', type: 'info', label: '历史刷新', detail: '' }] };
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-content-history]').open, true);
+    assert.equal(container.querySelectorAll('[data-agent-content-change]').length, 3);
+    assert.equal(f.calls.some(call => call.route.includes('/content/')), false);
+    assert.equal(changes.every(change => change.status === 'filled'), true);
+});
+
+test('content history keeps different articles, independent drafts and unresolved proposals visible', async t => {
+    const changes = [
+        contentProposal({ id: 'content-old' }),
+        contentProposal({ id: 'pending-earlier', status: 'pending' }),
+        contentProposal({ status: 'pending' }),
+        contentProposal({ id: 'other-page', post_id: 8, post_type: 'page' }),
+        contentProposal({ id: 'draft-first', kind: 'draft', post_id: 0, status: 'pending' }),
+        contentProposal({ id: 'draft-second', kind: 'draft', post_id: 0, status: 'pending' }),
+        ...['superseded', 'dismissed', 'cancelled'].map(status => contentProposal({ id: status, status })),
+    ];
+    const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', content_changes: changes }) : undefined,
+        { writeTools: ['oyiso/apply-post-update', 'oyiso/create-post-draft'] }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.deepEqual([...f.$('[data-agent-changes]').querySelectorAll(':scope > [data-agent-content-change]')].map(card => card.dataset.agentContentChange), ['pending-earlier', 'content-latest', 'other-page', 'draft-first', 'draft-second']);
+    assert.equal(f.$('[data-agent-content-history] > summary').textContent, '历史方案（1）');
+    assert.equal(f.$('[data-agent-content-history]').querySelectorAll('[data-agent-content-change]').length, 1);
+    for (const id of ['superseded', 'dismissed', 'cancelled']) assert.equal(f.$(`[data-agent-content-change="${id}"]`), null);
+    assert.equal(f.$('[data-agent-content-change="content-latest"] button').textContent, '保存到站点');
+    for (const id of ['draft-first', 'draft-second']) assert.equal(f.$(`[data-agent-content-change="${id}"] button`).textContent, '创建草稿');
+});
+
+test('an applied historical content proposal remains reversible without replacing the latest proposal', async t => {
+    const changes = [contentProposal({ id: 'content-applied', status: 'applied' }), contentProposal()];
+    let current = task({ content_changes: changes });
+    const f = fixture(t, route => {
+        if (route === 'runs/12') return current;
+        if (route === 'runs/12/content/content-applied') {
+            current = task({ content_changes: [{ ...changes[0], status: 'reverted' }, changes[1]] });
+            return current;
+        }
+    }, { writeTools: ['oyiso/revert-post-update'] }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    f.$('[data-agent-content-history]').open = true;
+    const button = f.$('[data-agent-content-change="content-applied"] button');
+    assert.equal(button.textContent, '撤回修改'); assert.equal(button.disabled, false);
+    button.click(); await settle();
+    const request = f.calls.filter(call => call.route.includes('/content/'));
+    assert.equal(request.length, 1); assert.equal(request[0].route, 'runs/12/content/content-applied');
+    assert.equal(JSON.parse(request[0].options.body).action, 'revert');
+    assert.equal(f.$('[data-agent-content-history]').open, true);
+    assert.match(f.$('[data-agent-content-change="content-applied"]').textContent, /已撤回/);
+    assert.equal(f.$('[data-agent-content-change="content-applied"] button'), null);
+    assert.equal(f.$('[data-agent-changes] > [data-agent-content-change]').dataset.agentContentChange, 'content-latest');
 });
 
 test('expired editor proposals regenerate with current context and preserve unsent text and attachments', async t => {
