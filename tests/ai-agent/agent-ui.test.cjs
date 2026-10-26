@@ -3316,6 +3316,54 @@ test('settings shortcut closes the panel before normal navigation from another a
     assert.equal(f.calls.some(call => call.route.endsWith('/cancel')), false);
 });
 
+test('proposal cards stay with their original reply while later messages and refreshes leave them in place', async t => {
+    const change = contentProposal({ message_index: 1 });
+    let conversation = [{ role: 'user', text: 'Write the article' }, { role: 'assistant', text: 'Review this proposal', model: 'model-a' }, { role: 'user', text: 'Which tools are available?' }, { role: 'assistant', text: 'An unrelated answer', model: 'model-a' }];
+    const f = fixture(t, route => route === 'runs/12' ? task({ conversation, content_changes: [change] }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const card = () => f.$('[data-agent-content-change="content-latest"]');
+    assert.equal(card().closest('[data-agent-message-index]').dataset.agentMessageIndex, '1');
+    assert.equal(f.$('[data-agent-message-index="3"]').querySelector('[data-agent-content-change]'), null);
+    assert.equal(f.$('[data-agent-changes]').childElementCount, 0); assert.equal(f.$('[data-agent-legacy-proposals]').hidden, true);
+    card().querySelector('details').open = true;
+    conversation = [...conversation, { role: 'user', text: 'One more question' }, { role: 'assistant', text: 'Another answer', model: 'model-a' }];
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.window.document.querySelectorAll('[data-agent-content-change="content-latest"]').length, 1);
+    assert.equal(card().closest('[data-agent-message-index]').dataset.agentMessageIndex, '1');
+    assert.equal(card().querySelector('details').open, true);
+    assert.equal(f.$('[data-agent-message-index="5"]').querySelector('[data-agent-content-change]'), null);
+});
+
+test('product, content and plugin proposals each use their own reply and unlinked legacy cards remain separate', async t => {
+    const conversation = Array.from({ length: 6 }, (_, index) => ({ role: index % 2 ? 'assistant' : 'user', text: `Message ${index}`, model: 'model-a' }));
+    const product = { ...proposal(), message_index: 1 };
+    const content = contentProposal({ message_index: 3 });
+    const action = { id: 'owned-mcp', name: 'woodmart/read-settings', label: 'Plugin proposal', input_json: '{}', status: 'completed', result: 'Done', message_index: 5 };
+    const legacy = contentProposal({ id: 'legacy-unknown', post_id: 42 });
+    const f = fixture(t, route => route === 'runs/12' ? task({ conversation, changes: [product], content_changes: [content, legacy], mcp_actions: [action] }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    for (const [kind, index] of [['product', 1], ['content', 3], ['mcp', 5]]) assert.equal(f.$(`[data-agent-message-index="${index}"] [data-agent-proposal-kind="${kind}"]`).closest('[data-agent-message-index]').dataset.agentMessageIndex, String(index));
+    assert.equal(f.$('[data-agent-content-change="legacy-unknown"]').closest('[data-agent-message-index]'), null);
+    assert.equal(f.$('[data-agent-legacy-proposals]').hidden, false);
+    assert.equal(f.$('[data-agent-legacy-proposals]').open, false);
+    assert.equal(f.$('.oyiso-agent-scroll').firstElementChild, f.$('[data-agent-legacy-proposals]'));
+});
+
+test('automatic compaction displays its waiting state and records model calls without duplicating the user message', async t => {
+    let controller;
+    const stream = new ReadableStream({ start(value) { controller = value; } });
+    let current = task({ status: 'queued', step: 0, selection: 'fixture|model-a', context_state: { phase: 'compacting', count: 0 }, conversation: [{ role: 'user', text: 'Continue this request' }], executions: [{ index: 0, status: 'running', step: 0, tokens: 0, events: [{ label: '正在整理较早的对话', type: 'info', detail: '' }] }] });
+    const f = fixture(t, route => route === 'runs/12' ? current : route === 'runs/12/step' ? { sse: stream } : undefined, { contextModels: { 'fixture|model-a': { limit: 524288, source: 'preset' } } }, window => { window.TextDecoder = TextDecoder; window.ReadableStream = ReadableStream; window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'); });
+    await settle();
+    assert.equal(f.$('[data-agent-response-label]').textContent, '正在整理较早的对话…');
+    assert.equal(f.$('[data-agent-context-button]').getAttribute('aria-busy'), 'true');
+    current = task({ status: 'completed', step: 1, selection: 'fixture|model-a', context_state: { phase: 'completed', count: 1 }, context_usage: { selection: 'fixture|model-a', input: 8192, output: 20 }, conversation: [...current.conversation, { role: 'assistant', text: 'Continued successfully', model: 'model-a' }], executions: [{ index: 0, status: 'completed', step: 1, summary_calls: 1, tokens: 420, events: [{ label: '上下文已自动压缩', type: 'success', detail: 'Original records preserved' }] }] });
+    controller.enqueue(new TextEncoder().encode(`event: state\ndata: ${JSON.stringify(current)}\n\nevent: done\ndata: ${JSON.stringify(current)}\n\n`)); controller.close(); await settle();
+    assert.equal(f.$('[data-agent-context-button]').getAttribute('aria-busy'), 'false');
+    assert.match(f.$('.oyiso-agent-progress-usage').textContent, /2 次模型调用（含 1 次整理）/);
+    assert.equal(f.window.document.querySelectorAll('.oyiso-agent-message.is-user').length, 1);
+});
+
 test('context ring uses the latest request input and follows the selected model without accumulating usage', async t => {
     let current = task({ selection: 'fixture|model-a', tokens: 900000, context_usage: { selection: 'fixture|model-a', input: 250000, output: 10000 } });
     const f = fixture(t, route => route === 'runs/12' ? current : undefined, { contextModels: { 'fixture|model-a': { limit: 1000000, source: 'preset' }, 'second|model-b': { limit: 524288, source: 'catalog' } } }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));

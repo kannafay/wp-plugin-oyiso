@@ -46,7 +46,7 @@ final class Oyiso_Agent_Live
             do {
                 if (!in_array($run['status'], ['queued', 'running'], true)) break;
                 $step = $run['step'];
-                $runner->step($id, static function (string $delta, int $step, string $model) use ($emit, $id): void { $emit('text', ['id' => $id, 'step' => $step, 'model' => $model, 'delta' => $delta]); });
+                $runner->step($id, static function (string $delta, int $step, string $model) use ($emit, $id): void { $emit('text', ['id' => $id, 'step' => $step, 'model' => $model, 'delta' => $delta]); }, static function (array $state) use ($emit): void { $emit('state', $state); });
                 $run = Oyiso_Agent_Store::get($id);
                 if (is_wp_error($run)) { $emit('error', ['message' => '对话已不可用，请重新打开对话。']); return true; }
                 $emit('state', Oyiso_Agent_Store::view($run));

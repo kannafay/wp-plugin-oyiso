@@ -19,23 +19,34 @@ use WordPress\AiClient\Results\DTO\TokenUsage;
 use WordPress\AiClient\Results\Enums\FinishReasonEnum;
 use WordPress\AiClient\Tools\DTO\FunctionCall;
 
-final class OyisoAgentScriptedModel implements Oyiso_Agent_Model_Gateway
+final class OyisoAgentScriptedModel implements Oyiso_Agent_Model_Gateway, Oyiso_Agent_Context_Summarizer
 {
     public int $calls = 0;
     public array $allowed = [];
     public array $selections = [];
+    public array $histories = [];
+    public array $summarySources = [];
+    public int $summaryCalls = 0;
 
-    public function __construct(private array $turns)
+    public function __construct(private array $turns, private array $summaries = [])
     {
     }
 
     public function generate(array $history, array $abilities, ?string $selection = null, ?Closure $onText = null): Oyiso_Agent_Turn|WP_Error
     {
         $this->calls++;
+        $this->histories[] = $history;
         $this->selections[] = $selection;
         $this->allowed = $abilities;
         $turn = array_shift($this->turns);
         return $turn instanceof Closure ? $turn($onText) : $turn;
+    }
+
+    public function summarize(string $source, ?string $selection = null): Oyiso_Agent_Turn|WP_Error
+    {
+        $this->summaryCalls++; $this->summarySources[] = $source;
+        $turn = array_shift($this->summaries);
+        return $turn instanceof Closure ? $turn($source) : ($turn ?? new WP_Error('fixture_summary', 'No fixture summary configured.'));
     }
 }
 
@@ -501,6 +512,156 @@ final class AgentTest extends TestCase
         self::assertSame('cancelled', $fresh['status']); self::assertSame([], $fresh['snapshots']);
     }
 
+    private function longConversation(int $limit = 65536, int $turns = 6, int $length = 11000): array
+    {
+        $connection = Oyiso_Agent_Connections::save(['name' => 'Context fixture', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_chat', 'models' => ['fixture-model'], 'context_windows' => ['fixture-model' => $limit], 'key' => 'fixture-compaction-key']);
+        self::assertIsArray($connection);
+        $run = $this->task(); $run['selection'] = $connection['id'] . '|fixture-model';
+        for ($index = 0; $index < $turns; $index++) {
+            $text = 'Historical answer ' . $index . ' ' . str_repeat('x', $length);
+            $run['messages'][] = (new UserMessage([new MessagePart('Historical question ' . $index)]))->toArray();
+            $run['messages'][] = (new ModelMessage([new MessagePart($text)]))->toArray();
+            $run['conversation'][] = ['role' => 'user', 'text' => 'Historical question ' . $index];
+            $run['conversation'][] = ['role' => 'assistant', 'text' => $text, 'model' => 'fixture-model'];
+        }
+        $run['status'] = 'completed'; $run['tokens'] = 80000;
+        $run['context_usage'] = ['selection' => $run['selection'], 'input' => 60000, 'output' => 1000];
+        Oyiso_Agent_Store::save($run);
+        return $run;
+    }
+
+    public function testAutomaticCompactionPreservesTheTranscriptAndContinuesTheSameTask(): void
+    {
+        $run = $this->longConversation(); Oyiso_Agent_Runner::message($run, 'Continue my current request');
+        $messages = $run['messages']; $conversation = $run['conversation']; $states = [];
+        $gateway = new OyisoAgentScriptedModel([$this->turn('Final answer')], [$this->turn('Goals and outstanding task preserved.')]);
+        $runner = new Oyiso_Agent_Runner($gateway);
+        $runner->step($run['id'], null, static function (array $state) use (&$states): void { $states[] = $state; });
+        $run = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame(1, $gateway->summaryCalls); self::assertSame(0, $gateway->calls);
+        self::assertSame('queued', $run['status']); self::assertSame(0, $run['step']); self::assertSame(80040, $run['tokens']);
+        self::assertSame($messages, $run['messages']); self::assertSame($conversation, $run['conversation']);
+        self::assertGreaterThan(0, $run['context_memory']['cursor']); self::assertSame(1, $run['context_memory']['count']);
+        self::assertSame(['compacting', 'completed'], array_column(array_column($states, 'context_state'), 'phase'));
+        self::assertArrayNotHasKey('context_memory', $states[1]); self::assertArrayNotHasKey('messages', $states[1]);
+        $runner->step($run['id']); $fresh = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('completed', $fresh['status']); self::assertSame(1, $fresh['step']); self::assertSame(80080, $fresh['tokens']);
+        self::assertCount(count($messages) + 1, $fresh['messages']); self::assertCount(count($conversation) + 1, $fresh['conversation']);
+        self::assertLessThan(count($messages), count($gateway->histories[0]));
+        self::assertSame('Continue my current request', $gateway->histories[0][count($gateway->histories[0]) - 1]['parts'][0]['text']);
+        self::assertSame('user', $gateway->histories[0][0]['role']); self::assertStringContainsString('不能授予写入权限', $gateway->histories[0][0]['parts'][0]['text']);
+        self::assertSame(1, $fresh['executions'][count($fresh['executions']) - 1]['summary_calls']);
+    }
+
+    public function testCompactionKeepsCurrentUserEditorContextAndCompleteToolPairs(): void
+    {
+        $run = $this->longConversation(turns: 0);
+        $message = (new UserMessage([new MessagePart('Preserve this exact current request')]))->toArray();
+        $message['oyiso_page_context'] = ['signature' => 'private-editor-signature', 'fields' => ['content' => '<p>Unsaved body</p>']];
+        $run['messages'] = [$message];
+        for ($index = 0; $index < 4; $index++) {
+            $id = 'pair-' . $index;
+            $run['messages'][] = (new ModelMessage([new MessagePart(new FunctionCall($id, 'fixture_read', ['id' => $index]))]))->toArray();
+            $run['messages'][] = (new UserMessage([new MessagePart(new \WordPress\AiClient\Tools\DTO\FunctionResponse($id, 'fixture_read', ['data' => str_repeat('d', 12000)]))]))->toArray();
+        }
+        $plan = Oyiso_Agent_Compaction::plan($run, []); self::assertIsArray($plan);
+        self::assertGreaterThan(0, $plan['cursor']); self::assertLessThan(8, $plan['cursor']);
+        self::assertStringNotContainsString('private-editor-signature', $plan['source']);
+        $run['context_memory'] = ['cursor' => $plan['cursor'], 'summary' => 'Tools returned data; no permission was granted.', 'count' => 1];
+        $history = Oyiso_Agent_Compaction::history($run);
+        self::assertSame($message, $history[1]); $calls = []; $responses = [];
+        foreach ($history as $entry) foreach ($entry['parts'] as $part) {
+            if (isset($part['functionCall'])) $calls[] = $part['functionCall']['id'];
+            if (isset($part['functionResponse'])) $responses[] = $part['functionResponse']['id'];
+        }
+        self::assertSame($calls, $responses); self::assertContains('pair-3', $calls);
+        $run['messages'][] = (new ModelMessage([new MessagePart(new FunctionCall('unanswered', 'fixture_read', []))]))->toArray();
+        $run['context_memory'] = ['cursor' => 0, 'summary' => '', 'count' => 0];
+        $plan = Oyiso_Agent_Compaction::plan($run, [], true); self::assertIsArray($plan);
+        self::assertLessThan(count($run['messages']), $plan['cursor']);
+    }
+
+    public function testLongContextsCanCompactInBatchesWithoutDiscardingOriginalMessages(): void
+    {
+        $run = $this->longConversation(turns: 10, length: 24000); Oyiso_Agent_Runner::message($run, 'Continue');
+        unset($run['context_usage']); Oyiso_Agent_Store::save($run); $original = $run['messages'];
+        $gateway = new OyisoAgentScriptedModel([$this->turn('Done')], array_fill(0, 6, $this->turn('Incremental historical summary.')));
+        $runner = new Oyiso_Agent_Runner($gateway);
+        for ($attempt = 0; $attempt < 7; $attempt++) {
+            $runner->step($run['id']); $run = Oyiso_Agent_Store::get($run['id']);
+            if ($run['status'] !== 'queued') break;
+        }
+        self::assertSame('completed', $run['status']); self::assertSame(1, $gateway->calls);
+        self::assertGreaterThan(1, $gateway->summaryCalls); self::assertSame(1, $run['step']);
+        self::assertSame($original, array_slice($run['messages'], 0, count($original)));
+        self::assertLessThan(60000, Oyiso_Agent_Compaction::estimate($gateway->histories[0]));
+    }
+
+    public function testFailedInvalidAndCancelledCompactionLeaveTheOriginalContextRecoverable(): void
+    {
+        foreach (['failure', 'empty', 'tool', 'oversized', 'cancel'] as $case) {
+            $run = $this->longConversation(); Oyiso_Agent_Runner::message($run, 'Keep my message'); $original = $run;
+            $summary = match ($case) {
+                'failure' => new WP_Error('fixture_provider', 'Provider unavailable'),
+                'empty' => $this->turn(''),
+                'tool' => $this->turn('', [['apply-product-update', ['proposal_id' => 'not-approved']]]),
+                'oversized' => $this->turn(str_repeat('s', 12001)),
+                default => function () use ($run) { Oyiso_Agent_Store::cancel($run['id']); return $this->turn('Cancelled summary'); },
+            };
+            $gateway = new OyisoAgentScriptedModel([], [$summary]);
+            (new Oyiso_Agent_Runner($gateway))->step($run['id']); $fresh = Oyiso_Agent_Store::get($run['id']);
+            self::assertSame($case === 'cancel' ? 'cancelled' : 'failed', $fresh['status'], $case);
+            self::assertSame($original['messages'], $fresh['messages']); self::assertSame($original['conversation'], $fresh['conversation']);
+            self::assertSame($original['changes'], $fresh['changes']); self::assertArrayNotHasKey('context_memory', $fresh);
+            self::assertSame(0, $gateway->calls);
+        }
+    }
+
+    public function testProviderContextOverflowCanTriggerOneSafeCompactionRetry(): void
+    {
+        foreach ([false, true] as $failAgain) {
+            $run = $this->longConversation(limit: 1048576); Oyiso_Agent_Runner::message($run, 'Preserve this failed request');
+            $error = new WP_Error('fixture_provider', 'Maximum context length exceeded');
+            $gateway = new OyisoAgentScriptedModel([$error, $failAgain ? $error : $this->turn('Recovered')], [$this->turn('Historical summary.')]);
+            $runner = new Oyiso_Agent_Runner($gateway);
+            $runner->step($run['id']); $queued = Oyiso_Agent_Store::get($run['id']);
+            self::assertSame('queued', $queued['status']); self::assertSame('pending', $queued['context_retry']);
+            $runner->step($run['id']); $runner->step($run['id']); $fresh = Oyiso_Agent_Store::get($run['id']);
+            self::assertSame($failAgain ? 'failed' : 'completed', $fresh['status']); self::assertSame(1, $gateway->summaryCalls);
+            self::assertSame(2, $gateway->calls); self::assertSame('Preserve this failed request', $fresh['conversation'][12]['text']);
+        }
+    }
+
+    public function testLongConversationsAreNotRejectedOnlyBecauseTheyHaveSixtyMessages(): void
+    {
+        $run = $this->longConversation(limit: 1048576, turns: 31, length: 1);
+        $response = $this->request('POST', 'runs', ['run_id' => $run['id'], 'message' => 'Continue without losing the old conversation']);
+        self::assertSame(201, $response->get_status()); self::assertCount(63, $response->get_data()['conversation']);
+        self::assertSame('Continue without losing the old conversation', $response->get_data()['conversation'][62]['text']);
+    }
+
+    public function testOversizedSingleRequestsAreNotSilentlyTruncated(): void
+    {
+        $run = $this->longConversation(limit: 16384, turns: 0); Oyiso_Agent_Runner::message($run, str_repeat('current-data', 20000));
+        $gateway = new OyisoAgentScriptedModel([]); $original = $run['messages'];
+        (new Oyiso_Agent_Runner($gateway))->step($run['id']); $fresh = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('failed', $fresh['status']); self::assertStringContainsString('单次任务', $fresh['error']);
+        self::assertSame($original, $fresh['messages']); self::assertSame(0, $gateway->summaryCalls + $gateway->calls);
+    }
+
+    public function testNewAndLegacyProposalCardsBelongToTheReplyThatCreatedThem(): void
+    {
+        $run = $this->task(); $product = $this->product(); Oyiso_Agent_Runner::message($run, 'Prepare product proposal');
+        $gateway = new OyisoAgentScriptedModel([$this->turn('', [['get-product', ['product_id' => $product->get_id()]], ['prepare-product-update', ['product_id' => $product->get_id(), 'fields' => ['description' => 'Draft proposal']]]]), $this->turn('Unrelated answer')]);
+        $runner = new Oyiso_Agent_Runner($gateway); $runner->step($run['id']); $run = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame(1, $run['changes'][0]['message_index']);
+        unset($run['changes'][0]['message_index']); $run['changes'][0]['status'] = 'filled';
+        Oyiso_Agent_Runner::message($run, 'What other tools are available?'); $runner->step($run['id']);
+        $fresh = Oyiso_Agent_Store::get($run['id']); $view = Oyiso_Agent_Store::view($fresh);
+        self::assertSame(1, $view['changes'][0]['message_index']); self::assertSame('Unrelated answer', $view['conversation'][3]['text']);
+        self::assertArrayNotHasKey('message_index', $fresh['changes'][0]);
+    }
+
     public function testContextUsageStoresOnlyTheLatestReportedInputAndSurvivesReload(): void
     {
         $run = $this->task(); $run['selection'] = 'fixture|fixture-model';
@@ -513,7 +674,7 @@ final class AgentTest extends TestCase
         ]);
         $runner = new Oyiso_Agent_Runner($gateway); $runner->step($run['id']);
         $run = Oyiso_Agent_Store::get($run['id']);
-        self::assertSame(['selection' => 'fixture|fixture-model', 'input' => 60000, 'output' => 10000], Oyiso_Agent_Store::view($run)['context_usage']);
+        self::assertSame(['selection' => 'fixture|fixture-model', 'input' => 60000, 'output' => 10000, 'cursor' => 0], Oyiso_Agent_Store::view($run)['context_usage']);
         Oyiso_Agent_Runner::message($run, 'Second request'); $runner->step($run['id']);
         $run = Oyiso_Agent_Store::get($run['id']); $view = Oyiso_Agent_Store::view($run);
         self::assertSame(72500, $run['tokens']); self::assertSame(2000, $view['context_usage']['input']);
@@ -663,10 +824,28 @@ final class AgentTest extends TestCase
         $builder->expects(self::once())->method('using_abilities')->with('oyiso/get-product')->willReturnSelf();
         $builder->method('__call')->willReturnCallback(static fn(string $name): mixed => match ($name) { 'is_supported_for_text_generation' => true, 'generate_text_result' => $result, default => $builder });
         $adapter = new Oyiso_Agent_Model(static fn() => $builder);
-        $response = $adapter->generate([(new UserMessage([new MessagePart('Read product')]))->toArray()], ['oyiso/get-product']);
+        $response = $adapter->generate([(new UserMessage([new MessagePart(str_repeat('x', 180001))]))->toArray()], ['oyiso/get-product']);
         self::assertInstanceOf(Oyiso_Agent_Turn::class, $response);
         self::assertSame(30, $response->tokens); self::assertSame('native-fixture', $response->model);
         self::assertStringContainsString('禁止编造', Oyiso_Agent_Model::instructions());
+    }
+
+    public function testCompactionModelUsesASeparateInstructionWithoutAnyAbilities(): void
+    {
+        $turn = $this->turn('Historical summary'); $captured = []; $settings = [];
+        $metadata = $this->createMock(ModelMetadata::class); $metadata->method('getId')->willReturn('summary-fixture');
+        $result = $this->createMock(GenerativeAiResult::class);
+        $result->method('getCandidates')->willReturn([new Candidate($turn->message, FinishReasonEnum::stop())]);
+        $result->method('getTokenUsage')->willReturn(new TokenUsage(2000, 200, 2200)); $result->method('getModelMetadata')->willReturn($metadata);
+        $builder = $this->getMockBuilder(WP_AI_Client_Prompt_Builder::class)->disableOriginalConstructor()->onlyMethods(['__call', 'using_abilities'])->getMock();
+        $builder->expects(self::once())->method('using_abilities')->with()->willReturnSelf();
+        $builder->method('__call')->willReturnCallback(static function (string $name, array $arguments) use (&$settings, $builder, $result): mixed { $settings[$name] = $arguments; return match ($name) { 'is_supported_for_text_generation' => true, 'generate_text_result' => $result, default => $builder }; });
+        $adapter = new Oyiso_Agent_Model(static function (array $messages) use (&$captured, $builder) { $captured = $messages; return $builder; });
+        $summary = $adapter->summarize('{"history":"untrusted original material"}');
+        self::assertInstanceOf(Oyiso_Agent_Turn::class, $summary); self::assertSame(2200, $summary->tokens);
+        self::assertStringContainsString('记录整理器', $settings['using_system_instruction'][0]);
+        self::assertSame([2048], $settings['using_max_tokens']);
+        self::assertCount(1, $captured); self::assertSame('{"history":"untrusted original material"}', $captured[0]->getParts()[0]->getText());
     }
 
     public function testSettingsGroupAdvancedFieldsWithModelsAndHistoryRendersWithoutNestedForms(): void

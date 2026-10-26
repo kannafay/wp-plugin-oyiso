@@ -11,6 +11,7 @@ use WordPress\AiClient\Tools\DTO\FunctionResponse;
 /** @phpstan-import-type Run from Oyiso_Agent_Store
  * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
  * @phpstan-import-type PageContext from Oyiso_Agent_Page_Context
+ * @phpstan-import-type Plan from Oyiso_Agent_Compaction
  */
 final class Oyiso_Agent_Runner
 {
@@ -40,7 +41,7 @@ final class Oyiso_Agent_Runner
     {
         Oyiso_Agent_Store::beginExecution($run);
         // Read-before-write snapshots belong to one user turn, not the whole conversation.
-        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots']);
+        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['context_retry']);
         $run['snapshots'] = [];
         foreach ($run['messages'] as &$previous) unset($previous['oyiso_page_context']);
         unset($previous, $run['page_context']);
@@ -58,8 +59,10 @@ final class Oyiso_Agent_Runner
         Oyiso_Agent_Store::save($run);
     }
 
-    /** @param (Closure(string,int,string):void)|null $onText */
-    public function step(int $id, ?Closure $onText = null): void
+    /** @param (Closure(string,int,string):void)|null $onText
+     * @param (Closure(array<string,mixed>):void)|null $onState
+     */
+    public function step(int $id, ?Closure $onText = null, ?Closure $onState = null): void
     {
         if (!Oyiso_Agent_Store::lock('run_' . $id)) {
             return;
@@ -87,18 +90,25 @@ final class Oyiso_Agent_Runner
                 $this->fail($run, '本次任务已达到执行轮次上限。请缩小任务范围后重试。');
                 return;
             }
+            $allowed = Oyiso_Agent_Abilities::allowed();
+            $plan = Oyiso_Agent_Compaction::plan($run, $allowed, ($run['context_retry'] ?? '') === 'pending');
+            if (is_wp_error($plan)) { $this->fail($run, $plan->get_error_message()); return; }
+            if ($plan !== null) {
+                $this->compact($run, $plan, $allowed, $onState);
+                if ($onText === null && $run['status'] === 'queued' && !Oyiso_Agent_Store::cancelled($id)) self::enqueue($id);
+                return;
+            }
             $run['status'] = 'running';
             unset($run['partial']);
             $run['step']++;
             Oyiso_Agent_Store::event($run, 'info', '正在分析任务', '第 ' . $run['step'] . ' 轮');
             Oyiso_Agent_Store::save($run);
             $checkpoint = $run;
-            $allowed = Oyiso_Agent_Abilities::allowed();
             $savedAt = 0.0;
             $run['partial'] = ['text' => '', 'model' => explode('|', $run['selection'] ?? '|AI', 2)[1] ?? 'AI', 'model_label' => Oyiso_Agent_Connections::label($run['selection'] ?? null)];
             $requestedModel = $run['partial']['model'];
             $modelLabel = $run['partial']['model_label'];
-            $turn = $this->model->generate($run['messages'], $allowed, $run['selection'] ?? null, static function (string $text) use (&$run, &$savedAt, $id, $onText): void {
+            $turn = $this->model->generate(Oyiso_Agent_Compaction::history($run), $allowed, $run['selection'] ?? null, static function (string $text) use (&$run, &$savedAt, $id, $onText): void {
                 if (Oyiso_Agent_Store::cancelled($id)) throw new RuntimeException('任务已取消。');
                 if ($text === '') return;
                 $run['partial']['text'] .= $text;
@@ -110,6 +120,17 @@ final class Oyiso_Agent_Runner
                 return;
             }
             if (is_wp_error($turn)) {
+                if (($run['context_retry'] ?? '') !== 'attempted' && Oyiso_Agent_Compaction::overflow($turn)) {
+                    $retry = Oyiso_Agent_Compaction::plan($run, $allowed, true);
+                    if (is_array($retry)) {
+                        $run['context_retry'] = 'pending'; $run['status'] = 'queued';
+                        $run['context_state'] = ['phase' => 'compacting', 'count' => $run['context_memory']['count'] ?? 0];
+                        unset($run['partial']);
+                        Oyiso_Agent_Store::event($run, 'info', '上下文过长，准备自动整理'); Oyiso_Agent_Store::save($run);
+                        if ($onText === null) self::enqueue($id);
+                        return;
+                    }
+                }
                 $this->fail($run, $turn->get_error_message());
                 return;
             }
@@ -129,9 +150,10 @@ final class Oyiso_Agent_Runner
                 return;
             }
             $run['tokens'] += $turn->tokens;
+            unset($run['context_retry']);
             // Context occupancy comes from one request's reported input, never cumulative usage.
             if ($turn->inputTokens !== null && $turn->inputTokens > 0) {
-                $run['context_usage'] = ['selection' => $run['selection'] ?? '', 'input' => $turn->inputTokens, 'output' => max(0, $turn->outputTokens ?? 0)];
+                $run['context_usage'] = ['selection' => $run['selection'] ?? '', 'input' => $turn->inputTokens, 'output' => max(0, $turn->outputTokens ?? 0), 'cursor' => $run['context_memory']['cursor'] ?? 0];
                 $checkpoint['context_usage'] = $run['context_usage'];
             } else {
                 unset($run['context_usage'], $checkpoint['context_usage']);
@@ -148,6 +170,7 @@ final class Oyiso_Agent_Runner
             $responses = [];
             $proposalsBefore = count($run['changes']) + count($run['content_changes'] ?? []);
             $mcpBefore = count($run['mcp_actions'] ?? []);
+            $proposalStarts = ['changes' => count($run['changes']), 'content_changes' => count($run['content_changes'] ?? []), 'mcp_actions' => $mcpBefore];
             foreach ($calls as $call) {
                 if (Oyiso_Agent_Store::cancelled($id)) {
                     break;
@@ -191,6 +214,10 @@ final class Oyiso_Agent_Runner
                 $run['status'] = 'waiting';
                 $trash = count(array_filter($run['changes'], static fn(array $change): bool => ($change['type'] ?? '') === 'trash' && $change['status'] === 'pending')) > 0;
                 $review = $trash ? '商品操作方案已生成，尚未执行。请核对卡片中的商品，再确认是否移入回收站。' : '修改方案已生成。请查看前后对照，再选择是否应用。';
+                $owner = count($run['conversation']);
+                foreach ($run['changes'] as $index => $proposal) if ($index >= $proposalStarts['changes']) { $proposal['message_index'] = $owner; $run['changes'][$index] = $proposal; }
+                foreach ($run['content_changes'] ?? [] as $index => $proposal) if ($index >= $proposalStarts['content_changes']) { $proposal['message_index'] = $owner; $run['content_changes'][$index] = $proposal; }
+                foreach ($run['mcp_actions'] ?? [] as $index => $proposal) if ($index >= $proposalStarts['mcp_actions']) { $proposal['message_index'] = $owner; $run['mcp_actions'][$index] = $proposal; }
                 $run['conversation'][] = ['role' => 'assistant', 'text' => count($run['mcp_actions'] ?? []) > $mcpBefore ? 'MCP 操作尚未执行。请查看工具和参数，再选择是否执行。' : $review, 'model' => $turn->model];
             } elseif ($calls === []) {
                 $run['status'] = $pending ? 'waiting' : 'completed';
@@ -225,9 +252,48 @@ final class Oyiso_Agent_Runner
         }
     }
 
+    /** @param Run $run
+     * @param Plan $plan
+     * @param list<string> $abilities
+     * @param (Closure(array<string,mixed>):void)|null $onState
+     */
+    private function compact(array &$run, array $plan, array $abilities, ?Closure $onState): void
+    {
+        $count = $run['context_memory']['count'] ?? 0;
+        $run['status'] = 'running'; $run['context_state'] = ['phase' => 'compacting', 'count' => $count]; unset($run['partial']);
+        Oyiso_Agent_Store::event($run, 'info', '正在整理较早的对话'); Oyiso_Agent_Store::save($run);
+        if ($onState !== null) $onState(Oyiso_Agent_Store::view($run));
+        if (!$this->model instanceof Oyiso_Agent_Context_Summarizer) { $this->fail($run, '当前模型适配器不支持上下文整理，原记录已保留。'); return; }
+        $executions = $run['executions'] ?? []; $execution = array_key_last($executions);
+        if ($execution !== null) { $record = $executions[$execution]; $record['summary_calls'] = ($record['summary_calls'] ?? 0) + 1; $executions[$execution] = $record; $run['executions'] = $executions; }
+        Oyiso_Agent_Store::save($run);
+        $result = $this->model->summarize($plan['source'], $run['selection'] ?? null);
+        if (Oyiso_Agent_Store::cancelled($run['id'])) { $run['context_state'] = ['phase' => 'cancelled', 'count' => $count]; Oyiso_Agent_Store::save($run); return; }
+        $run['context_state'] = ['phase' => 'failed', 'count' => $count];
+        if (is_wp_error($result)) { $this->fail($run, '自动整理未完成，原记录和消息已保留。' . $result->get_error_message()); return; }
+        $run['tokens'] += max(0, $result->tokens);
+        $summary = ''; $calls = false;
+        foreach ($result->message->getParts() as $part) {
+            if ($part->getFunctionCall() !== null) $calls = true;
+            if ($part->getChannel()->value === 'content') $summary .= $part->getText() ?? '';
+        }
+        $summary = trim($summary);
+        if ($summary === '' || $calls || mb_strlen($summary) > 12000) { $this->fail($run, '模型未返回有效的历史摘要，原记录和消息已保留，可重试。'); return; }
+        $candidate = $run; $candidate['context_memory'] = ['cursor' => $plan['cursor'], 'summary' => $summary, 'count' => $count + 1];
+        if (Oyiso_Agent_Compaction::estimate(Oyiso_Agent_Compaction::history($candidate), $abilities) >= Oyiso_Agent_Compaction::estimate(Oyiso_Agent_Compaction::history($run), $abilities)) { $this->fail($run, '整理后的资料未缩小，已保留原记录，请缩小本次任务范围。'); return; }
+        $run['context_memory'] = $candidate['context_memory'];
+        $run['context_state'] = ['phase' => 'completed', 'count' => $count + 1]; $run['status'] = 'queued';
+        if (($run['context_retry'] ?? '') === 'pending') $run['context_retry'] = 'attempted';
+        unset($run['context_usage']);
+        Oyiso_Agent_Store::event($run, 'success', '上下文已自动压缩', '第 ' . ($count + 1) . ' 次整理；原始对话、附件和方案保留。');
+        Oyiso_Agent_Store::save($run);
+        if ($onState !== null) $onState(Oyiso_Agent_Store::view($run));
+    }
+
     /** @param Run $run */
     private function fail(array $run, string $message): void
     {
+        if (($run['context_state']['phase'] ?? '') === 'compacting') $run['context_state'] = ['phase' => 'failed', 'count' => $run['context_state']['count']];
         $run['status'] = 'failed';
         $run['error'] = Oyiso_Agent_Config::error($message);
         Oyiso_Agent_Store::event($run, 'error', '任务已停止', $run['error']);

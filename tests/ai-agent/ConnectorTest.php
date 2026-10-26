@@ -188,6 +188,8 @@ final class ConnectorTest extends TestCase
         });
         $turn = (new Oyiso_Agent_Model())->generate([(new UserMessage([new MessagePart('Read a product')]))->toArray()], ['oyiso/get-product']);
         self::assertInstanceOf(Oyiso_Agent_Turn::class, $turn, $turn instanceof WP_Error ? $turn->get_error_message() : '');
+        self::assertFalse(get_option('oyiso_agent_connections', false));
+        self::assertArrayNotHasKey('agent_selection', Oyiso_Agent_Config::options());
         self::assertSame('fixture-custom-model', $turn->model);
         self::assertSame(30, $turn->tokens);
         self::assertSame('已读取。', $turn->message->getParts()[0]->getText());

@@ -370,7 +370,7 @@
     function fillProgress(element, record) {
         element.hidden = false; element.dataset.executionIndex = String(record.index); element.dataset.status = record.status;
         const state = $('.oyiso-agent-progress-state', element); state.hidden = false; state.textContent = statuses[record.status] || record.status;
-        $('.oyiso-agent-progress-usage', element).textContent = `${record.legacy ? '历史合并记录 · 最近任务 ' : ''}${Number(record.step || 0)} 次模型调用 · ${record.legacy ? '累计 ' : ''}${Number(record.tokens || 0).toLocaleString()} Token${record.truncated ? ' · 记录较长，部分细节已省略' : ''}`;
+        $('.oyiso-agent-progress-usage', element).textContent = `${record.legacy ? '历史合并记录 · 最近任务 ' : ''}${Number(record.step || 0) + Number(record.summary_calls || 0)} 次模型调用${record.summary_calls ? `（含 ${record.summary_calls} 次整理）` : ''} · ${record.legacy ? '累计 ' : ''}${Number(record.tokens || 0).toLocaleString()} Token${record.truncated ? ' · 记录较长，部分细节已省略' : ''}`;
         const signature = JSON.stringify(record.events || []);
         if (progressVersions.get(element) === signature) return;
         progressVersions.set(element, signature);
@@ -525,12 +525,16 @@
         const capacity = limit !== null ? `模型容量：${limit.toLocaleString()} Token（${model.source === 'catalog' ? '接口返回' : '官方预设'}）` : '模型容量未知，无法计算占比';
         $('[data-agent-context-count]', contextMeter).textContent = count;
         $('[data-agent-context-limit]', contextMeter).textContent = capacity;
-        $('[data-agent-context-note]', contextMeter).textContent = '按最近一次请求的输入统计，响应后更新；不含待发送内容。';
+        const compacting = ['queued', 'running'].includes(run?.status) && run?.context_state?.phase === 'compacting';
+        $('[data-agent-context-button]', contextMeter).setAttribute('aria-busy', String(compacting));
+        $('[data-agent-context-note]', contextMeter).textContent = compacting ? '正在自动整理较早的对话，原始记录和方案会保留。' : `按最近一次请求的输入统计，响应后更新；不含待发送内容。${run?.context_state?.count ? ` 已自动整理 ${run.context_state.count} 次。` : ''}`;
         $('[data-agent-context-button]', contextMeter).setAttribute('aria-label', `上下文用量${ratio === null ? '尚无法计算占比' : percent}。${count}。${capacity}。`);
     }
 
     function controls() {
         renderContext();
+        const legacyProposals = $('[data-agent-legacy-proposals]');
+        if (legacyProposals) legacyProposals.hidden = !$('[data-agent-changes]').childElementCount;
         if (refillConfirmation && !currentRefill()) closeRefillConfirmation();
         const active = run && ['queued', 'running'].includes(run.status);
         const ready = config.enabled && config.supported;
@@ -565,6 +569,7 @@
         progressState.hidden = waiting;
         let state = sending ? '正在发送…' : '正在思考…';
         if (active && run.status === 'queued') state = run.step > 0 ? '正在继续处理…' : '正在准备回复…';
+        if (active && run.context_state?.phase === 'compacting') state = '正在整理较早的对话…';
         if (stopping) state = '正在停止…';
         responseLabel.textContent = state;
         messages.setAttribute('aria-busy', String(!!(sending || active || loading)));
@@ -615,13 +620,25 @@
 
     function renderChanges(changes) {
         const container = $('[data-agent-changes]');
+        const disclosures = new Map();
+        for (const card of panel.querySelectorAll('[data-agent-proposal-id]')) {
+            for (const detail of card.querySelectorAll('details')) disclosures.set(`${card.dataset.agentProposalKind}:${card.dataset.agentProposalId}:${card.dataset.status}:${$('summary', detail)?.textContent}`, detail.open);
+        }
         const previousHistory = $('[data-agent-content-history]', container);
         const historyOpen = previousHistory?.open && previousHistory.dataset.agentContentHistory === String(runId);
+        messages.querySelectorAll('[data-agent-message-changes]').forEach(slot => slot.remove());
         container.replaceChildren();
+        const categoryHeading = (text, kind) => { const heading = node('h3', '', text); heading.dataset.agentChangeHeading = kind; return heading; };
+        const tagCard = (section, item, kind) => {
+            section.dataset.agentProposalKind = kind;
+            section.dataset.agentProposalId = item.id; section.dataset.status = item.status;
+            if (Number.isInteger(item.message_index) && run?.conversation[item.message_index]?.role === 'assistant') section.dataset.agentProposalMessage = String(item.message_index);
+        };
         const visible = changes.filter(change => !['superseded', 'cancelled'].includes(change.status));
-        if (visible.length) container.append(node('h3', '', visible.some(change => change.type === 'trash') ? '商品操作' : '商品修改'));
+        if (visible.length) container.append(categoryHeading(visible.some(change => change.type === 'trash') ? '商品操作' : '商品修改', 'product'));
         for (const change of visible) {
             const section = node('section', 'oyiso-agent-change');
+            tagCard(section, change, 'product');
             const heading = node('div', 'oyiso-agent-change-heading');
             heading.append(node('h4', '', `${change.name}（#${change.product_id}）`));
             const state = change.type === 'trash' ? { pending: '等待确认', applied: '已移入回收站', reverted: '已恢复', dismissed: '已取消' } : { pending: '尚未保存', applied: '已保存', reverted: '已撤回', filled: '已填入编辑器，尚未保存' };
@@ -698,8 +715,8 @@
         }
         const contentChanges = (run?.content_changes || []).filter(change => !['superseded', 'cancelled', 'dismissed'].includes(change.status));
         const latestContent = new Map();
-        for (const change of contentChanges) if (change.post_id > 0 && change.kind !== 'draft') latestContent.set(change.post_id, change);
-        const historical = new Set(contentChanges.filter(change => change.post_id > 0 && change.kind !== 'draft' && latestContent.get(change.post_id) !== change && ['filled', 'applied', 'reverted'].includes(change.status)));
+        for (const change of contentChanges) if (!Number.isInteger(change.message_index) && change.post_id > 0 && change.kind !== 'draft') latestContent.set(change.post_id, change);
+        const historical = new Set(contentChanges.filter(change => !Number.isInteger(change.message_index) && change.post_id > 0 && change.kind !== 'draft' && latestContent.get(change.post_id) !== change && ['filled', 'applied', 'reverted'].includes(change.status)));
         let contentHistory;
         if (historical.size) {
             contentHistory = node('details', 'oyiso-agent-change-history');
@@ -707,9 +724,10 @@
             contentHistory.open = !!historyOpen;
             contentHistory.append(node('summary', '', `历史方案（${historical.size}）`));
         }
-        if (contentChanges.length) container.append(node('h3', '', '文章与页面'));
+        if (contentChanges.length) container.append(categoryHeading('文章与页面', 'content'));
         for (const change of contentChanges) {
             const section = node('section', 'oyiso-agent-change');
+            tagCard(section, change, 'content');
             section.dataset.agentContentChange = change.id;
             section.dataset.status = change.status;
             const heading = node('div', 'oyiso-agent-change-heading');
@@ -754,9 +772,10 @@
         }
         if (contentHistory) container.append(contentHistory);
         const actions = (run?.mcp_actions || []).filter(action => action.status !== 'cancelled');
-        if (actions.length) container.append(node('h3', '', 'MCP 操作'));
+        if (actions.length) container.append(categoryHeading('插件操作', 'mcp'));
         for (const action of actions) {
             const section = node('section', 'oyiso-agent-change');
+            tagCard(section, action, 'mcp');
             const heading = node('div', 'oyiso-agent-change-heading');
             const states = { pending: '等待确认', executing: '已提交执行，请核对实际结果', completed: '已执行', dismissed: '已取消', failed: '执行失败，请先核对实际结果' };
             heading.append(node('h4', '', action.label), node('span', 'description', states[action.status] || action.status));
@@ -785,6 +804,26 @@
             }
             container.append(section);
         }
+        const headings = new Map(Array.from(container.querySelectorAll(':scope > [data-agent-change-heading]'), heading => [heading.dataset.agentChangeHeading, heading.textContent]));
+        for (const card of Array.from(container.querySelectorAll(':scope > [data-agent-proposal-message]'))) {
+            const owner = $(`[data-agent-message-index="${card.dataset.agentProposalMessage}"]`, messages);
+            if (!owner) continue;
+            let slot = $('[data-agent-message-changes]', owner);
+            if (!slot) { slot = node('div', 'oyiso-agent-message-changes'); slot.dataset.agentMessageChanges = ''; owner.append(slot); }
+            const kind = card.dataset.agentProposalKind;
+            if (!$(`[data-agent-change-heading="${kind}"]`, slot)) slot.append(categoryHeading(headings.get(kind) || '操作方案', kind));
+            slot.append(card);
+        }
+        for (const heading of container.querySelectorAll(':scope > [data-agent-change-heading]')) {
+            if (!$(`[data-agent-proposal-kind="${heading.dataset.agentChangeHeading}"]`, container)) heading.remove();
+        }
+        for (const card of panel.querySelectorAll('[data-agent-proposal-id]')) {
+            for (const detail of card.querySelectorAll('details')) {
+                const key = `${card.dataset.agentProposalKind}:${card.dataset.agentProposalId}:${card.dataset.status}:${$('summary', detail)?.textContent}`;
+                if (disclosures.has(key)) detail.open = disclosures.get(key);
+            }
+        }
+        const legacy = $('[data-agent-legacy-proposals]'); if (legacy) legacy.hidden = !container.childElementCount;
     }
 
     function confirmProductTrash(change, trigger) {

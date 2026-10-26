@@ -6,7 +6,7 @@ defined('ABSPATH') || exit;
 
 /** @phpstan-import-type Run from Oyiso_Agent_Store
  * @phpstan-import-type Fields from Oyiso_Agent_Store
- * @phpstan-type ContentChange array{id:string,post_id:int,post_type:string,title:string,before:Fields,after:Fields,saved:Fields,status:string,kind:string,url?:string,editor_before?:Fields}
+ * @phpstan-type ContentChange array{id:string,post_id:int,post_type:string,title:string,before:Fields,after:Fields,saved:Fields,status:string,kind:string,url?:string,editor_before?:Fields,message_index?:int}
  */
 final class Oyiso_Agent_Content
 {

@@ -6,14 +6,14 @@ defined('ABSPATH') || exit;
 
 /**
  * @phpstan-type Fields array<string, string>
- * @phpstan-type Change array{id:string, product_id:int, name:string, before:Fields, after:Fields, status:string, type?:string, sku?:string, product_type?:string, reason?:string, previous_status?:string, variation_count?:int, variation_statuses?:array<int,string>, fingerprint?:string,editor_before?:Fields}
+ * @phpstan-type Change array{id:string, product_id:int, name:string, before:Fields, after:Fields, status:string, type?:string, sku?:string, product_type?:string, reason?:string, previous_status?:string, variation_count?:int, variation_statuses?:array<int,string>, fingerprint?:string,editor_before?:Fields,message_index?:int}
  * @phpstan-import-type PageContext from Oyiso_Agent_Page_Context
  * @phpstan-import-type ContentChange from Oyiso_Agent_Content
  * @phpstan-type RunEvent array{time:string, type:string, label:string, detail:string}
- * @phpstan-type Execution array{index:int,status:string,step:int,tokens:int,token_start:int,events:list<RunEvent>,model_label?:string,legacy?:bool,truncated?:bool}
- * @phpstan-type MCPAction array{id:string,name:string,label:string,input_json:string,status:string,result:string}
+ * @phpstan-type Execution array{index:int,status:string,step:int,tokens:int,token_start:int,events:list<RunEvent>,model_label?:string,legacy?:bool,truncated?:bool,summary_calls?:int}
+ * @phpstan-type MCPAction array{id:string,name:string,label:string,input_json:string,status:string,result:string,message_index?:int}
  * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
- * @phpstan-type Run array{id:int, selection?:string,context_usage?:array{selection:string,input:int,output:int}, page_context?:PageContext,content_changes?:list<ContentChange>,post_snapshots?:array<int,array{fields:Fields,saved:Fields}>,partial?:array{text:string,model:string,model_label?:string}, mcp_actions?:list<MCPAction>, product_snapshots?:array<int,string>,executions?:list<Execution>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string,model_label?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
+ * @phpstan-type Run array{id:int, selection?:string,context_usage?:array{selection:string,input:int,output:int,cursor?:int},context_memory?:array{cursor:int,summary:string,count:int},context_state?:array{phase:string,count:int},context_retry?:string, page_context?:PageContext,content_changes?:list<ContentChange>,post_snapshots?:array<int,array{fields:Fields,saved:Fields}>,partial?:array{text:string,model:string,model_label?:string}, mcp_actions?:list<MCPAction>, product_snapshots?:array<int,string>,executions?:list<Execution>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string,model_label?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
  */
 final class Oyiso_Agent_Store
 {
@@ -238,6 +238,7 @@ final class Oyiso_Agent_Store
      */
     public static function view(array $run): array
     {
+        self::proposalOrigins($run);
         foreach ($run['conversation'] as &$entry) {
             if ($entry['role'] === 'assistant' && isset($entry['model']) && !isset($entry['model_label'])) {
                 $entry['model_label'] = Oyiso_Agent_Connections::label('', $entry['model']);
@@ -250,9 +251,52 @@ final class Oyiso_Agent_Store
         $executions = self::updateExecutions(($run['executions'] ?? []) ?: self::legacyExecutions($run), $run['status'], $run['step'], $run['tokens']);
         $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'executions', 'changes', 'content_changes', 'page_context', 'error']));
         if (isset($run['context_usage'])) $view['context_usage'] = $run['context_usage'];
+        if (isset($run['context_state'])) $view['context_state'] = $run['context_state'];
         $view['executions'] = array_map(static function (array $execution): array { unset($execution['token_start']); return $execution; }, $executions);
         $lock = get_option('oyiso_agent_lock_run_' . $run['id'], '');
         $view['recoverable'] = $view['status'] === 'running' && (!is_string($lock) || (int) $lock <= time() - 180);
         return $view;
+    }
+
+    /** Recover old card ownership only when the original tool result identifies its user turn.
+     * @param Run $run
+     */
+    private static function proposalOrigins(array &$run): void
+    {
+        $missing = false;
+        foreach (['changes', 'content_changes', 'mcp_actions'] as $field) foreach ($run[$field] ?? [] as $change) if (!isset($change['message_index'])) $missing = true;
+        if (!$missing) return;
+        $owners = []; $users = [];
+        foreach ($run['conversation'] as $index => $entry) if ($entry['role'] === 'user') $users[] = $index;
+        foreach ($users as $turn => $start) {
+            $end = $users[$turn + 1] ?? count($run['conversation']); $owner = null;
+            for ($index = $start + 1; $index < $end; $index++) {
+                $entry = $run['conversation'][$index];
+                if ($entry['role'] !== 'assistant') continue;
+                $owner ??= $index;
+                if (str_contains($entry['text'], '方案已生成') || str_contains($entry['text'], 'MCP 操作尚未执行')) { $owner = $index; break; }
+            }
+            if ($owner !== null) $owners[$turn] = $owner;
+        }
+        $turn = -1; $origins = [];
+        foreach ($run['messages'] as $message) {
+            $parts = $message['parts'] ?? []; if (!is_array($parts)) continue;
+            $hasText = false; $responses = [];
+            foreach ($parts as $part) {
+                if (!is_array($part)) continue;
+                if (isset($part['text']) && is_string($part['text']) && $part['text'] !== '') $hasText = true;
+                $response = is_array($part['functionResponse'] ?? null) ? ($part['functionResponse']['response'] ?? null) : null;
+                if (is_array($response)) $responses[] = $response;
+            }
+            if (($message['role'] ?? '') === 'user' && $hasText && $responses === []) $turn++;
+            if (!isset($owners[$turn])) continue;
+            foreach ($responses as $response) {
+                $id = $response['proposal_id'] ?? $response['action_id'] ?? null;
+                if (is_string($id)) $origins[$id] ??= $owners[$turn];
+            }
+        }
+        foreach ($run['changes'] as $index => $change) if (!isset($change['message_index']) && isset($origins[$change['id']])) { $change['message_index'] = $origins[$change['id']]; $run['changes'][$index] = $change; }
+        foreach ($run['content_changes'] ?? [] as $index => $change) if (!isset($change['message_index']) && isset($origins[$change['id']])) { $change['message_index'] = $origins[$change['id']]; $run['content_changes'][$index] = $change; }
+        foreach ($run['mcp_actions'] ?? [] as $index => $change) if (!isset($change['message_index']) && isset($origins[$change['id']])) { $change['message_index'] = $origins[$change['id']]; $run['mcp_actions'][$index] = $change; }
     }
 }

@@ -224,7 +224,10 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-changes { padding: 0 var(--oyiso-agent-gutter, 20px) 4px; }
 #oyiso-agent-panel .oyiso-agent-page-context { padding-right: calc(var(--oyiso-agent-gutter) + var(--oyiso-agent-scrollbar, 0px)); }
 #oyiso-agent-panel .oyiso-agent-notice { margin-right: calc(var(--oyiso-agent-gutter) + var(--oyiso-agent-scrollbar, 0px)); }
-.oyiso-agent-changes > h3 { margin: 12px 0; color: #646970; font-size: 12px; font-weight: 500; }
+.oyiso-agent-changes > h3, .oyiso-agent-message-changes > h3 { margin: 12px 0; color: #646970; font-size: 12px; font-weight: 500; }
+.oyiso-agent-message-changes { width: 100%; min-width: 0; margin-top: 14px; }
+.oyiso-agent-message-changes > :last-child { margin-bottom: 0; }
+.oyiso-agent-legacy-proposals > summary { margin: 10px var(--oyiso-agent-gutter, 20px); color: #646970; cursor: pointer; font-size: 12px; }
 .oyiso-agent-change { margin: 0 0 16px; padding: 16px; border: 1px solid var(--oyiso-agent-line, #e7e9ec); border-radius: 4px; }
 .oyiso-agent-change-history { margin: 0 0 16px; border: 1px solid var(--oyiso-agent-line, #e7e9ec); border-radius: 4px; }
 .oyiso-agent-change-history > summary { padding: 10px 16px; color: #646970; background: #f6f7f8; border-radius: 4px; cursor: pointer; font-size: 12px; }

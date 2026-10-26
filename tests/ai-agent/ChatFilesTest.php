@@ -307,7 +307,7 @@ final class ChatFilesTest extends TestCase
         $run['messages'][0]['oyiso_attachments'] = [999999999];
         self::assertSame('agent_file_missing', (new Oyiso_Agent_Model())->generate($run['messages'], [])->get_error_code());
         unset($run['messages'][0]['oyiso_attachments']);
-        Oyiso_Agent_Runner::message($run, str_repeat('a', 180001));
+        Oyiso_Agent_Runner::message($run, str_repeat('a', Oyiso_Agent_Compaction::byteLimit(null) + 1));
         self::assertSame('agent_context_limit', (new Oyiso_Agent_Model())->generate($run['messages'], [])->get_error_code());
     }
 }

@@ -80,9 +80,6 @@ final class Oyiso_Agent_Admin
             if (Oyiso_Agent_Store::cancelled($id) || ($run['conversation'] !== [] && in_array($run['status'], ['queued', 'running'], true))) {
                 return new WP_Error('agent_task_active', '当前任务已取消或仍在执行，请等待完成或新建对话。', ['status' => 409]);
             }
-            if (count($run['conversation']) >= 60) {
-                return new WP_Error('agent_chat_limit', '本次对话已达上限，请新建对话。', ['status' => 400]);
-            }
             $selection = is_string($selection) ? $selection : ($run['selection'] ?? null);
             if ($selection === null) return new WP_Error('agent_model_selection', '此对话尚未选择模型，请在 AI 助手中选择模型后重新发送。', ['status' => 400]);
             if (!isset(Oyiso_Agent_Connections::choices()[$selection])) return new WP_Error('agent_model_selection', '所选模型已不可用，请重新选择模型。', ['status' => 400]);
@@ -312,8 +309,8 @@ final class Oyiso_Agent_Admin
             <p class="oyiso-agent-page-context" data-agent-page-context hidden></p>
             <p class="oyiso-agent-notice" data-agent-notice role="status" aria-live="polite"></p>
             <div class="oyiso-agent-scroll">
+                <details class="oyiso-agent-legacy-proposals" data-agent-legacy-proposals hidden><summary>早期操作方案</summary><div data-agent-changes class="oyiso-agent-changes"></div></details>
                 <div class="oyiso-agent-messages" data-agent-messages role="log" aria-label="对话内容" aria-live="polite"><div class="oyiso-agent-empty"><span class="oyiso-agent-empty-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8M10 14l1-4 8-8 3 3-8 8-4 1Z"/></svg></span><h3>一起完成当前的工作</h3><p>写文章、完善商品，或查询站内数据。告诉我你想做什么。</p><div class="oyiso-agent-examples"><button type="button" class="button" data-agent-example="查找缺少短描述和 SEO 信息的商品，先列出需要完善的内容。">检查商品内容</button><button type="button" class="button" data-agent-example="我想完善一个商品的长短描述和 SEO 信息。请先询问商品 ID，再读取商品并核对现有信息，生成修改预览。">完善商品文案</button></div><p class="oyiso-agent-empty-note">修改会先生成预览，由你确认后执行。</p></div></div>
-                <div data-agent-changes class="oyiso-agent-changes"></div>
                 <span class="oyiso-agent-response-status" data-agent-response-status role="status" aria-live="polite" hidden><span class="oyiso-agent-response-dot" aria-hidden="true"></span><span data-agent-response-label>正在准备回复…</span></span>
             </div>
             <div data-agent-progress-parking hidden><details class="oyiso-agent-progress" hidden><summary><span class="oyiso-agent-progress-title">执行过程</span><span class="oyiso-agent-progress-state" data-agent-status>尚未开始</span></summary><div class="oyiso-agent-progress-body"><p class="description oyiso-agent-progress-usage" data-agent-usage></p><ol class="oyiso-agent-progress-events" data-agent-events></ol></div></details></div>

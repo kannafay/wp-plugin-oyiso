@@ -24,6 +24,7 @@ require_once __DIR__ . '/content.php';
 require_once __DIR__ . '/tools.php';
 require_once __DIR__ . '/abilities.php';
 require_once __DIR__ . '/model.php';
+require_once __DIR__ . '/compaction.php';
 require_once __DIR__ . '/runner.php';
 require_once __DIR__ . '/live.php';
 require_once __DIR__ . '/admin.php';
