@@ -10,9 +10,10 @@ defined('ABSPATH') || exit;
  * @phpstan-import-type PageContext from Oyiso_Agent_Page_Context
  * @phpstan-import-type ContentChange from Oyiso_Agent_Content
  * @phpstan-type RunEvent array{time:string, type:string, label:string, detail:string}
+ * @phpstan-type Execution array{index:int,status:string,step:int,tokens:int,token_start:int,events:list<RunEvent>,legacy?:bool,truncated?:bool}
  * @phpstan-type MCPAction array{id:string,name:string,label:string,input_json:string,status:string,result:string}
  * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
- * @phpstan-type Run array{id:int, selection?:string, page_context?:PageContext,content_changes?:list<ContentChange>,post_snapshots?:array<int,array{fields:Fields,saved:Fields}>,partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, product_snapshots?:array<int,string>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
+ * @phpstan-type Run array{id:int, selection?:string, page_context?:PageContext,content_changes?:list<ContentChange>,post_snapshots?:array<int,array{fields:Fields,saved:Fields}>,partial?:array{text:string,model:string}, mcp_actions?:list<MCPAction>, product_snapshots?:array<int,string>,executions?:list<Execution>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
  */
 final class Oyiso_Agent_Store
 {
@@ -98,14 +99,66 @@ final class Oyiso_Agent_Store
                 if ($action['status'] === 'pending') $run['mcp_actions'][$index]['status'] = 'cancelled';
             }
         }
+        if (isset($run['executions'])) $run['executions'] = self::updateExecutions($run['executions'], $run['status'], $run['step'], $run['tokens']);
         update_post_meta($run['id'], self::META, wp_slash($run));
+    }
+
+    /** Called before appending a new user message, so the previous turn keeps its final values.
+     * @param Run $run
+     */
+    public static function beginExecution(array &$run): void
+    {
+        $executions = self::updateExecutions(($run['executions'] ?? []) ?: self::legacyExecutions($run), $run['status'], $run['step'], $run['tokens']);
+        $executions[] = ['index' => count($run['conversation']), 'status' => 'queued', 'step' => 0, 'tokens' => 0, 'token_start' => $run['tokens'], 'events' => []];
+        $run['executions'] = $executions;
+    }
+
+    /** @param list<Execution> $executions
+     * @return list<Execution>
+     */
+    private static function updateExecutions(array $executions, string $status, int $step, int $tokens): array
+    {
+        $index = array_key_last($executions);
+        if ($index === null) return $executions;
+        $executions[$index]['status'] = $status;
+        $executions[$index]['step'] = $step;
+        $executions[$index]['tokens'] = max(0, $tokens - $executions[$index]['token_start']);
+        return $executions;
+    }
+
+    /** Older events were not associated with individual user messages. Do not invent that history.
+     * @param Run $run
+     * @return list<Execution>
+     */
+    private static function legacyExecutions(array $run): array
+    {
+        if ($run['conversation'] === [] && $run['events'] === []) return [];
+        $index = -1;
+        foreach ($run['conversation'] as $key => $entry) if ($entry['role'] === 'user') $index = $key;
+        return [['index' => $index, 'status' => $run['status'], 'step' => $run['step'], 'tokens' => $run['tokens'], 'token_start' => 0, 'events' => $run['events'], 'legacy' => true]];
     }
 
     /** @param Run $run */
     public static function event(array &$run, string $type, string $label, string $detail = ''): void
     {
-        $run['events'][] = ['time' => gmdate('c'), 'type' => $type, 'label' => $label, 'detail' => mb_substr($detail, 0, 2000)];
+        $event = ['time' => gmdate('c'), 'type' => $type, 'label' => $label, 'detail' => mb_substr($detail, 0, 2000)];
+        $run['events'][] = $event;
         $run['events'] = array_slice($run['events'], -100);
+        $executions = $run['executions'] ?? [];
+        $index = array_key_last($executions);
+        if ($index !== null) {
+            $execution = $executions[$index];
+            if (mb_strlen($event['label']) > 150 || mb_strlen($event['detail']) > 300) $execution['truncated'] = true;
+            $event['label'] = mb_substr($event['label'], 0, 150);
+            $event['detail'] = mb_substr($event['detail'], 0, 300);
+            $execution['events'][] = $event;
+            if (count($execution['events']) > 50) {
+                $execution['events'] = array_slice($execution['events'], -50);
+                $execution['truncated'] = true;
+            }
+            $executions[$index] = $execution;
+            $run['executions'] = $executions;
+        }
     }
 
     /** @phpstan-impure Cancellation may be updated by another request. */
@@ -190,10 +243,10 @@ final class Oyiso_Agent_Store
             unset($file);
         }
         unset($entry);
-        $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'changes', 'content_changes', 'page_context', 'error']));
-        if (self::cancelled($run['id'])) {
-            $view['status'] = 'cancelled';
-        }
+        if (self::cancelled($run['id'])) $run['status'] = 'cancelled';
+        $executions = self::updateExecutions(($run['executions'] ?? []) ?: self::legacyExecutions($run), $run['status'], $run['step'], $run['tokens']);
+        $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'executions', 'changes', 'content_changes', 'page_context', 'error']));
+        $view['executions'] = array_map(static function (array $execution): array { unset($execution['token_start']); return $execution; }, $executions);
         $lock = get_option('oyiso_agent_lock_run_' . $run['id'], '');
         $view['recoverable'] = $view['status'] === 'running' && (!is_string($lock) || (int) $lock <= time() - 180);
         return $view;

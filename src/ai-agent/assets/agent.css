@@ -163,7 +163,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-message-content hr { margin: 12px 0; border: 0; border-top: 1px solid #dcdcde; }
 .oyiso-agent-stream-caret { display: inline-block; width: 2px; height: 1em; margin-left: 3px; background: currentColor; vertical-align: -.12em; user-select: none; animation: oyiso-agent-caret 1s step-end infinite; }
 @keyframes oyiso-agent-caret { 50% { opacity: 0; } }
-.oyiso-agent-response-status { display: flex; align-items: center; gap: 9px; margin: 8px var(--oyiso-agent-gutter, 20px) 28px; color: #646970; font-size: 13px; }
+.oyiso-agent-response-status { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: #646970; font-size: 12px; }
 .oyiso-agent-response-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #787c82; animation: oyiso-agent-thinking 1.4s ease-in-out infinite; }
 @keyframes oyiso-agent-thinking { 50% { opacity: .3; } }
 .oyiso-agent-composer { flex: none; padding: 10px var(--oyiso-agent-gutter, 20px) 16px; }
@@ -186,19 +186,26 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-composer-actions .is-sending::after { content: ''; width: 14px; height: 14px; box-sizing: border-box; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: oyiso-agent-refresh .8s linear infinite; }
 .oyiso-agent-composer-control svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-composer { background: #fff; }
-.oyiso-agent-progress { flex: none; min-height: 0; background: #fff; color: #646970; }
-.oyiso-agent-progress summary { padding: 6px var(--oyiso-agent-gutter, 16px); cursor: pointer; font-size: 12px; }
-.oyiso-agent-progress summary span { float: right; color: #646970; }
-.oyiso-agent-progress-body { max-height: min(180px, 25dvh); padding: 0 var(--oyiso-agent-gutter, 16px) 4px; overflow-y: auto; overscroll-behavior: contain; }
-.oyiso-agent-progress ol { list-style: none; padding: 0; margin: 12px 0 0; }
+.oyiso-agent-progress { width: 100%; max-width: 76ch; margin: 0 0 24px; box-sizing: border-box; border: 1px solid var(--oyiso-agent-line, #e7e9ec); border-radius: 4px; background: var(--oyiso-agent-subtle, #f6f7f8); color: #50575e; }
+.oyiso-agent-progress summary { display: flex; align-items: center; gap: 9px; padding: 10px 12px; list-style: none; cursor: pointer; font-size: 12px; }
+.oyiso-agent-progress summary::-webkit-details-marker { display: none; }
+.oyiso-agent-progress summary::before { content: ''; flex: none; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
+.oyiso-agent-progress[open] > summary::before { transform: rotate(45deg); }
+.oyiso-agent-progress-title { flex: 1; color: #3c434a; font-weight: 500; }
+.oyiso-agent-progress-state { color: #646970; }
+.oyiso-agent-progress[data-status="failed"] { border-color: #e5b3b3; }
+.oyiso-agent-progress-body { padding: 0 12px 12px; }
+.oyiso-agent-progress-usage { margin: 0 0 12px; }
+.oyiso-agent-progress ol { list-style: none; padding: 0; margin: 0; }
 .oyiso-agent-progress li { position: relative; margin: 0 0 12px; padding-left: 15px; font-size: 12px; overflow-wrap: anywhere; }
+.oyiso-agent-progress li:last-child { margin-bottom: 0; }
 .oyiso-agent-progress li::before { content: ""; position: absolute; left: 0; top: 6px; width: 5px; height: 5px; background: #a7aaad; border-radius: 50%; }
 .oyiso-agent-progress li.is-success::before { background: #008a20; }
 .oyiso-agent-progress li.is-error::before { background: #b32d2e; }
 .oyiso-agent-progress small { display: block; margin-top: 4px; color: #646970; font-size: 12px; line-height: 1.6; }
 .oyiso-agent-changes:empty { display: none; }
 .oyiso-agent-changes { padding: 0 var(--oyiso-agent-gutter, 20px) 4px; }
-#oyiso-agent-panel :is(.oyiso-agent-page-context, .oyiso-agent-progress summary, .oyiso-agent-progress-body) { padding-right: calc(var(--oyiso-agent-gutter) + var(--oyiso-agent-scrollbar, 0px)); }
+#oyiso-agent-panel .oyiso-agent-page-context { padding-right: calc(var(--oyiso-agent-gutter) + var(--oyiso-agent-scrollbar, 0px)); }
 #oyiso-agent-panel .oyiso-agent-notice { margin-right: calc(var(--oyiso-agent-gutter) + var(--oyiso-agent-scrollbar, 0px)); }
 .oyiso-agent-changes > h3 { margin: 12px 0; color: #646970; font-size: 12px; font-weight: 500; }
 .oyiso-agent-change { margin: 0 0 16px; padding: 16px; border: 1px solid var(--oyiso-agent-line, #e7e9ec); border-radius: 4px; }

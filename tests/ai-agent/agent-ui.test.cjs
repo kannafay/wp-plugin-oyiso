@@ -409,6 +409,8 @@ test('sending gives immediate feedback and generation replaces send with stop wh
     const input = f.$('#oyiso-agent-prompt'), send = f.$('[data-agent-send]'), stop = f.$('[data-agent-cancel]');
     input.value = 'Rewrite this article'; send.click();
     assert.match(f.$('[data-agent-messages]').textContent, /Rewrite this article/);
+    assert.equal(f.$('[data-agent-pending]').nextElementSibling, f.$('.oyiso-agent-progress'));
+    assert.equal(f.$('.oyiso-agent-progress').parentElement, f.$('[data-agent-messages]'));
     assert.equal(f.$('.oyiso-agent-empty'), null);
     assert.equal(f.$('[data-agent-response-status]').hidden, false);
     assert.match(f.$('[data-agent-response-label]').textContent, /正在发送/);
@@ -674,6 +676,78 @@ test('progress events preserve the existing conversation and streaming bubble', 
     assert.equal(f.$('.is-assistant'), earlier);
     assert.equal(f.$('[data-agent-partial]'), partial);
     assert.match(f.$('[data-agent-events]').textContent, /模型已响应/);
+});
+
+test('execution records stay before their own replies, survive refresh and retain separate statuses and usage', async t => {
+    const firstEvents = [{ type: 'info', label: 'First turn tool', detail: 'First detail' }];
+    const secondEvents = [{ type: 'info', label: 'Second turn tool', detail: 'Second detail' }];
+    const conversation = [{ role: 'user', text: 'First request' }, { role: 'assistant', text: 'First answer' }, { role: 'user', text: 'Second request' }];
+    const executions = [{ index: 0, status: 'completed', step: 2, tokens: 80, events: firstEvents }, { index: 2, status: 'running', step: 1, tokens: 0, events: secondEvents }];
+    let state = task({ status: 'running', tokens: 80, conversation, executions, events: [...firstEvents, ...secondEvents], partial: { model: 'model-a', text: 'Second reply' } });
+    const restore = window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+    const f = fixture(t, route => route === 'runs/12' ? state : undefined, {}, restore);
+    await settle();
+    const first = f.$('[data-execution-index="0"]'), current = f.$('[data-execution-index="2"]');
+    assert.equal(first.parentElement, f.$('[data-agent-messages]')); assert.equal(current.parentElement, first.parentElement);
+    assert.equal(f.$('[data-agent-message-index="0"]').nextElementSibling, first);
+    assert.equal(first.nextElementSibling, f.$('[data-agent-message-index="1"]'));
+    assert.equal(f.$('[data-agent-message-index="2"]').nextElementSibling, current);
+    assert.equal(current.nextElementSibling, f.$('[data-agent-partial]'));
+    assert.match(first.textContent, /First turn tool/); assert.doesNotMatch(first.textContent, /Second turn tool/);
+    assert.match(current.textContent, /Second turn tool/); assert.doesNotMatch(current.textContent, /First turn tool/);
+    assert.match(first.textContent, /80 Token/); assert.equal(f.window.document.querySelectorAll('[data-agent-status]').length, 1);
+    assert.equal(f.$('[data-agent-progress-parking]').childElementCount, 0);
+    first.open = true; current.open = true;
+    const scroll = f.$('.oyiso-agent-scroll');
+    Object.defineProperties(scroll, { scrollHeight: { get: () => 1000 + f.$('[data-agent-messages]').textContent.length * 4 }, clientHeight: { value: 200 } });
+    scroll.scrollTop = scroll.scrollHeight - scroll.clientHeight; const bottom = scroll.scrollTop;
+    state = { ...state, events: [...state.events, { type: 'success', label: 'Second done' }], executions: [executions[0], { ...executions[1], events: [...secondEvents, { type: 'success', label: 'Second done', detail: 'Additional execution detail. '.repeat(15) }] }] };
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-execution-index="0"]'), first); assert.equal(first.open, true);
+    assert.equal(f.$('[data-execution-index="2"]'), current); assert.equal(current.open, true);
+    assert.ok(scroll.scrollTop > bottom, 'new execution details keep a reader at the bottom following the reply');
+    scroll.scrollTop = 17;
+    state = { ...state, status: 'completed', tokens: 120, partial: undefined, conversation: [...conversation, { role: 'assistant', text: 'Second reply', model: 'model-a' }], executions: [executions[0], { ...state.executions[1], status: 'completed', tokens: 40 }] };
+    f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(current.nextElementSibling, f.$('[data-agent-message-index="3"]'));
+    assert.match(current.textContent, /40 Token/); assert.doesNotMatch(current.textContent, /120 Token/);
+    assert.match(first.textContent, /80 Token/); assert.equal(first.open, true);
+    assert.equal(scroll.scrollTop, 17, 'manual scrollback is not moved when execution records or the final reply update');
+    const reloaded = fixture(t, route => route === 'runs/12' ? state : undefined, {}, restore); await settle();
+    assert.match(reloaded.$('[data-execution-index="0"]').textContent, /First turn tool/);
+    assert.match(reloaded.$('[data-execution-index="2"]').textContent, /Second done/);
+    assert.equal(reloaded.window.document.querySelectorAll('.oyiso-agent-scroll .oyiso-agent-progress').length, 2);
+});
+
+test('continuing a conversation preserves the earlier execution node and its expanded state', async t => {
+    const initial = task({ conversation: [{ role: 'user', text: 'First' }, { role: 'assistant', text: 'Answer' }], executions: [{ index: 0, status: 'completed', step: 1, tokens: 40, events: [{ type: 'info', label: 'Original event' }] }] });
+    const wire = liveWire();
+    const f = fixture(t, (route, options) => route === 'runs/12' ? initial : route === 'runs' && options.method === 'POST' ? wire : undefined, {}, window => { liveSupport(window); window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'); });
+    await settle(); f.$('[data-execution-index="0"]').open = true;
+    f.$('#oyiso-agent-prompt').value = 'Next'; f.$('[data-agent-send]').click(); await settle();
+    const previous = f.$('[data-execution-index="0"]');
+    assert.equal(previous.open, true); assert.match(previous.textContent, /Original event/);
+    assert.equal(f.$('[data-agent-pending]').nextElementSibling.dataset.executionIndex, 'pending');
+    const next = task({ status: 'queued', conversation: [...initial.conversation, { role: 'user', text: 'Next' }], executions: [...initial.executions, { index: 2, status: 'queued', step: 0, tokens: 0, events: [{ type: 'info', label: 'New event' }] }] });
+    wire.emit('state', next); await settle();
+    assert.equal(f.$('[data-execution-index="0"]'), previous); assert.equal(previous.open, true);
+    assert.match(f.$('[data-execution-index="2"]').textContent, /New event/);
+    wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: 'New reply' }); await settle();
+    assert.match(f.$('[data-agent-usage]').textContent, /1 次模型调用/);
+    wire.emit('done', { ...next, status: 'completed', executions: [initial.executions[0], { ...next.executions[1], status: 'completed' }] }); wire.close(); await settle();
+    assert.equal(f.window.document.querySelectorAll('.oyiso-agent-scroll .oyiso-agent-progress').length, 2);
+});
+
+test('legacy combined execution history is labeled and its content remains safe text', async t => {
+    const text = '<img src=x onerror=alert(1)>';
+    const state = task({ conversation: [{ role: 'user', text: 'Old first' }, { role: 'assistant', text: 'Old answer' }, { role: 'user', text: 'Old next' }, { role: 'assistant', text: 'Old next answer' }], events: [{ type: 'info', label: text, detail: '[Source](https://example.com)' }] });
+    const f = fixture(t, route => route === 'runs/12' ? state : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    const record = f.$('[data-execution-index="2"]');
+    assert.match(record.textContent, /历史合并记录/); assert.match(record.textContent, /<img src=x/);
+    assert.equal(record.querySelector('img, script'), null); assert.equal(record.querySelector('a').rel, 'noopener noreferrer');
+    assert.equal(f.window.document.querySelectorAll('.oyiso-agent-scroll .oyiso-agent-progress').length, 1);
+    assert.equal(f.$('[data-agent-message-index="2"]').nextElementSibling, record);
 });
 
 test('live bursts and the final chunk reveal smoothly without delaying completed controls or replacing the reply', async t => {
@@ -1497,7 +1571,7 @@ test('chat bubbles label me and each responding model without relabeling history
     assert.deepEqual(labels(), ['我', 'model-a', '<img src=x> / model-b']);
     assert.equal(f.$('.oyiso-agent-message-role img'), null);
     assert.equal(f.$('.oyiso-agent-message').classList.contains('is-user'), true);
-    assert.equal(f.$('.oyiso-agent-message:nth-child(2)').classList.contains('is-assistant'), true);
+    assert.equal(f.$('[data-agent-message-index="1"]').classList.contains('is-assistant'), true);
     f.$('[data-agent-model]').value = 'second|model-b';
     f.$('[data-agent-model]').dispatchEvent(new f.window.Event('change', { bubbles: true }));
     f.$('[data-agent-close]').click(); f.$('#oyiso-agent-launcher').click(); await settle();

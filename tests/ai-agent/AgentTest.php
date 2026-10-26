@@ -136,6 +136,81 @@ final class AgentTest extends TestCase
         return rest_get_server()->dispatch($request);
     }
 
+    public function testExecutionRecordsPersistPerUserTurnWithSeparateUsageAndEvents(): void
+    {
+        $run = $this->task();
+        Oyiso_Agent_Runner::message($run, 'First request');
+        $runner = new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('', [['get-current-page', []]]), $this->turn('First answer'), $this->turn('Second answer')]));
+        $runner->step($run['id']); $runner->step($run['id']);
+        $run = Oyiso_Agent_Store::get($run['id']); self::assertIsArray($run);
+        $first = $run['executions'][0];
+        self::assertSame(0, $first['index']); self::assertSame('completed', $first['status']);
+        self::assertSame(2, $first['step']); self::assertSame(80, $first['tokens']);
+        self::assertContains('调用工具', array_column($first['events'], 'label'));
+        Oyiso_Agent_Runner::message($run, 'Second request'); $runner->step($run['id']);
+        $fresh = Oyiso_Agent_Store::get($run['id']); self::assertIsArray($fresh);
+        self::assertCount(2, $fresh['executions']); self::assertSame($first, $fresh['executions'][0]);
+        self::assertSame(2, $fresh['executions'][1]['index']); self::assertSame(1, $fresh['executions'][1]['step']);
+        self::assertSame(40, $fresh['executions'][1]['tokens']); self::assertSame(120, $fresh['tokens']);
+        self::assertNotContains('调用工具', array_column($fresh['executions'][1]['events'], 'label'));
+        $response = $this->request('GET', 'runs/' . $run['id']); self::assertSame(200, $response->get_status());
+        $view = $response->get_data();
+        self::assertSame([0, 2], array_column($view['executions'], 'index'));
+        foreach ($view['executions'] as $execution) self::assertArrayNotHasKey('token_start', $execution);
+        self::assertArrayNotHasKey('messages', $view);
+    }
+
+    public function testFailedAndCancelledExecutionDoNotChangePreviousCompletedRecords(): void
+    {
+        $run = $this->task(); Oyiso_Agent_Runner::message($run, 'First request');
+        $runner = new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('First answer'), new WP_Error('fixture_failure', 'Fixture model failed')]));
+        $runner->step($run['id']); $run = Oyiso_Agent_Store::get($run['id']);
+        $first = $run['executions'][0];
+        Oyiso_Agent_Runner::message($run, 'Failed request'); $runner->step($run['id']);
+        $fresh = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame($first, $fresh['executions'][0]); self::assertSame('failed', $fresh['executions'][1]['status']);
+        self::assertSame(0, $fresh['executions'][1]['tokens']);
+        self::assertContains('Fixture model failed', array_column($fresh['executions'][1]['events'], 'detail'));
+        Oyiso_Agent_Store::cancel($run['id']);
+        $cancelled = Oyiso_Agent_Store::view(Oyiso_Agent_Store::get($run['id']));
+        self::assertSame('completed', $cancelled['executions'][0]['status']); self::assertSame('cancelled', $cancelled['executions'][1]['status']);
+    }
+
+    public function testLegacyEventsRemainOneHonestHistoryRecordWhenContinuingAConversation(): void
+    {
+        $run = $this->task();
+        $run['conversation'] = [['role' => 'user', 'text' => 'Old first'], ['role' => 'assistant', 'text' => 'Old answer'], ['role' => 'user', 'text' => 'Old second'], ['role' => 'assistant', 'text' => 'Another answer']];
+        $run['status'] = 'completed'; $run['step'] = 2; $run['tokens'] = 90;
+        Oyiso_Agent_Store::event($run, 'info', 'Legacy combined event'); Oyiso_Agent_Store::save($run);
+        $view = Oyiso_Agent_Store::view($run);
+        self::assertCount(1, $view['executions']); self::assertTrue($view['executions'][0]['legacy']); self::assertSame(2, $view['executions'][0]['index']);
+        self::assertArrayNotHasKey('executions', $run);
+        $run['executions'] = [];
+        self::assertCount(1, Oyiso_Agent_Store::view($run)['executions']);
+        Oyiso_Agent_Runner::message($run, 'New request');
+        $fresh = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame([2, 4], array_column($fresh['executions'], 'index'));
+        self::assertSame('completed', $fresh['executions'][0]['status']); self::assertSame(90, $fresh['executions'][0]['tokens']);
+        self::assertSame('queued', $fresh['executions'][1]['status']); self::assertSame(0, $fresh['executions'][1]['tokens']);
+        self::assertSame(['Legacy combined event'], array_column($fresh['executions'][0]['events'], 'label'));
+        self::assertSame(['已接收任务'], array_column($fresh['executions'][1]['events'], 'label'));
+    }
+
+    public function testExecutionHistoryBoundsLongEventsWithoutOverwritingOtherTurns(): void
+    {
+        $run = $this->task(); Oyiso_Agent_Runner::message($run, 'Bounded execution');
+        for ($i = 1; $i <= 120; $i++) Oyiso_Agent_Store::event($run, 'info', 'Event ' . $i . str_repeat('L', 180), str_repeat('d', 900));
+        Oyiso_Agent_Store::save($run); $fresh = Oyiso_Agent_Store::get($run['id']);
+        self::assertCount(100, $fresh['events']); self::assertCount(50, $fresh['executions'][0]['events']);
+        self::assertTrue($fresh['executions'][0]['truncated']);
+        self::assertStringStartsWith('Event 71', $fresh['executions'][0]['events'][0]['label']);
+        self::assertSame(150, mb_strlen($fresh['executions'][0]['events'][0]['label']));
+        self::assertSame(300, mb_strlen($fresh['executions'][0]['events'][0]['detail']));
+        self::assertSame(900, mb_strlen($fresh['events'][0]['detail']));
+        Oyiso_Agent_Runner::message($fresh, 'Next request');
+        self::assertCount(50, $fresh['executions'][0]['events']); self::assertCount(1, $fresh['executions'][1]['events']);
+    }
+
     public function testAbilitiesAreRegisteredAndWriteAbilitiesAreNotModelTools(): void
     {
         foreach (['get-product', 'search-products', 'order-summary', 'prepare-product-update', 'apply-product-update', 'revert-product-update'] as $name) {

@@ -38,6 +38,7 @@ final class Oyiso_Agent_Runner
      */
     public static function message(array &$run, string $text, array $attachments = [], ?array $context = null): void
     {
+        Oyiso_Agent_Store::beginExecution($run);
         // Read-before-write snapshots belong to one user turn, not the whole conversation.
         unset($run['partial'], $run['post_snapshots'], $run['product_snapshots']);
         $run['snapshots'] = [];
@@ -148,6 +149,7 @@ final class Oyiso_Agent_Runner
                 Oyiso_Agent_Store::event($run, 'info', '调用工具', $ability?->get_label() ?? $name);
                 // A killed worker must leave a complete model conversation to retry.
                 $checkpoint['events'] = $run['events'];
+                $checkpoint['executions'] = $run['executions'] ?? [];
                 $checkpoint['tokens'] = $run['tokens'];
                 Oyiso_Agent_Store::save($checkpoint);
                 try {
@@ -198,6 +200,7 @@ final class Oyiso_Agent_Runner
                 if (Oyiso_Agent_Store::cancelled($id)) { Oyiso_Agent_Store::save($run); return; }
                 if (isset($checkpoint)) {
                     $checkpoint['events'] = $run['events'];
+                    $checkpoint['executions'] = $run['executions'] ?? [];
                     $checkpoint['tokens'] = $run['tokens'];
                     if (isset($run['partial'])) $checkpoint['partial'] = $run['partial'];
                     $run = $checkpoint;

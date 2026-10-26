@@ -16,6 +16,15 @@
     const empty = messages.firstElementChild.cloneNode(true);
     const notice = $('[data-agent-notice]');
     const responseStatus = $('[data-agent-response-status]');
+    const responseLabel = $('[data-agent-response-label]');
+    const progress = $('.oyiso-agent-progress');
+    const progressParking = $('[data-agent-progress-parking]');
+    const progressState = $('[data-agent-status]', progress);
+    const progressUsage = $('[data-agent-usage]', progress);
+    const progressEvents = $('[data-agent-events]', progress);
+    const progressRecords = new Map();
+    const progressVersions = new WeakMap();
+    $('summary', progress).append(responseStatus);
     const panelHistory = $('#oyiso-agent-panel-history');
     const historyToggle = $('[data-agent-history-toggle]');
     const historyDismiss = $('[data-agent-history-dismiss]');
@@ -329,6 +338,55 @@
         messages.setAttribute('aria-busy', 'true');
     }
 
+    function copyProgress() {
+        const copy = progress.cloneNode(true);
+        $('[data-agent-response-status]', copy)?.remove();
+        for (const name of ['status', 'usage', 'events']) $(`[data-agent-${name}]`, copy)?.removeAttribute(`data-agent-${name}`);
+        $('.oyiso-agent-progress-state', copy).hidden = false;
+        return copy;
+    }
+
+    function freezeProgress() {
+        const index = Number(progress.dataset.executionIndex);
+        if (progressRecords.get(index) !== progress) return;
+        const copy = copyProgress(); progressRecords.set(index, copy); progress.replaceWith(copy);
+    }
+
+    function parkProgress() {
+        progressParking.append(progress); progress.hidden = true; progress.open = false;
+        delete progress.dataset.executionIndex; progressRecords.clear();
+    }
+
+    function fillProgress(element, record) {
+        element.hidden = false; element.dataset.executionIndex = String(record.index); element.dataset.status = record.status;
+        const state = $('.oyiso-agent-progress-state', element); state.hidden = false; state.textContent = statuses[record.status] || record.status;
+        $('.oyiso-agent-progress-usage', element).textContent = `${record.legacy ? '历史合并记录 · 最近任务 ' : ''}${Number(record.step || 0)} 次模型调用 · ${record.legacy ? '累计 ' : ''}${Number(record.tokens || 0).toLocaleString()} Token${record.truncated ? ' · 记录较长，部分细节已省略' : ''}`;
+        const signature = JSON.stringify(record.events || []);
+        if (progressVersions.get(element) === signature) return;
+        progressVersions.set(element, signature);
+        const list = $('.oyiso-agent-progress-events', element); list.replaceChildren();
+        for (const event of record.events || []) {
+            const item = node('li', `is-${event.type}`); item.append(node('span', '', event.label));
+            if (event.detail) { const detail = node('small'); messageText(detail, event.detail); item.append(detail); }
+            list.append(item);
+        }
+        if (!list.childElementCount) list.append(node('li', 'description', ['queued', 'running'].includes(record.status) ? '等待模型响应…' : '本轮没有额外执行事件。'));
+    }
+
+    function renderExecutions(next) {
+        let records = (next.executions || []).filter(record => Number.isInteger(record.index) && (record.index === -1 || next.conversation[record.index]?.role === 'user'));
+        if (!records.length) records = [{ index: next.conversation.map(entry => entry.role).lastIndexOf('user'), status: next.status, step: next.step, tokens: next.tokens, events: next.events, legacy: true }];
+        const latest = records[records.length - 1];
+        if (progress.dataset.executionIndex !== String(latest.index)) { freezeProgress(); progress.open = false; }
+        const indexes = new Set(records.map(record => record.index));
+        for (const [index, element] of progressRecords) if (!indexes.has(index)) { if (element !== progress) element.remove(); progressRecords.delete(index); }
+        for (const record of records) {
+            const element = record === latest ? progress : progressRecords.get(record.index) || copyProgress();
+            progressRecords.set(record.index, element); fillProgress(element, record === latest ? { ...record, status: next.status, step: next.step } : record);
+        }
+        return progressRecords;
+    }
+
     const connectionSnapshot = preset => JSON.stringify(Array.from(document.querySelectorAll(`[data-agent-connection="${preset}"]`), input => [input.name, input.type === 'checkbox' ? input.checked : input.value]));
     const connectionStates = new Map();
     document.querySelectorAll('[data-agent-test-connection]').forEach(button => {
@@ -437,15 +495,18 @@
         $('[data-agent-new]').disabled = sending || deleting || changing.size > 0;
         $('[data-agent-refresh]').disabled = !runId || loading || sending || changing.size > 0;
         $('[data-agent-refresh]').setAttribute('aria-busy', String(refreshing));
-        $('[data-agent-status]').textContent = sending ? '发送中' : loading ? '读取中' : run?.status === 'running' ? (run.partial?.text ? '回复中' : '思考中') : run ? statuses[run.status] || run.status : '尚未开始';
-        $('[data-agent-usage]').textContent = run ? `本次任务 ${run.step} 轮 · 累计 ${Number(run.tokens).toLocaleString()} Token` : '';
-        $('.oyiso-agent-progress').hidden = !run && !sending && !loading;
+        const pending = progress.dataset.executionIndex === 'pending';
+        progressState.textContent = sending ? '发送中' : loading ? '读取中' : pending ? '未发送' : run?.status === 'running' ? (run.partial?.text ? '回复中' : '思考中') : run ? statuses[run.status] || run.status : '尚未开始';
+        if (pending || !run) progressUsage.textContent = '';
+        progress.hidden = !run && !sending && !loading && !pending;
+        progress.dataset.status = pending ? sending ? 'queued' : 'failed' : run?.status || 'idle';
         const waiting = !loading && (sending || active) && !run?.partial?.text;
         responseStatus.hidden = !waiting;
+        progressState.hidden = waiting;
         let state = sending ? '正在发送…' : '正在思考…';
         if (active && run.status === 'queued') state = run.step > 0 ? '正在继续处理…' : '正在准备回复…';
         if (stopping) state = '正在停止…';
-        $('[data-agent-response-label]').textContent = state;
+        responseLabel.textContent = state;
         messages.setAttribute('aria-busy', String(!!(sending || active || loading)));
     }
 
@@ -671,6 +732,7 @@
 
     function render(next, animate = false) {
         if (next.id !== runId) return;
+        const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
         const active = ['queued', 'running'].includes(next.status);
         // Unsent choices belong to the conversation; active tasks use the server's model.
         if (active && (!run || !['queued', 'running'].includes(run.status))) forgetModel(next.id);
@@ -682,19 +744,20 @@
         run = next;
         if (next.status === 'cancelled') liveRuns.delete(next.id);
         if (next.status === 'failed') restoreFailedDraft(next);
+        const executionRows = renderExecutions(next);
         controls();
         if (next.error || next.status === 'failed') showNotice(!next.selection && next.error.startsWith('尚无可用的工具调用模型') ? '此对话尚未选择模型。请在下方选择已添加的模型后重新发送。' : next.error || '执行失败，原消息已保留。', true, next.status === 'failed' && failedRequest(next) ? () => retryFailedMessage(next) : null);
         else if (next.status === 'cancelled') showNotice('任务已取消，后续步骤和待审核修改已停止。可新建对话继续。');
         else showNotice('');
         const signature = JSON.stringify([next.conversation, next.events, next.changes, next.content_changes, next.mcp_actions]);
-        const conversationSignature = JSON.stringify(next.conversation);
-        const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
+        const conversationSignature = JSON.stringify([next.conversation, [...executionRows.keys()]]);
         let partial = $('[data-agent-partial]', messages);
         if (!version || conversationSignature !== conversationVersion) {
             conversationVersion = conversationSignature;
             composer?.syncFiles(next.conversation.flatMap(entry => entry.attachments || []));
             const fragment = document.createDocumentFragment();
             const updated = [];
+            if (executionRows.has(-1)) fragment.append(executionRows.get(-1));
             const legacyModels = [...new Set(next.events.filter(event => event.label === '模型已响应' && event.detail).map(event => event.detail))];
             for (const [index, entry] of next.conversation.entries()) {
                 const isUser = entry.role === 'user';
@@ -718,6 +781,7 @@
                     messageEntries.set(item, entrySignature);
                 }
                 fragment.append(item);
+                if (isUser && executionRows.has(index)) fragment.append(executionRows.get(index));
             }
             if (!next.conversation.length && !next.partial?.text && !active) fragment.append(empty.cloneNode(true));
             if (next.partial?.text && partial) fragment.append(partial);
@@ -726,18 +790,6 @@
         }
         if (signature !== version) {
             version = signature;
-            const events = $('[data-agent-events]');
-            events.replaceChildren();
-            for (const event of next.events.slice(-15)) {
-                const item = node('li', `is-${event.type}`);
-                item.append(node('span', '', event.label));
-                if (event.detail) {
-                    const detail = node('small');
-                    messageText(detail, event.detail);
-                    item.append(detail);
-                }
-                events.append(item);
-            }
             renderChanges(next.changes);
         }
         if (next.partial?.text) {
@@ -835,6 +887,9 @@
         const pendingText = node('div', 'oyiso-agent-message-content'); messageText(pendingText, message); pending.append(pendingText);
         if (files.length) pending.append(node('span', 'description', files.map(file => file.name).join('、')));
         messages.append(pending);
+        freezeProgress(); progress.dataset.executionIndex = 'pending'; progress.open = false;
+        progressEvents.replaceChildren(); progressUsage.textContent = ''; progressVersions.delete(progress);
+        messages.append(progress);
         let accepted = false, sentId = 0;
         const accept = next => {
             if (accepted) return;
@@ -945,9 +1000,10 @@
         runId = id;
         run = null;
         version = '';
+        parkProgress();
         remember(id);
         showConversationLoading();
-        $('[data-agent-events]').replaceChildren();
+        progressEvents.replaceChildren(); progressVersions.delete(progress);
         $('[data-agent-changes]').replaceChildren();
         prompt.value = draftFor(id);
         composer?.switchTo(id);
@@ -1062,12 +1118,13 @@
         if (runId === 0) forgetDraft(0);
         if (panel.dataset.historyLayout !== 'sidebar') setHistory(false, false);
         clearTimeout(timer); pollController?.abort(); pollRevision++; loading = false; refreshing = false; runId = 0; run = null; version = ''; remember(0);
+        parkProgress();
         let preferred;
         try { preferred = localStorage.getItem(storageKey + ':model'); } catch { /* Storage is optional. */ }
         populateModels(config.models, Object.hasOwn(config.models || {}, preferred) ? preferred : '');
         messages.replaceChildren(empty.cloneNode(true));
         messages.setAttribute('aria-busy', 'false');
-        $('[data-agent-events]').replaceChildren(node('li', 'description', '发送任务后，这里会显示查询和处理进度。'));
+        progressEvents.replaceChildren(); progressVersions.delete(progress);
         $('[data-agent-changes]').replaceChildren();
         prompt.value = draft;
         composer?.switchTo(0);
