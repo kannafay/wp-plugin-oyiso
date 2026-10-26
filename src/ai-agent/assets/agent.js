@@ -658,9 +658,12 @@
         for (const change of contentChanges) {
             const section = node('section', 'oyiso-agent-change');
             section.dataset.agentContentChange = change.id;
+            section.dataset.status = change.status;
             const heading = node('div', 'oyiso-agent-change-heading');
             const states = { pending: '尚未保存', applied: change.kind === 'draft' ? '草稿已创建' : '已保存', filled: '已填入编辑器，尚未保存', reverted: '已撤回' };
-            heading.append(node('h4', '', `${change.title || '未命名'}${change.post_id ? `（#${change.post_id}）` : '（新草稿）'}`), node('span', 'description', states[change.status] || change.status));
+            const title = node('h4', '', change.title || '未命名');
+            title.append(node('span', 'oyiso-agent-change-id', change.post_id ? `（#${change.post_id}）` : '（新草稿）'));
+            heading.append(title, node('span', 'oyiso-agent-change-status', states[change.status] || change.status));
             section.append(heading);
             for (const [field, after] of Object.entries(change.after)) {
                 const before = change.before[field] || '';
@@ -673,14 +676,15 @@
                 }
                 detail.append(columns); section.append(detail);
             }
+            const footer = node('div', 'oyiso-agent-change-footer');
             const { inEditor, changed } = editorReview(change.post_id, change);
             if (change.status === 'pending' || change.status === 'applied' && change.kind !== 'draft' || change.status === 'filled' && inEditor && change.kind !== 'draft') {
                 const actions = node('div', 'oyiso-agent-content-actions');
                 const permission = change.kind === 'draft' ? 'oyiso/create-post-draft' : change.status === 'applied' ? 'oyiso/revert-post-update' : 'oyiso/apply-post-update';
-                if (!mayWrite(permission)) section.append(node('p', 'description', writePermissionNotice));
+                if (!mayWrite(permission)) footer.append(node('p', 'description', writePermissionNotice));
                 const separateDraft = change.kind === 'draft' && window.oyisoAgentPage?.snapshot().post_id > 0;
-                if (separateDraft) section.append(node('p', 'description', '此方案将另外创建一份独立草稿。'));
-                if (inEditor && ['pending', 'filled'].includes(change.status) && change.kind !== 'draft') section.append(node('p', 'description', changed ? '当前内容已更新，可以按原要求重新生成预览。' : '填入后请检查内容，再使用 WordPress 的保存按钮。'));
+                if (separateDraft) footer.append(node('p', 'description', '此方案将另外创建一份独立草稿。'));
+                if (inEditor && ['pending', 'filled'].includes(change.status) && change.kind !== 'draft') footer.append(node('p', 'description', changed ? '当前内容已更新，可以按原要求重新生成预览。' : '填入后请检查内容，再使用 WordPress 的保存按钮。'));
                 const editorAction = changed ? ['regenerate', '按当前内容重新生成'] : ['editor', change.status === 'filled' ? '重新填入当前编辑器' : '填入当前编辑器'];
                 const options = change.status === 'filled' ? [editorAction] : change.status === 'applied' ? [['revert', '撤回修改']] : change.kind === 'draft' ? [['apply', separateDraft ? '另外创建草稿' : '创建草稿'], ['dismiss', '取消']] : [inEditor ? editorAction : ['apply', '保存到站点'], ['dismiss', '取消']];
                 for (const [action, label] of options) {
@@ -689,9 +693,10 @@
                     if (action === 'regenerate') button.dataset.agentRegenerate = change.id;
                     button.addEventListener('click', () => action === 'regenerate' ? regenerate(change) : action === 'editor' ? fillEditor(change) : applyContent(change, action)); actions.append(button);
                 }
-                section.append(actions);
+                footer.append(actions);
             }
-            if (change.url) { const link = node('a', 'button', '打开草稿'); link.href = change.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; section.append(link); }
+            if (change.url) { const link = node('a', 'button', '打开草稿'); link.href = change.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; footer.append(link); }
+            if (footer.childNodes.length) section.append(footer);
             (historical.has(change) ? contentHistory : container).append(section);
         }
         if (contentHistory) container.append(contentHistory);
