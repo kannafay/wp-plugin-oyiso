@@ -194,7 +194,8 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-context-detail > * { display: block; }
 .oyiso-agent-context-detail strong { margin-bottom: 5px; color: #1d2327; font-size: 13px; font-weight: 600; }
 .oyiso-agent-context-note { margin-top: 7px; color: #646970; }
-.oyiso-agent-context:not([data-dismissed]):is(:hover, :focus-within) .oyiso-agent-context-detail { display: block; }
+.oyiso-agent-context:not([data-dismissed]):hover .oyiso-agent-context-detail,
+.oyiso-agent-context:not([data-dismissed]) .oyiso-agent-context-button:focus-visible + .oyiso-agent-context-detail { display: block; }
 .oyiso-agent-composer-actions [data-agent-cancel] { border-color: #1d2327; background: #1d2327; color: #fff; }
 .oyiso-agent-composer-actions [data-agent-cancel]:hover:not(:disabled) { border-color: #3c434a; background: #3c434a; color: #fff; }
 .oyiso-agent-composer-actions [data-agent-cancel] rect { fill: currentColor; stroke: none; }
@@ -202,16 +203,17 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-composer-actions .is-sending::after { content: ''; width: 14px; height: 14px; box-sizing: border-box; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: oyiso-agent-refresh .8s linear infinite; }
 .oyiso-agent-composer-control svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-composer { background: #fff; }
-.oyiso-agent-progress { width: 100%; max-width: 76ch; margin: 0 0 24px; box-sizing: border-box; border: 1px solid var(--oyiso-agent-line, #e7e9ec); border-radius: 4px; background: var(--oyiso-agent-subtle, #f6f7f8); color: #50575e; }
-.oyiso-agent-progress summary { display: flex; align-items: center; gap: 9px; padding: 10px 12px; list-style: none; cursor: pointer; font-size: 12px; }
-.oyiso-agent-message > .oyiso-agent-progress { width: 100%; margin: 0 0 8px; box-sizing: border-box; }
+.oyiso-agent-progress { width: 100%; max-width: 76ch; margin: 0 0 12px; box-sizing: border-box; color: #646970; }
+.oyiso-agent-progress > summary { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 0; box-sizing: border-box; list-style: none; cursor: pointer; font-size: 12px; line-height: 1.5; }
+.oyiso-agent-progress > summary:hover { color: #1d2327; }
+.oyiso-agent-message > .oyiso-agent-progress { width: 100%; margin: 0; box-sizing: border-box; }
 .oyiso-agent-progress summary::-webkit-details-marker { display: none; }
 .oyiso-agent-progress summary::before { content: ''; flex: none; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
 .oyiso-agent-progress[open] > summary::before { transform: rotate(45deg); }
-.oyiso-agent-progress-title { flex: 1; color: #3c434a; font-weight: 500; }
-.oyiso-agent-progress-state { color: #646970; }
-.oyiso-agent-progress[data-status="failed"] { border-color: #e5b3b3; }
-.oyiso-agent-progress-body { padding: 0 12px 12px; }
+.oyiso-agent-progress-title { font-weight: 400; }
+.oyiso-agent-progress-state { color: #787c82; font-size: 11px; }
+.oyiso-agent-progress[data-status="failed"] .oyiso-agent-progress-state { color: #8a2424; }
+.oyiso-agent-progress-body { margin: 6px 0 4px 2px; padding: 2px 0 2px 14px; border-left: 1px solid var(--oyiso-agent-line, #e7e9ec); }
 .oyiso-agent-progress-usage { margin: 0 0 12px; }
 .oyiso-agent-progress ol { list-style: none; padding: 0; margin: 0; }
 .oyiso-agent-progress li { position: relative; margin: 0 0 12px; padding-left: 15px; font-size: 12px; overflow-wrap: anywhere; }
