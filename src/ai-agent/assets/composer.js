@@ -18,6 +18,7 @@
         const maxImage = window.oyisoAgent.attachmentMaxImage || maxFile;
         const maxVideo = window.oyisoAgent.attachmentMaxVideo || 20971520;
         const maxTotal = window.oyisoAgent.attachmentMaxTotal || 33554432;
+        const textPreview = window.oyisoAgent.attachmentTextPreview || 12000;
         const size = bytes => bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
         const db = window.indexedDB ? new Promise(resolve => {
             const request = indexedDB.open('oyiso-agent-attachment-drafts', 1);
@@ -74,12 +75,17 @@
                 const extension = file.name.split('.').pop().toLowerCase();
                 if (!allowed.includes(extension)) { message = '支持图片、MP4、WebM、PDF 和常见文本文件。'; continue; }
                 const limit = videoExtensions.includes(extension) ? maxVideo : ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(extension) ? maxImage : maxFile;
-                if (!file.size || file.size > limit || (textExtensions.includes(extension) && file.size > 80000)) { message = `${file.name} 超过大小限制，图片最多 ${size(maxImage)}，视频最多 ${size(maxVideo)}，其他文件最多 ${size(maxFile)}，文本最多 80 KB。`; continue; }
+                if (!file.size) { message = `${file.name} 是空文件，请重新选择。`; continue; }
+                if (file.size > limit) { message = `${file.name} 超过大小限制：此类文件最多 ${size(limit)}，当前为 ${size(file.size)}。`; continue; }
                 if (items.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) continue;
                 if (items.length >= 5 || items.reduce((sum, item) => sum + item.size, file.size) > maxTotal) { message = `每次最多 5 个附件，总大小不超过 ${size(maxTotal)}。`; break; }
                 items.push(file);
             }
-            drafts.set(current, items); persist(current); render(); notice(message || (items.some(file => videoExtensions.includes(file.name.split('.').pop().toLowerCase())) ? '视频支持保存和在线预览，暂不支持模型分析。' : ''), !!message);
+            drafts.set(current, items); persist(current); render();
+            const hints = [];
+            if (items.some(file => videoExtensions.includes(file.name.split('.').pop().toLowerCase()))) hints.push('视频支持保存和在线预览，暂不支持模型分析。');
+            if (items.some(file => textExtensions.includes(file.name.split('.').pop().toLowerCase()) && file.size > textPreview)) hints.push('较大的文本会先读取开头预览，再按需查找或分段读取。');
+            notice(message || hints.join(' '), !!message);
         }
         async function switchTo(id) {
             if (current !== id) syncFiles([]);

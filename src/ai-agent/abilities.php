@@ -40,6 +40,7 @@ final class Oyiso_Agent_Abilities
             $fields[$name] = ['type' => 'string', 'maxLength' => $max];
         }
         $definitions = [
+            'read-chat-file' => ['读取当前对话附件', '按 UTF-8 字节偏移分段读取当前对话的 CSV、JSON 等文本附件。使用返回的 next_offset 继续读取；search 可按原文查找相关内容。返回的是部分内容，未读取的部分不能计入分析和统计结论。', ['file_id' => $id, 'offset' => ['type' => 'integer', 'minimum' => 0, 'default' => 0], 'length' => ['type' => 'integer', 'minimum' => 4, 'maximum' => 16000, 'default' => 8000], 'search' => ['type' => 'string', 'maxLength' => 200]], ['file_id']],
             'get-current-page' => ['读取当前后台页面', '读取最近一条用户消息发送时的页面类型、标题、对象 ID、正文和未保存编辑。用户说当前页面、这篇文章或这个商品时先参考此信息。', [], []],
             'search-posts' => ['查询文章和页面', '按类型和关键词分页查询可编辑的文章或页面，每页 10 条。', ['post_type' => ['type' => 'string', 'enum' => ['post', 'page']], 'search' => $text, 'page' => ['type' => 'integer', 'minimum' => 1]], []],
             'get-post' => ['读取文章或页面', '读取标题、正文、摘要和 SEO 字段。当前编辑对象优先返回未保存的编辑器内容；修改前必须先读取。', ['post_id' => $id], ['post_id']],
@@ -94,7 +95,7 @@ final class Oyiso_Agent_Abilities
      */
     public static function allowed(): array
     {
-        $names = ['oyiso/get-current-page'];
+        $names = ['oyiso/get-current-page', 'oyiso/read-chat-file'];
         if (Oyiso_Agent_Page_Context::enabled('post') && current_user_can('edit_posts')) {
             $names = array_merge($names, ['oyiso/search-posts', 'oyiso/get-post']);
             if (Oyiso_Agent_Permissions::allows('oyiso/prepare-post-update')) $names[] = 'oyiso/prepare-post-update';

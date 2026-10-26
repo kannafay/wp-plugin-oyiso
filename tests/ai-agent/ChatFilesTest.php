@@ -98,7 +98,7 @@ final class ChatFilesTest extends TestCase
         self::assertSame('image/png', $this->upload('picture.png', base64_decode(self::PNG))['mime']);
         self::assertSame('application/pdf', $this->upload('source.pdf', "%PDF-1.4\n%%EOF")['mime']);
         self::assertSame('text/plain', $this->upload('source.json', '{"value":"你好"}')['mime']);
-        foreach ([['x.exe', 'data'], ['x.svg', '<svg/>'], ['x.png', 'fake image'], ['x.pdf', 'not a PDF'], ['x.txt', "bad\0text"], ['x.txt', "\xff"], ['x.txt', ''], ['x.txt', str_repeat('x', 80001)], ['x.pdf', '%PDF-' . str_repeat('x', 4194304)]] as [$name, $content]) self::assertInstanceOf(WP_Error::class, Oyiso_Agent_Attachments::inspect($name, $content));
+        foreach ([['x.exe', 'data'], ['x.svg', '<svg/>'], ['x.png', 'fake image'], ['x.pdf', 'not a PDF'], ['x.txt', "bad\0text"], ['x.txt', "\xff"], ['x.txt', ''], ['x.txt', str_repeat('x', Oyiso_Agent_Attachments::MAX_FILE + 1)], ['x.pdf', '%PDF-' . str_repeat('x', 4194304)]] as [$name, $content]) self::assertInstanceOf(WP_Error::class, Oyiso_Agent_Attachments::inspect($name, $content));
         self::assertSame('hello', $this->upload('utf16.txt', "\xff\xfeh\0e\0l\0l\0o\0")['content']);
         $request = new WP_REST_Request('POST', '/oyiso-agent/v1/runs');
         self::assertSame([], Oyiso_Agent_Attachments::uploads($request));
@@ -224,7 +224,81 @@ final class ChatFilesTest extends TestCase
         }
     }
 
-    public function testMissingAndOversizedTextAttachmentsReturnActionableErrors(): void
+    public function testLargeCsvFilesUploadIntactButOnlyBoundedPreviewsEnterTheModelContext(): void
+    {
+        $csv = "ID,SKU,Description\n" . str_repeat("12,SKU-12,中文商品描述🙂\n", 9000) . "13,TAIL-SKU,Last record\n";
+        self::assertGreaterThan(80000, strlen($csv));
+        $upload = $this->upload('wc-product-export.csv', "\xef\xbb\xbf" . $csv);
+        self::assertSame($csv, $upload['content']);
+        self::assertSame('text/plain', $upload['mime']);
+        self::assertSame(Oyiso_Agent_Attachments::MAX_FILE, $this->upload('limit.csv', str_repeat('a', Oyiso_Agent_Attachments::MAX_FILE))['size']);
+        $run = $this->task();
+        $files = Oyiso_Agent_Attachments::save($run['id'], [$upload, $upload, $upload]); self::assertIsArray($files);
+        Oyiso_Agent_Runner::message($run, 'Find TAIL-SKU', $files);
+        $parts = Oyiso_Agent_Attachments::parts(array_column($files, 'id')); self::assertIsArray($parts);
+        self::assertSame($csv, base64_decode(Oyiso_Agent_Attachments::read($files[0]['id'])['data']));
+        self::assertStringContainsString('附件 ID：' . $files[0]['id'], $parts[0]->getText());
+        self::assertStringContainsString('附件尚未完整读取', $parts[1]->getText());
+        self::assertStringContainsString('oyiso/read-chat-file', $parts[1]->getText());
+        self::assertStringNotContainsString('TAIL-SKU', $parts[1]->getText());
+        self::assertTrue(mb_check_encoding($parts[1]->getText(), 'UTF-8'));
+        $captured = [];
+        $gateway = new Oyiso_Agent_Model(static function (array $messages) use (&$captured): WP_AI_Client_Prompt_Builder {
+            $captured = $messages;
+            throw new RuntimeException('bounded-preview-fixture');
+        });
+        $result = $gateway->generate($run['messages'], []);
+        self::assertInstanceOf(WP_Error::class, $result); self::assertStringContainsString('bounded-preview-fixture', $result->get_error_message());
+        self::assertCount(1, $captured);
+        $size = 0;
+        foreach ($captured[0]->getParts() as $part) $size += strlen($part->getText() ?? '');
+        self::assertLessThan(45000, $size);
+    }
+
+    public function testTextFileToolReadsAndSearchesOnlyCurrentConversationFilesWithUtf8SafeOffsets(): void
+    {
+        $run = $this->task();
+        $csv = "ID,SKU\n" . str_repeat("12,中文商品🙂\n", 6000) . "13,TAIL-SKU\n";
+        $files = Oyiso_Agent_Attachments::save($run['id'], [$this->upload('catalog.csv', $csv), $this->upload('unicode.txt', 'A你好🙂B')]); self::assertIsArray($files);
+        $id = $files[0]['id']; $tools = new Oyiso_Agent_Tools($run);
+        self::assertContains('oyiso/read-chat-file', Oyiso_Agent_Abilities::allowed());
+        $ability = wp_get_ability('oyiso/read-chat-file'); self::assertNotNull($ability);
+        self::assertTrue($ability->get_meta_item('annotations')['readonly']);
+        Oyiso_Agent_Abilities::bind($tools);
+        try {
+            $first = $ability->execute(['file_id' => $id, 'length' => 128]); self::assertIsArray($first);
+            self::assertLessThanOrEqual(128, strlen($first['content'])); self::assertTrue($first['truncated']);
+            $second = $tools->execute('read-chat-file', ['file_id' => $id, 'offset' => $first['next_offset'], 'length' => 128]); self::assertIsArray($second);
+            self::assertSame(substr($csv, 0, $second['next_offset']), $first['content'] . $second['content']);
+            self::assertTrue(mb_check_encoding($first['content'] . $second['content'], 'UTF-8'));
+            $found = $tools->execute('read-chat-file', ['file_id' => $id, 'search' => 'TAIL-SKU', 'length' => 128]); self::assertIsArray($found);
+            self::assertTrue($found['matched']); self::assertStringContainsString('TAIL-SKU', $found['content']); self::assertNull($found['next_offset']);
+            $missing = $tools->execute('read-chat-file', ['file_id' => $id, 'search' => 'NOT-IN-FILE']); self::assertIsArray($missing);
+            self::assertFalse($missing['matched']); self::assertSame('', $missing['content']);
+            $unicode = Oyiso_Agent_Attachments::text($run['id'], $files[1]['id'], 2, 4); self::assertIsArray($unicode);
+            self::assertSame(4, $unicode['offset']); self::assertSame('好', $unicode['content']); self::assertSame(7, $unicode['next_offset']);
+            $complete = Oyiso_Agent_Attachments::text($run['id'], $files[1]['id']); self::assertIsArray($complete);
+            self::assertFalse($complete['truncated']); self::assertNull($complete['next_offset']);
+            $end = Oyiso_Agent_Attachments::text($run['id'], $id, strlen($csv)); self::assertIsArray($end);
+            self::assertSame('', $end['content']); self::assertNull($end['next_offset']);
+            foreach ([[-1, 4, ''], [strlen($csv) + 1, 4, ''], [0, 3, ''], [0, 16001, ''], [0, 128, str_repeat('a', 201)], [0, 128, "\xff"]] as [$offset, $length, $search]) {
+                self::assertSame('agent_file_range', Oyiso_Agent_Attachments::text($run['id'], $id, $offset, $length, $search)->get_error_code());
+            }
+            $otherRun = $this->task();
+            self::assertSame('agent_file_missing', Oyiso_Agent_Attachments::text($otherRun['id'], $id)->get_error_code());
+            wp_set_current_user($this->anotherAdmin());
+            self::assertSame('agent_file_missing', Oyiso_Agent_Attachments::text($run['id'], $id)->get_error_code());
+            wp_set_current_user(OYISO_AGENT_TEST_ADMIN);
+            $images = Oyiso_Agent_Attachments::save($run['id'], [$this->upload('photo.png', base64_decode(self::PNG))]); self::assertIsArray($images);
+            self::assertSame('agent_file_text_type', Oyiso_Agent_Attachments::text($run['id'], $images[0]['id'])->get_error_code());
+            self::assertTrue(Oyiso_Agent_Attachments::erase($id));
+            self::assertSame('agent_file_deleted', Oyiso_Agent_Attachments::text($run['id'], $id)->get_error_code());
+            update_option('oyiso', ['agent_enabled' => false], false);
+            self::assertSame('agent_tool_forbidden', $tools->execute('read-chat-file', ['file_id' => $files[1]['id']])->get_error_code());
+        } finally { Oyiso_Agent_Abilities::bind(null); }
+    }
+
+    public function testMissingAttachmentsAndOversizedConversationsReturnActionableErrors(): void
     {
         $run = $this->task();
         Oyiso_Agent_Runner::message($run, 'fixture');
@@ -233,8 +307,7 @@ final class ChatFilesTest extends TestCase
         $run['messages'][0]['oyiso_attachments'] = [999999999];
         self::assertSame('agent_file_missing', (new Oyiso_Agent_Model())->generate($run['messages'], [])->get_error_code());
         unset($run['messages'][0]['oyiso_attachments']);
-        $files = Oyiso_Agent_Attachments::save($run['id'], array_fill(0, 3, $this->upload('large.txt', str_repeat('a', 70000))));
-        Oyiso_Agent_Runner::message($run, 'fixture', $files);
+        Oyiso_Agent_Runner::message($run, str_repeat('a', 180001));
         self::assertSame('agent_context_limit', (new Oyiso_Agent_Model())->generate($run['messages'], [])->get_error_code());
     }
 }

@@ -44,6 +44,7 @@ body.oyiso-agent-transitioning #oyiso-agent-launcher-wrap { transition: transfor
 #oyiso-agent-launcher-wrap:is(.is-dragging, [data-agent-initializing]) #oyiso-agent-launcher::after { transition: none; }
 #oyiso-agent-panel { --oyiso-agent-gutter: 24px; --oyiso-agent-line: #e7e9ec; --oyiso-agent-subtle: #f6f7f8; position: fixed; z-index: 9990; right: 24px; bottom: 24px; display: flex; flex-direction: column; width: var(--oyiso-agent-panel-width, 480px); max-width: calc(100vw - 48px); height: min(720px, calc(100dvh - var(--oyiso-agent-bar-height) - 48px)); box-sizing: border-box; overflow: hidden; border: 1px solid var(--oyiso-agent-line); border-radius: 6px; background: #fff; color: #1d2327; font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; box-shadow: 0 12px 48px #00000014, 0 2px 8px #00000008; text-align: left; opacity: 0; transform: translateY(24px); pointer-events: none; }
 #oyiso-agent-panel[data-agent-window] { z-index: 100000; max-width: 100vw; border: 1px solid var(--oyiso-agent-line); transform: scale(.9); }
+#oyiso-agent-panel[data-agent-window]:not([data-agent-fullscreen]) { border-color: #d5d9df; border-radius: 10px; box-shadow: 0 20px 64px #0000002e, 0 4px 16px #0000001f; }
 #oyiso-agent-panel[data-agent-menu-open] { overflow: visible; }
 .oyiso-agent-page-context { flex-shrink: 0; margin: 0; padding: 8px var(--oyiso-agent-gutter, 20px); background: var(--oyiso-agent-subtle, #f6f7f8); color: #646970; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .oyiso-agent-content-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -95,8 +96,6 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-settings-menu :is(button, a) { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 8px 10px; border: 0; border-radius: 2px; background: transparent; color: #1d2327; font: inherit; font-size: 13px; line-height: 1.4; text-align: left; text-decoration: none; cursor: pointer; }
 .oyiso-agent-settings-menu svg { width: 16px; height: 16px; }
 .oyiso-agent-settings-menu :is(button, a):hover, [data-agent-settings-toggle][aria-expanded="true"] { background: #f0f0f1; }
-.oyiso-agent-settings-menu .oyiso-agent-settings-link { position: relative; margin-top: 9px; }
-.oyiso-agent-settings-link::before { position: absolute; top: -5px; right: 0; left: 0; border-top: 1px solid #e5e5e5; content: ''; pointer-events: none; }
 .oyiso-agent-layout-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding-bottom: 4px; margin-bottom: 4px; border-bottom: 1px solid #e5e5e5; }
 .oyiso-agent-settings-menu .oyiso-agent-layout-grid button { flex-direction: column; justify-content: center; gap: 4px; padding: 6px 2px; font-size: 11px; text-align: center; }
 .oyiso-agent-layout-grid button[aria-checked="true"] { background: #f0f0f1; color: var(--oyiso-color-primary, #3858e9); }

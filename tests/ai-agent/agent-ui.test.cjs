@@ -1198,9 +1198,35 @@ test('large image drafts use the image upload limit while documents keep the sma
     assert.match(f.$('[data-agent-notice]').textContent, /大小限制/);
 });
 
+test('CSV and text drafts above 80 KB follow the document limit and explain partial reading', t => {
+    const f = fixture(t);
+    const csv = new f.window.File(['ID,SKU\n' + '12,SKU-12\n'.repeat(12000)], 'wc-product-export.csv', { type: 'text/csv' });
+    pasteFiles(f, [csv]);
+    assert.match(f.$('[data-agent-attachments]').textContent, /wc-product-export.csv/);
+    assert.match(f.$('[data-agent-notice]').textContent, /预览.*分段读取/);
+    assert.equal(f.$('[data-agent-notice]').classList.contains('is-error'), false);
+    pasteFiles(f, [new f.window.File(['x'.repeat(4 * 1048576)], 'boundary.txt', { type: 'text/plain' })]);
+    assert.match(f.$('[data-agent-attachments]').textContent, /boundary.txt/);
+    pasteFiles(f, [new f.window.File(['x'.repeat(4 * 1048576 + 1)], 'over-limit.csv', { type: 'text/csv' })]);
+    assert.doesNotMatch(f.$('[data-agent-attachments]').textContent, /over-limit.csv/);
+    assert.match(f.$('[data-agent-notice]').textContent, /最多 4.0 MB/);
+    assert.doesNotMatch(f.$('[data-agent-notice]').textContent, /80 KB/);
+});
+
+test('text drafts respect smaller PHP upload limits and empty files receive a specific error', t => {
+    const f = fixture(t, undefined, { attachmentMaxFile: 131072 });
+    pasteFiles(f, [new f.window.File(['x'.repeat(90000)], 'allowed.csv')]);
+    assert.match(f.$('[data-agent-attachments]').textContent, /allowed.csv/);
+    pasteFiles(f, [new f.window.File(['x'.repeat(140000)], 'server-limit.csv')]);
+    assert.doesNotMatch(f.$('[data-agent-attachments]').textContent, /server-limit.csv/);
+    assert.match(f.$('[data-agent-notice]').textContent, /最多 128 KB.*当前为 137 KB/);
+    pasteFiles(f, [new f.window.File([], 'empty.csv')]);
+    assert.match(f.$('[data-agent-notice]').textContent, /empty.csv 是空文件/);
+});
+
 test('invalid or oversized files are rejected and failed sending preserves the draft files', async t => {
     const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? { ok: false, status: 400, body: { message: '所选模型不支持此图片' } } : undefined);
-    pasteFiles(f, [new f.window.File(['x'], 'bad.exe'), new f.window.File(['x'.repeat(80001)], 'large.txt')]);
+    pasteFiles(f, [new f.window.File(['x'], 'bad.exe'), new f.window.File(['x'.repeat(4 * 1048576 + 1)], 'large.txt')]);
     assert.equal(f.$('[data-agent-attachments]').hidden, true); assert.match(f.$('[data-agent-notice]').textContent, /大小限制/);
     const file = new f.window.File(['x'], 'photo.png', { type: 'image/png' }); pasteFiles(f, [file]); pasteFiles(f, [file]);
     assert.equal(f.window.document.querySelectorAll('.oyiso-agent-attachment').length, 1);
