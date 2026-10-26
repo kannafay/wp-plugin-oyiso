@@ -140,6 +140,77 @@ test('new article drafts are previewed and created only after clicking the confi
     assert.equal(f.$('[data-agent-changes] a').textContent, '打开草稿');
 });
 
+test('expired editor proposals regenerate with current context and preserve unsent text and attachments', async t => {
+    for (const type of ['post', 'page', 'product']) await t.test(type, async t => {
+        const product = type === 'product', field = product ? 'description' : 'content', summary = product ? 'short_description' : 'excerpt';
+        const before = { title: 'Current content', [field]: '<p>Original</p>', [summary]: '' };
+        const latest = { ...before, [field]: '<p>My later edit</p>' };
+        const change = { id: proposal().id, status: 'pending', before, after: { ...before, [field]: '<p>Old AI text</p>', [summary]: 'Old summary' }, ...(product ? { product_id: 7, name: 'Current content' } : { post_id: 7, post_type: type, kind: 'update', title: 'Current content' }) };
+        const nextChange = { ...change, id: '87654321-4321-4321-4321-cba987654321', before: latest, after: { ...latest, [field]: '<p>Regenerated text</p>', [summary]: 'New summary' } };
+        const key = product ? 'changes' : 'content_changes';
+        let current = task({ status: 'waiting', [key]: [change] }), finish;
+        const f = fixture(t, (route, options) => {
+            if (route === 'runs/12') return current;
+            if (route === 'runs' && options.method === 'POST') return new Promise(resolve => { finish = () => { current = task({ status: 'waiting', [key]: [nextChange] }); resolve(current); }; });
+            if (route === `runs/12/content/${nextChange.id}`) {
+                if (JSON.parse(options.body).action === 'editor') return { post_id: 7, expected: latest, fields: { [field]: nextChange.after[field], [summary]: nextChange.after[summary] }, signature: 'fill-fixture' };
+                current = task({ [key]: [{ ...nextChange, status: 'filled' }] }); return current;
+            }
+        }, { writeTools: [`oyiso/apply-${product ? 'product' : 'post'}-update`], pageContext: { screen: type, post_id: 7, post_type: type, editor: 'classic', signature: 'context-fixture', fields: before } }, window => {
+            window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+            window.document.body.insertAdjacentHTML('beforeend', '<div id="poststuff"><input id="title" value="Current content"><textarea id="content">&lt;p&gt;My later edit&lt;/p&gt;</textarea><textarea id="excerpt"></textarea></div>');
+        });
+        await settle();
+        assert.doesNotMatch(f.$('[data-agent-changes]').textContent, /填入当前编辑器/);
+        assert.equal(f.$('[data-agent-regenerate]').textContent, '按当前内容重新生成');
+        const grants = f.window.oyisoAgent.writeTools;
+        f.window.oyisoAgent.writeTools = []; f.$('[data-agent-regenerate]').click();
+        assert.equal(f.calls.some(call => call.route === 'runs' && call.options.method === 'POST'), false);
+        f.window.oyisoAgent.writeTools = grants;
+        f.$('#oyiso-agent-prompt').value = 'My unsent follow-up'; f.$('#oyiso-agent-prompt').dispatchEvent(new f.window.Event('input', { bubbles: true }));
+        Object.defineProperty(f.$('[data-agent-file]'), 'files', { value: [new f.window.File(['draft'], 'unsent.txt', { type: 'text/plain' })] });
+        f.$('[data-agent-file]').dispatchEvent(new f.window.Event('change', { bubbles: true }));
+        f.$('[data-agent-regenerate]').click(); f.$('[data-agent-regenerate]').click(); await settle();
+        const requests = f.calls.filter(call => call.route === 'runs' && call.options.method === 'POST');
+        assert.equal(requests.length, 1); assert.equal(f.$('[data-agent-regenerate]').disabled, true);
+        const body = JSON.parse(requests[0].options.body);
+        assert.equal(body.run_id, 12); assert.equal(JSON.parse(body.page_context).fields[field], latest[field]);
+        assert.match(body.message, /上一方案的修改要求/); assert.match(body.message, /重新读取最新内容/);
+        assert.match(body.message, new RegExp(`${({ post: '文章', page: '页面', product: '商品' })[type]}（#7）`));
+        assert.equal(f.calls.some(call => call.route.includes('/content/')), false);
+        assert.equal(f.$('#content').value, latest[field]);
+        finish(); await settle();
+        assert.equal(f.$('#oyiso-agent-prompt').value, 'My unsent follow-up');
+        assert.match(f.$('[data-agent-attachments]').textContent, /unsent.txt/);
+        assert.equal(f.$('[data-agent-regenerate]'), null);
+        const fill = Array.from(f.window.document.querySelectorAll('[data-agent-changes] button')).find(button => button.textContent === '填入当前编辑器');
+        assert.ok(fill); assert.equal(f.$('#content').value, latest[field]);
+        fill.click(); await settle();
+        assert.equal(f.$('#content').value, nextChange.after[field]);
+        assert.match(f.$('[data-agent-changes]').textContent, /已填入编辑器/);
+        assert.equal(f.calls.filter(call => call.route.includes('/content/')).length, 2);
+    });
+});
+
+test('a late editor conflict offers regeneration and a failed regeneration remains retryable', async t => {
+    const before = { title: 'Article', content: '<p>Original</p>', excerpt: '' };
+    const change = { id: proposal().id, post_id: 7, post_type: 'post', kind: 'update', title: 'Article', status: 'pending', before, after: { ...before, content: '<p>AI text</p>' } };
+    const current = task({ status: 'waiting', content_changes: [change] });
+    const f = fixture(t, (route, options) => route === 'runs/12' ? current : route === 'runs' && options.method === 'POST' ? { ok: false, status: 503, body: { message: '模型服务暂不可用' } } : route.includes('/content/') ? { post_id: 7, expected: before, fields: { content: change.after.content }, signature: 'fill-fixture' } : undefined,
+        { writeTools: ['oyiso/apply-post-update'], pageContext: { screen: 'post', post_id: 7, post_type: 'post', editor: 'classic', fields: before } }, window => {
+            window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+            window.document.body.insertAdjacentHTML('beforeend', '<div id="poststuff"><input id="title" value="Article"><textarea id="content">&lt;p&gt;Original&lt;/p&gt;</textarea><textarea id="excerpt"></textarea></div>');
+        });
+    await settle();
+    f.$('#content').value = '<p>Late manual edit</p>';
+    Array.from(f.window.document.querySelectorAll('[data-agent-changes] button')).find(button => button.textContent === '填入当前编辑器').click(); await settle();
+    assert.match(f.$('[data-agent-notice]').textContent, /旧方案已过期/); assert.ok(f.$('[data-agent-regenerate]'));
+    f.$('[data-agent-regenerate]').click(); await settle();
+    assert.match(f.$('[data-agent-notice]').textContent, /模型服务暂不可用/);
+    assert.equal(f.$('[data-agent-regenerate]').disabled, false); assert.equal(f.$('#content').value, '<p>Late manual edit</p>');
+    assert.equal(f.calls.filter(call => call.route.includes('/content/')).length, 1);
+});
+
 test('example and keyboard submit use current prompt and CSRF-protected REST', async t => {
     const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? task({ conversation: [{ role: 'user', text: '检查商品' }] }) : route === 'runs/12' ? task({ conversation: [{ role: 'assistant', text: '已读取商品。' }] }) : undefined);
     f.$('[data-agent-example]').click();
