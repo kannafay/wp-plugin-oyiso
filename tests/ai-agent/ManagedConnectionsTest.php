@@ -95,6 +95,78 @@ final class ManagedConnectionsTest extends TestCase
         self::assertSame([], Oyiso_Agent_Connections::view()[0]['context_limits']);
     }
 
+    public function testMainstreamContextPresetsKeepVariantsAndKnownSnapshotsDistinct(): void
+    {
+        foreach ([
+            ['openai', 'gpt-6.1-terra', 1050000], ['openai', 'gpt-5.5-2026-04-23', 1050000],
+            ['openai', 'gpt-5.4', 1050000], ['openai', 'gpt-5.4-mini-2026-03-17', 400000],
+            ['openai', 'gpt-5.2', 400000], ['openai', 'gpt-5.2-chat-latest', 128000],
+            ['openai', 'gpt-4.1-mini-2025-04-14', 1047576], ['openai', 'gpt-4o-mini', 128000], ['openai', 'o3', 200000],
+            ['anthropic', 'claude-opus-5-5', 1000000], ['anthropic', 'claude-sonnet-4-5', 200000],
+            ['anthropic', 'claude-sonnet-4-5-20250929', 200000], ['anthropic', 'claude-haiku-4-5-20251001', 200000],
+            ['gemini', 'models/gemini-3.5-flash-lite', 1048576], ['gemini', 'gemini-3-flash-preview', 1048576],
+            ['qwen', 'qwen3.8-max', 1000000], ['qwen', 'qwen3.6-35b-a3b', 262144], ['qwen', 'qwen-max', 131072],
+            ['moonshot', 'kimi-k3.1-pro-highspeed', 1000000], ['moonshot', 'kimi-k2.7-code', 256000],
+            ['zai', 'glm-5.3-flash', 1000000], ['zai', 'glm-5', 200000], ['zai', 'glm-4.7-flashx', 200000],
+            ['minimax', 'MiniMax-M3.1-Flash', 1000000],
+            ['xai', 'grok-4.7', 500000], ['xai', 'grok-4.3', 1000000], ['xai', 'grok-4-1-fast-reasoning', 1000000],
+            ['mistral', 'mistral-large-4', 1000000], ['mistral', 'mistral-small-2603', 256000],
+            ['doubao', 'doubao-seed-2-1-lite', 1048576], ['doubao', 'doubao-seed-2.0-mini', 262144],
+        ] as [$provider, $model, $limit]) self::assertSame($limit, Oyiso_Agent_Context::presetLimit($provider, $model), $provider . '/' . $model);
+
+        foreach ([
+            ['openai', 'gpt-5.4-mini-2099-01-01'], ['openai', 'gpt-5.4-unknown'], ['openai', 'ft:gpt-4o:private'],
+            ['anthropic', 'claude-future-model'], ['gemini', 'gemini-3.8-live'], ['gemini', 'gemini-3.8-flash-tts'],
+            ['qwen', 'qwen-plus-2024-08-06'], ['moonshot', 'kimi-future'], ['doubao', 'ep-private-model'], ['custom', 'gpt-5.4'],
+        ] as [$provider, $model]) self::assertNull(Oyiso_Agent_Context::presetLimit($provider, $model), $provider . '/' . $model);
+    }
+
+    public function testCustomConnectionsUseExactOfficialHostsForContextPresets(): void
+    {
+        foreach ([
+            ['https://api.openai.com/v1', 'gpt-5.4-mini', 400000],
+            ['https://API.ANTHROPIC.COM/v1', 'claude-opus-5-5', 1000000],
+            ['https://generativelanguage.googleapis.com/v1beta', 'gemini-3.8-flash', 1048576],
+            ['https://api.deepseek.com/v1', 'deepseek-flash', 1048576],
+            ['https://api.agnes-ai.cn/v1', 'agnes-3.0-flash', 524288],
+            ['https://dashscope.aliyuncs.com/compatible-mode/v1', 'qwen3.8-max', 1000000],
+            ['https://dashscope-intl.aliyuncs.com/compatible-mode/v1', 'qwen-plus', 1000000],
+            ['https://api.moonshot.ai/v1', 'kimi-k3', 1000000], ['https://api.moonshot.cn/v1', 'kimi-k2.6', 256000],
+            ['https://api.z.ai/api/paas/v4', 'glm-5.3', 1000000], ['https://open.bigmodel.cn/api/paas/v4', 'glm-4.7', 200000],
+            ['https://api.minimax.io/v1', 'MiniMax-M3', 1000000], ['https://api.minimaxi.com/anthropic', 'MiniMax-M3.1-Flash', 1000000],
+            ['https://api.x.ai/v1', 'grok-4.7', 500000], ['https://us.api.x.ai/v1', 'grok-4.3', 1000000],
+            ['https://api.mistral.ai/v1', 'mistral-medium-3-5', 256000],
+            ['https://ark.cn-beijing.volces.com/api/v3', 'doubao-seed-evolving', 1048576],
+        ] as [$url, $model, $limit]) {
+            $row = ['id' => 'fixture-context', 'name' => 'Custom provider', 'preset' => 'custom', 'url' => $url, 'protocol' => 'openai_chat', 'models' => [$model]];
+            self::assertSame([$model => ['limit' => $limit, 'source' => 'preset']], Oyiso_Agent_Context::connectionModels($row), $url);
+            $row['context_windows'] = [$model => 8192];
+            self::assertSame([$model => ['limit' => 8192, 'source' => 'catalog']], Oyiso_Agent_Context::connectionModels($row));
+            unset($row['context_windows']);
+            foreach (['https://api.example.com/v1', str_replace('https://', 'https://proxy.', $url), 'https://api.anthropic.com.evil.example/v1'] as $unmatched) {
+                $row['url'] = $unmatched;
+                self::assertSame([], Oyiso_Agent_Context::connectionModels($row), $unmatched);
+            }
+        }
+    }
+
+    public function testCustomPresetCapacitiesReachTheContextMeterAndCompactionWithoutNetwork(): void
+    {
+        $block = static function (): never { self::fail('Capacity lookup must not call a provider.'); };
+        add_filter('pre_http_request', $block);
+        try {
+            $row = $this->create(['name' => 'Claude', 'preset' => 'custom', 'url' => 'https://api.anthropic.com/v1', 'protocol' => 'anthropic_messages', 'models' => ['claude-opus-5-5', 'claude-sonnet-4-5']]);
+            $selection = $row['id'] . '|claude-opus-5-5';
+            self::assertSame(['limit' => 1000000, 'source' => 'preset'], Oyiso_Agent_Context::models()[$selection]);
+            self::assertSame(1000000, Oyiso_Agent_Compaction::limit($selection));
+            self::assertSame(200000, Oyiso_Agent_Compaction::limit($row['id'] . '|claude-sonnet-4-5'));
+            $row = Oyiso_Agent_Connections::save($this->input(['name' => 'Claude', 'preset' => 'custom', 'url' => $row['url'], 'protocol' => 'anthropic_messages', 'models' => $row['models'], 'context_windows' => ['claude-opus-5-5' => 32768]]), $row['id']);
+            self::assertIsArray($row);
+            self::assertSame(32768, Oyiso_Agent_Compaction::limit($selection));
+            self::assertSame(['limit' => 32768, 'source' => 'catalog'], Oyiso_Agent_Connections::view()[0]['context_limits']['claude-opus-5-5']);
+        } finally { remove_filter('pre_http_request', $block); }
+    }
+
     public function testMigrationPreservesLegacyCredentialsEndpointAndSelectedModelOnce(): void
     {
         $options = Oyiso_Agent_Config::saveOptions(['agent_enabled' => true, 'agent_provider' => 'oyiso-gemini', 'agent_gemini_key' => 'fixture-legacy-key', 'agent_gemini_url' => 'https://legacy.example.com/v1', 'agent_gemini_model' => 'legacy-model']);

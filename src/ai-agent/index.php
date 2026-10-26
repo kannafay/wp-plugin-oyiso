@@ -15,6 +15,7 @@ require_once __DIR__ . '/file-manager.php';
 require_once __DIR__ . '/mcp.php';
 require_once __DIR__ . '/permissions.php';
 require_once __DIR__ . '/managed-connections.php';
+require_once __DIR__ . '/context-presets.php';
 require_once __DIR__ . '/context.php';
 require_once __DIR__ . '/model-catalog.php';
 require_once __DIR__ . '/model-settings.php';
