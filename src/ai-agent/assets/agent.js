@@ -56,6 +56,13 @@
         try { localStorage.setItem(storageKey + key, value); } catch { /* Storage is optional. */ }
     }
 
+    function alignContent() {
+        const width = `${Math.max(0, scroll.offsetWidth - scroll.clientWidth)}px`;
+        if (panel.style.getPropertyValue('--oyiso-agent-scrollbar') !== width) panel.style.setProperty('--oyiso-agent-scrollbar', width);
+    }
+    window.addEventListener('resize', alignContent);
+    if (window.ResizeObserver) new ResizeObserver(alignContent).observe(scroll);
+
     function populateModels(choices = config.models || {}, selected = modelSelect.value) {
         config.models = Object.fromEntries(Object.entries(choices).filter(([id, name]) => id.includes('|') && typeof name === 'string'));
         modelSelect.replaceChildren();
@@ -175,6 +182,7 @@
             finishPanelMotion();
         }
         if (open) {
+            alignContent();
             if (focus) $('[data-agent-close]').focus({ preventScroll: true });
             poll();
             if (!wasOpen && !panelHistory.hidden) history?.reloadPanel();

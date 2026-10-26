@@ -126,6 +126,26 @@ test('a message automatically carries the current editor context and latest unsa
     assert.match(f.$('[data-agent-page-context]').textContent, /当前文章.*Current article/);
 });
 
+test('panel gutters track native and overlay scrollbars as the content area resizes', async t => {
+    let client = 303;
+    const observers = [];
+    const f = fixture(t, undefined, {}, window => {
+        const area = window.document.querySelector('.oyiso-agent-scroll');
+        Object.defineProperties(area, { offsetWidth: { get: () => 320 }, clientWidth: { get: () => client } });
+        window.ResizeObserver = class { constructor(callback) { this.callback = callback; } observe(target) { observers.push({ target, callback: this.callback }); } };
+    });
+    await settle();
+    const panel = f.$('#oyiso-agent-panel');
+    assert.equal(panel.style.getPropertyValue('--oyiso-agent-scrollbar'), '17px');
+    client = 305;
+    observers.find(observer => observer.target === f.$('.oyiso-agent-scroll')).callback();
+    assert.equal(panel.style.getPropertyValue('--oyiso-agent-scrollbar'), '15px');
+    client = 320; f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(panel.style.getPropertyValue('--oyiso-agent-scrollbar'), '0px');
+    assert.equal(f.$('[data-agent-notice]').parentElement, f.$('.oyiso-agent-scroll').parentElement);
+    assert.equal(f.$('.oyiso-agent-scroll').contains(f.$('[data-agent-notice]')), false);
+});
+
 test('new article drafts are previewed and created only after clicking the confirmation card', async t => {
     const change = { id: proposal().id, post_id: 0, post_type: 'post', kind: 'draft', title: '<img src=x> Article', before: {}, after: { title: 'Article', content: '<p>New article</p>', excerpt: '' }, saved: {}, status: 'pending' };
     const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', content_changes: [change] }) : route.includes('/content/') ? task({ content_changes: [{ ...change, post_id: 91, status: 'applied', url: 'https://vape.local/wp-admin/post.php?post=91&action=edit' }] }) : undefined,
