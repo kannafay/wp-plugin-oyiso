@@ -42,7 +42,8 @@
         return { w, h, top: clamp(parseFloat(getComputedStyle(document.body).getPropertyValue('--oyiso-agent-bar-height')) || 0, 0, h), gap: window.innerWidth <= 782 ? 12 : 24 };
     }
 
-    const docked = () => window.innerWidth >= 1280 && !document.body.classList.contains('oyiso-agent-floating') && !document.body.classList.contains('block-editor-page');
+    const splitAvailable = () => window.innerWidth >= 1024;
+    const docked = () => splitAvailable() && !document.body.classList.contains('oyiso-agent-floating');
     const leftDock = () => document.body.classList.contains('oyiso-agent-dock-left');
     const dockEdge = () => leftDock() ? 'e' : 'w';
 
@@ -91,6 +92,7 @@
         const rect = { width: value, height, x: fullscreen ? 0 : floating ? clamp(Math.round(left), horizontal.left, horizontal.right) : leftDock() ? 0 : view.w - value, y: floating && !fullscreen ? clamp(Math.round(top), bounds.top, bounds.headerBottom) : 0 };
         document.body.style.setProperty('--oyiso-agent-panel-width', `${value}px`);
         panel.toggleAttribute('data-agent-window', floating);
+        panel.toggleAttribute('data-agent-split-available', splitAvailable());
         if (floating) delete panel.dataset.agentDock;
         else panel.dataset.agentDock = leftDock() ? 'left' : 'right';
         heading.tabIndex = floating && !fullscreen ? 0 : -1;

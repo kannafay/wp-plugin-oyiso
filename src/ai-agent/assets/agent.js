@@ -74,6 +74,7 @@
         if (panel.style.getPropertyValue('--oyiso-agent-scrollbar') !== width) panel.style.setProperty('--oyiso-agent-scrollbar', width);
     }
     window.addEventListener('resize', alignContent);
+    window.addEventListener('resize', updateLayoutControls);
     if (window.ResizeObserver) new ResizeObserver(alignContent).observe(scroll);
 
     function populateModels(choices = config.models || {}, selected = modelSelect.value) {
@@ -249,9 +250,15 @@
     }
 
     function updateLayoutControls() {
-        const floating = document.body.classList.contains('oyiso-agent-floating');
+        const floating = panel.hasAttribute('data-agent-window');
+        const available = panel.hasAttribute('data-agent-split-available');
         const left = document.body.classList.contains('oyiso-agent-dock-left');
-        layoutMenu.querySelectorAll('[data-agent-layout-choice]').forEach(button => button.setAttribute('aria-checked', String(button.dataset.agentLayoutChoice === (floating ? 'floating' : left ? 'left' : 'right'))));
+        layoutMenu.querySelectorAll('[data-agent-layout-choice]').forEach(button => {
+            const choice = button.dataset.agentLayoutChoice;
+            button.disabled = choice !== 'floating' && !available;
+            if (choice !== 'floating') button.title = available ? choice === 'left' ? '左侧分屏' : '右侧分屏' : '窗口较窄，请放大浏览器窗口后使用分屏';
+            button.setAttribute('aria-checked', String(choice === (floating ? 'floating' : left ? 'left' : 'right')));
+        });
     }
 
     function setSettingsMenu(open, focus = true) {
@@ -276,7 +283,7 @@
         settingsMenu.style.transform = `translateX(${desired - left}px)`;
     }
 
-    const menuItems = () => Array.from(settingsMenu.querySelectorAll('button, a')).filter(button => !button.closest('[hidden]') && getComputedStyle(button).display !== 'none');
+    const menuItems = () => Array.from(settingsMenu.querySelectorAll('button, a')).filter(button => !button.disabled && !button.closest('[hidden]') && getComputedStyle(button).display !== 'none');
 
     const node = (tag, className, text) => {
         const element = document.createElement(tag);
@@ -1042,6 +1049,7 @@
     settingsToggle.addEventListener('click', () => setSettingsMenu(settingsMenu.hidden));
     $('[data-agent-refresh]').addEventListener('click', () => { setSettingsMenu(false, false); rememberDraft(); poll(true); });
     layoutMenu.querySelectorAll('[data-agent-layout-choice]').forEach(button => button.addEventListener('click', () => {
+        if (button.disabled) return;
         const choice = button.dataset.agentLayoutChoice;
         if (choice !== 'floating') setSide(choice === 'left');
         setLayout(choice === 'floating');

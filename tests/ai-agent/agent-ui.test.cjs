@@ -2424,6 +2424,30 @@ test('layout menu supports both split sides, keyboard navigation, dismissal and 
     await settle();
 });
 
+test('narrow windows report the floating fallback and disable split choices until there is enough room', t => {
+    const f = fixture(t, undefined, {}, window => {
+        geometry(window, 1023, 900); window.document.body.classList.add('block-editor-page');
+        window.localStorage.setItem(windowKey + ':side', 'left');
+    }, { globalOnly: true });
+    const panel = f.$('#oyiso-agent-panel'), left = f.$('[data-agent-layout-choice="left"]'), right = f.$('[data-agent-layout-choice="right"]'), floating = f.$('[data-agent-layout-choice="floating"]');
+    assert.equal(panel.hasAttribute('data-agent-window'), true); assert.equal(left.disabled, true); assert.equal(right.disabled, true);
+    assert.equal(floating.getAttribute('aria-checked'), 'true'); assert.match(left.title, /窗口较窄/);
+    f.$('[data-agent-settings-toggle]').click(); assert.equal(f.window.document.activeElement, floating);
+    f.$('[data-agent-settings-menu]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    assert.equal(f.window.document.activeElement, f.$('[data-agent-reset]'));
+    right.click(); assert.equal(f.window.localStorage.getItem(windowKey + ':side'), 'left');
+    f.$('#oyiso-agent-prompt').value = 'Keep this draft';
+    f.window.innerWidth = 1024; f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(panel.dataset.agentDock, 'left'); assert.equal(panel.hasAttribute('data-agent-window'), false);
+    assert.equal(left.disabled, false); assert.equal(right.disabled, false); assert.equal(left.getAttribute('aria-checked'), 'true');
+    chooseLayout(f, 'right'); assert.equal(panel.dataset.agentDock, 'right');
+    f.window.innerWidth = 900; f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(floating.getAttribute('aria-checked'), 'true'); assert.equal(right.disabled, true);
+    f.window.innerWidth = 1440; f.window.dispatchEvent(new f.window.Event('resize'));
+    assert.equal(panel.dataset.agentDock, 'right'); assert.equal(right.getAttribute('aria-checked'), 'true');
+    assert.equal(f.$('#oyiso-agent-prompt').value, 'Keep this draft');
+});
+
 test('left split resizes from its right edge with matching keyboard direction and ignores its outer edge', t => {
     const f = fixture(t, undefined, {}, geometry, { globalOnly: true });
     chooseLayout(f, 'left');
@@ -2449,6 +2473,56 @@ test('left split resizes from its right edge with matching keyboard direction an
     assert.equal(outer.getAttribute('aria-valuenow'), '960');
 });
 
+test('block editor split modes leave room for the native editor in normal and fullscreen editing', t => {
+    const f = fixture(t, undefined, {}, window => {
+        geometry(window);
+        const document = window.document;
+        document.body.classList.add('js', 'block-editor-page', 'admin-bar', 'auto-fold');
+        document.body.insertAdjacentHTML('afterbegin', '<div id="wpadminbar"></div><div id="adminmenumain"><div id="adminmenuback"></div><div id="adminmenuwrap"></div></div><div id="editor"><div class="interface-interface-skeleton editor-editor-interface"><div class="interface-interface-skeleton__editor"><header>Native editor header</header><main>Unsaved article content</main><aside>Document settings</aside></div></div></div><div id="wpfooter"></div>');
+        window.localStorage.setItem(windowKey + ':window', JSON.stringify(initialWindow));
+        const addStyle = source => { const style = document.createElement('style'); style.textContent = source; document.head.append(style); return style; };
+        addStyle(['wp-admin/css/common.css', 'wp-admin/css/admin-menu.css', 'wp-includes/css/admin-bar.css'].map(file => fs.readFileSync(path.join(wpRoot, file), 'utf8')).join('\n'));
+        const native = addStyle(fs.readFileSync(path.join(wpRoot, 'wp-includes/css/dist/editor/style.css'), 'utf8'));
+        // Evaluate the installed editor's layout rules in source order; jsdom does not evaluate media queries.
+        const active = [];
+        const collect = rules => { for (const rule of rules) {
+            if (rule.selectorText?.includes('interface-interface-skeleton')) active.push(rule.cssText);
+            else if (rule.conditionText && rule.cssRules) {
+                const min = Number(/min-width:\s*([\d.]+)px/.exec(rule.conditionText)?.[1] || 0);
+                const max = Number(/max-width:\s*([\d.]+)px/.exec(rule.conditionText)?.[1] || Infinity);
+                if (window.innerWidth >= min && window.innerWidth <= max) collect(rule.cssRules);
+            }
+        } };
+        collect(native.sheet.cssRules); addStyle(active.join('\n'));
+        const agent = addStyle(fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.css'), 'utf8'));
+        const desktop = Array.from(agent.sheet.cssRules).find(rule => rule.conditionText === '(min-width: 1024px)');
+        addStyle(Array.from(desktop.cssRules, rule => rule.cssText).join('\n'));
+    }, { globalOnly: true });
+    const panel = f.$('#oyiso-agent-panel'), skeleton = f.$('.interface-interface-skeleton');
+    const css = (element, property) => f.window.getComputedStyle(element).getPropertyValue(property);
+    const offset = 'var(--oyiso-agent-panel-width)';
+    const noMargin = property => assert.ok(!css(skeleton, property) || parseFloat(css(skeleton, property)) === 0);
+    assert.equal(panel.dataset.agentDock, 'right'); assert.equal(panel.hasAttribute('data-agent-window'), false);
+    assert.equal(css(skeleton, 'left'), '160px'); assert.equal(css(skeleton, 'margin-right'), offset); noMargin('margin-left');
+    assert.equal(css(panel, 'top'), '0px'); assert.equal(css(panel, 'bottom'), '0px');
+    chooseLayout(f, 'left');
+    assert.equal(panel.dataset.agentDock, 'left'); assert.equal(css(skeleton, 'margin-left'), offset); noMargin('margin-right');
+    f.window.document.body.classList.add('folded'); assert.equal(css(skeleton, 'left'), '36px');
+    f.window.document.body.classList.add('is-fullscreen-mode');
+    assert.equal(css(skeleton, 'left'), '0px'); assert.equal(css(skeleton, 'margin-left'), offset);
+    assert.equal(css(f.window.document.body, '--oyiso-agent-admin-menu-width').trim(), '0px');
+    f.$('#oyiso-agent-prompt').value = 'Keep the assistant draft';
+    f.$('[data-agent-fullscreen-toggle]').click(); noMargin('margin-left'); noMargin('margin-right');
+    f.$('[data-agent-fullscreen-toggle]').click(); assert.equal(panel.dataset.agentDock, 'left'); assert.equal(css(skeleton, 'margin-left'), offset);
+    chooseLayout(f, 'floating'); const rectangle = windowRect(f); noMargin('margin-left'); noMargin('margin-right');
+    chooseLayout(f, 'right'); assert.equal(css(skeleton, 'margin-right'), offset);
+    chooseLayout(f, 'floating'); assert.deepEqual(windowRect(f), rectangle);
+    chooseLayout(f, 'left'); f.$('[data-agent-close]').click(); noMargin('margin-left'); noMargin('margin-right');
+    f.$('#oyiso-agent-launcher').click(); assert.equal(css(skeleton, 'margin-left'), offset);
+    assert.equal(skeleton.querySelector('main').textContent, 'Unsaved article content');
+    assert.equal(f.$('#oyiso-agent-prompt').value, 'Keep the assistant draft');
+});
+
 test('split layout separates the full-height assistant from the native WordPress toolbar, menu and content', t => {
     let desktopStyle;
     let desktopCss;
@@ -2461,7 +2535,7 @@ test('split layout separates the full-height assistant from the native WordPress
         addStyle(['wp-admin/css/common.css', 'wp-admin/css/admin-menu.css', 'wp-includes/css/admin-bar.css'].map(file => fs.readFileSync(path.join(wpRoot, file), 'utf8')).join('\n'));
         const agent = addStyle(fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.css'), 'utf8'));
         // jsdom has no media-query evaluation; enable the real desktop block for this viewport.
-        const desktop = Array.from(agent.sheet.cssRules).find(rule => rule.conditionText === '(min-width: 1280px)');
+        const desktop = Array.from(agent.sheet.cssRules).find(rule => rule.conditionText === '(min-width: 1024px)');
         desktopCss = Array.from(desktop.cssRules, rule => rule.cssText).join('\n');
         desktopStyle = addStyle(desktopCss);
     }, { globalOnly: true });
@@ -2506,7 +2580,8 @@ test('split layout separates the full-height assistant from the native WordPress
     chooseLayout(f, 'right');
     assert.equal(css(bar, 'right'), offset);
     f.window.document.body.classList.add('block-editor-page');
-    assert.equal(css(bar, 'width'), '100%');
+    assert.equal(css(bar, 'width'), 'auto');
+    assert.equal(f.$(panel).dataset.agentDock, 'right');
     normalMenu();
     f.window.document.body.classList.remove('block-editor-page');
     desktopStyle.textContent = '';
