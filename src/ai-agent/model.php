@@ -5,6 +5,7 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 use WordPress\AiClient\Messages\DTO\Message;
+use WordPress\AiClient\Messages\DTO\UserMessage;
 use WordPress\AiClient\Providers\Http\DTO\RequestOptions;
 
 final readonly class Oyiso_Agent_Turn
@@ -70,7 +71,7 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
             $requestOptions->setTimeout($onText !== null ? 90.0 : 45.0);
             $requestOptions->setConnectTimeout(10.0);
             $requestOptions->setMaxRedirects(0);
-            $messages = array_values($messages);
+            $messages = self::separateToolResponses(array_values($messages));
             $builder = ($this->builderFactory !== null ? ($this->builderFactory)($messages) : wp_ai_client_prompt($messages))
                 ->using_system_instruction(self::instructions())
                 ->using_abilities(...$abilities)
@@ -118,6 +119,25 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway
         } catch (Throwable $error) {
             return new WP_Error('agent_model_error', Oyiso_Agent_Config::error($error->getMessage()));
         }
+    }
+
+    /** @param list<Message> $messages
+     * @return list<Message>
+     */
+    private static function separateToolResponses(array $messages): array
+    {
+        // Older conversations may group parallel replies with text; Compatible requires one reply per message.
+        $normalized = [];
+        foreach ($messages as $message) {
+            $content = [];
+            foreach ($message->getParts() as $part) {
+                if ($part->getFunctionResponse() !== null) $normalized[] = new UserMessage([$part]);
+                else $content[] = $part;
+            }
+            if (count($content) === count($message->getParts())) $normalized[] = $message;
+            elseif ($content !== []) $normalized[] = new Message($message->getRole(), $content);
+        }
+        return $normalized;
     }
 
     public static function instructions(): string

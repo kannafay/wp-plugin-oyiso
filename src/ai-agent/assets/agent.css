@@ -110,6 +110,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 #oyiso-agent-chat { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
 .oyiso-agent .oyiso-agent-notice { flex: none; margin: 12px var(--oyiso-agent-gutter, 20px); padding: 10px 12px; max-height: min(160px, 25dvh); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; border: 1px solid #dcdcde; border-left: 3px solid var(--oyiso-color-accent, #3858e9); border-radius: 4px; background: #f6f7f7; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .oyiso-agent-notice:empty { display: none; }
+.oyiso-agent-notice .button { margin-inline-start: 8px; }
 .oyiso-agent-notice.is-error { border-left-color: #b32d2e; color: #8a2424; }
 .oyiso-agent-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .oyiso-agent-scroll:has(> .oyiso-agent-messages > .oyiso-agent-loading) { scrollbar-gutter: stable both-edges; }

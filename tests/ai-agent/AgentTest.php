@@ -8,6 +8,7 @@ if (!in_array(PHP_SAPI, ['cli', 'phpdbg'], true)) {
 }
 
 use PHPUnit\Framework\TestCase;
+use WordPress\AiClient\Messages\DTO\Message;
 use WordPress\AiClient\Messages\DTO\MessagePart;
 use WordPress\AiClient\Messages\DTO\ModelMessage;
 use WordPress\AiClient\Messages\DTO\UserMessage;
@@ -342,10 +343,13 @@ final class AgentTest extends TestCase
     {
         $run = $this->task(); $product = $this->product();
         Oyiso_Agent_Runner::message($run, 'Read product');
-        $gateway = new OyisoAgentScriptedModel([$this->turn('', [['get-product', ['product_id' => $product->get_id()]]]), $this->turn('Read complete')]);
+        $gateway = new OyisoAgentScriptedModel([$this->turn('', [['get-current-page', []], ['get-product', ['product_id' => $product->get_id()]]]), $this->turn('Read complete')]);
         $runner = new Oyiso_Agent_Runner($gateway);
         $runner->step($run['id']);
         self::assertSame('queued', Oyiso_Agent_Store::get($run['id'])['status']);
+        $messages = Oyiso_Agent_Store::get($run['id'])['messages'];
+        self::assertCount(4, $messages);
+        foreach (array_slice($messages, 2) as $message) { self::assertCount(1, Message::fromArray($message)->getParts()); self::assertNotNull(Message::fromArray($message)->getParts()[0]->getFunctionResponse()); }
         $runner->step($run['id']);
         $fresh = Oyiso_Agent_Store::get($run['id']);
         self::assertSame('completed', $fresh['status']);

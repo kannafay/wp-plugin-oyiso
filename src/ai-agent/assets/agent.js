@@ -36,6 +36,7 @@
     let sendSequence = 0;
     const drafts = new Map();
     const modelDrafts = new Map();
+    const recoveredFailures = new Set();
     let run = null;
     let runId = 0;
     let timer;
@@ -360,10 +361,45 @@
         if (preset) document.querySelector(`[data-agent-connection-notice="${preset}"]`).textContent = '';
     });
 
-    function showNotice(text, error = false) {
+    function showNotice(text, error = false, retry = null) {
+        const failed = run?.status === 'failed' && failedRequest(run) ? run : null;
+        if (failed) {
+            if (!text) { text = failed.error || '执行失败，原消息已保留。'; error = true; }
+            retry ||= () => retryFailedMessage(failed);
+        }
         notice.textContent = text;
+        if (text && retry) {
+            const button = node('button', 'button button-small', '重试此消息'); button.type = 'button'; button.dataset.agentRetry = '';
+            button.disabled = $('[data-agent-send]').disabled;
+            button.addEventListener('click', retry); notice.append(button);
+        }
         notice.classList.toggle('is-error', error);
         notice.hidden = !text;
+    }
+
+    function failedRequest(next) {
+        const index = next.conversation.map(entry => entry.role).lastIndexOf('user');
+        return index < 0 ? null : { index, entry: next.conversation[index] };
+    }
+
+    function restoreFailedDraft(next) {
+        const failed = failedRequest(next);
+        if (!failed) return;
+        const key = `${next.id}:${failed.index}`, saved = `${storageKey}:failed-draft:${next.id}`;
+        if (recoveredFailures.has(key)) return;
+        try { if (sessionStorage.getItem(saved) === String(failed.index)) return; } catch { /* Storage is optional. */ }
+        recoveredFailures.add(key);
+        if (!prompt.value && !(composer?.files() || []).length) {
+            prompt.value = failed.entry.text; composer?.resize(); rememberDraft();
+        }
+        try { sessionStorage.setItem(saved, String(failed.index)); } catch { /* Storage is optional. */ }
+    }
+
+    async function retryFailedMessage(failed) {
+        const request = failedRequest(failed);
+        if (failed.id !== runId || run?.status !== 'failed' || !request || $('[data-agent-send]').disabled) return;
+        const preserveDraft = prompt.value !== request.entry.text || (composer?.files() || []).length > 0;
+        await send(request.entry.text, preserveDraft);
     }
 
     function remember(id) {
@@ -378,6 +414,7 @@
         const active = run && ['queued', 'running'].includes(run.status);
         const ready = config.enabled && config.supported;
         $('[data-agent-send]').disabled = !ready || !Object.hasOwn(config.models || {}, modelSelect.value) || loading || sending || deleting || changing.size > 0 || active || run?.status === 'cancelled';
+        const retry = $('[data-agent-retry]'); if (retry) retry.disabled = $('[data-agent-send]').disabled;
         modelSelect.disabled = !ready || loading || sending || deleting || changing.size > 0 || active;
         prompt.disabled = !ready || loading || sending || deleting || active || run?.status === 'cancelled';
         $('[data-agent-attach]').disabled = prompt.disabled;
@@ -620,8 +657,9 @@
         }
         run = next;
         if (next.status === 'cancelled') liveRuns.delete(next.id);
+        if (next.status === 'failed') restoreFailedDraft(next);
         controls();
-        if (next.error) showNotice(!next.selection && next.error.startsWith('尚无可用的工具调用模型') ? '此对话尚未选择模型。请在下方选择已添加的模型后重新发送。' : next.error, true);
+        if (next.error || next.status === 'failed') showNotice(!next.selection && next.error.startsWith('尚无可用的工具调用模型') ? '此对话尚未选择模型。请在下方选择已添加的模型后重新发送。' : next.error || '执行失败，原消息已保留。', true, next.status === 'failed' && failedRequest(next) ? () => retryFailedMessage(next) : null);
         else if (next.status === 'cancelled') showNotice('任务已取消，后续步骤和待审核修改已停止。可新建对话继续。');
         else showNotice('');
         const signature = JSON.stringify([next.conversation, next.events, next.changes, next.content_changes, next.mcp_actions]);
@@ -746,8 +784,9 @@
         }
     }
 
-    async function send(override) {
+    async function send(override, preserveDraft = true) {
         const generated = typeof override === 'string';
+        const keepDraft = generated && preserveDraft;
         const files = generated ? [] : composer?.files() || [];
         const message = generated ? override : prompt.value.trim() || (files.length ? '请分析附件。' : '');
         if (!message || $('[data-agent-send]').disabled) return;
@@ -756,9 +795,9 @@
         const accept = next => {
             if (accepted) return;
             accepted = true; sentId = next.id;
-            if (!generated) forgetDraft(source);
+            if (!keepDraft) forgetDraft(source);
             runId = next.id; run = null; version = '';
-            if (!generated) { composer?.switchTo(runId); prompt.value = ''; composer?.resize(); }
+            if (!keepDraft) { composer?.switchTo(runId); prompt.value = ''; composer?.resize(); }
             remember(runId); rememberDraft();
             sending = false; controls(); scroll.scrollTop = scroll.scrollHeight;
         };

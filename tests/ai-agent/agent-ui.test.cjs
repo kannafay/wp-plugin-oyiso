@@ -1091,6 +1091,69 @@ test('invalid or oversized files are rejected and failed sending preserves the d
     assert.equal(pasteFiles(f, [], '正常文本').defaultPrevented, false);
 });
 
+test('execution failure restores the accepted message and retry uses the current editor without duplicate submits', async t => {
+    const message = '请继续改写这篇文章\n保留我的修改。';
+    let current, submitted = 0, finish;
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs' && options.method === 'POST') {
+            if (++submitted === 1) { current = task({ status: 'queued', conversation: [{ role: 'user', text: message }] }); return current; }
+            return new Promise(resolve => { finish = () => { current = task({ conversation: [{ role: 'user', text: message }, { role: 'assistant', text: '已完成重试' }] }); resolve(current); }; });
+        }
+        if (route === 'runs/12') return current;
+        if (route === 'runs/12/step') { current = task({ status: 'failed', conversation: [{ role: 'user', text: message }], error: 'The API only allows a single function response, as the only content of the message.' }); return current; }
+    }, { pageContext: { screen: 'post', post_id: 7, post_type: 'post', editor: 'classic', fields: { title: 'Article', content: '<p>Original</p>', excerpt: '' } } }, window => {
+        window.document.body.insertAdjacentHTML('beforeend', '<div id="poststuff"><input id="title" value="Article"><textarea id="content">&lt;p&gt;Original&lt;/p&gt;</textarea><textarea id="excerpt"></textarea></div>');
+    });
+    f.$('#oyiso-agent-prompt').value = message; f.$('[data-agent-send]').click(); await settle();
+    assert.match(f.$('[data-agent-status]').textContent, /执行失败/);
+    assert.equal(f.$('#oyiso-agent-prompt').value, message);
+    assert.match(f.$('[data-agent-messages]').textContent, /保留我的修改/);
+    assert.equal(f.$('[data-agent-retry]').textContent, '重试此消息');
+    f.$('#content').value = '<p>Latest manual edit</p>';
+    f.$('[data-agent-retry]').click(); f.$('[data-agent-retry]').click(); await settle();
+    assert.equal(submitted, 2); assert.equal(f.$('[data-agent-retry]').disabled, true);
+    const retry = JSON.parse(f.calls.filter(call => call.route === 'runs' && call.options.method === 'POST')[1].options.body);
+    assert.equal(retry.message, message); assert.equal(retry.run_id, 12);
+    assert.equal(JSON.parse(retry.page_context).fields.content, '<p>Latest manual edit</p>');
+    finish(); await settle();
+    assert.equal(f.$('#oyiso-agent-prompt').value, ''); assert.equal(f.$('[data-agent-retry]'), null);
+    assert.match(f.$('[data-agent-messages]').textContent, /已完成重试/);
+});
+
+test('retrying a failed saved conversation preserves a newer draft and its unsent attachments', async t => {
+    const original = 'Original request', draft = 'My newer unsent request';
+    let current = task({ status: 'failed', error: '服务暂不可用', conversation: [{ role: 'user', text: original, attachments: [{ id: 77, name: 'original.txt', mime: 'text/plain', size: 10 }] }] });
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs/12') return current;
+        if (route === 'runs' && options.method === 'POST') { current = task({ conversation: [{ role: 'user', text: original }, { role: 'assistant', text: 'Done' }] }); return current; }
+    }, {}, window => {
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+        window.sessionStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:draft:12', draft);
+    });
+    await settle();
+    assert.equal(f.$('#oyiso-agent-prompt').value, draft); assert.match(f.$('[data-agent-messages]').textContent, /original.txt/);
+    pasteFiles(f, [new f.window.File(['unsent'], 'new-draft.txt', { type: 'text/plain' })]);
+    f.$('[data-agent-retry]').click(); await settle();
+    const request = f.calls.find(call => call.route === 'runs' && call.options.method === 'POST');
+    assert.equal(JSON.parse(request.options.body).message, original);
+    assert.equal(f.$('#oyiso-agent-prompt').value, draft); assert.match(f.$('[data-agent-attachments]').textContent, /new-draft.txt/);
+});
+
+test('clearing a recovered failed message stays cleared across refresh and reload', async t => {
+    const failed = task({ status: 'failed', error: 'Provider unavailable', conversation: [{ role: 'user', text: 'Recover this message' }] });
+    const f = fixture(t, route => route === 'runs/12' ? failed : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); assert.equal(f.$('#oyiso-agent-prompt').value, 'Recover this message');
+    f.$('#oyiso-agent-prompt').value = ''; f.$('#oyiso-agent-prompt').dispatchEvent(new f.window.Event('input', { bubbles: true }));
+    f.$('[data-agent-refresh]').click(); await settle(); assert.equal(f.$('#oyiso-agent-prompt').value, '');
+    const saved = Object.fromEntries(Object.keys(f.window.sessionStorage).map(key => [key, f.window.sessionStorage.getItem(key)]));
+    const restored = fixture(t, route => route === 'runs/12' ? failed : undefined, {}, window => {
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+        for (const [key, value] of Object.entries(saved)) window.sessionStorage.setItem(key, value);
+    });
+    await settle(); assert.equal(restored.$('#oyiso-agent-prompt').value, '');
+    assert.ok(restored.$('[data-agent-retry]')); assert.match(restored.$('[data-agent-messages]').textContent, /Recover this message/);
+});
+
 test('refresh and page restoration reconnect to running work without duplicate steps or stale response rollback', async t => {
     let reads = 0; let finishStep;
     const running = task({ status: 'running', partial: { text: 'Current text', model: 'model-a' } });

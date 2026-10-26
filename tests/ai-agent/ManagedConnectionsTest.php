@@ -650,6 +650,47 @@ final class ManagedConnectionsTest extends TestCase
         return self::response(self::nativeResponse($protocol, [$protocol === 'anthropic_messages' ? ['type' => 'text', 'text' => 'OK'] : ['text' => 'OK']]));
     }
 
+    public function testLegacyParallelToolResponsesAndUserContextCanResumeAcrossEveryProtocol(): void
+    {
+        $first = WP_AI_Client_Ability_Function_Resolver::ability_name_to_function_name('oyiso/get-current-page');
+        $second = WP_AI_Client_Ability_Function_Resolver::ability_name_to_function_name('oyiso/get-post');
+        $history = [
+            (new UserMessage([new MessagePart('读取两项资料')]))->toArray(),
+            (new ModelMessage([new MessagePart(new FunctionCall('first', $first, [])), new MessagePart(new FunctionCall('second', $second, ['post_id' => 1]))]))->toArray(),
+            (new UserMessage([new MessagePart(new FunctionResponse('first', $first, ['page' => 'post'])), new MessagePart(new FunctionResponse('second', $second, ['title' => 'Article'])), new MessagePart('保留两项返回结果')]))->toArray(),
+        ];
+        $history[2]['oyiso_page_context'] = ['screen' => 'dashboard', 'label' => '仪表盘', 'url' => '/wp-admin/index.php', 'post_id' => 0, 'post_type' => '', 'editor' => '', 'dirty' => false, 'truncated' => false, 'fields' => [], 'selection' => '', 'captured' => gmdate('c')];
+        foreach (['openai_chat', 'openai_responses', 'anthropic_messages', 'gemini'] as $protocol) {
+            $row = $this->create(['preset' => 'custom', 'protocol' => $protocol]);
+            $seen = 0;
+            $this->mockHttp(static function ($pre, $args) use ($protocol, &$seen) {
+                $seen++; $body = json_decode($args['body'], true);
+                if ($protocol === 'openai_chat') {
+                    $tools = array_values(array_filter($body['messages'], static fn(array $item): bool => $item['role'] === 'tool'));
+                    self::assertCount(2, $tools); self::assertSame(['first', 'second'], array_column($tools, 'tool_call_id'));
+                    self::assertSame(['page' => 'post'], json_decode($tools[0]['content'], true));
+                    self::assertSame(['title' => 'Article'], json_decode($tools[1]['content'], true));
+                } elseif ($protocol === 'openai_responses') {
+                    $tools = array_values(array_filter($body['input'], static fn(array $item): bool => ($item['type'] ?? '') === 'function_call_output'));
+                    self::assertSame(['first', 'second'], array_column($tools, 'call_id'));
+                } else {
+                    $parts = $protocol === 'anthropic_messages' ? $body['messages'][2]['content'] : $body['contents'][2]['parts'];
+                    self::assertCount(4, $parts);
+                    self::assertSame('first', $protocol === 'anthropic_messages' ? $parts[0]['tool_use_id'] : $parts[0]['functionResponse']['id']);
+                    self::assertSame('second', $protocol === 'anthropic_messages' ? $parts[1]['tool_use_id'] : $parts[1]['functionResponse']['id']);
+                }
+                self::assertStringContainsString('保留两项返回结果', wp_json_encode($body, JSON_UNESCAPED_UNICODE));
+                self::assertStringContainsString('当前后台页面资料', wp_json_encode($body, JSON_UNESCAPED_UNICODE));
+                return self::schemaReply($protocol);
+            });
+            foreach ([false, true] as $stream) {
+                $turn = (new Oyiso_Agent_Model())->generate($history, ['oyiso/get-current-page', 'oyiso/get-post'], $row['id'] . '|fixture-model', $stream ? static function (string $text): void {} : null);
+                self::assertInstanceOf(Oyiso_Agent_Turn::class, $turn, $turn instanceof WP_Error ? $turn->get_error_message() : $protocol);
+            }
+            self::assertSame(2, $seen);
+        }
+    }
+
     public function testNativeFailuresRejectMalformedOrTruncatedCallsAndNeverExposeKeys(): void
     {
         foreach (['anthropic_messages', 'gemini'] as $protocol) {

@@ -173,9 +173,7 @@ final class Oyiso_Agent_Runner
                 }
                 $responses[] = new MessagePart(new FunctionResponse($call->getId(), $call->getName(), $result));
             }
-            if ($responses !== []) {
-                $run['messages'][] = (new UserMessage($responses))->toArray();
-            }
+            foreach ($responses as $response) $run['messages'][] = (new UserMessage([$response]))->toArray();
             $pending = count(array_filter($run['changes'], static fn(array $change): bool => $change['status'] === 'pending')) > 0 || Oyiso_Agent_Content::pending($run) || Oyiso_Agent_MCP::pending($run);
             if (count($run['changes']) + count($run['content_changes'] ?? []) > $proposalsBefore || count($run['mcp_actions'] ?? []) > $mcpBefore) {
                 $run['status'] = 'waiting';
