@@ -1492,6 +1492,56 @@ test('panel conversation history handles errors, empty results and pagination an
     assert.equal(f.$(`${panelRecords} [data-agent-history-next]`).disabled, true);
 });
 
+test('history loading, confirmed empty results and errors remain mutually exclusive', async t => {
+    for (const inline of [true, false]) await t.test(inline ? 'sidebar' : 'management page', async t => {
+        let mode = 'empty', finish;
+        const item = { id: 12, title: 'Existing conversation', status: 'completed', updated: '2026-10-26' };
+        const f = fixture(t, route => {
+            if (route !== 'runs?page=1') return;
+            if (mode === 'pending') return new Promise(resolve => { finish = resolve; });
+            return { items: mode === 'populated' ? [item] : [], pages: 1 };
+        }, {}, undefined, { globalOnly: inline });
+        if (inline) f.$('[data-agent-history-toggle]').click();
+        await settle();
+        const root = inline ? panelRecords : '#oyiso-agent-history';
+        const body = () => f.$(`${root} [data-agent-history-body]`), note = () => f.$(`${root} [data-agent-history-notice]`);
+        const refresh = () => f.$(`${root} [data-agent-history-refresh]`).click();
+        assert.match(body().textContent, /暂无对话记录/);
+        mode = 'pending'; refresh(); await settle();
+        assert.match(note().textContent, /正在读取记录/); assert.doesNotMatch(body().textContent, /暂无对话记录/);
+        assert.equal(body().getAttribute('aria-busy'), 'true');
+        finish({ items: [], pages: 1 }); await settle();
+        assert.equal(note().textContent, ''); assert.match(body().textContent, /暂无对话记录/);
+        assert.equal(body().getAttribute('aria-busy'), 'false');
+        refresh(); await settle();
+        finish({ ok: false, status: 503, body: { message: '读取记录失败，请重试' } }); await settle();
+        assert.match(note().textContent, /读取记录失败/); assert.doesNotMatch(body().textContent, /暂无对话记录|正在读取记录/);
+        assert.equal(body().getAttribute('aria-busy'), 'false');
+        mode = 'populated'; refresh(); await settle(); assert.match(body().textContent, /Existing conversation/);
+        mode = 'pending'; refresh(); await settle(); assert.match(body().textContent, /Existing conversation/);
+        finish({ ok: false, status: 503, body: { message: '暂时无法刷新' } }); await settle();
+        assert.match(body().textContent, /Existing conversation/); assert.doesNotMatch(body().textContent, /暂无对话记录/);
+    });
+});
+
+test('history stays busy while reloading a page that disappears after records are removed', async t => {
+    let shrinking = false, finish;
+    const f = fixture(t, route => {
+        if (route === 'runs?page=2') return { items: [], pages: shrinking ? 1 : 2 };
+        if (route === 'runs?page=1') return shrinking ? new Promise(resolve => { finish = resolve; }) : { items: [], pages: 2 };
+    }, {}, undefined, { globalOnly: true });
+    f.$('[data-agent-history-toggle]').click(); await settle();
+    f.$(`${panelRecords} [data-agent-history-next]`).click(); await settle();
+    shrinking = true; f.$(`${panelRecords} [data-agent-history-refresh]`).click(); await settle();
+    assert.equal(f.$(`${panelRecords} [data-agent-history-refresh]`).getAttribute('aria-busy'), 'true');
+    assert.doesNotMatch(f.$(`${panelRecords} [data-agent-history-body]`).textContent, /暂无对话记录/);
+    f.$(`${panelRecords} [data-agent-history-refresh]`).click(); await settle();
+    assert.equal(f.calls.filter(call => call.route === 'runs?page=1').length, 2);
+    finish({ items: [], pages: 1 }); await settle();
+    assert.equal(f.$(`${panelRecords} [data-agent-history-page]`).textContent, '1 / 1');
+    assert.match(f.$(`${panelRecords} [data-agent-history-body]`).textContent, /暂无对话记录/);
+});
+
 test('an unsent new conversation draft survives viewing history and disappears after successful submission', async t => {
     const f = fixture(t, (route, options) => {
         if (route === 'runs?page=1') return { items: [{ id: 13, title: '已有对话', status: 'completed', updated: '2026-10-19' }], pages: 1 };

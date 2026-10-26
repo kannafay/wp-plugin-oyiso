@@ -6,7 +6,7 @@
         const find = (root, selector) => root.querySelector(selector);
         const node = (tag, className, text) => { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; };
         const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
-        const lists = [...document.querySelectorAll('[data-agent-runs]')].map(root => ({ root, inline: root.dataset.agentRuns === 'panel', page: 1, pages: 1, items: [], selected: new Set(), selecting: false, loading: false }));
+        const lists = [...document.querySelectorAll('[data-agent-runs]')].map(root => ({ root, inline: root.dataset.agentRuns === 'panel', page: 1, pages: 1, items: [], selected: new Set(), selecting: false, loading: false, loaded: false }));
         const trash = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>';
         const stop = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>';
         let pending = [], returnFocus, busy = false;
@@ -35,6 +35,7 @@
         }
         function renderList(list) {
             const body = find(list.root, '[data-agent-history-body]'); body.replaceChildren();
+            body.setAttribute('aria-busy', String(list.loading));
             for (const item of list.items) {
                 const row = node(list.inline ? 'li' : 'tr', list.inline ? 'oyiso-agent-history-item' : '');
                 const pick = node('input'); pick.type = 'checkbox'; pick.dataset.agentHistoryPick = item.id; pick.setAttribute('aria-label', `选择对话：${item.title}`);
@@ -71,7 +72,7 @@
                 if (!list.inline) row.append(actions);
                 body.append(row);
             }
-            if (!list.items.length) {
+            if (!list.items.length && list.loaded && !list.loading) {
                 const cell = node(list.inline ? 'li' : 'td', 'oyiso-agent-history-empty', '暂无对话记录');
                 if (list.inline) body.append(cell);
                 else { cell.colSpan = 5; const row = node('tr'); row.append(cell); body.append(row); }
@@ -83,18 +84,24 @@
         }
         async function load(list) {
             if (list.loading || (list.inline && (list.root.hidden || panel.hidden))) return;
-            list.loading = true;
+            list.loading = true; list.loaded = false;
             const note = find(list.root, '[data-agent-history-notice]');
+            const body = find(list.root, '[data-agent-history-body]'); body.setAttribute('aria-busy', 'true');
             const refresh = find(list.root, '[data-agent-history-refresh]'); refresh.setAttribute('aria-busy', 'true');
-            if (!list.items.length) note.textContent = '正在读取记录…';
+            if (!list.items.length) { body.replaceChildren(); note.textContent = '正在读取记录…'; }
+            else note.textContent = '';
             try {
-                const data = await api(`runs?page=${list.page}`);
-                list.pages = Math.max(1, data.pages);
-                if (list.page > list.pages) { list.page = list.pages; list.loading = false; return load(list); }
+                let data;
+                while (true) {
+                    data = await api(`runs?page=${list.page}`);
+                    list.pages = Number.isSafeInteger(data.pages) ? Math.max(1, data.pages) : 1;
+                    if (list.page <= list.pages) break;
+                    list.page = list.pages;
+                }
                 list.items = data.items.filter(item => !unavailableIds.has(item.id));
-                note.textContent = ''; renderList(list);
+                list.loaded = true; note.textContent = '';
             } catch (error) { note.textContent = error.message; }
-            finally { list.loading = false; refresh.setAttribute('aria-busy', 'false'); if (list.again) { list.again = false; load(list); } }
+            finally { list.loading = false; refresh.setAttribute('aria-busy', 'false'); renderList(list); if (list.again) { list.again = false; load(list); } }
         }
         function confirmDelete(ids, trigger) {
             if (!ids.length || busy || !canDelete()) return;
