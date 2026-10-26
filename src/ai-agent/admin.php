@@ -296,6 +296,11 @@ final class Oyiso_Agent_Admin
             <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-product-description" data-agent-product-description></p><p class="description">商品及其关联变体会从前台下架，图片和历史订单保留。可在回收站保留期间恢复。</p></div>
             <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-agent-product-cancel>取消</button><button type="button" class="button oyiso-button-danger" data-agent-product-confirm>移入回收站</button></div>
         </dialog>
+        <dialog class="oyiso-agent-confirm oyiso-confirm-dialog" data-agent-refill-dialog aria-labelledby="oyiso-agent-refill-title" aria-describedby="oyiso-agent-refill-description oyiso-agent-refill-note">
+            <div class="oyiso-confirm-dialog__heading"><h2 id="oyiso-agent-refill-title">重新填入编辑器</h2><button type="button" class="oyiso-confirm-dialog__close" data-agent-refill-close aria-label="关闭">×</button></div>
+            <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-refill-description" data-agent-refill-description></p><p class="description" id="oyiso-agent-refill-note">将重新载入该方案涉及的内容，填入后仍需使用 WordPress 的保存按钮手动保存。</p></div>
+            <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-agent-refill-cancel>取消</button><button type="button" class="button button-primary" data-agent-refill-confirm>确认重新填入</button></div>
+        </dialog>
         <?php
     }
 

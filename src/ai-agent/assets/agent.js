@@ -33,6 +33,8 @@
     const settingsToggle = $('[data-agent-settings-toggle]');
     const productDialog = document.querySelector('[data-agent-product-dialog]');
     let productConfirmation;
+    const refillDialog = document.querySelector('[data-agent-refill-dialog]');
+    let refillConfirmation;
     const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
     const fields = { description: '长描述', short_description: '短描述', seo_title: 'SEO 标题', seo_description: 'SEO 描述', seo_keywords: '目标关键词' };
     const storageKey = `oyiso-agent:${config.user}:${new URL(config.url).pathname}`;
@@ -507,6 +509,7 @@
     }
 
     function controls() {
+        if (refillConfirmation && !currentRefill()) closeRefillConfirmation();
         const active = run && ['queued', 'running'].includes(run.status);
         const ready = config.enabled && config.supported;
         const stopping = cancelling.has(runId);
@@ -666,7 +669,7 @@
                     if (review.changed) section.append(node('p', 'description', '当前内容已更新，可以按原要求重新生成预览。'));
                     const fill = node('button', 'button button-primary', review.changed ? '按当前内容重新生成' : change.status === 'filled' ? '重新填入当前编辑器' : '填入当前编辑器'); fill.type = 'button'; fill.disabled = button.disabled;
                     if (review.changed) fill.dataset.agentRegenerate = change.id;
-                    fill.addEventListener('click', () => review.changed ? regenerate(change, 'product') : fillEditor(change, 'product')); section.append(fill);
+                    fill.addEventListener('click', () => review.changed ? regenerate(change, 'product') : requestEditorFill(change, 'product', fill)); section.append(fill);
                 }
             }
             container.append(section);
@@ -719,7 +722,7 @@
                     const button = node('button', 'button' + (action === 'apply' ? ' button-primary' : ''), label); button.type = 'button';
                     button.disabled = !config.enabled || action !== 'dismiss' && !mayWrite(permission) || ['queued', 'running', 'cancelled'].includes(run.status) || changing.has(change.id) || sending;
                     if (action === 'regenerate') button.dataset.agentRegenerate = change.id;
-                    button.addEventListener('click', () => action === 'regenerate' ? regenerate(change) : action === 'editor' ? fillEditor(change) : applyContent(change, action)); actions.append(button);
+                    button.addEventListener('click', () => action === 'regenerate' ? regenerate(change) : action === 'editor' ? requestEditorFill(change, 'post', button) : applyContent(change, action)); actions.append(button);
                 }
                 footer.append(actions);
             }
@@ -788,6 +791,45 @@
         if (!pending) return;
         closeProductConfirmation();
         if (pending.runId === runId && run?.changes.some(change => change.id === pending.proposal && change.type === 'trash' && change.status === 'pending')) applyChange(pending.proposal, 'trash');
+    });
+
+    function currentRefill() {
+        const pending = refillConfirmation;
+        if (!pending || pending.runId !== runId || !panelOpen || loading || sending || deleting || changing.size || !config.enabled || !config.supported || ['queued', 'running', 'cancelled'].includes(run?.status)) return;
+        if (!mayWrite(`oyiso/apply-${pending.kind === 'product' ? 'product' : 'post'}-update`)) return;
+        const change = (pending.kind === 'product' ? run?.changes : run?.content_changes)?.find(change => change.id === pending.proposal && change.status === 'filled');
+        const postId = pending.kind === 'product' ? change?.product_id : change?.post_id;
+        if (postId === pending.postId && window.oyisoAgentPage?.snapshot().post_id === postId) return change;
+    }
+
+    function closeRefillConfirmation() {
+        const trigger = refillConfirmation?.trigger;
+        refillConfirmation = null;
+        if (!refillDialog?.open) return;
+        window.oyisoModalMotion.hide(refillDialog, () => {
+            if (panelOpen && trigger?.isConnected) trigger.focus();
+            else if (panelOpen) prompt.focus();
+        });
+    }
+
+    function requestEditorFill(change, kind, trigger) {
+        const current = (kind === 'product' ? run?.changes : run?.content_changes)?.find(item => item.id === change.id);
+        if (current?.status === 'pending') { fillEditor(current, kind); return; }
+        if (current?.status !== 'filled' || !refillDialog) return;
+        refillConfirmation = { runId, proposal: current.id, kind, postId: kind === 'product' ? current.product_id : current.post_id, trigger };
+        if (!currentRefill()) { refillConfirmation = null; return; }
+        $('[data-agent-refill-description]', refillDialog).textContent = `确认将“${current.title || current.name || '未命名'}”（#${refillConfirmation.postId}）的方案内容重新填入当前编辑器？`;
+        window.oyisoModalMotion.show(refillDialog);
+        $('[data-agent-refill-cancel]', refillDialog).focus();
+    }
+
+    refillDialog?.querySelectorAll('[data-agent-refill-close], [data-agent-refill-cancel]').forEach(button => button.addEventListener('click', closeRefillConfirmation));
+    refillDialog?.addEventListener('cancel', event => { event.preventDefault(); closeRefillConfirmation(); });
+    refillDialog?.addEventListener('keydown', event => { if (event.key === 'Escape') event.stopPropagation(); });
+    refillDialog?.querySelector('[data-agent-refill-confirm]').addEventListener('click', () => {
+        const change = currentRefill(), pending = refillConfirmation;
+        closeRefillConfirmation();
+        if (change && pending) fillEditor(change, pending.kind);
     });
 
     function render(next, animate = false) {

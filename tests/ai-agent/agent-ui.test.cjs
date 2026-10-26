@@ -329,6 +329,16 @@ test('filled proposals can be restored to classic and block editors after a relo
         const button = [...f.$('[data-agent-changes]').querySelectorAll('button')].find(button => button.textContent === '重新填入当前编辑器');
         assert.ok(button); assert.equal(button.disabled, false);
         button.click(); button.click(); await settle();
+        const dialog = f.$('[data-agent-refill-dialog]');
+        assert.equal(dialog.open, true); assert.match(dialog.textContent, /重新填入当前编辑器.*手动保存/);
+        assert.equal(f.window.document.activeElement, f.$('[data-agent-refill-cancel]'));
+        assert.equal(f.calls.some(call => call.route.includes('/content/')), false);
+        assert.equal(editor === 'gutenberg' ? values.content : f.$('#content').value, saved[field]);
+        f.$('[data-agent-refill-cancel]').click();
+        assert.equal(dialog.open, false); assert.equal(f.window.document.activeElement, button);
+        assert.equal(f.calls.some(call => call.route.includes('/content/')), false);
+        button.click();
+        f.$('[data-agent-refill-confirm]').click(); f.$('[data-agent-refill-confirm]').click(); await settle();
         assert.equal(editor === 'gutenberg' ? values.content : f.$('#content').value, after[field]);
         assert.equal(editor === 'gutenberg' ? values.title : f.$('#title').value, 'My later title');
         assert.equal(editor === 'gutenberg' ? values.excerpt : f.$('#excerpt').value, after[summary]);
@@ -340,6 +350,57 @@ test('filled proposals can be restored to classic and block editors after a relo
         assert.equal(JSON.parse(requests[1].options.body).signature, 'recovery-signature');
         assert.match(f.$('[data-agent-notice]').textContent, /尚未保存/);
     });
+});
+
+test('refill confirmation closes safely and cannot act on a changed conversation, grant or proposal', async t => {
+    for (const mode of ['escape', 'conversation', 'permission', 'proposal', 'page']) await t.test(mode, async t => {
+        const saved = { content: '<p>Saved body</p>' };
+        const change = contentProposal({ title: '<img src=x> Article', saved, before: saved, after: { content: '<p>AI version</p>' } });
+        let current = task({ content_changes: [change] });
+        const f = fixture(t, route => route === 'runs/12' ? current : undefined,
+            { writeTools: ['oyiso/apply-post-update'], pageContext: { screen: 'post', post_id: 7, post_type: 'post', editor: 'classic', fields: saved } }, window => {
+                window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+                window.document.body.insertAdjacentHTML('beforeend', '<div id="poststuff"><textarea id="content">&lt;p&gt;Saved body&lt;/p&gt;</textarea></div>');
+            });
+        await settle();
+        const button = f.$('[data-agent-changes] button'); button.click();
+        const dialog = f.$('[data-agent-refill-dialog]');
+        assert.equal(dialog.open, true); assert.equal(dialog.querySelector('img'), null);
+        assert.match(dialog.textContent, /<img src=x> Article/);
+        if (mode === 'escape') {
+            dialog.dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            dialog.dispatchEvent(new f.window.Event('cancel', { cancelable: true }));
+            assert.equal(f.window.document.activeElement, button);
+            assert.equal(f.$('#oyiso-agent-panel').hidden, false);
+        } else if (mode === 'conversation') f.$('[data-agent-new]').click();
+        else if (mode === 'permission') f.window.oyisoAgent.writeTools = [];
+        else if (mode === 'page') f.window.oyisoAgentPage.snapshot = () => ({ post_id: 8, fields: {} });
+        else {
+            current = task({ content_changes: [{ ...change, status: 'superseded' }] });
+            f.$('[data-agent-refresh]').click(); await settle();
+        }
+        f.$('[data-agent-refill-confirm]').click(); await settle();
+        assert.equal(dialog.open, false);
+        assert.equal(f.calls.some(call => call.route.includes('/content/')), false);
+        assert.equal(f.$('#content').value, saved.content);
+    });
+});
+
+test('edits made after opening refill confirmation are preserved when confirmation is accepted', async t => {
+    const saved = { content: '<p>Saved body</p>' }, change = contentProposal({ saved, before: saved, after: { content: '<p>AI version</p>' } });
+    const f = fixture(t, route => route === 'runs/12' ? task({ content_changes: [change] }) : route.includes('/content/') ? { post_id: 7, expected: saved, fields: change.after, restore_from: [change.after], signature: 'refill-confirmation' } : undefined,
+        { writeTools: ['oyiso/apply-post-update'], pageContext: { screen: 'post', post_id: 7, post_type: 'post', editor: 'classic', fields: saved } }, window => {
+            window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+            window.document.body.insertAdjacentHTML('beforeend', '<div id="poststuff"><textarea id="content">&lt;p&gt;Saved body&lt;/p&gt;</textarea></div>');
+        });
+    await settle(); f.$('[data-agent-changes] button').click();
+    f.$('#content').value = 'My later edits';
+    f.$('[data-agent-refill-confirm]').click(); await settle();
+    assert.equal(f.$('#content').value, 'My later edits');
+    assert.match(f.$('[data-agent-notice]').textContent, /编辑器内容已改变/);
+    assert.equal(f.$('[data-agent-regenerate]').textContent, '按当前内容重新生成');
+    const requests = f.calls.filter(call => call.route.includes('/content/'));
+    assert.equal(requests.length, 1); assert.equal(JSON.parse(requests[0].options.body).action, 'editor');
 });
 
 test('recovery preserves newer editor changes and still requires the current write grant', async t => {
