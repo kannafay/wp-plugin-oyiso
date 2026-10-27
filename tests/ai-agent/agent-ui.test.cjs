@@ -2837,6 +2837,57 @@ test('left split resizes from its right edge with matching keyboard direction an
     assert.equal(outer.getAttribute('aria-valuenow'), '960');
 });
 
+test('frontend docking reserves page space and restores it for floating, closed and narrow layouts', t => {
+    const themeRoot = path.join(wpRoot, 'wp-content/themes/woodmart/css/parts');
+    if (!fs.existsSync(path.join(themeRoot, 'base.css'))) { t.skip('requires the installed storefront theme'); return; }
+    let original; let content;
+    const f = fixture(t, undefined, {}, window => {
+        geometry(window);
+        const document = window.document;
+        document.body.classList.add('wd', 'admin-bar', 'oyiso-agent-frontend');
+        document.body.insertAdjacentHTML('afterbegin', '<div id="wpadminbar"></div><div class="wd-page-wrapper website-wrapper"><header class="whb-header whb-sticked"><div class="whb-main-header">Sticky header</div></header><main id="storefront-content"><section class="wd-section-stretch">Full width section</section><div class="alignfull">Full width block</div><button type="button">Keep storefront events</button></main></div><div class="whb-sticky-header whb-clone whb-main-header whb-sticked">Cloned header</div>');
+        content = document.getElementById('storefront-content');
+        const append = source => { const style = document.createElement('style'); style.textContent = source; document.head.append(style); return style; };
+        append(['base.css', 'header-base.css', 'header-opt-clone.css', 'int-elem-base.css'].map(file => fs.readFileSync(path.join(themeRoot, file), 'utf8')).join('\n'));
+        original = Object.fromEntries(['width', 'margin-left', 'margin-right'].map(property => [property, window.getComputedStyle(document.body).getPropertyValue(property)]));
+        const styles = ['src/ai-agent/assets/agent.css', 'src/ai-agent/assets/frontend.css'].map(file => append(fs.readFileSync(path.join(repo, file), 'utf8')));
+        const desktop = styles.flatMap(style => [...style.sheet.cssRules].filter(rule => rule.conditionText === '(min-width: 1024px)').flatMap(rule => [...rule.cssRules].map(child => child.cssText))).join('\n');
+        const media = append('');
+        const syncMedia = () => { media.textContent = window.innerWidth >= 1024 ? desktop : ''; };
+        window.addEventListener('resize', syncMedia); syncMedia();
+    }, { globalOnly: true });
+    const css = (selector, property) => f.window.getComputedStyle(f.$(selector)).getPropertyValue(property);
+    const pageWidth = () => f.window.document.body.style.getPropertyValue('--oyiso-agent-page-width');
+    const reserved = (side, expected) => {
+        assert.equal(css('body', 'width'), 'var(--oyiso-agent-page-width)');
+        assert.equal(css('body', 'margin-' + side), 'var(--oyiso-agent-panel-width)');
+        assert.equal(pageWidth(), expected);
+        for (const selector of ['.whb-header .whb-main-header', '.whb-clone']) {
+            assert.equal(css(selector, 'width'), 'var(--oyiso-agent-page-width)');
+            assert.equal(css(selector, 'left'), side === 'left' ? 'var(--oyiso-agent-panel-width)' : '0px');
+        }
+        assert.ok(css('.wd-section-stretch', 'width').includes('--oyiso-agent-page-width'));
+        assert.equal(css('.alignfull', 'width'), 'var(--oyiso-agent-page-width)');
+    };
+    const restored = () => {
+        for (const [property, value] of Object.entries(original)) assert.equal(css('body', property), value);
+        assert.equal(pageWidth(), '');
+        assert.equal(f.$('#storefront-content'), content);
+    };
+    reserved('right', '1056px');
+    f.$('[data-agent-resize="w"]').dispatchEvent(new f.window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    reserved('right', '640px');
+    chooseLayout(f, 'left'); reserved('left', '640px');
+    f.$('[data-agent-fullscreen-toggle]').click(); restored();
+    f.$('[data-agent-fullscreen-toggle]').click(); reserved('left', '640px');
+    chooseLayout(f, 'floating'); restored();
+    chooseLayout(f, 'right'); reserved('right', '640px');
+    f.$('[data-agent-close]').click(); restored();
+    f.$('#oyiso-agent-launcher').click(); reserved('right', '640px');
+    f.window.innerWidth = 800; f.window.dispatchEvent(new f.window.Event('resize')); restored();
+    f.window.innerWidth = 1600; f.window.dispatchEvent(new f.window.Event('resize')); reserved('right', '640px');
+});
+
 test('block editor split modes leave room for the native editor in normal and fullscreen editing', t => {
     const f = fixture(t, undefined, {}, window => {
         geometry(window);

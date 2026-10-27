@@ -14,3 +14,29 @@ body.oyiso-agent-frontend #oyiso-agent-panel .oyiso-agent-plugin-preview dt { fo
 :where(body.oyiso-agent-frontend #oyiso-agent-panel) details:where([open]) > summary { list-style-type: disclosure-open; }
 body.oyiso-agent-frontend #oyiso-agent-panel input[type="checkbox"] { appearance: auto; width: 16px; height: 16px; margin: 0; padding: 0; accent-color: var(--oyiso-color-primary, #3858e9); }
 body.oyiso-agent-frontend :is(#oyiso-agent-launcher-help, #oyiso-agent-panel .screen-reader-text) { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* Reserve the same space as the docked panel without moving theme DOM nodes. */
+@media (min-width: 1024px) {
+    body.oyiso-agent-frontend.oyiso-agent-open:not(.oyiso-agent-floating) {
+        box-sizing: border-box;
+        width: var(--oyiso-agent-page-width);
+        min-width: 0;
+        max-width: none;
+        margin-left: 0;
+        margin-right: var(--oyiso-agent-panel-width);
+    }
+    body.oyiso-agent-frontend.oyiso-agent-open.oyiso-agent-dock-left:not(.oyiso-agent-floating) { margin-left: var(--oyiso-agent-panel-width); margin-right: 0; }
+    body.oyiso-agent-frontend.oyiso-agent-open:not(.oyiso-agent-floating) :is(.whb-header.whb-sticked .whb-main-header, .whb-clone) { left: 0; right: auto; width: var(--oyiso-agent-page-width); }
+    body.oyiso-agent-frontend.oyiso-agent-open.oyiso-agent-dock-left:not(.oyiso-agent-floating) :is(.whb-header.whb-sticked .whb-main-header, .whb-clone) { left: var(--oyiso-agent-panel-width); }
+    body.oyiso-agent-frontend.oyiso-agent-open:not(.oyiso-agent-floating) .alignfull {
+        width: var(--oyiso-agent-page-width);
+        max-width: var(--oyiso-agent-page-width);
+        margin-left: calc((100% - var(--oyiso-agent-page-width)) / 2);
+        margin-right: calc((100% - var(--oyiso-agent-page-width)) / 2);
+    }
+    body.oyiso-agent-frontend.oyiso-agent-open:not(.oyiso-agent-floating) [class*="wd-section-stretch"] {
+        min-width: calc(var(--oyiso-agent-page-width) - var(--wd-sticky-nav-w, 0px));
+        width: calc(var(--oyiso-agent-page-width) - var(--wd-sticky-nav-w, 0px));
+        left: calc(50% - var(--oyiso-agent-page-width) / 2 + var(--wd-sticky-nav-w, 0px) / 2);
+    }
+}

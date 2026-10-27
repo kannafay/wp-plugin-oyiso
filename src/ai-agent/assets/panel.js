@@ -91,6 +91,10 @@
         const left = floating ? windowState?.anchorX === 'header' ? bounds.left + windowState.x * Math.max(1, bounds.maxWidth - value) : clamp(Math.round((windowState?.x ?? 1) * (view.w - value)), bounds.left, bounds.right - value) : 0;
         const rect = { width: value, height, x: fullscreen ? 0 : floating ? clamp(Math.round(left), horizontal.left, horizontal.right) : leftDock() ? 0 : view.w - value, y: floating && !fullscreen ? clamp(Math.round(top), bounds.top, bounds.headerBottom) : 0 };
         document.body.style.setProperty('--oyiso-agent-panel-width', `${value}px`);
+        if (document.body.classList.contains('oyiso-agent-frontend')) {
+            if (!floating && !fullscreen && document.body.classList.contains('oyiso-agent-open')) document.body.style.setProperty('--oyiso-agent-page-width', `${Math.max(0, view.w - value)}px`);
+            else document.body.style.removeProperty('--oyiso-agent-page-width');
+        }
         panel.toggleAttribute('data-agent-window', floating);
         panel.toggleAttribute('data-agent-split-available', splitAvailable());
         if (floating) delete panel.dataset.agentDock;
