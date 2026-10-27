@@ -199,7 +199,7 @@ final class Oyiso_Agent_Admin
             $executed = count(array_filter($run['mcp_actions'] ?? [], static fn(array $action): bool => $action['id'] === $proposal && $action['status'] === 'completed')) > 0;
             $run['status'] = $pending ? 'waiting' : ($decision === 'execute' && $executed ? 'queued' : 'completed');
             if ($run['status'] === 'queued') $run['step'] = 0;
-            Oyiso_Agent_Store::save($run);
+            if (!Oyiso_Agent_Store::save($run, true)) return new WP_Error('agent_mcp_result_save', '无法保存操作结果。请刷新并核对工具的实际状态，不要重复执行。', ['status' => 500]);
             $enqueue = $run['status'] === 'queued';
             return new WP_REST_Response(Oyiso_Agent_Store::view($run));
         } finally {

@@ -57,7 +57,9 @@ final class Oyiso_Agent_Content
         if (get_post_meta($id, '_elementor_edit_mode', true) === 'builder' && is_array($input['fields'] ?? null) && isset($input['fields']['content'])) return new WP_Error('agent_editor_unsupported', '此内容使用 Elementor，请使用对应的编辑器工具修改布局。');
         $snapshot = $run['post_snapshots'][$id] ?? null;
         if ($snapshot === null) return new WP_Error('agent_content_not_read', '请先使用 get-post 读取内容，再准备修改。');
-        if (is_array($input['fields'] ?? null) && isset($input['fields']['content']) && mb_strlen($snapshot['fields']['content']) > 20000) return new WP_Error('agent_context_truncated', '正文超过单次读取范围，不能基于截断内容覆盖。请缩小修改范围。');
+        if (is_array($input['fields'] ?? null)) foreach (array_keys($input['fields']) as $field) {
+            if (isset($snapshot['fields'][$field]) && mb_strlen($snapshot['fields'][$field]) > 20000) return new WP_Error('agent_context_truncated', '内容字段超过单次读取范围，不能基于截断内容覆盖。请缩小修改范围。');
+        }
         if ($saved !== $snapshot['saved']) return new WP_Error('agent_content_conflict', '站点内容已改变，请重新读取后生成方案。', ['status' => 409]);
         $after = self::sanitize($input['fields'] ?? null, $snapshot['fields']);
         if (is_wp_error($after)) return $after;
@@ -208,23 +210,32 @@ final class Oyiso_Agent_Content
             $object = get_post_type_object($change['post_type']);
             if ($object === null || !current_user_can($object->cap->create_posts)) return new WP_Error('agent_content_forbidden', '没有创建草稿的权限。', ['status' => 403]);
             global $wpdb;
-            $wpdb->query('START TRANSACTION');
+            if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('agent_content_write', '无法开始草稿保存事务，此次未创建草稿。', ['status' => 500]);
+            $id = 0;
             try {
                 $existing = get_posts(['post_type' => $change['post_type'], 'post_status' => ['draft', 'pending', 'publish', 'private', 'future', 'trash'], 'author' => get_current_user_id(), 'meta_key' => '_oyiso_agent_draft', 'meta_value' => $change['id'], 'numberposts' => 1, 'fields' => 'ids']);
                 $id = $existing[0] ?? wp_insert_post(wp_slash(['post_type' => $change['post_type'], 'post_status' => 'draft', 'post_author' => get_current_user_id(), 'post_title' => $change['after']['title'], 'post_content' => $change['after']['content'], 'post_excerpt' => $change['after']['excerpt'], 'meta_input' => ['_oyiso_agent_draft' => $change['id']]]), true);
                 if (is_wp_error($id)) { $wpdb->query('ROLLBACK'); return $id; }
-                $wpdb->query('COMMIT');
-            } catch (Throwable $error) { $wpdb->query('ROLLBACK'); return new WP_Error('agent_content_write', Oyiso_Agent_Config::error($error->getMessage())); }
+                if ($existing === []) {
+                    clean_post_cache($id);
+                    $draft = get_post($id);
+                    if (!$draft instanceof WP_Post || $draft->post_status !== 'draft' || get_post_meta($id, '_oyiso_agent_draft', true) !== $change['id'] || array_intersect_key(Oyiso_Agent_Page_Context::fields($draft), $change['after']) !== $change['after']) throw new RuntimeException('草稿保存后的内容或防重复标记校验失败。');
+                }
+                if ($wpdb->query('COMMIT') === false) throw new RuntimeException('无法提交草稿保存事务。');
+            } catch (Throwable $error) { $wpdb->query('ROLLBACK'); return new WP_Error('agent_content_write', Oyiso_Agent_Config::error($error->getMessage()), ['status' => 500]); }
+            finally { if (is_int($id) && $id > 0) clean_post_cache($id); }
             $change['post_id'] = $id;
             $change['url'] = admin_url('post.php?post=' . $id . '&action=edit');
             $change['status'] = $done;
             return $change;
         }
         global $wpdb;
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('agent_content_write', '无法开始内容保存事务，此次未执行修改。', ['status' => 500]);
         try {
-            $wpdb->get_var($wpdb->prepare("SELECT ID FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE", $change['post_id']));
+            $locked = $wpdb->get_var($wpdb->prepare("SELECT ID FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE", $change['post_id']));
+            if (!is_scalar($locked) || (int) $locked !== $change['post_id']) throw new RuntimeException('无法锁定内容，此次未执行修改。');
             $wpdb->get_col($wpdb->prepare("SELECT meta_id FROM {$wpdb->postmeta} WHERE post_id = %d FOR UPDATE", $change['post_id']));
+            if ($wpdb->last_error !== '') throw new RuntimeException('无法锁定内容资料，此次未执行修改。');
             clean_post_cache($change['post_id']);
             $post = self::post($change['post_id']);
             if (is_wp_error($post)) { $wpdb->query('ROLLBACK'); return $post; }
@@ -232,13 +243,17 @@ final class Oyiso_Agent_Content
             $expected = $action === 'revert' ? $change['after'] : $change['saved'];
             if ($current !== $expected) { $wpdb->query('ROLLBACK'); return new WP_Error('agent_content_conflict', '内容已被其他操作修改，请重新读取并生成方案；此次未覆盖。', ['status' => 409]); }
             $target = $action === 'revert' ? $change['saved'] : $change['after'];
-            $result = wp_update_post(wp_slash(['ID' => $post->ID, 'post_status' => $post->post_status === 'auto-draft' ? 'draft' : $post->post_status, 'post_title' => $target['title'], 'post_content' => $target['content'], 'post_excerpt' => $target['excerpt']]), true);
+            $status = $post->post_status === 'auto-draft' ? 'draft' : $post->post_status;
+            $result = wp_update_post(wp_slash(['ID' => $post->ID, 'post_status' => $status, 'post_title' => $target['title'], 'post_content' => $target['content'], 'post_excerpt' => $target['excerpt']]), true);
             if (is_wp_error($result)) { $wpdb->query('ROLLBACK'); return $result; }
             foreach (Oyiso_Agent_Tools::SEO as $field => $meta) if (isset($target[$field])) update_post_meta($post->ID, $meta, wp_slash($target[$field]));
-            $wpdb->query('COMMIT');
             clean_post_cache($post->ID);
+            $saved = get_post($post->ID);
+            if (!$saved instanceof WP_Post || $saved->post_status !== $status || Oyiso_Agent_Page_Context::fields($saved) !== $target) throw new RuntimeException('内容保存后的字段校验失败。');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('无法提交内容保存事务。');
             $change['status'] = $done;
             return $change;
-        } catch (Throwable $error) { $wpdb->query('ROLLBACK'); return new WP_Error('agent_content_write', Oyiso_Agent_Config::error($error->getMessage())); }
+        } catch (Throwable $error) { $wpdb->query('ROLLBACK'); return new WP_Error('agent_content_write', Oyiso_Agent_Config::error($error->getMessage()), ['status' => 500]); }
+        finally { clean_post_cache($change['post_id']); }
     }
 }

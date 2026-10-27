@@ -206,6 +206,55 @@ final class MCPTest extends TestCase
         self::assertSame(400, $this->request($run, $pending['action_id'], 'invalid')->get_status());
     }
 
+    public function testFailedConfirmationCheckpointNeverExecutesOrReplaysWrites(): void
+    {
+        foreach ([false, true] as $blocked) {
+            $run = $this->task(); $pending = $this->call($run, 'fixture-mcp/write');
+            $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+            $before = $this->writes;
+            $filter = static fn(mixed $check, int $id, string $key): mixed => $id === $run['id'] && $key === '_oyiso_agent_run' ? $blocked : $check;
+            add_filter('update_post_metadata', $filter, 10, 3);
+            try { $response = $this->request($run, $pending['action_id']); }
+            finally { remove_filter('update_post_metadata', $filter, 10); }
+            self::assertSame(500, $response->get_status());
+            self::assertSame($before, $this->writes);
+            self::assertSame('pending', Oyiso_Agent_Store::get($run['id'])['mcp_actions'][0]['status']);
+            self::assertSame(200, $this->request($run, $pending['action_id'])->get_status());
+            self::assertSame($before + 1, $this->writes);
+            self::assertSame(409, $this->request($run, $pending['action_id'])->get_status());
+        }
+    }
+
+    public function testFailedResultCheckpointCannotRepeatAnExecutedWrite(): void
+    {
+        $run = $this->task(); $pending = $this->call($run, 'fixture-mcp/write');
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        $filter = static fn(mixed $check, int $id, string $key, mixed $value): mixed => $id === $run['id'] && $key === '_oyiso_agent_run' && is_array($value) && ($value['mcp_actions'][0]['status'] ?? '') === 'completed' ? false : $check;
+        add_filter('update_post_metadata', $filter, 10, 4);
+        try { $response = $this->request($run, $pending['action_id']); }
+        finally { remove_filter('update_post_metadata', $filter, 10); }
+        self::assertSame(500, $response->get_status());
+        self::assertSame(1, $this->writes);
+        self::assertSame('executing', Oyiso_Agent_Store::get($run['id'])['mcp_actions'][0]['status']);
+        self::assertSame(409, $this->request($run, $pending['action_id'])->get_status());
+        self::assertSame(1, $this->writes);
+    }
+
+    public function testCancellationDuringConfirmationCheckpointPreventsExecution(): void
+    {
+        $run = $this->task(); $pending = $this->call($run, 'fixture-mcp/write');
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        $filter = static function (mixed $check, int $id, string $key) use ($run): mixed {
+            if ($id === $run['id'] && $key === '_oyiso_agent_run') update_post_meta($id, '_oyiso_agent_cancelled', true);
+            return $check;
+        };
+        add_filter('update_post_metadata', $filter, 10, 3);
+        try { $response = $this->request($run, $pending['action_id']); }
+        finally { remove_filter('update_post_metadata', $filter, 10); }
+        self::assertSame(403, $response->get_status());
+        self::assertSame(0, $this->writes);
+    }
+
     public function testRevokedToolsPermissionsBusyOrCancelledRunsCannotWrite(): void
     {
         $run = $this->task();

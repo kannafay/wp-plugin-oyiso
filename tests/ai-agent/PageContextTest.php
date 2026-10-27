@@ -128,6 +128,58 @@ final class PageContextTest extends TestCase
         }
     }
 
+    public function testContentTransactionErrorsNeverReportSuccessOrKeepPartialWrites(): void
+    {
+        global $wpdb;
+        foreach (['START TRANSACTION', 'post lock', 'metadata lock', 'COMMIT'] as $failure) {
+            $post = $this->post(); $run = $this->task(); $proposal = $this->prepare($run, $post);
+            $before = Oyiso_Agent_Page_Context::fields($post);
+            $filter = static function (string $query) use ($failure, $wpdb): string {
+                $match = $query === $failure || str_contains($query, 'FOR UPDATE') && str_contains($query, $failure === 'post lock' ? $wpdb->posts : $wpdb->postmeta) && in_array($failure, ['post lock', 'metadata lock'], true);
+                return $match ? 'SELECT oyiso_audit_missing_column' : $query;
+            };
+            $previous = $wpdb->suppress_errors(true); add_filter('query', $filter);
+            try { $response = $this->control($run, $proposal, 'apply'); }
+            finally { remove_filter('query', $filter); $wpdb->query('ROLLBACK'); $wpdb->suppress_errors($previous); clean_post_cache($post->ID); }
+            self::assertSame(500, $response->get_status(), $failure);
+            self::assertSame($before, Oyiso_Agent_Page_Context::fields(get_post($post->ID)), $failure);
+            self::assertSame('pending', Oyiso_Agent_Store::get($run['id'])['content_changes'][0]['status']);
+        }
+    }
+
+    public function testContentSaveVerifiesFieldsAndRollsBackSilentChanges(): void
+    {
+        $post = $this->post(); $run = $this->task(); $proposal = $this->prepare($run, $post);
+        $before = Oyiso_Agent_Page_Context::fields($post);
+        $filter = static function (array $data, array $input) use ($post): array {
+            if ((int) ($input['ID'] ?? 0) === $post->ID) $data['post_excerpt'] = 'Unexpected fixture rewrite';
+            return $data;
+        };
+        add_filter('wp_insert_post_data', $filter, 10, 2);
+        try { $response = $this->control($run, $proposal, 'apply'); }
+        finally { remove_filter('wp_insert_post_data', $filter, 10); }
+        self::assertSame(500, $response->get_status());
+        clean_post_cache($post->ID);
+        self::assertSame($before, Oyiso_Agent_Page_Context::fields(get_post($post->ID)));
+        self::assertSame('pending', Oyiso_Agent_Store::get($run['id'])['content_changes'][0]['status']);
+    }
+
+    public function testMissingDraftMarkerNeverCreatesAnUntrackedDraft(): void
+    {
+        $run = $this->task();
+        $proposal = $this->tool($run, 'prepare-post-draft', ['fields' => ['title' => 'Oyiso security draft fixture', 'content' => '<p>Draft fixture</p>']]);
+        $run['status'] = 'waiting'; Oyiso_Agent_Store::save($run);
+        $filter = static fn(mixed $check, int $id, string $key): mixed => $key === '_oyiso_agent_draft' ? false : $check;
+        add_filter('add_post_metadata', $filter, 10, 3);
+        try { $response = $this->control($run, $proposal['proposal_id'], 'apply'); }
+        finally { remove_filter('add_post_metadata', $filter, 10); }
+        $created = get_posts(['post_type' => 'post', 'post_status' => 'draft', 'author' => OYISO_AGENT_TEST_ADMIN, 'title' => 'Oyiso security draft fixture', 'fields' => 'ids', 'numberposts' => -1]);
+        $this->posts = array_merge($this->posts, $created);
+        self::assertSame(500, $response->get_status());
+        self::assertSame([], $created);
+        self::assertSame('pending', Oyiso_Agent_Store::get($run['id'])['content_changes'][0]['status']);
+    }
+
     public function testSavingRejectsManualChangesRevokedGrantsAndCancelledTasks(): void
     {
         $post = $this->post(); $run = $this->task(); $proposal = $this->prepare($run, $post);

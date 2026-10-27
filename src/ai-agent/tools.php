@@ -108,7 +108,7 @@ final class Oyiso_Agent_Tools
                 $attributes[wc_attribute_label($key)] = $product->get_attribute($key);
             }
         }
-        return ['id' => $id, 'parent_id' => $product->get_parent_id(), 'name' => $product->get_name(), 'sku' => $product->get_sku(), 'type' => $product->get_type(), 'status' => $product->get_status(), 'variation_count' => count(array_filter($snapshot['variations'], static fn(string $status): bool => $status !== 'trash')), 'can_trash' => Oyiso_Agent_Permissions::allows('oyiso/apply-product-trash') && get_post_type($id) === 'product' && current_user_can('delete_products') && current_user_can('delete_post', $id) && Oyiso_Agent_Product_Trash::trashEnabled(), 'url' => $product->get_permalink(), 'price' => $product->get_price(), 'currency' => get_woocommerce_currency(), 'stock_status' => $product->get_stock_status(), 'attributes' => $attributes, 'fields' => array_map(static fn(string $value): string => mb_substr($value, 0, 20000), $fields), 'seopress' => self::seoEnabled(), 'notice' => '描述单字段最多返回 20000 字符。价格、库存和规格以本站资料为准；与用户提供的资料冲突时需说明。SEO 字段为空表示未单独设置，页面可能使用全局模板。'];
+        return ['id' => $id, 'parent_id' => $product->get_parent_id(), 'name' => $product->get_name(), 'sku' => $product->get_sku(), 'type' => $product->get_type(), 'status' => $product->get_status(), 'variation_count' => count(array_filter($snapshot['variations'], static fn(string $status): bool => $status !== 'trash')), 'can_trash' => Oyiso_Agent_Permissions::allows('oyiso/apply-product-trash') && get_post_type($id) === 'product' && current_user_can('delete_products') && current_user_can('delete_post', $id) && Oyiso_Agent_Product_Trash::trashEnabled(), 'url' => $product->get_permalink(), 'price' => $product->get_price(), 'currency' => get_woocommerce_currency(), 'stock_status' => $product->get_stock_status(), 'attributes' => $attributes, 'fields' => array_map(static fn(string $value): string => mb_substr($value, 0, 20000), $fields), 'truncated_fields' => array_keys(array_filter($fields, static fn(string $value): bool => mb_strlen($value) > 20000)), 'seopress' => self::seoEnabled(), 'notice' => '描述单字段最多返回 20000 字符，truncated_fields 中的字段未完整读取，不能据此覆盖。价格、库存和规格以本站资料为准；与用户提供的资料冲突时需说明。SEO 字段为空表示未单独设置，页面可能使用全局模板。'];
     }
 
     /** @param array<string, mixed> $input
@@ -164,6 +164,7 @@ final class Oyiso_Agent_Tools
             if (!is_string($key) || !is_string($value)) {
                 return new WP_Error('agent_field_type', '商品字段必须是文本。');
             }
+            if (mb_strlen($before[$key]) > 20000) return new WP_Error('agent_product_truncated', '商品字段 ' . $key . ' 超过单次读取范围，不能基于截断内容覆盖。请缩小修改范围。');
             $limit = match ($key) { 'description' => 60000, 'short_description' => 12000, 'seo_title' => 300, default => 1000 };
             if (mb_strlen($value) > $limit) {
                 return new WP_Error('agent_field_length', sprintf('字段 %s 超过长度限制。', $key));
@@ -238,7 +239,7 @@ final class Oyiso_Agent_Tools
     private function write(WC_Product $product, array $fields, array $expected): true|WP_Error
     {
         global $wpdb;
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('agent_product_save', '无法开始商品保存事务，此次未执行修改。', ['status' => 500]);
         try {
             $id = $product->get_id();
             $lockedId = $wpdb->get_var($wpdb->prepare("SELECT ID FROM {$wpdb->posts} WHERE ID = %d FOR UPDATE", $id));
@@ -246,6 +247,7 @@ final class Oyiso_Agent_Tools
                 throw new RuntimeException('商品已不存在，无法保存。');
             }
             $wpdb->get_col($wpdb->prepare("SELECT meta_id FROM {$wpdb->postmeta} WHERE post_id = %d FOR UPDATE", $id));
+            if ($wpdb->last_error !== '') throw new RuntimeException('无法锁定商品资料，此次未执行修改。');
             clean_post_cache($id);
             $fresh = wc_get_product($id);
             if (!$fresh) {
@@ -257,7 +259,7 @@ final class Oyiso_Agent_Tools
                 return new WP_Error('agent_update_conflict', '商品已被其他操作修改，请重新读取并生成方案；此次未覆盖。', ['status' => 409]);
             }
             if ($current === $fields) {
-                $wpdb->query('COMMIT');
+                if ($wpdb->query('COMMIT') === false) throw new RuntimeException('无法提交商品保存事务。');
                 return true;
             }
             $product = $fresh;
@@ -280,13 +282,13 @@ final class Oyiso_Agent_Tools
             if (!$fresh || self::fields($fresh) !== $fields) {
                 throw new RuntimeException('商品保存后的内容校验失败。');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('无法提交商品保存事务。');
             return true;
         } catch (Throwable $error) {
             $wpdb->query('ROLLBACK');
             clean_post_cache($product->get_id());
             wc_delete_product_transients($product->get_id());
-            return new WP_Error('agent_product_save', Oyiso_Agent_Config::error($error->getMessage()));
+            return new WP_Error('agent_product_save', Oyiso_Agent_Config::error($error->getMessage()), ['status' => 500]);
         }
     }
 

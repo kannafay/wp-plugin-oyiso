@@ -279,6 +279,42 @@ final class AgentTest extends TestCase
         self::assertSame('reverted', $this->tool($run, 'revert-product-update', ['proposal_id' => $id], 'revert')['status']);
     }
 
+    public function testTruncatedProductFieldsCannotBeOverwrittenByAPartialRead(): void
+    {
+        $product = $this->product();
+        $original = '<p>' . str_repeat('完整商品内容', 4200) . 'UNREAD-TAIL-MUST-STAY</p>';
+        $product->set_description($original); $product->save();
+        $run = $this->task();
+        $read = $this->tool($run, 'get-product', ['product_id' => $product->get_id()]);
+        self::assertStringNotContainsString('UNREAD-TAIL-MUST-STAY', $read['fields']['description']);
+        $result = $this->tool($run, 'prepare-product-update', ['product_id' => $product->get_id(), 'fields' => ['description' => '<p>Only the visible beginning</p>']]);
+        self::assertInstanceOf(WP_Error::class, $result);
+        self::assertSame('agent_product_truncated', $result->get_error_code());
+        self::assertSame(['description'], $read['truncated_fields']);
+        $pending = $this->tool($run, 'prepare-product-update', ['product_id' => $product->get_id(), 'fields' => ['short_description' => 'Safe separate field']]);
+        self::assertIsArray($pending);
+        self::assertIsArray($this->tool($run, 'apply-product-update', ['proposal_id' => $pending['proposal_id']], 'apply'));
+        clean_post_cache($product->get_id());
+        self::assertSame($original, wc_get_product($product->get_id())->get_description('edit'));
+    }
+
+    public function testProductTransactionErrorsDoNotReportSuccessfulWrites(): void
+    {
+        global $wpdb;
+        foreach (['START TRANSACTION', 'metadata lock', 'COMMIT'] as $failure) {
+            $product = $this->product(); $run = $this->task();
+            $proposal = $this->proposal($run, $product, ['description' => '<p>Audit replacement</p>']);
+            $before = Oyiso_Agent_Tools::fields($product);
+            $filter = static fn(string $query): string => $query === $failure || $failure === 'metadata lock' && str_contains($query, $wpdb->postmeta) && str_contains($query, 'FOR UPDATE') ? 'SELECT oyiso_audit_missing_column' : $query;
+            $previous = $wpdb->suppress_errors(true); add_filter('query', $filter);
+            try { $result = $this->tool($run, 'apply-product-update', ['proposal_id' => $proposal], 'apply'); }
+            finally { remove_filter('query', $filter); $wpdb->query('ROLLBACK'); $wpdb->suppress_errors($previous); clean_post_cache($product->get_id()); }
+            self::assertInstanceOf(WP_Error::class, $result, $failure);
+            self::assertSame($before, Oyiso_Agent_Tools::fields(wc_get_product($product->get_id())), $failure);
+            self::assertSame('pending', $run['changes'][0]['status']);
+        }
+    }
+
     public function testApplyAndRevertRejectInterveningManualChanges(): void
     {
         $run = $this->task(); $product = $this->product();
@@ -335,6 +371,27 @@ final class AgentTest extends TestCase
         wp_set_current_user(0);
         self::assertSame(401, $this->request('GET', 'runs')->get_status());
         self::assertSame(401, $this->request('POST', 'runs', ['message' => 'No access'])->get_status());
+    }
+
+    public function testAllAgentRestSurfacesRejectVisitorsAndUnprivilegedAccounts(): void
+    {
+        $run = $this->task(); $proposal = wp_generate_uuid4();
+        $subscriber = wp_insert_user(['user_login' => 'agent-security-' . wp_generate_uuid4(), 'user_pass' => wp_generate_password(), 'role' => 'subscriber']);
+        self::assertIsInt($subscriber); $this->users[] = $subscriber;
+        $routes = [
+            ['GET', 'status', []], ['GET', 'runs', []], ['POST', 'runs', ['message' => 'Denied']], ['DELETE', 'runs', ['ids' => [$run['id']]]],
+            ['GET', 'runs/' . $run['id'], []], ['POST', 'runs/' . $run['id'] . '/step', []], ['POST', 'runs/' . $run['id'] . '/cancel', []],
+            ['POST', 'runs/' . $run['id'] . '/content/' . $proposal, ['action' => 'apply']],
+            ['POST', 'runs/' . $run['id'] . '/changes/' . $proposal, ['action' => 'apply']],
+            ['POST', 'runs/' . $run['id'] . '/mcp/' . $proposal, ['action' => 'execute']],
+            ['GET', 'files', []], ['GET', 'files/1', []], ['DELETE', 'files', ['ids' => [1]]], ['POST', 'files/migrate', []],
+            ['GET', 'providers', []], ['POST', 'providers', []], ['PUT', 'providers/missing', []], ['DELETE', 'providers/missing', []],
+            ['POST', 'providers/models', []], ['POST', 'providers/missing/test', ['model' => 'fixture']], ['POST', 'connections/deepseek/test', []],
+        ];
+        foreach ([0 => 401, $subscriber => 403] as $user => $status) {
+            wp_set_current_user($user);
+            foreach ($routes as [$method, $route, $params]) self::assertSame($status, $this->request($method, $route, $params)->get_status(), $method . ' ' . $route);
+        }
     }
 
     public function testRestCreatesPrivateTaskAndCancellationPersists(): void

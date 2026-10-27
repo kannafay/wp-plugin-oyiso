@@ -84,7 +84,7 @@ final class Oyiso_Agent_Store
     }
 
     /** @param Run $run */
-    public static function save(array $run): void
+    public static function save(array $run, bool $verify = false): bool
     {
         if (self::cancelled($run['id'])) {
             $run['status'] = 'cancelled';
@@ -100,7 +100,12 @@ final class Oyiso_Agent_Store
             }
         }
         if (isset($run['executions'])) $run['executions'] = self::updateExecutions($run['executions'], $run['status'], $run['step'], $run['tokens']);
-        update_post_meta($run['id'], self::META, wp_slash($run));
+        $updated = update_post_meta($run['id'], self::META, wp_slash($run));
+        if (!$verify) return $updated !== false;
+        // A confirmation checkpoint must exist in the database, not just an object cache or metadata filter.
+        global $wpdb;
+        $stored = $wpdb->get_var($wpdb->prepare("SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s LIMIT 1", $run['id'], self::META));
+        return is_string($stored) && $stored === maybe_serialize($run);
     }
 
     /** Called before appending a new user message, so the previous turn keeps its final values.

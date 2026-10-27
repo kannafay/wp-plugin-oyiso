@@ -256,7 +256,13 @@ final class Oyiso_Agent_MCP
             $input = json_decode($action['input_json'], true);
             // Persist before the write: a disconnected client must never repeat a mutation.
             $run['mcp_actions'][$index] = array_replace($action, ['status' => 'executing']);
-            Oyiso_Agent_Store::save($run);
+            if (!Oyiso_Agent_Store::save($run, true)) {
+                $run['mcp_actions'][$index] = $action;
+                return new WP_Error('agent_mcp_checkpoint', '无法保存执行确认，本次操作尚未执行。请稍后重试。', ['status' => 500]);
+            }
+            if (Oyiso_Agent_Store::cancelled($run['id'])) return new WP_Error('agent_mcp_forbidden', '任务已取消，本次操作尚未执行。', ['status' => 403]);
+            $permission = Oyiso_Agent_Permissions::check($action['name']);
+            if (is_wp_error($permission)) return $permission;
             try {
                 $result = self::result($pluginAction ? Oyiso_Agent_Plugins::apply($run, $id) : $ability->execute($input === [] && array_key_exists('default', $ability->get_input_schema()) ? null : $input));
             } catch (Throwable $error) {
