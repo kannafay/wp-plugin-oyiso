@@ -147,6 +147,56 @@ test('panel gutters track native and overlay scrollbars as the content area resi
     assert.equal(f.$('.oyiso-agent-scroll').contains(f.$('[data-agent-notice]')), false);
 });
 
+test('storefront theme styles cannot resize assistant controls or hide disclosure markers', async t => {
+    const themePath = path.join(wpRoot, 'wp-content/themes/woodmart/css/parts/base.css');
+    if (!fs.existsSync(themePath)) { t.skip('requires the installed storefront theme'); return; }
+    for (const themeLast of [false, true]) {
+        const f = fixture(t, undefined, {}, window => {
+            const document = window.document;
+            document.body.classList.add('wd', 'oyiso-agent-frontend');
+            document.body.insertAdjacentHTML('afterbegin', '<form id="storefront-fixture"><textarea></textarea><button type="button">Storefront button</button><details><summary>Storefront summary</summary></details></form>');
+            document.body.insertAdjacentHTML('beforeend', '<dialog id="frontend-dialog-fixture" class="oyiso-confirm-dialog" open><div class="oyiso-confirm-dialog__heading"><h2>确认操作</h2><button class="oyiso-confirm-dialog__close" type="button">×</button></div><div class="oyiso-confirm-dialog__footer"><button class="button" type="button">取消</button><button class="button button-primary" type="button">确认</button></div></dialog>');
+            const append = source => { const style = document.createElement('style'); style.textContent = source; document.head.append(style); };
+            const theme = fs.readFileSync(themePath, 'utf8');
+            if (!themeLast) append(theme);
+            for (const file of ['src/admin/assets/modals.css', 'src/ai-agent/assets/agent.css', 'src/ai-agent/assets/frontend.css']) append(fs.readFileSync(path.join(repo, file), 'utf8'));
+            if (themeLast) append(theme);
+            document.querySelector('#oyiso-agent-panel').insertAdjacentHTML('beforeend', '<section class="oyiso-agent-mcp-action"><dl class="oyiso-agent-plugin-preview"><dt>插件标识</dt><dd>fixture/plugin.php</dd></dl><details class="oyiso-agent-field-diff"><summary>执行结果</summary><pre>Fixture result</pre></details></section>');
+        }, { globalOnly: true });
+        const css = (selector, property) => f.window.getComputedStyle(f.$(selector)).getPropertyValue(property);
+        assert.equal(css('#oyiso-agent-prompt', 'min-height'), '23px', `theme last: ${themeLast}`);
+        assert.equal(css('#oyiso-agent-prompt', 'max-height'), '160px');
+        assert.equal(css('#oyiso-agent-prompt', 'resize'), 'none');
+        assert.equal(css('#oyiso-agent-prompt', 'padding-left'), '2px');
+        for (const selector of ['[data-agent-history-toggle]', '[data-agent-refresh]', '[data-agent-settings-toggle]', '[data-agent-fullscreen-toggle]', '[data-agent-close]']) {
+            assert.equal(css(selector, 'height'), '32px', selector);
+            assert.equal(css(selector, 'min-height'), '32px', selector);
+            assert.equal(css(selector, 'padding-left'), '0px', selector);
+            assert.equal(css(selector, 'background-color'), 'rgba(0, 0, 0, 0)', selector);
+        }
+        assert.equal(css('[data-agent-context-button]', 'min-height'), '34px');
+        assert.equal(css('[data-agent-context-button]', 'padding-left'), '7px');
+        assert.equal(css('[data-agent-context-button]', 'background-color'), 'rgba(0, 0, 0, 0)');
+        assert.equal(css('[data-agent-model]', 'height'), '34px');
+        assert.equal(css('[data-agent-model]', 'background-image'), 'none');
+        assert.equal(css('.oyiso-agent-field-diff summary', 'display'), 'list-item');
+        assert.equal(css('.oyiso-agent-plugin-preview dt', 'font-weight'), '400');
+        assert.equal(css('#storefront-fixture textarea', 'min-height'), '190px');
+        assert.equal(css('#storefront-fixture button', 'min-height'), 'var(--btn-height, 42px)');
+        assert.equal(css('#frontend-dialog-fixture .oyiso-confirm-dialog__close', 'min-height'), '0px');
+        assert.equal(css('#frontend-dialog-fixture .oyiso-confirm-dialog__close', 'font-size'), '24px');
+        assert.equal(css('#frontend-dialog-fixture .oyiso-confirm-dialog__close', 'background-color'), 'rgba(0, 0, 0, 0)');
+        assert.equal(css('#frontend-dialog-fixture .button-primary', 'min-height'), '40px');
+        f.$('[data-agent-settings-toggle]').click();
+        assert.equal(css('[data-agent-settings-toggle]', 'background-color'), 'rgb(240, 240, 241)');
+        assert.equal(css('[data-agent-new]', 'height'), '32px');
+        f.$('[data-agent-history-toggle]').setAttribute('aria-expanded', 'true');
+        f.$('[data-agent-fullscreen-toggle]').setAttribute('aria-pressed', 'true');
+        assert.equal(css('[data-agent-history-toggle]', 'background-color'), 'rgb(240, 240, 241)');
+        assert.equal(css('[data-agent-fullscreen-toggle]', 'background-color'), 'rgb(240, 240, 241)');
+    }
+});
+
 test('frontend content previews save only after confirmation and never offer to fill storefront forms', async t => {
     for (const product of [false, true]) await t.test(product ? 'product' : 'post', async t => {
         const change = product ? proposal() : contentProposal({ status: 'pending' });

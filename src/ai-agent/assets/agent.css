@@ -85,7 +85,9 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 #oyiso-agent-panel[data-agent-fullscreen] .oyiso-agent-panel-heading { cursor: default; }
 .oyiso-agent-panel-actions { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 3px; max-width: 100%; margin-left: auto; }
 .oyiso-agent-panel-actions > .button { height: 32px; min-height: 32px; margin-right: 4px; padding: 0 12px; font-size: 13px; line-height: 30px; }
-.oyiso-agent-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #646970; text-decoration: none; cursor: pointer; }
+#oyiso-agent-panel .oyiso-agent-icon-button,
+.oyiso-agent-icon-button { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 32px; min-width: 0; height: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #646970; text-decoration: none; cursor: pointer; }
+#oyiso-agent-panel .oyiso-agent-icon-button:hover,
 .oyiso-agent-icon-button:hover { background: #f0f0f1; color: #1d2327; }
 .oyiso-agent-icon-button svg, .oyiso-agent-settings-menu svg, .oyiso-agent-new svg, .oyiso-agent-empty-mark svg { display: block; flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 #oyiso-agent-panel .oyiso-agent-new { display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 0 8px; border-color: transparent; background: transparent; color: #50575e; box-shadow: none; }
@@ -93,14 +95,21 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-new svg { width: 15px; height: 15px; }
 .oyiso-agent-settings-wrap { position: relative; display: flex; }
 .oyiso-agent-settings-menu { position: absolute; z-index: 6; top: calc(100% + 8px); right: 0; width: 200px; padding: 6px; box-sizing: border-box; overflow-y: auto; border: 1px solid var(--oyiso-agent-line, #e7e9ec); border-radius: 4px; background: #fff; box-shadow: 0 8px 28px #00000014; }
-.oyiso-agent-settings-menu :is(button, a) { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 8px 10px; border: 0; border-radius: 2px; background: transparent; color: #1d2327; font: inherit; font-size: 13px; line-height: 1.4; text-align: left; text-decoration: none; cursor: pointer; }
+#oyiso-agent-panel .oyiso-agent-settings-menu :is(button, a),
+.oyiso-agent-settings-menu :is(button, a) { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 0; box-sizing: border-box; padding: 8px 10px; border: 0; border-radius: 2px; background: transparent; color: #1d2327; font: inherit; font-size: 13px; line-height: 1.4; text-align: left; text-decoration: none; cursor: pointer; }
 .oyiso-agent-settings-menu svg { width: 16px; height: 16px; }
+#oyiso-agent-panel .oyiso-agent-settings-menu :is(button, a):hover:not(:disabled), #oyiso-agent-panel [data-agent-settings-toggle][aria-expanded="true"],
 .oyiso-agent-settings-menu :is(button, a):hover:not(:disabled), [data-agent-settings-toggle][aria-expanded="true"] { background: #f0f0f1; }
+#oyiso-agent-panel .oyiso-agent-settings-menu button:disabled,
 .oyiso-agent-settings-menu button:disabled { color: #a7aaad; cursor: default; }
 .oyiso-agent-layout-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding-bottom: 4px; margin-bottom: 4px; border-bottom: 1px solid #e5e5e5; }
+#oyiso-agent-panel .oyiso-agent-settings-menu .oyiso-agent-layout-grid button,
 .oyiso-agent-settings-menu .oyiso-agent-layout-grid button { flex-direction: column; justify-content: center; gap: 4px; padding: 6px 2px; font-size: 11px; text-align: center; }
+#oyiso-agent-panel .oyiso-agent-layout-grid button[aria-checked="true"],
 .oyiso-agent-layout-grid button[aria-checked="true"] { background: #f0f0f1; color: var(--oyiso-color-primary, #3858e9); }
+#oyiso-agent-panel [data-agent-history-toggle][aria-expanded="true"],
 [data-agent-history-toggle][aria-expanded="true"] { background: #f0f0f1; }
+#oyiso-agent-panel [data-agent-fullscreen-toggle][aria-pressed="true"],
 [data-agent-fullscreen-toggle][aria-pressed="true"] { background: #f0f0f1; }
 [data-agent-refresh][aria-busy="true"] svg { animation: oyiso-agent-refresh 1s linear infinite; }
 @keyframes oyiso-agent-refresh { to { transform: rotate(360deg); } }
@@ -171,17 +180,22 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-composer-surface { padding: 12px; border: 1px solid #dcdcde; border-radius: 6px; background: #fafbfc; transition: border-color .15s; }
 .oyiso-agent-composer-surface:has(.oyiso-agent-attachment.is-image) { padding-top: 4px; }
 .oyiso-agent-composer-surface:focus-within { border-color: #8c8f94; }
+#oyiso-agent-panel .oyiso-agent-composer textarea,
 .oyiso-agent-composer textarea { display: block; width: 100%; max-width: none; min-height: 23px; max-height: 160px; margin: 0; padding: 0 2px; border: 0; border-radius: 0; background: transparent; color: #1d2327; box-shadow: none; resize: none; overflow-y: hidden; box-sizing: border-box; font: inherit; font-size: 14px; line-height: 1.6; }
 .oyiso-agent-composer textarea::placeholder { color: #8c8f94; opacity: 1; }
+#oyiso-agent-panel .oyiso-agent-composer textarea:is(:focus, :focus-visible),
 .oyiso-agent-composer textarea:is(:focus, :focus-visible) { border: 0; outline: none; box-shadow: none; }
 .oyiso-agent-composer-actions { display: flex; align-items: center; gap: 6px; margin-top: 12px; }
 .oyiso-agent-composer-actions > div { display: flex; flex: none; gap: 6px; margin-left: auto; }
-.oyiso-agent-composer-actions > .oyiso-agent-icon-button { flex: none; width: 32px; height: 34px; border-radius: 4px; }
+#oyiso-agent-panel .oyiso-agent-composer-actions > .oyiso-agent-icon-button,
+.oyiso-agent-composer-actions > .oyiso-agent-icon-button { flex: none; width: 32px; height: 34px; min-height: 34px; border-radius: 4px; }
 .oyiso-agent-composer-actions .oyiso-agent-model-picker { flex: 0 1 auto; min-width: 0; max-width: 360px; width: auto; height: 34px; min-height: 34px; margin: 0; padding: 0 26px 0 8px; border: 0; border-radius: 0; background-color: transparent; color: #50575e; box-shadow: none; font-size: 13px; text-overflow: ellipsis; cursor: pointer; }
 .oyiso-agent-composer-actions .oyiso-agent-model-picker:is(:hover, :focus, :focus-visible) { border: 0; outline: none; box-shadow: none; background-color: transparent; }
 .oyiso-agent-composer-actions .oyiso-agent-composer-control { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; min-height: 34px; margin: 0; padding: 0; border-radius: 4px; line-height: 1; }
 .oyiso-agent-context { position: relative; display: inline-flex; flex: none; align-items: center; }
-.oyiso-agent-context-button { display: inline-flex; align-items: center; gap: 5px; height: 34px; margin: 0; padding: 0 7px; border: 0; border-radius: 4px; background: transparent; color: #646970; box-shadow: none; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; cursor: help; white-space: nowrap; }
+#oyiso-agent-panel .oyiso-agent-context-button,
+.oyiso-agent-context-button { display: inline-flex; align-items: center; gap: 5px; height: 34px; min-height: 34px; margin: 0; padding: 0 7px; border: 0; border-radius: 4px; background: transparent; color: #646970; box-shadow: none; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; cursor: help; white-space: nowrap; }
+#oyiso-agent-panel .oyiso-agent-context-button:is(:hover, :focus-visible),
 .oyiso-agent-context-button:is(:hover, :focus-visible) { background: #f0f0f1; color: #1d2327; }
 .oyiso-agent-context-button:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: 1px; }
 .oyiso-agent-context-button svg { display: block; flex: none; width: 20px; height: 20px; fill: none; stroke-width: 2.5; }
@@ -294,7 +308,8 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-history-item > .button { flex: none; }
 .oyiso-agent-panel-history .oyiso-agent-pagination { flex: none; justify-content: space-between; padding: 4px 12px; margin: 0; border-top: 1px solid #dcdcde; font-size: 11px; }
 .oyiso-agent-history-row-actions { display: inline-flex; flex: none; gap: 2px; }
-.oyiso-agent-history-row-actions .oyiso-agent-icon-button { width: 24px; height: 28px; }
+#oyiso-agent-panel .oyiso-agent-history-row-actions .oyiso-agent-icon-button,
+.oyiso-agent-history-row-actions .oyiso-agent-icon-button { width: 24px; height: 28px; min-height: 28px; }
 .oyiso-agent-history-row-actions svg { width: 15px; height: 15px; }
 .oyiso-agent-history-item > .oyiso-agent-history-row-actions { position: absolute; right: 4px; opacity: 0; background: #f8f9fa; border-radius: 4px; }
 .oyiso-agent-history-item:is(:hover, :focus-within) > .oyiso-agent-history-row-actions { opacity: 1; }
@@ -315,7 +330,8 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-attachment-preview > span { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oyiso-agent-attachment button.oyiso-agent-attachment-preview:focus-visible { outline: 2px solid var(--oyiso-color-primary, #3858e9); outline-offset: 2px; }
 .oyiso-agent-attachment small { flex: none; color: #646970; font-size: 10px; }
-.oyiso-agent-attachment .oyiso-agent-icon-button { width: 20px; height: 24px; }
+#oyiso-agent-panel .oyiso-agent-attachment .oyiso-agent-icon-button,
+.oyiso-agent-attachment .oyiso-agent-icon-button { width: 20px; height: 24px; min-height: 24px; }
 .oyiso-agent-attachment.is-image { position: relative; flex: none; width: 64px; height: 64px; padding: 0; border: 0; background: transparent; }
 .oyiso-agent-attachment.is-image .oyiso-agent-attachment-preview { width: 100%; height: 100%; overflow: hidden; border: 1px solid #dcdcde; border-radius: 4px; background: #f5f5f5; box-sizing: border-box; }
 .oyiso-agent-attachment.is-image img { display: block; width: 100%; height: 100%; object-fit: cover; }

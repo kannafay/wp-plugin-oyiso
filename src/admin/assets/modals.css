@@ -10,7 +10,8 @@
 .oyiso-confirm-dialog::backdrop { background: rgba(0, 0, 0, .5); }
 .oyiso-confirm-dialog__heading { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px 16px; }
 .oyiso-confirm-dialog__heading h2 { margin: 0; color: #1e1e1e; font-size: 16px; font-weight: 600; line-height: 1.3; }
-.oyiso-confirm-dialog__close { padding: 0 4px; border: 0; background: none; color: #757575; font-size: 24px; line-height: 1; cursor: pointer; }
+.oyiso-confirm-dialog .oyiso-confirm-dialog__close,
+.oyiso-confirm-dialog__close { min-height: 0; padding: 0 4px; border: 0; background: none; color: #757575; font-size: 24px; line-height: 1; cursor: pointer; }
 .oyiso-confirm-dialog__close:hover:not(:disabled) { color: #1e1e1e; }
 .oyiso-confirm-dialog__close:disabled { opacity: .4; cursor: default; }
 .oyiso-confirm-dialog__close:focus-visible { outline: 2px solid var(--oyiso-color-primary, #3858e9); outline-offset: 2px; }
