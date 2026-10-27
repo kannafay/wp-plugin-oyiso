@@ -25,7 +25,7 @@
     const progressEvents = $('[data-agent-events]', progress);
     const progressRecords = new Map();
     const progressVersions = new WeakMap();
-    $('summary', progress).append(responseStatus);
+    progressParking.append(responseStatus);
     const panelHistory = $('#oyiso-agent-panel-history');
     const historyToggle = $('[data-agent-history-toggle]');
     const historyDismiss = $('[data-agent-history-dismiss]');
@@ -55,6 +55,7 @@
     let runId = 0;
     let timer;
     let sending = false;
+    let sendingDraft;
     const cancelling = new Set();
     let composing = false;
     const stepping = new Set();
@@ -115,10 +116,11 @@
     }
 
     function rememberDraft() {
-        drafts.set(runId, prompt.value);
+        const text = sendingDraft?.id === runId ? sendingDraft.text : prompt.value;
+        drafts.set(runId, text);
         try {
-            sessionStorage.setItem(storageKey + ':draft', JSON.stringify({ id: runId, text: prompt.value }));
-            if (prompt.value) sessionStorage.setItem(storageKey + ':draft:' + runId, prompt.value);
+            sessionStorage.setItem(storageKey + ':draft', JSON.stringify({ id: runId, text }));
+            if (text) sessionStorage.setItem(storageKey + ':draft:' + runId, text);
             else sessionStorage.removeItem(storageKey + ':draft:' + runId);
         } catch { /* Storage is optional. */ }
     }
@@ -364,7 +366,7 @@
     }
 
     function parkProgress() {
-        progressParking.append(progress); progress.hidden = true; progress.open = false;
+        progressParking.append(progress, responseStatus); progress.hidden = true; progress.open = false;
         delete progress.dataset.executionIndex; progressRecords.clear();
     }
 
@@ -422,6 +424,7 @@
                 $('.oyiso-agent-message-role', target).textContent = displayModel('', record?.model_label, index === currentIndex ? next.selection : '');
             }
             target.insertBefore(element, $('.oyiso-agent-message-content', target));
+            if (element === progress) element.after(responseStatus);
         }
         for (const placeholder of messages.querySelectorAll('[data-agent-execution-view]')) if (!$('.oyiso-agent-progress', placeholder)) placeholder.remove();
     }
@@ -567,7 +570,7 @@
         progress.dataset.status = pending ? sending ? 'queued' : 'failed' : run?.status || 'idle';
         const waiting = !loading && (sending || active) && !run?.partial?.text;
         responseStatus.hidden = !waiting;
-        $('.oyiso-agent-progress-title', progress).hidden = waiting;
+        $('.oyiso-agent-progress-title', progress).hidden = false;
         progressState.hidden = waiting;
         let state = sending ? '正在发送…' : '正在思考…';
         if (active && run.status === 'queued') state = run.step > 0 ? '正在继续处理…' : '正在准备回复…';
@@ -1069,12 +1072,13 @@
         freezeProgress(); progress.dataset.executionIndex = 'pending'; progress.open = false;
         progressEvents.replaceChildren(); progressUsage.textContent = ''; progressVersions.delete(progress);
         const response = node('article', 'oyiso-agent-message is-assistant'); response.dataset.agentExecutionView = 'pending';
-        response.append(node('strong', 'oyiso-agent-message-role', config.models?.[modelSelect.value] || 'AI'), progress);
+        response.append(node('strong', 'oyiso-agent-message-role', config.models?.[modelSelect.value] || 'AI'), progress, responseStatus);
         messages.append(response);
         let accepted = false, sentId = 0;
         const accept = next => {
             if (accepted) return;
             accepted = true; sentId = next.id;
+            sendingDraft = undefined;
             if (!keepDraft) forgetDraft(source);
             runId = next.id; run = null; version = '';
             if (!keepDraft) { composer?.switchTo(runId); prompt.value = ''; composer?.resize(); }
@@ -1085,6 +1089,10 @@
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 180000);
         sending = true;
+        if (!keepDraft) {
+            sendingDraft = { id: source, text: prompt.value };
+            rememberDraft(); prompt.value = ''; composer?.resize();
+        }
         controls();
         scroll.scrollTop = scroll.scrollHeight;
         if (generated && run) renderChanges(run.changes);
@@ -1101,7 +1109,11 @@
         } catch (error) { if (!sentId || sentId === runId) showNotice(error.name === 'AbortError' ? '回复连接超时，正在重新读取对话进度。' : error.message, true); }
         finally {
             clearTimeout(timeout); receiver.close();
-            if (sequence === sendSequence) { sending = false; controls(); if (generated && run) renderChanges(run.changes); }
+            if (sequence === sendSequence) {
+                const draft = sendingDraft; sendingDraft = undefined;
+                if (!accepted && draft?.id === runId) { prompt.value ||= draft.text; composer?.resize(); rememberDraft(); }
+                sending = false; controls(); if (generated && run) renderChanges(run.changes);
+            }
             if (accepted && sentId === runId && (!receiver.received || ['queued', 'running'].includes(run?.status))) poll();
             if (accepted) loadLists();
         }

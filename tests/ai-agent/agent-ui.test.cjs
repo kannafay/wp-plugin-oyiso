@@ -179,6 +179,18 @@ test('storefront theme styles cannot resize assistant controls or hide disclosur
         assert.equal(css('[data-agent-context-button]', 'background-color'), 'rgba(0, 0, 0, 0)');
         assert.equal(css('[data-agent-model]', 'height'), '34px');
         assert.equal(css('[data-agent-model]', 'background-image'), 'none');
+        for (const selector of ['[data-agent-send]', '[data-agent-cancel]']) {
+            assert.equal(css(selector, 'width'), '34px');
+            assert.equal(css(selector, 'height'), '34px');
+            assert.equal(css(selector, 'padding-left'), '0px');
+            assert.equal(css(selector, 'padding-right'), '0px');
+            assert.equal(css(selector + ' svg', 'width'), '20px');
+            assert.equal(css(selector + ' svg', 'height'), '20px');
+            assert.equal(css(selector + ' svg', 'flex-shrink'), '0');
+        }
+        f.$('[data-agent-send]').classList.add('is-sending');
+        assert.equal(css('[data-agent-send] svg', 'display'), 'none');
+        f.$('[data-agent-send]').classList.remove('is-sending');
         assert.equal(css('.oyiso-agent-field-diff summary', 'display'), 'list-item');
         assert.equal(css('.oyiso-agent-plugin-preview dt', 'font-weight'), '400');
         assert.equal(css('#storefront-fixture textarea', 'min-height'), '190px');
@@ -669,6 +681,8 @@ test('sending gives immediate feedback and generation replaces send with stop wh
     const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? new Promise(resolve => { accept = () => resolve(wire); }) : undefined, {}, liveSupport);
     const input = f.$('#oyiso-agent-prompt'), send = f.$('[data-agent-send]'), stop = f.$('[data-agent-cancel]');
     input.value = 'Rewrite this article'; send.click();
+    assert.equal(input.value, '', 'the submitted text leaves the composer before the server responds');
+    assert.equal(f.window.sessionStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:draft:0'), 'Rewrite this article');
     assert.match(f.$('[data-agent-messages]').textContent, /Rewrite this article/);
     assert.equal(f.$('[data-agent-pending]').nextElementSibling, f.$('.oyiso-agent-progress').parentElement);
     assert.equal(f.$('.oyiso-agent-progress').previousElementSibling.textContent, '测试连接 / model-a');
@@ -707,14 +721,18 @@ test('waiting for a proposal confirmation exposes send and the card actions with
     assert.match(f.$('[data-agent-changes]').textContent, /应用修改/);
 });
 
-test('live waiting uses one disclosure label and historical execution titles are restored', async t => {
+test('live status has its own row below the execution disclosure and stays with the current reply', async t => {
     let current = task({ status: 'queued', step: 2, conversation: [{ role: 'user', text: '启用测试插件' }], executions: [{ index: 0, status: 'queued', step: 2, tokens: 42, events: [] }] });
     const f = fixture(t, route => route === 'runs/12' ? current : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
     await settle(); const progress = f.$('.oyiso-agent-progress');
-    assert.equal(progress.querySelector('.oyiso-agent-progress-title').hidden, true);
+    assert.equal(progress.querySelector('.oyiso-agent-progress-title').hidden, false);
     assert.equal(progress.querySelector('.oyiso-agent-progress-state').hidden, true);
-    assert.equal(progress.querySelector('[data-agent-response-status]').hidden, false);
-    assert.equal(progress.querySelector('[data-agent-response-label]').textContent, '正在继续处理…');
+    const status = f.$('[data-agent-response-status]');
+    assert.equal(progress.querySelector('[data-agent-response-status]'), null);
+    assert.equal(progress.nextElementSibling, status);
+    assert.equal(status.hidden, false);
+    assert.equal(status.querySelector('[data-agent-response-label]').textContent, '正在继续处理…');
+    assert.equal(progress.parentElement.classList.contains('oyiso-agent-message'), true);
     current = task({ conversation: [...current.conversation, { role: 'assistant', text: '第一轮完成' }, { role: 'user', text: '下一轮' }, { role: 'assistant', text: '第二轮完成' }], executions: [{ index: 0, status: 'completed', step: 2, tokens: 42, events: [] }, { index: 2, status: 'completed', step: 1, tokens: 10, events: [] }] });
     f.$('[data-agent-refresh]').click(); await settle();
     const rows = [...f.window.document.querySelectorAll('.oyiso-agent-scroll .oyiso-agent-progress')];
@@ -724,6 +742,28 @@ test('live waiting uses one disclosure label and historical execution titles are
         assert.equal(row.querySelector('.oyiso-agent-progress-state').hidden, false);
     }
     assert.equal(f.$('[data-agent-response-status]').hidden, true);
+    assert.equal(status.parentElement, rows[1].parentElement);
+    assert.equal(rows[0].parentElement.querySelector('[data-agent-response-status]'), null);
+});
+
+test('a pending submission preserves the original draft across navigation and restores it after rejection', async t => {
+    let reject;
+    const key = 'oyiso-agent:1:/wp-json/oyiso-agent/v1/';
+    const draft = '  当前页面有什么\n保留我的换行  ';
+    const f = fixture(t, (route, options) => route === 'runs' && options.method === 'POST' ? new Promise(resolve => { reject = () => resolve({ ok: false, status: 400, body: { message: '暂时无法发送' } }); }) : undefined);
+    inputDraft(f, draft); f.$('[data-agent-send]').click();
+    assert.equal(f.$('#oyiso-agent-prompt').value, '');
+    assert.equal(JSON.parse(f.calls.find(call => call.route === 'runs').options.body).message, draft.trim());
+    f.$('[data-agent-close]').click();
+    assert.equal(f.window.sessionStorage.getItem(key + ':draft:0'), draft);
+    const reloaded = fixture(t, undefined, {}, window => {
+        window.sessionStorage.setItem(key + ':draft:0', f.window.sessionStorage.getItem(key + ':draft:0'));
+    });
+    assert.equal(reloaded.$('#oyiso-agent-prompt').value, draft);
+    reject(); await settle();
+    assert.equal(f.$('#oyiso-agent-prompt').value, draft);
+    assert.equal(f.$('[data-agent-send]').disabled, false);
+    assert.equal(f.window.sessionStorage.getItem(key + ':draft:0'), draft);
 });
 
 test('stop submits once and keeps its pending state until the cancellation response arrives', async t => {
@@ -838,7 +878,8 @@ test('old live events cannot overwrite a new conversation or unlock its pending 
     f.$('[data-agent-new]').click(); f.$('#oyiso-agent-prompt').value = 'Second'; f.$('[data-agent-send]').click(); await settle();
     first.emit('text', { id: 12, step: 1, model: 'model-a', delta: 'Old reply' }); first.emit('done', task({ conversation: [{ role: 'assistant', text: 'Old reply' }] })); first.close(); await settle();
     assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /Old reply/);
-    assert.equal(f.$('[data-agent-send]').disabled, true); assert.equal(f.$('#oyiso-agent-prompt').value, 'Second');
+    assert.equal(f.$('[data-agent-send]').disabled, true); assert.equal(f.$('#oyiso-agent-prompt').value, '');
+    assert.equal(f.window.sessionStorage.getItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/:draft:0'), 'Second');
     second.emit('state', task({ id: 13, status: 'queued', conversation: [{ role: 'user', text: 'Second' }] }));
     second.emit('done', task({ id: 13, conversation: [{ role: 'assistant', text: 'New reply' }] })); second.close(); await settle();
     assert.match(f.$('[data-agent-messages]').textContent, /New reply/); assert.equal(f.$('[data-agent-send]').disabled, false);
@@ -972,7 +1013,8 @@ test('execution records stay before their own replies, survive refresh and retai
     assert.equal(f.$('[data-agent-message-index="0"]').nextElementSibling, first.parentElement);
     assert.equal(first.previousElementSibling.className, 'oyiso-agent-message-role');
     assert.equal(f.$('[data-agent-message-index="2"]').nextElementSibling, current.parentElement);
-    assert.equal(current.nextElementSibling.className, 'oyiso-agent-message-content');
+    assert.equal(current.nextElementSibling, f.$('[data-agent-response-status]'));
+    assert.equal(current.nextElementSibling.nextElementSibling.className, 'oyiso-agent-message-content');
     assert.match(first.textContent, /First turn tool/); assert.doesNotMatch(first.textContent, /Second turn tool/);
     assert.match(current.textContent, /Second turn tool/); assert.doesNotMatch(current.textContent, /First turn tool/);
     assert.match(first.textContent, /80 Token/); assert.equal(f.window.document.querySelectorAll('[data-agent-status]').length, 1);
@@ -1914,7 +1956,7 @@ test('recorded provider names stay above each execution when connections disappe
         const reply = f.$(`[data-agent-message-index="${index}"]`);
         assert.equal(reply.firstElementChild.textContent, label);
         assert.equal(reply.children[1].className, 'oyiso-agent-progress');
-        assert.equal(reply.children[2].textContent, index === 1 ? 'First answer' : 'Second answer');
+        assert.equal(reply.querySelector('.oyiso-agent-message-content').textContent, index === 1 ? 'First answer' : 'Second answer');
     }
     f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-models-updated', { detail: { 'new|shared-model': 'Renamed group / shared-model' } }));
     f.$('[data-agent-refresh]').click(); await settle();
@@ -1933,7 +1975,7 @@ test('the full model header remains first from waiting through streaming and fin
     f.$('[data-agent-refresh]').click(); await settle();
     const partial = f.$('[data-agent-partial]');
     assert.equal(partial.firstElementChild.textContent, 'DeepSeek / deepseek-flash');
-    assert.equal(partial.children[1], progress); assert.equal(partial.children[2].textContent, 'Hello back');
+    assert.equal(partial.children[1], progress); assert.equal(partial.querySelector('.oyiso-agent-message-content').textContent, 'Hello back');
     assert.equal(f.$('[data-agent-execution-view]'), null);
     current = { ...current, status: 'completed', partial: undefined, conversation: [...current.conversation, { role: 'assistant', text: 'Hello back', model: 'deepseek-flash', model_label: 'DeepSeek / deepseek-flash' }] };
     f.$('[data-agent-refresh]').click(); await settle();

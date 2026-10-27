@@ -191,6 +191,7 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-composer-actions > .oyiso-agent-icon-button { flex: none; width: 32px; height: 34px; min-height: 34px; border-radius: 4px; }
 .oyiso-agent-composer-actions .oyiso-agent-model-picker { flex: 0 1 auto; min-width: 0; max-width: 360px; width: auto; height: 34px; min-height: 34px; margin: 0; padding: 0 26px 0 8px; border: 0; border-radius: 0; background-color: transparent; color: #50575e; box-shadow: none; font-size: 13px; text-overflow: ellipsis; cursor: pointer; }
 .oyiso-agent-composer-actions .oyiso-agent-model-picker:is(:hover, :focus, :focus-visible) { border: 0; outline: none; box-shadow: none; background-color: transparent; }
+#oyiso-agent-panel .oyiso-agent-composer-actions .oyiso-agent-composer-control,
 .oyiso-agent-composer-actions .oyiso-agent-composer-control { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; min-height: 34px; margin: 0; padding: 0; border-radius: 4px; line-height: 1; }
 .oyiso-agent-context { position: relative; display: inline-flex; flex: none; align-items: center; }
 #oyiso-agent-panel .oyiso-agent-context-button,
@@ -213,9 +214,11 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-composer-actions [data-agent-cancel] { border-color: #1d2327; background: #1d2327; color: #fff; }
 .oyiso-agent-composer-actions [data-agent-cancel]:hover:not(:disabled) { border-color: #3c434a; background: #3c434a; color: #fff; }
 .oyiso-agent-composer-actions [data-agent-cancel] rect { fill: currentColor; stroke: none; }
+#oyiso-agent-panel .oyiso-agent-composer-actions .is-sending svg,
 .oyiso-agent-composer-actions .is-sending svg { display: none; }
-.oyiso-agent-composer-actions .is-sending::after { content: ''; width: 14px; height: 14px; box-sizing: border-box; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: oyiso-agent-refresh .8s linear infinite; }
-.oyiso-agent-composer-control svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.oyiso-agent-composer-actions .is-sending::after { content: ''; flex: none; width: 16px; height: 16px; box-sizing: border-box; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: oyiso-agent-refresh .8s linear infinite; }
+#oyiso-agent-panel .oyiso-agent-composer-control svg,
+.oyiso-agent-composer-control svg { display: block; flex: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #oyiso-agent-panel[data-agent-window] .oyiso-agent-composer { background: #fff; }
 .oyiso-agent-progress { width: 100%; max-width: 76ch; margin: 0 0 12px; box-sizing: border-box; color: #646970; }
 .oyiso-agent-progress > summary { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 0; box-sizing: border-box; list-style: none; cursor: pointer; font-size: 12px; line-height: 1.5; }
