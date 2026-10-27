@@ -47,7 +47,6 @@
     function paint(state, text) {
         const { element, scroll } = state;
         const follow = scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 90;
-        state.caret?.remove();
         if (element.dataset.markdownSource !== text) {
             // Only markdown-it's escaped output enters the DOM; keep settled nodes in place.
             const template = document.createElement('template');
@@ -56,15 +55,6 @@
             element.dataset.markdownSource = text;
         }
         state.text = text;
-        if (state.streaming) {
-            if (!state.caret) {
-                state.caret = document.createElement('span');
-                state.caret.className = 'oyiso-agent-stream-caret';
-                state.caret.setAttribute('aria-hidden', 'true');
-            }
-            const blocks = element.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, blockquote, pre code, th, td');
-            (blocks[blocks.length - 1] || element).append(state.caret);
-        }
         if (follow) scroll.scrollTop = scroll.scrollHeight;
     }
 
@@ -96,7 +86,6 @@
     window.oyisoAgentMarkdown = (element, text, options = {}) => {
         let state = replies.get(element);
         if (!state) { state = { element, text: '', target: '', frame: 0 }; replies.set(element, state); }
-        state.streaming = !!options.streaming;
         state.scroll = options.scroll;
         state.target = text;
         if (!options.animate || reducedMotion?.matches || document.hidden || !text.startsWith(state.text)) {

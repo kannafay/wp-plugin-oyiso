@@ -984,7 +984,7 @@ test('streaming Markdown keeps completed blocks and text nodes while the last pa
     assert.equal(content.querySelector('strong'), strong);
     assert.equal(content.querySelector('p:last-child').firstChild, tail);
     assert.equal(tail.data, '正在逐步补充文字。');
-    assert.equal(content.querySelector('.oyiso-agent-stream-caret').parentElement, content.querySelector('p:last-child'));
+    assert.equal(content.querySelector('.oyiso-agent-stream-caret'), null);
 });
 
 test('progress events preserve the existing conversation and streaming bubble', async t => {
@@ -1081,8 +1081,10 @@ test('live bursts and the final chunk reveal smoothly without delaying completed
     wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: text }); await settle();
     const content = f.$('[data-agent-partial] .oyiso-agent-message-content');
     assert.equal(content.textContent, '👩‍💻');
+    assert.equal(content.querySelector('.oyiso-agent-stream-caret'), null);
     clock.tick();
     assert.ok(content.textContent.length > '👩‍💻'.length && content.textContent.length < text.length);
+    assert.equal(content.querySelector('.oyiso-agent-stream-caret'), null);
     clock.finish(); assert.equal(content.textContent, text);
     wire.emit('text', { id: 12, step: 1, model: 'model-a', delta: '这是最后一段补充。' }); await settle();
     const finalText = text + '这是最后一段补充。';

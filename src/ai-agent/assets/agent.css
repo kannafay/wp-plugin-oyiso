@@ -171,8 +171,6 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-message-content :is(th, td) { padding: 6px 10px; border: 1px solid #dcdcde; text-align: left; vertical-align: top; }
 .oyiso-agent-message-content th { background: #00000006; font-weight: 600; }
 .oyiso-agent-message-content hr { margin: 12px 0; border: 0; border-top: 1px solid #dcdcde; }
-.oyiso-agent-stream-caret { display: inline-block; width: 2px; height: 1em; margin-left: 3px; background: currentColor; vertical-align: -.12em; user-select: none; animation: oyiso-agent-caret 1s step-end infinite; }
-@keyframes oyiso-agent-caret { 50% { opacity: 0; } }
 .oyiso-agent-response-status { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: #646970; font-size: 12px; }
 .oyiso-agent-response-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #787c82; animation: oyiso-agent-thinking 1.4s ease-in-out infinite; }
 @keyframes oyiso-agent-thinking { 50% { opacity: .3; } }
@@ -382,7 +380,6 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
     #oyiso-agent-launcher-wrap { right: 16px; bottom: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .oyiso-agent-stream-caret { animation: none; }
     .oyiso-agent-loading-spinner { animation: none; }
     .oyiso-agent-response-dot, .oyiso-agent-composer-actions .is-sending::after { animation: none; }
     [data-agent-refresh][aria-busy="true"] svg { animation: none; }
