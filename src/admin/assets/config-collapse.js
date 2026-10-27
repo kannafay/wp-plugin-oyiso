@@ -17,7 +17,8 @@
                     return;
                 }
 
-                var $details = $field.siblings('.csf-field[data-controller]').filter(function () {
+                // Standalone rows keep native dependencies without the nested layout.
+                var $details = $field.siblings('.csf-field[data-controller]').not('.oyiso-config-standalone').filter(function () {
                     var controllers = $(this).attr('data-controller').split('|');
                     var conditions = $(this).attr('data-condition').split('|');
                     var values = $(this).attr('data-value').split('|');

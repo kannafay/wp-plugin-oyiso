@@ -14,7 +14,7 @@ CSF::createSection('oyiso', [
     'fields' => [
         ['type' => 'heading', 'content' => '模型配置'],
         ['id' => 'agent_enabled', 'type' => 'switcher', 'title' => '启用 AI Agent', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员通过对话查询站内数据。', 'default' => false, 'desc' => '默认只读。写入权限需在工具权限中开启并保存，执行时仍需在对话中确认。启用后保存配置并刷新页面，即可加载助手。'],
-        ['id' => 'agent_frontend', 'type' => 'switcher', 'title' => '前台使用', 'class' => 'oyiso-agent-model-field', 'label' => '允许管理员在前台页面打开 AI 助手。', 'default' => false, 'dependency' => ['agent_enabled', '==', 'true'], 'desc' => '默认关闭，仅在后台使用。开启后可在前台和后台使用；访客及无管理权限的账号不会加载助手。保存后刷新页面生效。'],
+        ['id' => 'agent_frontend', 'type' => 'switcher', 'title' => '前台使用', 'class' => 'oyiso-agent-model-field oyiso-config-standalone', 'label' => '允许管理员在前台页面打开 AI 助手。', 'default' => false, 'dependency' => ['agent_enabled', '==', 'true'], 'desc' => '默认仅后台使用；开启后前台也可使用。仅对管理员开放，保存并刷新页面后生效。'],
         ['type' => 'callback', 'class' => 'oyiso-agent-model-providers', 'function' => [Oyiso_Agent_Model_Settings::class, 'render']],
         ['id' => 'agent_advanced', 'type' => 'fieldset', 'class' => 'oyiso-agent-model-advanced', 'default' => ['max_steps' => Oyiso_Agent_Config::text('max_steps', '8'), 'model' => Oyiso_Agent_Config::text('model')], 'fields' => [
             ['id' => 'max_steps', 'type' => 'number', 'title' => '每次任务最多轮次', 'default' => '8', 'attributes' => ['min' => '2', 'max' => '15', 'step' => '1'], 'desc' => '范围 2–15。一次模型响应计为一轮，每轮最多调用 4 个工具。'],
