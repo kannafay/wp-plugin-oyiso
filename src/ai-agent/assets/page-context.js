@@ -17,10 +17,12 @@
     };
     function snapshot() {
         const address = new URL(location.href), params = new URLSearchParams();
-        for (const key of ['post', 'post_type', 'action', 'page', 'tab']) if (address.searchParams.has(key)) params.set(key, address.searchParams.get(key));
-        const page = { ...seed, fields: {}, url: address.pathname + (params.size ? '?' + params : '') + address.hash, selection: selected, truncated: false };
+        const frontend = seed.editor === 'frontend';
+        for (const key of frontend ? ['p', 'page_id', 'post_type', 'paged', 's'] : ['post', 'post_type', 'action', 'page', 'tab']) if (address.searchParams.has(key)) params.set(key, address.searchParams.get(key));
+        const page = { ...seed, fields: {}, url: address.pathname + (params.size ? '?' + params : '') + (frontend ? '' : address.hash), selection: selected, truncated: false };
         if (!seed.post_id || !Object.keys(seed.fields || {}).length) return page;
         page.fields = { ...seed.fields };
+        if (frontend) return limitFields({ ...page, dirty: false, selection: '' });
         const store = blockEditor();
         const inBlockEditor = store && Number(store.getCurrentPostId()) === seed.post_id;
         if (inBlockEditor) {
@@ -47,6 +49,9 @@
         page.dirty ||= Object.entries(page.fields).some(([key, value]) => (!inBlockEditor || Object.hasOwn(seo, key)) && value !== seed.fields[key]);
         const selectedInEditor = window.tinymce?.get('content')?.selection?.getContent({ format: 'text' });
         if (selectedInEditor) page.selection = cut(selectedInEditor, 5000);
+        return limitFields(page);
+    }
+    function limitFields(page) {
         for (const [key, value] of Object.entries(page.fields)) {
             const limit = ['content', 'description'].includes(key) ? 20000 : key === 'title' ? 300 : 4000;
             const points = Array.from(value);
@@ -58,12 +63,12 @@
         if (!badge) return;
         const page = snapshot();
         badge.hidden = false;
-        badge.textContent = seed.post_id ? `当前${labels[seed.post_type] || '内容'}：${page.fields.title || seed.fields?.title || seed.label || '未命名'}（#${seed.post_id}）${page.dirty ? ' · 含未保存内容' : ''}` : `当前页面：${seed.label || document.title}`;
+        badge.textContent = seed.post_id ? `当前${labels[seed.post_type] || '内容'}：${page.fields.title || seed.fields?.title || seed.label || '未命名'}（#${seed.post_id}）${seed.editor === 'frontend' ? ' · 前台浏览' : page.dirty ? ' · 含未保存内容' : ''}` : `当前页面：${seed.label || document.title}`;
         badge.title = page.url;
     }
     function check(payload) {
         const current = snapshot();
-        if (current.post_id !== payload.post_id || current.editor === 'unsupported' || current.truncated) throw new Error('请在对应的完整内容编辑页填入此方案。');
+        if (current.post_id !== payload.post_id || ['unsupported', 'frontend'].includes(current.editor) || current.truncated) throw new Error('请在对应的完整内容编辑页填入此方案。');
         const baselines = [payload.expected, ...(payload.restore_from || [])];
         if (!baselines.some(fields => Object.entries(fields).every(([key, expected]) => current.fields[key] === expected))) throw new Error('编辑器内容已改变，旧方案已过期。请重新发送修改要求生成新方案。');
         return current;
@@ -113,7 +118,7 @@
     if (seed.post_id && ['post', 'page', 'product'].includes(seed.post_type)) {
         const examples = document.querySelectorAll('[data-agent-example]');
         const type = labels[seed.post_type];
-        const requests = [`检查当前${type}的内容，先列出可改进的地方。`, `优化当前${type}的文案，保留原意和未保存的修改，先生成预览。`];
+        const requests = [`检查当前${type}的内容，先列出可改进的地方。`, `优化当前${type}的文案，保留原意${seed.editor === 'frontend' ? '' : '和未保存的修改'}，先生成预览。`];
         examples.forEach((button, index) => { if (requests[index]) { button.dataset.agentExample = requests[index]; button.textContent = index ? `优化当前${type}` : `检查当前${type}`; } });
     }
     refresh();

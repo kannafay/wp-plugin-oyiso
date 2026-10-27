@@ -231,9 +231,28 @@ final class Oyiso_Agent_Admin
         wp_add_inline_script('oyiso-agent-panel', 'window.oyisoAgent.contextModels = ' . wp_json_encode(Oyiso_Agent_Context::models()) . ';', 'after');
     }
 
+    public static function frontendAssets(): void
+    {
+        if (is_admin() || !self::available()) return;
+        require_once dirname(__DIR__) . '/admin/config-collapse.php';
+        oyiso_enqueue_admin_theme_assets();
+        wp_enqueue_style('dashicons');
+        self::assets('');
+        wp_enqueue_style('oyiso-agent-frontend', plugins_url('assets/frontend.css', __FILE__), ['oyiso-agent'], (string) filemtime(__DIR__ . '/assets/frontend.css'));
+    }
+
+    /** @param list<string> $classes
+     * @return list<string>
+     */
+    public static function bodyClasses(array $classes): array
+    {
+        if (!is_admin() && self::available()) $classes[] = 'oyiso-agent-frontend';
+        return $classes;
+    }
+
     private static function available(): bool
     {
-        return Oyiso_Agent_Config::enabled() && current_user_can('manage_options') && !is_network_admin() && !is_user_admin();
+        return Oyiso_Agent_Config::enabled() && current_user_can('manage_options') && !is_network_admin() && !is_user_admin() && (is_admin() || Oyiso_Agent_Config::frontendEnabled());
     }
 
     public static function panel(): void

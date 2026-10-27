@@ -46,7 +46,7 @@ final class Oyiso_Agent_Content
         $saved = Oyiso_Agent_Page_Context::fields($post);
         if ($name === 'get-post') {
             $context = $run['page_context'] ?? null;
-            $editing = $context !== null && $context['post_id'] === $id && !$context['truncated'] && $context['editor'] !== 'unsupported';
+            $editing = $context !== null && $context['post_id'] === $id && !$context['truncated'] && in_array($context['editor'], ['classic', 'gutenberg'], true);
             $fields = $editing ? array_replace($saved, $context['fields']) : $saved;
             $run['post_snapshots'][$id] = ['fields' => $fields, 'saved' => $saved];
             return ['post_id' => $id, 'post_type' => $post->post_type, 'status' => $post->post_status, 'fields' => array_map(static fn(string $value): string => mb_substr($value, 0, 20000), $fields), 'source' => $editing ? 'current_editor' : 'saved', 'truncated' => count(array_filter($fields, static fn(string $value): bool => mb_strlen($value) > 20000)) > 0, 'notice' => '修改时保留区块注释和未涉及内容。current_editor 可能包含尚未保存的编辑。'];
@@ -78,7 +78,7 @@ final class Oyiso_Agent_Content
         $destination = $input['destination'] ?? 'auto';
         if (!in_array($destination, ['auto', 'current_editor', 'new_draft'], true)) return new WP_Error('agent_editor_target', '写作目标无效。');
         $page = $run['page_context'] ?? null;
-        $current = $page !== null && $page['post_id'] > 0 && in_array($page['post_type'], ['post', 'page'], true);
+        $current = $page !== null && $page['editor'] !== 'frontend' && $page['post_id'] > 0 && in_array($page['post_type'], ['post', 'page'], true);
         if ($destination === 'current_editor' && !$current) return new WP_Error('agent_editor_target', '没有当前文章或页面编辑器，请打开目标内容后重新生成。');
         if ($destination !== 'new_draft' && $current) {
             $permission = Oyiso_Agent_Permissions::check('oyiso/apply-post-update');

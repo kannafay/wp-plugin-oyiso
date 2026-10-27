@@ -34,6 +34,12 @@ final class Oyiso_Agent_Config
         return !empty(self::options()['agent_enabled']);
     }
 
+    public static function frontendEnabled(bool $fresh = false): bool
+    {
+        $options = self::options($fresh);
+        return !empty($options['agent_enabled']) && in_array($options['agent_frontend'] ?? false, [true, 1, '1'], true);
+    }
+
     public static function supported(): bool
     {
         return function_exists('wp_ai_client_prompt') && function_exists('wp_register_ability');
@@ -133,6 +139,7 @@ final class Oyiso_Agent_Config
         $options = Oyiso_Agent_Personalization::mergePreferences($options);
         $options[Oyiso_Agent_Permissions::OPTION] = Oyiso_Agent_Permissions::sanitize($options[Oyiso_Agent_Permissions::OPTION] ?? []);
         $previous = self::options();
+        $options['agent_frontend'] = in_array($options['agent_frontend'] ?? $previous['agent_frontend'] ?? false, [true, 1, '1'], true);
         if (!in_array($options[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [1, '1', 2, '2'], true) && in_array($previous[Oyiso_Agent_MCP::SETTINGS_VERSION] ?? null, [1, '1', 2, '2'], true)) {
             // A settings tab opened before the upgrade must not re-enable a revoked built-in source.
             $namespaces = $options['agent_mcp_namespaces'] ?? $previous['agent_mcp_namespaces'] ?? [];

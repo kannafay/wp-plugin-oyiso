@@ -29,6 +29,28 @@ test('classic editor context includes unsaved text but excludes nonces and unrel
     assert.match(f.badge.textContent, /当前文章.*Unpublished title.*含未保存内容/);
 });
 
+test('frontend context uses saved source fields and never reads matching storefront forms or editor globals', t => {
+    const f = fixture(t, { screen: 'frontend', editor: 'frontend' }, window => {
+        window.history.replaceState({}, '', '/shop/item/?page_id=7&key=secret&api_key=secret#access_token=secret');
+        window.document.getElementById('content').value = 'Private customer form content';
+        window.document.getElementById('title').value = 'A storefront form field';
+        window.tinymce = { get() { throw new Error('Frontend must not read editor globals.'); } };
+    });
+    const page = f.page.snapshot();
+    assert.equal(page.editor, 'frontend'); assert.equal(page.dirty, false);
+    assert.equal(page.fields.content, '<p>Original</p>'); assert.equal(page.fields.title, 'Hello world!');
+    assert.equal(page.url, '/shop/item/?page_id=7'); assert.match(f.badge.textContent, /前台浏览/);
+    assert.throws(() => f.page.apply({ post_id: 7, expected: page.fields, fields: { content: 'Should not replace a form' } }), /完整内容编辑页/);
+    assert.equal(f.input('content').value, 'Private customer form content');
+});
+
+test('frontend source content is bounded and pages without an editable object do not collect form fields', t => {
+    const f = fixture(t, { screen: 'frontend', editor: 'frontend', fields: { title: 'Saved', content: 'x'.repeat(20001) } });
+    assert.equal(f.page.snapshot().fields.content.length, 20000); assert.equal(f.page.snapshot().truncated, true);
+    const home = fixture(t, { screen: 'frontend', editor: 'frontend', post_id: 0, fields: {}, label: '首页' });
+    assert.deepEqual({ ...home.page.snapshot().fields }, {}); assert.match(home.badge.textContent, /当前页面：.*首页/);
+});
+
 test('classic editor fill changes requested fields without submitting or discarding other fields', t => {
     const f = fixture(t); let changes = 0;
     f.input('content').addEventListener('change', () => changes++);

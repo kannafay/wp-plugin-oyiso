@@ -8,7 +8,7 @@ const { ReadableStream } = require('node:stream/web');
 
 const repo = path.resolve(__dirname, '../..');
 const phpQuote = value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
-const markup = JSON.parse(execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } function esc_html($value) { return esc_attr($value); } function esc_url($value) { return esc_attr($value); } function admin_url($value) { return 'https://vape.local/wp-admin/' . $value; } function current_user_can($value) { return true; } function is_network_admin() { return false; } function is_user_admin() { return false; } function get_option($name, $default = []) { return $name === 'oyiso' ? ['agent_enabled' => true] : $default; } require ${phpQuote(path.join(repo, 'src/ai-agent/config.php'))}; require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; $parts = []; foreach (['panel', 'history'] as $method) { ob_start(); Oyiso_Agent_Admin::$method(); $parts[$method] = ob_get_clean(); } ob_start(); Oyiso_Agent_Admin::connectionTest('deepseek'); $parts['connection'] = ob_get_clean(); echo json_encode($parts);`], { encoding: 'utf8' }));
+const markup = JSON.parse(execFileSync(process.env.PHP_BINARY || 'php', ['-r', `define('ABSPATH', '/'); function esc_attr($value) { return htmlspecialchars($value, ENT_QUOTES); } function esc_html($value) { return esc_attr($value); } function esc_url($value) { return esc_attr($value); } function admin_url($value) { return 'https://vape.local/wp-admin/' . $value; } function current_user_can($value) { return true; } function is_admin() { return true; } function is_network_admin() { return false; } function is_user_admin() { return false; } function get_option($name, $default = []) { return $name === 'oyiso' ? ['agent_enabled' => true] : $default; } require ${phpQuote(path.join(repo, 'src/ai-agent/config.php'))}; require ${phpQuote(path.join(repo, 'src/ai-agent/admin.php'))}; $parts = []; foreach (['panel', 'history'] as $method) { ob_start(); Oyiso_Agent_Admin::$method(); $parts[$method] = ob_get_clean(); } ob_start(); Oyiso_Agent_Admin::connectionTest('deepseek'); $parts['connection'] = ob_get_clean(); echo json_encode($parts);`], { encoding: 'utf8' }));
 const script = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/agent.js'), 'utf8');
 const panelScript = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/panel.js'), 'utf8');
 const markdownVendor = fs.readFileSync(path.join(repo, 'src/ai-agent/assets/lib/markdown-it.min.js'), 'utf8');
@@ -145,6 +145,25 @@ test('panel gutters track native and overlay scrollbars as the content area resi
     assert.equal(panel.style.getPropertyValue('--oyiso-agent-scrollbar'), '0px');
     assert.equal(f.$('[data-agent-notice]').parentElement, f.$('.oyiso-agent-scroll').parentElement);
     assert.equal(f.$('.oyiso-agent-scroll').contains(f.$('[data-agent-notice]')), false);
+});
+
+test('frontend content previews save only after confirmation and never offer to fill storefront forms', async t => {
+    for (const product of [false, true]) await t.test(product ? 'product' : 'post', async t => {
+        const change = product ? proposal() : contentProposal({ status: 'pending' });
+        const id = product ? change.product_id : change.post_id;
+        const field = product ? 'changes' : 'content_changes';
+        const f = fixture(t, route => route === 'runs/12' ? task({ status: 'waiting', [field]: [change] }) : route.includes(product ? '/changes/' : '/content/') ? task({ [field]: [{ ...change, status: 'applied' }] }) : undefined,
+            { writeTools: [product ? 'oyiso/apply-product-update' : 'oyiso/apply-post-update'], pageContext: { screen: 'frontend', post_id: id, post_type: product ? 'product' : 'post', editor: 'frontend', fields: { title: 'Saved content', ...change.before } } }, window => {
+                window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+                window.history.replaceState({}, '', '/front-content/');
+            });
+        await settle(); const card = f.$(`[data-agent-proposal-id="${change.id}"]`);
+        assert.doesNotMatch(card.textContent, /填入当前编辑器|重新填入/);
+        assert.equal(f.calls.some(call => call.route.includes('/changes/') || call.route.includes('/content/')), false);
+        [...card.querySelectorAll('button')].find(button => button.textContent === (product ? '应用修改' : '保存到站点')).click(); await settle();
+        const write = f.calls.filter(call => call.route.includes(product ? '/changes/' : '/content/'));
+        assert.equal(write.length, 1); assert.equal(JSON.parse(write[0].options.body).action, 'apply');
+    });
 });
 
 test('new article drafts are previewed and created only after clicking the confirmation card', async t => {

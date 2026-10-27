@@ -49,6 +49,9 @@ add_action('rest_api_init', [Oyiso_Agent_Admin::class, 'routes']);
 add_filter('rest_pre_serve_request', [Oyiso_Agent_Live::class, 'serve'], 10, 4);
 add_action('admin_enqueue_scripts', [Oyiso_Agent_Admin::class, 'assets']);
 add_action('admin_footer', [Oyiso_Agent_Admin::class, 'panel']);
+add_action('wp_enqueue_scripts', [Oyiso_Agent_Admin::class, 'frontendAssets']);
+add_action('wp_footer', [Oyiso_Agent_Admin::class, 'panel']);
+add_filter('body_class', [Oyiso_Agent_Admin::class, 'bodyClasses']);
 add_action(Oyiso_Agent_Runner::HOOK, static function (int $id): void {
     (new Oyiso_Agent_Runner(new Oyiso_Agent_Model()))->step($id);
 });

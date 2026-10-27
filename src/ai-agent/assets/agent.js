@@ -608,9 +608,13 @@
     const mayWrite = name => Array.isArray(config.writeTools) && config.writeTools.includes(name);
     const writePermissionNotice = '此工具未获写入授权，请在 AI Agent 的工具权限中授权并保存。';
 
+    function currentEditor(postId, page = window.oyisoAgentPage?.snapshot()) {
+        return postId > 0 && page?.post_id === postId && page.editor !== 'frontend';
+    }
+
     function editorReview(postId, change) {
         const page = window.oyisoAgentPage?.snapshot();
-        const inEditor = postId > 0 && page?.post_id === postId;
+        const inEditor = currentEditor(postId, page);
         const expected = change.editor_before || change.before;
         const saved = change.saved || change.before;
         const fields = Object.keys(change.after).filter(key => change.after[key] !== change.before[key] || change.status === 'filled' && change.after[key] !== saved[key]);
@@ -697,15 +701,15 @@
                 detail.append(columns);
                 section.append(detail);
             }
-            if (change.status === 'pending' || change.status === 'applied' || change.status === 'filled' && window.oyisoAgentPage?.snapshot().post_id === change.product_id) {
+            if (change.status === 'pending' || change.status === 'applied' || change.status === 'filled' && currentEditor(change.product_id)) {
                 const action = change.status === 'applied' ? 'revert' : 'apply';
                 const button = node('button', `button ${action === 'apply' ? 'button-primary' : ''}`, action === 'apply' ? '应用修改' : '撤回修改');
                 button.type = 'button';
                 if (!mayWrite(`oyiso/${action}-product-update`)) section.append(node('p', 'description', writePermissionNotice));
                 button.disabled = !config.enabled || !mayWrite(`oyiso/${action}-product-update`) || ['queued', 'running'].includes(run.status) || (action === 'apply' && run.status === 'cancelled') || changing.has(change.id) || sending;
                 button.addEventListener('click', () => applyChange(change.id, action));
-                if (change.status !== 'filled' && !(change.status === 'pending' && window.oyisoAgentPage?.snapshot().post_id === change.product_id)) section.append(button);
-                if (['pending', 'filled'].includes(change.status) && window.oyisoAgentPage?.snapshot().post_id === change.product_id) {
+                if (change.status !== 'filled' && !(change.status === 'pending' && currentEditor(change.product_id))) section.append(button);
+                if (['pending', 'filled'].includes(change.status) && currentEditor(change.product_id)) {
                     const review = editorReview(change.product_id, change);
                     if (review.changed) section.append(node('p', 'description', '当前内容已更新，可以按原要求重新生成预览。'));
                     const fill = node('button', 'button button-primary', review.changed ? '按当前内容重新生成' : change.status === 'filled' ? '重新填入当前编辑器' : '填入当前编辑器'); fill.type = 'button'; fill.disabled = button.disabled;
@@ -873,7 +877,7 @@
         if (!mayWrite(`oyiso/apply-${pending.kind === 'product' ? 'product' : 'post'}-update`)) return;
         const change = (pending.kind === 'product' ? run?.changes : run?.content_changes)?.find(change => change.id === pending.proposal && change.status === 'filled');
         const postId = pending.kind === 'product' ? change?.product_id : change?.post_id;
-        if (postId === pending.postId && window.oyisoAgentPage?.snapshot().post_id === postId) return change;
+        if (postId === pending.postId && currentEditor(postId)) return change;
     }
 
     function closeRefillConfirmation() {
@@ -1106,7 +1110,7 @@
     async function regenerate(change, kind = 'post') {
         const postId = kind === 'product' ? change.product_id : change.post_id;
         if (change.status !== 'pending' || !mayWrite(`oyiso/apply-${kind === 'product' ? 'product' : 'post'}-update`) || $('[data-agent-send]').disabled) return;
-        if (window.oyisoAgentPage?.snapshot().post_id !== postId) { showNotice('请在对应的内容编辑页重新生成方案。', true); return; }
+        if (!currentEditor(postId)) { showNotice('请在对应的内容编辑页重新生成方案。', true); return; }
         const labels = { title: '标题', content: '正文', excerpt: '摘要', ...fields };
         const affected = Object.entries(change.after).filter(([key, value]) => value !== change.before[key]).map(([key]) => labels[key] || '内容').join('、');
         const target = kind === 'product' ? '商品' : change.post_type === 'page' ? '页面' : '文章';
@@ -1121,7 +1125,7 @@
         const permission = kind === 'mcp' ? run?.mcp_actions?.find(item => item.id === proposal)?.name : `oyiso/${decision}-product-${operation}`;
         if (action !== 'dismiss' && !mayWrite(permission)) return;
         const id = runId;
-        if (action === 'apply' && change && operation === 'update' && window.oyisoAgentPage?.snapshot().post_id === change.product_id) {
+        if (action === 'apply' && change && operation === 'update' && currentEditor(change.product_id)) {
             try { window.oyisoAgentPage.check({ post_id: change.product_id, expected: change.editor_before || change.before }); } catch (error) { showNotice(error.message, true); return; }
         }
         changing.add(proposal);
@@ -1155,7 +1159,7 @@
         if (changing.has(change.id)) return;
         const id = runId;
         try {
-            if (action === 'apply' && change.kind !== 'draft' && window.oyisoAgentPage?.snapshot().post_id === change.post_id) window.oyisoAgentPage.check({ post_id: change.post_id, expected: change.before });
+            if (action === 'apply' && change.kind !== 'draft' && currentEditor(change.post_id)) window.oyisoAgentPage.check({ post_id: change.post_id, expected: change.before });
             changing.add(change.id); controls(); renderChanges(run.changes);
             const next = await api(`runs/${id}/content/${change.id}`, { method: 'POST', body: JSON.stringify({ action }) });
             if (id === runId) { version = ''; render(next); }
