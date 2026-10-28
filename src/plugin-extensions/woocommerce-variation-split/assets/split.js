@@ -26,7 +26,7 @@
 
         var html = '<div class="notice notice-info" id="oyiso-split-notice">' +
             '<p><strong>变体拆分</strong>：即将拆分 ' + total + ' 个产品（仅可变产品会被处理）。</p>' +
-            '<div id="oyiso-split-progress" style="margin:10px 0;">' +
+            '<div id="oyiso-split-progress" style="display:none;margin:10px 0;">' +
             '<div style="background:#f0f0f0;border-radius:4px;overflow:hidden;height:24px;position:relative;">' +
             '<div id="oyiso-split-bar" style="background:var(--oyiso-color-primary, #3858e9);height:100%;width:0%;transition:width .3s;"></div>' +
             '<span id="oyiso-split-bar-text" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12px;color:#333;">0 / ' + total + ' (0%)</span>' +
@@ -117,6 +117,7 @@
             current = 0;
             $(this).prop('disabled', true).text('拆分中...');
             $('#oyiso-split-cancel').text('停止');
+            $('#oyiso-split-progress').show();
             appendLog('开始拆分 ' + total + ' 个产品...');
             updateProgress();
             splitNext();
