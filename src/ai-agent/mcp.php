@@ -36,9 +36,13 @@ final class Oyiso_Agent_MCP
     private static function plugins(): array
     {
         $plugins = [];
-        if (function_exists('wp_get_ability')) foreach (array_merge(Oyiso_Agent_Content::TOOLS, Oyiso_Agent_Plugins::TOOLS) as $name) { $ability = wp_get_ability('oyiso/' . $name); if ($ability !== null) $plugins['wordpress'][$ability->get_name()] = $ability; }
+        if (function_exists('wp_get_ability')) foreach (array_merge(array_diff(Oyiso_Agent_Content::TOOLS, Oyiso_Agent_Query::LEGACY), Oyiso_Agent_Plugins::TOOLS, Oyiso_Agent_Query::TOOLS) as $name) { $ability = wp_get_ability('oyiso/' . $name); if ($ability !== null) $plugins['wordpress'][$ability->get_name()] = $ability; }
         $builtins = Oyiso_Agent_Abilities::woocommerce();
         if ($builtins !== []) $plugins['woocommerce'] = $builtins;
+        foreach (Oyiso_Agent_Query_Catalog::sources() as $source) foreach (Oyiso_Agent_Query::TOOLS as $name) {
+            $ability = wp_get_ability('oyiso/' . $name);
+            if ($ability !== null) $plugins[Oyiso_Agent_Query_Catalog::pluginGroup($source->namespace)][$ability->get_name()] = $ability;
+        }
         foreach (self::catalog() as $name => $ability) { $namespace = explode('/', $name, 2)[0]; $plugins[$namespace === 'core' ? 'wordpress' : $namespace][$name] = $ability; }
         ksort($plugins);
         return isset($plugins['wordpress']) ? ['wordpress' => $plugins['wordpress']] + $plugins : $plugins;
@@ -154,7 +158,11 @@ final class Oyiso_Agent_MCP
     {
         $label = self::namespaceLabel($namespace);
         $writes = array_intersect_key(Oyiso_Agent_Permissions::writable(), $tools);
-        $members = array_values(array_unique(array_map([Oyiso_Agent_Permissions::class, 'source'], array_keys($tools))));
+        // Shared query tools are authorized by their selected data source, not by one fixed namespace.
+        $ownedTools = array_diff(array_keys($tools), array_map(static fn(string $name): string => 'oyiso/' . $name, Oyiso_Agent_Query::TOOLS));
+        $members = array_map([Oyiso_Agent_Permissions::class, 'source'], $ownedTools);
+        foreach (Oyiso_Agent_Query_Catalog::sources() as $source) if (Oyiso_Agent_Query_Catalog::pluginGroup($source->namespace) === $namespace) $members[] = $source->namespace;
+        $members = array_values(array_unique($members));
         $enabled = count(array_intersect($members, $namespaces));
         $partial = $enabled > 0 && $enabled < count($members);
         $description = match ($namespace) { 'wordpress' => '文章、页面、插件管理和站点信息，', 'woocommerce' => '商品管理、订单统计等，', default => '' };

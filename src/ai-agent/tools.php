@@ -41,6 +41,7 @@ final class Oyiso_Agent_Tools
             if (is_wp_error($permission)) return $permission;
         }
         return match ($name) {
+            'list-data-sources', 'describe-data-source', 'query-data' => Oyiso_Agent_Query::call($name, $input, $this->run['id']),
             'read-chat-file' => Oyiso_Agent_Attachments::text($this->run['id'], self::integer($input, 'file_id'), self::integer($input, 'offset'), array_key_exists('length', $input) ? self::integer($input, 'length') : 8000, self::text($input, 'search')),
             'get-current-page', 'search-posts', 'get-post', 'prepare-post-update', 'prepare-post-draft' => Oyiso_Agent_Content::execute($this->run, $name, $input),
             'list-plugins', 'activate-plugin', 'deactivate-plugin' => Oyiso_Agent_Plugins::call($this->run, $name, $input),

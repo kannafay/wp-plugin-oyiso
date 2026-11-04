@@ -14,7 +14,7 @@ final class Oyiso_Agent_Abilities
     {
         $tools = [];
         if (!function_exists('wc_get_product') || !function_exists('wp_get_ability')) return $tools;
-        foreach (self::WOOCOMMERCE as $name) {
+        foreach (array_merge(array_diff(self::WOOCOMMERCE, Oyiso_Agent_Query::LEGACY), Oyiso_Agent_Query::TOOLS) as $name) {
             $ability = wp_get_ability('oyiso/' . $name);
             if ($ability !== null) $tools[$ability->get_name()] = $ability;
         }
@@ -71,6 +71,7 @@ final class Oyiso_Agent_Abilities
             'mcp-describe-tool' => ['读取 MCP 工具说明', '读取指定 MCP 工具的用途、完整输入 schema 和读写属性。调用前必须先读取。', ['name' => $text], ['name']],
             'mcp-call-tool' => ['调用 MCP 工具', '调用已启用的 MCP 工具。input_json 为遵守工具 schema 的 JSON 对象字符串（无参数时为 {}）。只读工具立即执行；修改类仅生成待确认卡片，尚未保存。', ['name' => $text, 'input_json' => ['type' => 'string', 'maxLength' => 50000]], ['name', 'input_json']],
         ];
+        $definitions = array_merge($definitions, Oyiso_Agent_Query::definitions());
         foreach ($definitions as $name => [$label, $description, $properties, $required]) {
             wp_register_ability('oyiso/' . $name, [
                 'label' => $label,
@@ -87,7 +88,7 @@ final class Oyiso_Agent_Abilities
                         'apply-product-update', 'apply-product-trash' => self::$context->approved('apply'),
                         'revert-product-update', 'revert-product-trash' => self::$context->approved('revert'),
                         'dismiss-product-trash' => self::$context->approved('dismiss'),
-                        default => in_array('oyiso/' . $name, self::allowed(), true),
+                        default => in_array('oyiso/' . $name, self::allowed(true), true),
                     };
                 },
                 'execute_callback' => static function (array $input) use ($name): array|WP_Error {
@@ -98,10 +99,10 @@ final class Oyiso_Agent_Abilities
         }
     }
 
-    /** The model receives only this allowlist. Applying and reverting are UI actions.
+    /** The model receives only this allowlist. Legacy reads remain callable for compatibility.
      * @return list<string>
      */
-    public static function allowed(): array
+    public static function allowed(bool $includeLegacy = false): array
     {
         $names = ['oyiso/get-current-page', 'oyiso/read-chat-file'];
         if (Oyiso_Agent_Plugins::enabled() && current_user_can('activate_plugins')) {
@@ -124,6 +125,7 @@ final class Oyiso_Agent_Abilities
         if (current_user_can('manage_options') && Oyiso_Agent_MCP::selected() !== []) {
             $names = array_merge($names, ['oyiso/mcp-list-tools', 'oyiso/mcp-describe-tool', 'oyiso/mcp-call-tool']);
         }
-        return $names;
+        if (Oyiso_Agent_Query_Catalog::available() !== []) foreach (Oyiso_Agent_Query::TOOLS as $name) $names[] = 'oyiso/' . $name;
+        return $includeLegacy ? $names : array_values(array_filter($names, static fn(string $name): bool => !in_array(substr($name, 6), Oyiso_Agent_Query::LEGACY, true)));
     }
 }

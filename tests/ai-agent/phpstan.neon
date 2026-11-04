@@ -1,0 +1,24 @@
+parameters:
+    level: 9
+    paths:
+        - ../../src/ai-agent/query.php
+        - ../../src/ai-agent/query-source.php
+        - ../../src/ai-agent/query-filter.php
+        - ../../src/ai-agent/query-spec.php
+        - ../../src/ai-agent/query-catalog.php
+        - ../../src/ai-agent/abilities.php
+        - ../../src/ai-agent/tools.php
+        - ../../src/ai-agent/model.php
+        - ../../src/ai-agent/mcp.php
+    scanDirectories:
+        - ../../src/ai-agent
+        - ../../../woocommerce/includes
+        - ../../../woocommerce/src
+        - ../../../../../wp-includes/ai-client
+        - ../../../../../wp-includes/php-ai-client/src
+        - ../../../../../wp-includes/abilities-api
+    scanFiles:
+        - ../../vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+        - ../../../../../wp-includes/ai-client.php
+        - ../../../../../wp-includes/abilities.php
+        - ../../../../../wp-includes/abilities-api.php

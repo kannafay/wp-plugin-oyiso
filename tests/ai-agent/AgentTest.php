@@ -933,7 +933,7 @@ final class AgentTest extends TestCase
         self::assertStringNotContainsString('执行记录', $html);
         self::assertStringContainsString('选择对话批量删除', $html);
         self::assertStringContainsString('oyiso-agent-files', $html);
-        self::assertStringContainsString('查询商品', $html); self::assertStringContainsString('执行前仍需在对话中确认', $html);
+        self::assertStringContainsString('查询与统计站内数据', $html); self::assertStringContainsString('执行前仍需在对话中确认', $html);
         self::assertStringNotContainsString('<form', $html); self::assertStringContainsString('options-connectors.php', $html);
     }
 
@@ -1081,12 +1081,12 @@ final class AgentTest extends TestCase
         };
         add_filter('woocommerce_product_object_query_args', $observe);
         try {
-            (new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('', [['search-products', []]])])))->step($run['id']);
+            (new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('', [['query-data', ['source' => 'products']]])])))->step($run['id']);
         } finally { remove_filter('woocommerce_product_object_query_args', $observe); }
         self::assertTrue($observed);
         $fresh = Oyiso_Agent_Store::get($run['id']);
         self::assertCount(3, $fresh['messages']);
-        self::assertContains('查询商品', array_column($fresh['events'], 'label'));
+        self::assertContains('查询与统计站内数据', array_column($fresh['events'], 'label'));
     }
 
     public function testRestStatusAndCompletedTaskCanContinueConversation(): void
