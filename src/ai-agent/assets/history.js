@@ -5,7 +5,7 @@
         const dialog = document.querySelector('[data-agent-delete-dialog]');
         const find = (root, selector) => root.querySelector(selector);
         const node = (tag, className, text) => { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; };
-        const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
+        const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', awaiting_input: '等待补充', blocked: '无法继续', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
         const lists = [...document.querySelectorAll('[data-agent-runs]')].map(root => ({ root, inline: root.dataset.agentRuns === 'panel', page: 1, pages: 1, items: [], selected: new Set(), selecting: false, loading: false, loaded: false }));
         const trash = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>';
         const stop = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>';

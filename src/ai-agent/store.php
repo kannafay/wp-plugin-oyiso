@@ -10,10 +10,10 @@ defined('ABSPATH') || exit;
  * @phpstan-import-type PageContext from Oyiso_Agent_Page_Context
  * @phpstan-import-type ContentChange from Oyiso_Agent_Content
  * @phpstan-type RunEvent array{time:string, type:string, label:string, detail:string}
- * @phpstan-type Execution array{index:int,status:string,step:int,tokens:int,token_start:int,events:list<RunEvent>,model_label?:string,legacy?:bool,truncated?:bool,summary_calls?:int}
+ * @phpstan-type Execution array{index:int,status:string,step:int,tokens:int,token_start:int,events:list<RunEvent>,model_label?:string,legacy?:bool,truncated?:bool,summary_calls?:int,review_calls?:int}
  * @phpstan-type MCPAction array{id:string,name:string,label:string,input_json:string,status:string,result:string,message_index?:int,plugin?:array{file:string,name:string,version:string,before:string,after:string},plugin_fingerprint?:string}
  * @phpstan-import-type Attachment from Oyiso_Agent_Attachments
- * @phpstan-type Run array{id:int, selection?:string,context_usage?:array{selection:string,input:int,output:int,cursor?:int},context_memory?:array{cursor:int,summary:string,count:int},context_state?:array{phase:string,count:int},context_retry?:string, page_context?:PageContext,content_changes?:list<ContentChange>,post_snapshots?:array<int,array{fields:Fields,saved:Fields}>,partial?:array{text:string,model:string,model_label?:string}, mcp_actions?:list<MCPAction>, plugin_snapshots?:array<string,string>,plugin_retry?:bool,product_snapshots?:array<int,string>,executions?:list<Execution>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string,model_label?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
+ * @phpstan-type Run array{id:int, selection?:string,context_usage?:array{selection:string,input:int,output:int,cursor?:int},context_memory?:array{cursor:int,summary:string,count:int},context_state?:array{phase:string,count:int},context_retry?:string,completion_state?:string,completion_retries?:int, page_context?:PageContext,content_changes?:list<ContentChange>,post_snapshots?:array<int,array{fields:Fields,saved:Fields}>,partial?:array{text:string,model:string,model_label?:string}, mcp_actions?:list<MCPAction>, plugin_snapshots?:array<string,string>,plugin_retry?:bool,product_snapshots?:array<int,string>,executions?:list<Execution>, status:string, step:int, tokens:int, messages:list<array<string, mixed>>, conversation:list<array{role:string, text:string, model?:string,model_label?:string, attachments?:list<Attachment>}>, events:list<RunEvent>, changes:list<Change>, snapshots:array<int, Fields>, error:string}
  */
 final class Oyiso_Agent_Store
 {
@@ -256,7 +256,7 @@ final class Oyiso_Agent_Store
         unset($entry);
         if (self::cancelled($run['id'])) $run['status'] = 'cancelled';
         $executions = self::updateExecutions(($run['executions'] ?? []) ?: self::legacyExecutions($run), $run['status'], $run['step'], $run['tokens']);
-        $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'executions', 'changes', 'content_changes', 'page_context', 'error']));
+        $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'executions', 'changes', 'content_changes', 'page_context', 'completion_state', 'error']));
         $view['revision'] = $revision;
         if (isset($run['mcp_actions'])) $view['mcp_actions'] = array_map(static function (array $action): array { unset($action['plugin_fingerprint']); return $action; }, $run['mcp_actions']);
         if (isset($run['context_usage'])) $view['context_usage'] = $run['context_usage'];
@@ -297,7 +297,7 @@ final class Oyiso_Agent_Store
                 $response = is_array($part['functionResponse'] ?? null) ? ($part['functionResponse']['response'] ?? null) : null;
                 if (is_array($response)) $responses[] = $response;
             }
-            if (($message['role'] ?? '') === 'user' && $hasText && $responses === []) $turn++;
+            if (($message['role'] ?? '') === 'user' && ($message['oyiso_internal'] ?? false) !== true && $hasText && $responses === []) $turn++;
             if (!isset($owners[$turn])) continue;
             foreach ($responses as $response) {
                 $id = $response['proposal_id'] ?? $response['action_id'] ?? null;

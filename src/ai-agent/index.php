@@ -30,6 +30,7 @@ require_once __DIR__ . '/query-catalog.php';
 require_once __DIR__ . '/query.php';
 require_once __DIR__ . '/tools.php';
 require_once __DIR__ . '/abilities.php';
+require_once __DIR__ . '/completion.php';
 require_once __DIR__ . '/model.php';
 require_once __DIR__ . '/compaction.php';
 require_once __DIR__ . '/runner.php';

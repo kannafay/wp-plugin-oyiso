@@ -39,7 +39,7 @@
     const answerDialog = document.querySelector('[data-agent-answer-dialog]');
     let answerConfirmation;
     let messageEditor;
-    const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
+    const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', awaiting_input: '等待补充', blocked: '无法继续', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
     const fields = { description: '长描述', short_description: '短描述', seo_title: 'SEO 标题', seo_description: 'SEO 描述', seo_keywords: '目标关键词' };
     const storageKey = `oyiso-agent:${config.user}:${new URL(config.url).pathname}`;
     const changing = new Set();
@@ -376,7 +376,8 @@
     function fillProgress(element, record) {
         element.hidden = false; element.dataset.executionIndex = String(record.index); element.dataset.status = record.status;
         const state = $('.oyiso-agent-progress-state', element); state.hidden = false; state.textContent = statuses[record.status] || record.status;
-        $('.oyiso-agent-progress-usage', element).textContent = `${record.legacy ? '历史合并记录 · 最近任务 ' : ''}${Number(record.step || 0) + Number(record.summary_calls || 0)} 次模型调用${record.summary_calls ? `（含 ${record.summary_calls} 次整理）` : ''} · ${record.legacy ? '累计 ' : ''}${Number(record.tokens || 0).toLocaleString()} Token${record.truncated ? ' · 记录较长，部分细节已省略' : ''}`;
+        const checks = [record.summary_calls ? `${record.summary_calls} 次整理` : '', record.review_calls ? `${record.review_calls} 次结果检查` : ''].filter(Boolean);
+        $('.oyiso-agent-progress-usage', element).textContent = `${record.legacy ? '历史合并记录 · 最近任务 ' : ''}${Number(record.step || 0) + Number(record.summary_calls || 0) + Number(record.review_calls || 0)} 次模型调用${checks.length ? `（含 ${checks.join('、')}）` : ''} · ${record.legacy ? '累计 ' : ''}${Number(record.tokens || 0).toLocaleString()} Token${record.truncated ? ' · 记录较长，部分细节已省略' : ''}`;
         const signature = JSON.stringify(record.events || []);
         if (progressVersions.get(element) === signature) return;
         progressVersions.set(element, signature);
@@ -570,13 +571,14 @@
         if (pending || !run) progressUsage.textContent = '';
         progress.hidden = !run && !sending && !loading && !pending;
         progress.dataset.status = pending ? sending ? 'queued' : 'failed' : run?.status || 'idle';
-        const waiting = !loading && (sending || active) && !run?.partial?.text;
+        const waiting = !loading && (sending || active) && (!run?.partial?.text || run?.completion_state === 'reviewing');
         responseStatus.hidden = !waiting;
         $('.oyiso-agent-progress-title', progress).hidden = false;
         progressState.hidden = waiting;
         let state = sending ? '正在发送…' : '正在思考…';
         if (active && run.status === 'queued') state = run.step > 0 ? '正在继续处理…' : '正在准备回复…';
         if (active && run.context_state?.phase === 'compacting') state = '正在整理较早的对话…';
+        if (active && run.completion_state === 'reviewing') state = '正在核对任务结果…';
         if (stopping) state = '正在停止…';
         responseLabel.textContent = state;
         messages.setAttribute('aria-busy', String(!!(sending || active || loading)));

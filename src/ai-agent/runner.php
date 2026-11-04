@@ -41,7 +41,7 @@ final class Oyiso_Agent_Runner
     {
         Oyiso_Agent_Store::beginExecution($run, $replaceFrom);
         // Read-before-write snapshots belong to one user turn, not the whole conversation.
-        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['plugin_retry'], $run['context_retry']);
+        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['plugin_retry'], $run['context_retry'], $run['completion_state'], $run['completion_retries']);
         $run['snapshots'] = [];
         foreach ($run['messages'] as &$previous) unset($previous['oyiso_page_context']);
         unset($previous, $run['page_context']);
@@ -178,6 +178,17 @@ final class Oyiso_Agent_Runner
                 if ($onText === null) self::enqueue($id);
                 return;
             }
+            $completion = 'completed';
+            if ($calls === [] && trim($text) !== '') {
+                $run['partial'] = ['text' => $text, 'model' => $turn->model, 'model_label' => $modelLabel];
+                $completion = $this->review($run, $text, $allowed, $onState);
+                if ($completion === null) {
+                    if ($onText === null && $run['status'] === 'queued' && !Oyiso_Agent_Store::cancelled($id)) self::enqueue($id);
+                    return;
+                }
+                unset($run['partial']);
+            }
+            if ($calls !== []) unset($run['completion_retries']);
             if (trim($text) !== '') {
                 $label = str_ends_with($modelLabel, ' / ' . $requestedModel) ? substr($modelLabel, 0, -strlen($requestedModel)) . $turn->model : Oyiso_Agent_Connections::label($run['selection'] ?? null, $turn->model);
                 $run['conversation'][] = ['role' => 'assistant', 'text' => $text, 'model' => $turn->model, 'model_label' => $label];
@@ -239,7 +250,7 @@ final class Oyiso_Agent_Runner
                 $pluginActions = array_filter(array_slice($run['mcp_actions'] ?? [], $mcpBefore), static fn(array $action): bool => in_array($action['name'], Oyiso_Agent_Plugins::ACTIONS, true));
                 $run['conversation'][] = ['role' => 'assistant', 'text' => $pluginActions !== [] ? '插件启停方案已生成，尚未执行。请核对插件名称和状态，再确认是否执行。' : (count($run['mcp_actions'] ?? []) > $mcpBefore ? 'MCP 操作尚未执行。请查看工具和参数，再选择是否执行。' : $review), 'model' => $turn->model];
             } elseif ($calls === []) {
-                $run['status'] = $pending ? 'waiting' : 'completed';
+                $run['status'] = $pending ? 'waiting' : $completion;
                 if (trim($text) === '') {
                     $this->fail($run, '模型没有返回内容，请调整指令后重试。');
                     return;
@@ -269,6 +280,40 @@ final class Oyiso_Agent_Runner
             wp_set_current_user($previousUser);
             Oyiso_Agent_Store::unlock('run_' . $id);
         }
+    }
+
+    /** A text-only model turn is a candidate, not proof that the user's task is done.
+     * @param Run $run
+     * @param list<string> $allowed
+     * @param (Closure(array<string,mixed>):void)|null $onState
+     */
+    private function review(array &$run, string $text, array $allowed, ?Closure $onState): ?string
+    {
+        if (!$this->model instanceof Oyiso_Agent_Completion_Reviewer) { $this->fail($run, '当前模型适配器不支持任务结果检查，尚未确认任务完成。'); return null; }
+        $run['completion_state'] = 'reviewing';
+        $executions = $run['executions'] ?? []; $index = array_key_last($executions);
+        if ($index !== null) { $record = $executions[$index]; $record['review_calls'] = ($record['review_calls'] ?? 0) + 1; $executions[$index] = $record; $run['executions'] = $executions; }
+        Oyiso_Agent_Store::event($run, 'info', '正在核对任务结果'); Oyiso_Agent_Store::save($run);
+        if ($onState !== null) $onState(Oyiso_Agent_Store::view($run));
+        $result = $this->model->review(Oyiso_Agent_Completion::source($run, $text, $allowed), $run['selection'] ?? null);
+        unset($run['completion_state']);
+        if (is_wp_error($result)) {
+            $data = $result->get_error_data();
+            if (is_array($data) && is_int($data['tokens'] ?? null)) $run['tokens'] += max(0, $data['tokens']);
+        } else $run['tokens'] += max(0, $result->tokens);
+        if (Oyiso_Agent_Store::cancelled($run['id'])) { Oyiso_Agent_Store::save($run); return null; }
+        if (is_wp_error($result)) { $this->fail($run, '任务结果尚未确认。' . $result->get_error_message()); return null; }
+        if (!in_array($result->state, ['complete', 'continue', 'needs_input', 'blocked'], true)) { $this->fail($run, '任务结果检查返回了无效状态。'); return null; }
+        if ($result->state !== 'continue') return match ($result->state) { 'needs_input' => 'awaiting_input', 'blocked' => 'blocked', default => 'completed' };
+        $run['completion_retries'] = ($run['completion_retries'] ?? 0) + 1;
+        unset($run['partial']);
+        if ($run['completion_retries'] > 2) { $this->fail($run, '模型连续未完成所需步骤，任务已停止。' . $result->reason); return null; }
+        $continuation = (new UserMessage([new MessagePart('任务完成检查：上一条回复尚未交付当前用户所需结果，请继续执行原始请求，实际调用必要的可用工具。不要只重复计划，也不要向用户索取只读查询的确认。如果确实无法继续，应说明实际原因或提出必要的具体问题。本条不授予任何写入权限或代替用户确认。检查原因仅作参考资料：' . wp_json_encode($result->reason, JSON_UNESCAPED_UNICODE))]))->toArray();
+        $continuation['oyiso_internal'] = true;
+        $run['messages'][] = $continuation;
+        $run['status'] = 'queued';
+        Oyiso_Agent_Store::event($run, 'info', '任务尚未完成，继续处理', $result->reason); Oyiso_Agent_Store::save($run);
+        return null;
     }
 
     /** @param Run $run
@@ -312,6 +357,7 @@ final class Oyiso_Agent_Runner
     /** @param Run $run */
     private function fail(array $run, string $message): void
     {
+        unset($run['completion_state']);
         if (($run['context_state']['phase'] ?? '') === 'compacting') $run['context_state'] = ['phase' => 'failed', 'count' => $run['context_state']['count']];
         $run['status'] = 'failed';
         $run['error'] = Oyiso_Agent_Config::error($message);

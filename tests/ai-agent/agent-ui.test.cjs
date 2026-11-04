@@ -3589,6 +3589,23 @@ test('automatic compaction displays its waiting state and records model calls wi
     assert.equal(f.window.document.querySelectorAll('.oyiso-agent-message.is-user').length, 1);
 });
 
+test('result review stays active and clarification or blocked outcomes never display completed', async t => {
+    let current = task({ status: 'running', completion_state: 'reviewing', partial: { text: '我先确认一下。', model: 'model-a' }, conversation: [{ role: 'user', text: '统计处理中' }], executions: [{ index: 0, status: 'running', step: 1, review_calls: 1, tokens: 70, events: [] }] });
+    const f = fixture(t, route => route === 'runs/12' ? current : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(f.$('[data-agent-response-status]').hidden, false);
+    assert.equal(f.$('[data-agent-response-label]').textContent, '正在核对任务结果…');
+    assert.equal(f.$('[data-agent-send]').disabled, true);
+    assert.match(f.$('.oyiso-agent-progress-usage').textContent, /2 次模型调用（含 1 次结果检查）/);
+    for (const [status, label] of [['awaiting_input', '等待补充'], ['blocked', '无法继续']]) {
+        current = task({ ...current, status, completion_state: undefined, partial: undefined, conversation: [current.conversation[0], { role: 'assistant', text: '请提供必要的信息。' }], executions: [{ ...current.executions[0], status }] });
+        f.$('[data-agent-refresh]').click(); await settle();
+        assert.equal(f.$('.oyiso-agent-progress-state').textContent, label);
+        assert.equal(f.$('[data-agent-send]').disabled, false);
+        assert.equal(f.$('[data-agent-response-status]').hidden, true);
+    }
+});
+
 test('context ring uses the latest request input and follows the selected model without accumulating usage', async t => {
     let current = task({ selection: 'fixture|model-a', tokens: 900000, context_usage: { selection: 'fixture|model-a', input: 250000, output: 10000 } });
     const f = fixture(t, route => route === 'runs/12' ? current : undefined, { contextModels: { 'fixture|model-a': { limit: 1000000, source: 'preset' }, 'second|model-b': { limit: 524288, source: 'catalog' } } }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));

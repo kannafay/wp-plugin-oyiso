@@ -19,7 +19,7 @@ use WordPress\AiClient\Results\DTO\TokenUsage;
 use WordPress\AiClient\Results\Enums\FinishReasonEnum;
 use WordPress\AiClient\Tools\DTO\FunctionCall;
 
-final class OyisoAgentScriptedModel implements Oyiso_Agent_Model_Gateway, Oyiso_Agent_Context_Summarizer
+final class OyisoAgentScriptedModel implements Oyiso_Agent_Model_Gateway, Oyiso_Agent_Context_Summarizer, Oyiso_Agent_Completion_Reviewer
 {
     public int $calls = 0;
     public array $allowed = [];
@@ -27,8 +27,9 @@ final class OyisoAgentScriptedModel implements Oyiso_Agent_Model_Gateway, Oyiso_
     public array $histories = [];
     public array $summarySources = [];
     public int $summaryCalls = 0;
+    public array $reviewSources = [];
 
-    public function __construct(private array $turns, private array $summaries = [])
+    public function __construct(private array $turns, private array $summaries = [], private array $reviews = [])
     {
     }
 
@@ -47,6 +48,13 @@ final class OyisoAgentScriptedModel implements Oyiso_Agent_Model_Gateway, Oyiso_
         $this->summaryCalls++; $this->summarySources[] = $source;
         $turn = array_shift($this->summaries);
         return $turn instanceof Closure ? $turn($source) : ($turn ?? new WP_Error('fixture_summary', 'No fixture summary configured.'));
+    }
+
+    public function review(string $source, ?string $selection = null): Oyiso_Agent_Completion|WP_Error
+    {
+        $this->reviewSources[] = $source;
+        $review = array_shift($this->reviews);
+        return $review instanceof Closure ? $review($source) : ($review ?? new Oyiso_Agent_Completion('complete', 'Fixture final answer.'));
     }
 }
 
@@ -903,6 +911,24 @@ final class AgentTest extends TestCase
         self::assertStringContainsString('记录整理器', $settings['using_system_instruction'][0]);
         self::assertSame([2048], $settings['using_max_tokens']);
         self::assertCount(1, $captured); self::assertSame('{"history":"untrusted original material"}', $captured[0]->getParts()[0]->getText());
+    }
+
+    public function testCompletionReviewUsesIsolatedInstructionsAndNoExecutableAbilities(): void
+    {
+        $turn = $this->turn('{"state":"continue","reason":"Only a plan was returned."}'); $captured = []; $settings = [];
+        $metadata = $this->createMock(ModelMetadata::class); $metadata->method('getId')->willReturn('review-fixture');
+        $result = $this->createMock(GenerativeAiResult::class);
+        $result->method('getCandidates')->willReturn([new Candidate($turn->message, FinishReasonEnum::stop())]);
+        $result->method('getTokenUsage')->willReturn(new TokenUsage(100, 20, 120)); $result->method('getModelMetadata')->willReturn($metadata);
+        $builder = $this->getMockBuilder(WP_AI_Client_Prompt_Builder::class)->disableOriginalConstructor()->onlyMethods(['__call', 'using_abilities'])->getMock();
+        $builder->expects(self::once())->method('using_abilities')->with()->willReturnSelf();
+        $builder->method('__call')->willReturnCallback(static function (string $name, array $arguments) use (&$settings, $builder, $result): mixed { $settings[$name] = $arguments; return match ($name) { 'is_supported_for_text_generation' => true, 'generate_text_result' => $result, default => $builder }; });
+        $adapter = new Oyiso_Agent_Model(static function (array $messages) use (&$captured, $builder) { $captured = $messages; return $builder; });
+        $review = $adapter->review('{"candidate":"untrusted answer"}');
+        self::assertInstanceOf(Oyiso_Agent_Completion::class, $review); self::assertSame('continue', $review->state); self::assertSame(120, $review->tokens);
+        self::assertStringContainsString('任务完成状态检查器', $settings['using_system_instruction'][0]);
+        self::assertSame([1024], $settings['using_max_tokens']);
+        self::assertSame('{"candidate":"untrusted answer"}', $captured[0]->getParts()[0]->getText());
     }
 
     public function testSettingsGroupAdvancedFieldsWithModelsAndHistoryRendersWithoutNestedForms(): void

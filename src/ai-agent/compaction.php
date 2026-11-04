@@ -73,7 +73,7 @@ final class Oyiso_Agent_Compaction
     /** @param array<string,mixed> $message */
     private static function isUser(array $message): bool
     {
-        if (($message['role'] ?? '') !== 'user' || !is_array($message['parts'] ?? null)) return false;
+        if (($message['role'] ?? '') !== 'user' || ($message['oyiso_internal'] ?? false) === true || !is_array($message['parts'] ?? null)) return false;
         $text = false;
         foreach ($message['parts'] as $part) {
             if (!is_array($part)) continue;

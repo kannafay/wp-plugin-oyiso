@@ -157,8 +157,13 @@ final class StreamTest extends TestCase
         $id = $response->get_data()['id']; $this->runs[] = $id;
         self::assertSame('queued', Oyiso_Agent_Store::get($id)['status']);
         self::assertNotFalse(wp_next_scheduled(Oyiso_Agent_Runner::HOOK, [$id]));
-        $requests = 0;
-        $this->http = static function ($pre, $args) use (&$requests) {
+        $requests = 0; $reviews = 0;
+        $this->http = static function ($pre, $args) use (&$requests, &$reviews) {
+            $payload = json_decode($args['body'], true);
+            if (!isset($payload['tools'])) {
+                $reviews++;
+                return ['headers' => ['content-type' => 'application/json'], 'body' => wp_json_encode(['id' => 'review', 'choices' => [['message' => ['role' => 'assistant', 'content' => '{"state":"complete","reason":"Greeting answered."}'], 'finish_reason' => 'stop']], 'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 10, 'total_tokens' => 20]]), 'response' => ['code' => 200, 'message' => 'OK'], 'cookies' => [], 'filename' => null];
+            }
             $requests++;
             self::assertSame('text/event-stream', $args['headers']['Accept']);
             return ['headers' => ['content-type' => 'text/event-stream'], 'body' => self::wire([
@@ -181,7 +186,8 @@ final class StreamTest extends TestCase
         self::assertSame('no', $server->sent['X-Accel-Buffering']);
         self::assertStringContainsString('no-store', $server->sent['Cache-Control']);
         preg_match_all('/event: (\w+)\ndata: ([^\n]+)\n\n/', $body, $frames, PREG_SET_ORDER);
-        self::assertSame(['state', 'text', 'text', 'state', 'done'], array_column($frames, 1));
+        self::assertSame(['state', 'text', 'text', 'state', 'state', 'done'], array_column($frames, 1));
+        self::assertSame('reviewing', json_decode($frames[3][2], true)['completion_state']);
         self::assertSame('你', json_decode($frames[1][2], true)['delta']);
         self::assertSame('好', json_decode($frames[2][2], true)['delta']);
         self::assertArrayNotHasKey('messages', json_decode($frames[0][2], true));
@@ -204,6 +210,7 @@ final class StreamTest extends TestCase
         try { self::assertTrue(Oyiso_Agent_Live::serve(false, $replacement, $regenerate, $server)); }
         finally { $regenerated = ob_get_clean(); }
         self::assertSame(2, $requests);
+        self::assertSame(2, $reviews);
         self::assertStringContainsString('event: text', $regenerated);
         self::assertStringContainsString('event: done', $regenerated);
         self::assertCount(2, Oyiso_Agent_Store::get($id)['conversation']);
