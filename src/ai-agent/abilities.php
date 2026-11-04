@@ -39,6 +39,11 @@ final class Oyiso_Agent_Abilities
         foreach (['description' => 60000, 'short_description' => 12000, 'seo_title' => 300, 'seo_description' => 1000, 'seo_keywords' => 1000] as $name => $max) {
             $fields[$name] = ['type' => 'string', 'maxLength' => $max];
         }
+        $orderStatus = ['type' => 'string', 'minLength' => 1, 'maxLength' => 64];
+        if (function_exists('wc_get_order_statuses')) {
+            $registered = array_keys(wc_get_order_statuses());
+            $orderStatus['enum'] = array_values(array_unique(array_merge($registered, array_map(static fn(string $status): string => str_starts_with($status, 'wc-') ? substr($status, 3) : $status, $registered))));
+        }
         $definitions = [
             'list-plugins' => ['查询插件', '按名称、文件标识和启用状态分页查询已安装的普通插件，每页 10 个。插件启停前必须在本轮查询并核对完整 file 标识。', ['search' => ['type' => 'string', 'maxLength' => 200], 'status' => ['type' => 'string', 'enum' => ['all', 'active', 'inactive']], 'page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1000]], []],
             'activate-plugin' => ['准备启用插件', '生成启用插件的待确认卡片，不立即启用。必须使用本轮 list-plugins 返回的准确 file 标识，等待用户在卡片中确认后执行。', ['plugin_file' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 300]], ['plugin_file']],
@@ -54,7 +59,7 @@ final class Oyiso_Agent_Abilities
             'create-post-draft' => ['创建文章或页面草稿', '仅供用户在新建草稿预览卡片中确认，不发布。', ['proposal_id' => $text], ['proposal_id']],
             'search-products' => ['查询商品', '分页查询商品，返回名称、SKU 和缺失的内容字段。category 为商品分类 slug，每页 10 条。', ['search' => $text, 'category' => $text, 'page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1000]], []],
             'get-product' => ['读取商品', '读取商品真实参数、长短描述和 SEOPress 信息。准备修改前必须先读取。', ['product_id' => $id], ['product_id']],
-            'order-summary' => ['订单统计', '统计指定日期区间内 processing/completed 订单数量及分币种总额，最多取 500 单，不返回客户个人信息。', ['start_date' => ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}$'], 'end_date' => ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}$']], ['start_date', 'end_date']],
+            'order-summary' => ['订单统计', '按 statuses 单独或合并统计订单数量及分币种总额。处理中用 ["processing"]，待付款用 ["pending"]，保留/搁置用 ["on-hold"]；也支持本站注册的其他状态。不传 statuses 时默认合计 processing/completed。起止日期须同时提供，按创建日期筛选；用户未指定时间范围时省略两项，统计全部日期。total_orders 为全部匹配订单数，金额最多汇总前 500 单，不返回客户个人信息。', ['statuses' => ['type' => 'array', 'items' => $orderStatus, 'minItems' => 1, 'description' => '要统计的订单状态列表；只统计处理中时传 ["processing"]。支持带或不带 wc- 前缀。'], 'start_date' => ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}$'], 'end_date' => ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}$']], []],
             'prepare-product-update' => ['准备商品修改', '生成商品长短描述和 SEO 字段的修改预览，返回待审核方案，不保存商品。仅提交需要修改的字段；SEO 字段需 SEOPress 已启用。', ['product_id' => $id, 'fields' => ['type' => 'object', 'properties' => $fields, 'minProperties' => 1, 'additionalProperties' => false]], ['product_id', 'fields']],
             'apply-product-update' => ['应用商品修改', '应用用户在后台明确批准的修改方案。仅供后台操作入口调用。', ['proposal_id' => $text], ['proposal_id']],
             'revert-product-update' => ['撤回商品修改', '将已保存的商品字段恢复到此前值，并检查是否存在后续修改。仅供后台操作入口调用。', ['proposal_id' => $text], ['proposal_id']],

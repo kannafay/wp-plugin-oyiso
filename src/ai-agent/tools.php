@@ -121,10 +121,28 @@ final class Oyiso_Agent_Tools
         }
         $start = self::text($input, 'start_date');
         $end = self::text($input, 'end_date');
-        if (!self::date($start) || !self::date($end) || $start > $end) {
-            return new WP_Error('agent_order_dates', '请提供有效的起止日期，格式为 YYYY-MM-DD。');
+        $hasDates = array_key_exists('start_date', $input) || array_key_exists('end_date', $input);
+        if ($hasDates && (!self::date($start) || !self::date($end) || $start > $end)) {
+            return new WP_Error('agent_order_dates', '请同时提供有效的起止日期，格式为 YYYY-MM-DD；统计全部日期时省略两项。');
         }
-        $result = wc_get_orders(['date_created' => $start . '...' . $end, 'status' => ['wc-processing', 'wc-completed'], 'limit' => 500, 'paginate' => true, 'orderby' => 'ID', 'order' => 'ASC']);
+        $requested = array_key_exists('statuses', $input) ? $input['statuses'] : ['processing', 'completed'];
+        if (!is_array($requested) || !array_is_list($requested) || $requested === []) {
+            return new WP_Error('agent_order_statuses', '请提供非空的订单状态列表，例如 ["processing"]。');
+        }
+        $registered = wc_get_order_statuses();
+        $statuses = [];
+        foreach ($requested as $status) {
+            if (!is_string($status)) return new WP_Error('agent_order_statuses', '订单状态必须是文本。');
+            $status = str_starts_with($status, 'wc-') ? substr($status, 3) : $status;
+            if (!isset($registered['wc-' . $status])) {
+                return new WP_Error('agent_order_statuses', '订单状态未注册，请使用本站支持的状态。', ['available_statuses' => $registered]);
+            }
+            $statuses[] = $status;
+        }
+        $statuses = array_values(array_unique($statuses));
+        $args = ['type' => 'shop_order', 'status' => array_map(static fn(string $status): string => 'wc-' . $status, $statuses), 'limit' => 500, 'paginate' => true, 'orderby' => 'ID', 'order' => 'ASC'];
+        if ($hasDates) $args['date_created'] = $start . '...' . $end;
+        $result = wc_get_orders($args);
         if (!$result instanceof stdClass || !is_array($result->orders ?? null)) {
             return new WP_Error('agent_order_query', '订单查询失败。');
         }
@@ -135,7 +153,7 @@ final class Oyiso_Agent_Tools
                 $totals[$currency] = ($totals[$currency] ?? 0.0) + (float) $order->get_total();
             }
         }
-        return ['start_date' => $start, 'end_date' => $end, 'timezone' => wp_timezone_string(), 'statuses' => ['processing', 'completed'], 'total_orders' => (int) ($result->total ?? 0), 'sampled_orders' => count($result->orders), 'totals_by_currency' => $totals, 'truncated' => (int) ($result->total ?? 0) > 500, 'notice' => '金额为所取订单的含税含运费订单总额，未扣退款。超过 500 单时请缩小日期范围；结果不含客户个人信息。'];
+        return ['start_date' => $hasDates ? $start : null, 'end_date' => $hasDates ? $end : null, 'date_scope' => $hasDates ? 'date_range' : 'all_time', 'timezone' => wp_timezone_string(), 'statuses' => $statuses, 'total_orders' => (int) ($result->total ?? 0), 'sampled_orders' => count($result->orders), 'totals_by_currency' => $totals, 'truncated' => (int) ($result->total ?? 0) > 500, 'notice' => 'total_orders 为指定状态和日期范围内全部匹配订单数；未指定日期时统计全部日期。金额仅为所取订单的含税含运费总额，未扣退款；超过 500 单时金额不完整，请缩小日期范围。结果不含客户个人信息。'];
     }
 
     /** @param array<string, mixed> $input

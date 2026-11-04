@@ -199,7 +199,8 @@ final class Oyiso_Agent_Model implements Oyiso_Agent_Model_Gateway, Oyiso_Agent_
             . '编辑 WoodMart 已有内容时先读取最新区块树，保留未涉及的区块，只提交局部修改及最新 expected_content_hash；仅在空页面或用户明确要求整体重建时替换全部内容。区块属性和 ID、布局类型、条件均须来自真实工具结果。'
             . '修改 WoodMart 主题设置前先查找并读取当前设置，遵守可写性、值格式和预设覆盖提示。不要盲目重试失败的写入。发布、改 URL、替换全部布局条件需符合用户明确要求，并准确说明队列状态、实际结果和工具警告。'
             . '商品文案预览支持字段为 description、short_description、seo_title、seo_description、seo_keywords。HTML 使用简洁段落和列表；保留有用链接，避免关键词堆砌。'
-            . '统计结论说明日期、币种、订单状态和数据是否完整；分页或截断结果不得当成全站结论。'
+            . '订单统计使用 order-summary 的 statuses 指定用户要求的状态；只统计处理中时传 ["processing"]，待付款用 ["pending"]，不要混入 completed。用户未限定时间范围时省略起止日期，统计全部日期，不要自行限定为今年。状态含义不明确时先说明统计口径。'
+            . '统计结论说明日期、币种、订单状态和数据是否完整；分页或截断结果不得当成全站结论。order-summary 的 total_orders 是全部匹配订单数，truncated 仅表示金额汇总不完整。'
             . '查询工具返回错误时说明原因，按需调整查询。本版本不提供联网检索、网页读取或关键词指标查询；用户给出网址时请其粘贴关键资料，不可声称已联网核实。'
             . '当前站点时区为 ' . wp_timezone_string() . '，日期为 ' . wp_date('Y-m-d') . '。'
             . ($preferences !== '' ? "\n管理员助手偏好：\n" . $preferences . "\n" : '')
