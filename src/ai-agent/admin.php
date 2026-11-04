@@ -11,6 +11,7 @@ final class Oyiso_Agent_Admin
     {
         Oyiso_Agent_Model_Settings::routes();
         Oyiso_Agent_File_Manager::routes();
+        Oyiso_Agent_Messages::routes();
         $permission = static fn(): bool => current_user_can('manage_options');
         $root = 'oyiso-agent/v1';
         register_rest_route($root, '/status', ['methods' => 'GET', 'permission_callback' => $permission, 'callback' => static fn(): WP_REST_Response => new WP_REST_Response(['enabled' => Oyiso_Agent_Config::enabled(), 'supported' => Oyiso_Agent_Config::supported(), 'writeTools' => Oyiso_Agent_Permissions::granted(), 'secrets' => Oyiso_Agent_Config::secretStatus(), 'models' => Oyiso_Agent_Connections::choices()])]);
@@ -308,6 +309,11 @@ final class Oyiso_Agent_Admin
             <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-delete-description" data-agent-delete-description></p><p class="oyiso-confirm-dialog__error" data-agent-delete-error role="alert" hidden></p></div>
             <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-agent-delete-cancel>取消</button><button type="button" class="button oyiso-button-danger" data-agent-delete-confirm>删除</button></div>
         </dialog>
+        <dialog class="oyiso-agent-confirm oyiso-confirm-dialog" data-agent-answer-dialog aria-labelledby="oyiso-agent-answer-title" aria-describedby="oyiso-agent-answer-description">
+            <div class="oyiso-confirm-dialog__heading"><h2 id="oyiso-agent-answer-title">重新回答</h2><button type="button" class="oyiso-confirm-dialog__close" data-agent-answer-close aria-label="关闭">×</button></div>
+            <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-answer-description">将重新生成本轮回答，并移除后续消息。已执行的站点修改会保留。</p></div>
+            <div class="oyiso-confirm-dialog__footer"><button type="button" class="button" data-agent-answer-cancel>取消</button><button type="button" class="button button-primary" data-agent-answer-confirm>重新回答</button></div>
+        </dialog>
         <dialog class="oyiso-agent-confirm oyiso-confirm-dialog" data-agent-product-dialog aria-labelledby="oyiso-agent-product-title" aria-describedby="oyiso-agent-product-description">
             <div class="oyiso-confirm-dialog__heading"><h2 id="oyiso-agent-product-title">商品移入回收站</h2><button type="button" class="oyiso-confirm-dialog__close" data-agent-product-close aria-label="关闭">×</button></div>
             <div class="oyiso-confirm-dialog__body"><p id="oyiso-agent-product-description" data-agent-product-description></p><p class="description">商品及其关联变体会从前台下架，图片和历史订单保留。可在回收站保留期间恢复。</p></div>
@@ -344,7 +350,7 @@ final class Oyiso_Agent_Admin
                         <div>
                             <span class="oyiso-agent-context" data-agent-context>
                                 <button type="button" class="oyiso-agent-context-button" data-agent-context-button aria-label="上下文用量尚未获取" aria-describedby="oyiso-agent-context-detail"><svg viewBox="0 0 24 24" aria-hidden="true"><circle class="oyiso-agent-context-track" cx="12" cy="12" r="9"/><circle class="oyiso-agent-context-value" cx="12" cy="12" r="9" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg><span data-agent-context-percent>—</span></button>
-                                <span class="oyiso-agent-context-detail" id="oyiso-agent-context-detail" role="tooltip"><strong>上下文用量</strong><span data-agent-context-count>等待首次请求</span><span data-agent-context-limit>模型容量尚未获取</span><span class="oyiso-agent-context-note" data-agent-context-note>显示最近一次请求的输入用量，响应后更新。</span></span>
+                                <span class="oyiso-agent-context-detail" id="oyiso-agent-context-detail" role="tooltip"><strong>上下文用量</strong><span data-agent-context-count>最近输入：—</span><span data-agent-context-limit>模型容量：未知</span></span>
                             </span>
                             <button type="button" class="button oyiso-agent-composer-control" data-agent-cancel aria-label="停止回复" title="停止回复" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
                             <button type="button" class="button button-primary oyiso-agent-composer-control" data-agent-send aria-label="发送" title="发送"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>

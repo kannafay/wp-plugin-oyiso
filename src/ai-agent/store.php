@@ -111,9 +111,10 @@ final class Oyiso_Agent_Store
     /** Called before appending a new user message, so the previous turn keeps its final values.
      * @param Run $run
      */
-    public static function beginExecution(array &$run): void
+    public static function beginExecution(array &$run, ?int $replaceFrom = null): void
     {
         $executions = self::updateExecutions(($run['executions'] ?? []) ?: self::legacyExecutions($run), $run['status'], $run['step'], $run['tokens']);
+        if ($replaceFrom !== null) $executions = array_values(array_filter($executions, static fn(array $record): bool => $record['index'] < $replaceFrom));
         $executions[] = ['index' => count($run['conversation']), 'status' => 'queued', 'step' => 0, 'tokens' => 0, 'token_start' => $run['tokens'], 'events' => [], 'model_label' => Oyiso_Agent_Connections::label($run['selection'] ?? null)];
         $run['executions'] = $executions;
     }
@@ -243,6 +244,7 @@ final class Oyiso_Agent_Store
      */
     public static function view(array $run): array
     {
+        $revision = self::revision($run);
         self::proposalOrigins($run);
         foreach ($run['conversation'] as &$entry) {
             if ($entry['role'] === 'assistant' && isset($entry['model']) && !isset($entry['model_label'])) {
@@ -255,6 +257,7 @@ final class Oyiso_Agent_Store
         if (self::cancelled($run['id'])) $run['status'] = 'cancelled';
         $executions = self::updateExecutions(($run['executions'] ?? []) ?: self::legacyExecutions($run), $run['status'], $run['step'], $run['tokens']);
         $view = array_intersect_key($run, array_flip(['id', 'selection', 'partial', 'mcp_actions', 'status', 'step', 'tokens', 'conversation', 'events', 'executions', 'changes', 'content_changes', 'page_context', 'error']));
+        $view['revision'] = $revision;
         if (isset($run['mcp_actions'])) $view['mcp_actions'] = array_map(static function (array $action): array { unset($action['plugin_fingerprint']); return $action; }, $run['mcp_actions']);
         if (isset($run['context_usage'])) $view['context_usage'] = $run['context_usage'];
         if (isset($run['context_state'])) $view['context_state'] = $run['context_state'];
@@ -267,7 +270,7 @@ final class Oyiso_Agent_Store
     /** Recover old card ownership only when the original tool result identifies its user turn.
      * @param Run $run
      */
-    private static function proposalOrigins(array &$run): void
+    public static function proposalOrigins(array &$run): void
     {
         $missing = false;
         foreach (['changes', 'content_changes', 'mcp_actions'] as $field) foreach ($run[$field] ?? [] as $change) if (!isset($change['message_index'])) $missing = true;
@@ -304,5 +307,11 @@ final class Oyiso_Agent_Store
         foreach ($run['changes'] as $index => $change) if (!isset($change['message_index']) && isset($origins[$change['id']])) { $change['message_index'] = $origins[$change['id']]; $run['changes'][$index] = $change; }
         foreach ($run['content_changes'] ?? [] as $index => $change) if (!isset($change['message_index']) && isset($origins[$change['id']])) { $change['message_index'] = $origins[$change['id']]; $run['content_changes'][$index] = $change; }
         foreach ($run['mcp_actions'] ?? [] as $index => $change) if (!isset($change['message_index']) && isset($origins[$change['id']])) { $change['message_index'] = $origins[$change['id']]; $run['mcp_actions'][$index] = $change; }
+    }
+
+    /** @param Run $run */
+    public static function revision(array $run): string
+    {
+        return hash('sha256', serialize($run));
     }
 }

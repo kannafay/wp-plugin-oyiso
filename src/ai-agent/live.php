@@ -20,7 +20,7 @@ final class Oyiso_Agent_Live
      */
     public static function serve(bool $served, WP_HTTP_Response $response, WP_REST_Request $request, WP_REST_Server $server): bool
     {
-        if ($served || $response->get_status() >= 300 || $request->get_method() !== 'POST' || !self::requested($request) || !preg_match('#^/oyiso-agent/v1/runs(?:/\d+/step)?$#', $request->get_route())) return $served;
+        if ($served || $response->get_status() >= 300 || $request->get_method() !== 'POST' || !self::requested($request) || !preg_match('#^/oyiso-agent/v1/runs(?:/\d+/(?:step|messages/\d+))?$#', $request->get_route())) return $served;
         $data = $response->get_data();
         $id = is_array($data) && is_int($data['id'] ?? null) ? $data['id'] : 0;
         if (!current_user_can('manage_options') || !Oyiso_Agent_Store::owned($id)) return $served;

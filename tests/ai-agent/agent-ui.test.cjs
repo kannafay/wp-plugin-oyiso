@@ -36,7 +36,7 @@ function frameClock(window) {
 }
 const chooseLayout = (f, mode) => { if (f.$('[data-agent-settings-menu]').hidden) f.$('[data-agent-settings-toggle]').click(); f.$(`[data-agent-layout-choice="${mode}"]`).click(); };
 
-const task = (extra = {}) => ({ id: 12, status: 'completed', step: 1, tokens: 42, conversation: [], events: [], changes: [], error: '', recoverable: false, ...extra });
+const task = (extra = {}) => ({ id: 12, revision: 'a'.repeat(64), status: 'completed', step: 1, tokens: 42, conversation: [], events: [], changes: [], error: '', recoverable: false, ...extra });
 const proposal = () => ({ id: '12345678-1234-1234-1234-123456789abc', product_id: 99, name: '商品示例', before: { description: '<p>Original</p>' }, after: { description: '<p>Proposed</p>' }, status: 'pending' });
 const contentProposal = (extra = {}) => ({ id: 'content-latest', post_id: 7, post_type: 'post', kind: 'update', title: 'Article', before: { content: '<p>Original</p>', excerpt: '' }, after: { content: '<p>Latest</p>', excerpt: '' }, status: 'filled', ...extra });
 
@@ -3596,7 +3596,8 @@ test('context ring uses the latest request input and follows the selected model 
     assert.equal(f.$('[data-agent-context-percent]').textContent, '25%');
     assert.equal(f.$('.oyiso-agent-context-value').getAttribute('stroke-dashoffset'), '75');
     assert.match(f.$('[data-agent-context-count]').textContent, /250,000/);
-    assert.match(f.$('[data-agent-context-limit]').textContent, /1,000,000.*官方预设/);
+    assert.equal(f.$('[data-agent-context-limit]').textContent, '模型容量：1,000,000 Token');
+    assert.equal(f.$('[data-agent-context-note]'), null);
     f.$('[data-agent-context-button]').focus();
     assert.equal(f.window.document.activeElement, f.$('[data-agent-context-button]'));
     const escape = new f.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
@@ -3604,7 +3605,8 @@ test('context ring uses the latest request input and follows the selected model 
     assert.equal(f.$('[data-agent-context]').dataset.dismissed, 'true'); assert.equal(f.$('#oyiso-agent-panel').hidden, false);
     f.$('[data-agent-model]').value = 'second|model-b'; f.$('[data-agent-model]').dispatchEvent(new f.window.Event('change', { bubbles: true }));
     assert.equal(f.$('[data-agent-context-percent]').textContent, '—');
-    assert.match(f.$('[data-agent-context-limit]').textContent, /524,288.*接口返回/);
+    assert.equal(f.$('[data-agent-context-limit]').textContent, '模型容量：524,288 Token');
+    assert.doesNotMatch(f.$('.oyiso-agent-context-detail').textContent, /预设|接口返回|响应后|待发送|自动整理/);
     f.$('[data-agent-model]').value = 'fixture|model-a'; f.$('[data-agent-model]').dispatchEvent(new f.window.Event('change', { bubbles: true }));
     f.window.document.dispatchEvent(new f.window.CustomEvent('oyiso-agent-context-models-updated', { detail: { 'fixture|model-a': { limit: 500000, source: 'catalog' } } }));
     assert.equal(f.$('[data-agent-context-percent]').textContent, '50%');
@@ -3625,9 +3627,120 @@ test('unknown context capacities and old conversations show an explicit unknown 
         await settle();
         assert.equal(f.$('[data-agent-context-percent]').textContent, '—');
         assert.equal(f.$('[data-agent-context]').dataset.level, 'unknown');
-        assert.match(f.$('[data-agent-context-limit]').textContent, /容量未知/);
+        assert.equal(f.$('[data-agent-context-limit]').textContent, '模型容量：未知');
         assert.doesNotMatch(f.$('[data-agent-context-button]').getAttribute('aria-label'), /NaN|undefined|900,000/);
     });
+});
+
+test('message actions copy the original user and assistant text without UI labels', async t => {
+    const entries = [{ role: 'user', text: 'Only processing\nPlease' }, { role: 'assistant', text: '**35** orders\n\n- PLN 100' }];
+    const copied = [];
+    const f = fixture(t, route => route === 'runs/12' ? task({ conversation: entries }) : undefined, {}, window => {
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+        Object.defineProperty(window.navigator, 'clipboard', { value: { writeText: async text => copied.push(text) } });
+    });
+    await settle();
+    assert.deepEqual(Array.from(f.window.document.querySelectorAll('[data-agent-message-index="0"] [data-agent-message-action]'), button => button.getAttribute('aria-label')), ['复制消息', '编辑消息']);
+    assert.deepEqual(Array.from(f.window.document.querySelectorAll('[data-agent-message-index="1"] [data-agent-message-action]'), button => button.getAttribute('aria-label')), ['复制消息', '重新回答']);
+    for (const button of f.window.document.querySelectorAll('[data-agent-message-action="copy"]')) button.click();
+    await settle(); assert.deepEqual(copied, entries.map(entry => entry.text));
+    assert.equal(f.$('[data-agent-message-action="copy"]').getAttribute('aria-label'), '已复制');
+});
+
+test('message copying supports HTTP clipboard fallback and reports failures honestly', async t => {
+    let copied, success = true;
+    const f = fixture(t, route => route === 'runs/12' ? task({ conversation: [{ role: 'user', text: '<script>literal</script>' }] }) : undefined, {}, window => {
+        window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+        window.document.execCommand = command => { assert.equal(command, 'copy'); copied = window.document.activeElement.value; return success; };
+    });
+    await settle(); const button = f.$('[data-agent-message-action="copy"]'); button.focus(); button.click(); await settle();
+    assert.equal(copied, '<script>literal</script>'); assert.equal(f.window.document.activeElement, button);
+    assert.equal(f.$('.oyiso-agent-copy-buffer'), null);
+    success = false; button.click(); await settle(); assert.match(f.$('[data-agent-notice]').textContent, /复制失败/);
+});
+
+test('editing a message can cancel or resend in place while preserving the composer draft', async t => {
+    let current = task({ conversation: [{ role: 'user', text: 'Original request', attachments: [{ id: 50, name: 'note.txt', mime: 'text/plain', size: 4 }] }, { role: 'assistant', text: 'Old answer' }] });
+    const f = fixture(t, (route, options) => {
+        if (route === 'runs/12') return current;
+        if (route === 'runs/12/messages/0') return current = task({ revision: 'b'.repeat(64), conversation: [{ ...current.conversation[0], text: JSON.parse(options.body).message }, { role: 'assistant', text: 'New answer' }] });
+    }, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); f.$('#oyiso-agent-prompt').value = 'Unsent follow-up';
+    f.$('[data-agent-message-action="edit"]').click();
+    assert.equal(f.$('.oyiso-agent-message-editor textarea').value, 'Original request');
+    assert.equal(f.$('[data-agent-send]').disabled, true);
+    f.$('.oyiso-agent-message-editor textarea').value = 'Discard this edit'; f.$('[data-agent-edit-cancel]').click();
+    assert.equal(f.$('.oyiso-agent-message-editor'), null); assert.equal(f.$('.oyiso-agent-message-content').textContent, 'Original request');
+    f.$('[data-agent-message-action="edit"]').click(); const input = f.$('.oyiso-agent-message-editor textarea');
+    input.value = 'Edited request'; input.dispatchEvent(new f.window.Event('input', { bubbles: true }));
+    f.$('[data-agent-edit-save]').click(); f.$('[data-agent-edit-save]').click(); await settle();
+    const calls = f.calls.filter(call => call.route === 'runs/12/messages/0'); assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].options.body), { action: 'edit', revision: 'a'.repeat(64), selection: 'fixture|model-a', message: 'Edited request' });
+    assert.equal(f.$('.oyiso-agent-message-editor'), null); assert.equal(f.$('.oyiso-agent-message-content').textContent, 'Edited request');
+    assert.match(f.$('[data-agent-message-index="0"]').textContent, /note.txt/);
+    assert.equal(f.$('#oyiso-agent-prompt').value, 'Unsent follow-up');
+});
+
+test('regeneration requires confirmation and prevents repeated submissions', async t => {
+    let resolve;
+    let current = task({ conversation: [{ role: 'user', text: 'Request' }, { role: 'assistant', text: 'Answer' }] });
+    const f = fixture(t, route => route === 'runs/12' ? current : route === 'runs/12/messages/1' ? new Promise(done => { resolve = done; }) : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); const trigger = f.$('[data-agent-message-action="regenerate"]'); trigger.click();
+    assert.equal(f.$('[data-agent-answer-dialog]').open, true); assert.equal(f.window.document.activeElement, f.$('[data-agent-answer-cancel]'));
+    assert.equal(f.calls.some(call => call.route.includes('/messages/')), false);
+    f.$('[data-agent-answer-cancel]').click(); await settle(); assert.equal(f.$('[data-agent-answer-dialog]').open, false);
+    assert.equal(f.window.document.activeElement, trigger); trigger.click();
+    f.$('[data-agent-answer-confirm]').click(); f.$('[data-agent-answer-confirm]').click(); await settle();
+    assert.equal(f.calls.filter(call => call.route === 'runs/12/messages/1').length, 1); assert.equal(trigger.disabled, true);
+    current = task({ revision: 'b'.repeat(64), conversation: [{ role: 'user', text: 'Request' }, { role: 'assistant', text: 'New answer' }] });
+    resolve(current); await settle();
+    assert.equal(f.$('[data-agent-message-index="1"] .oyiso-agent-message-content').textContent, 'New answer');
+    assert.equal(f.$('[data-agent-message-action="regenerate"]').disabled, false);
+});
+
+test('failed editing retains the draft and stale confirmations close when the conversation changes', async t => {
+    let current = task({ conversation: [{ role: 'user', text: 'Request' }, { role: 'assistant', text: 'Answer' }] });
+    const f = fixture(t, route => route === 'runs/12' ? current : route === 'runs/12/messages/0' ? { ok: false, status: 409, body: { message: '对话已更新，请刷新后重试。' } } : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle(); f.$('[data-agent-message-action="edit"]').click(); f.$('.oyiso-agent-message-editor textarea').value = 'Keep my edit';
+    f.$('[data-agent-edit-save]').click(); await settle();
+    assert.equal(f.$('.oyiso-agent-message-editor textarea').value, 'Keep my edit'); assert.equal(f.$('[data-agent-edit-save]').disabled, false);
+    assert.match(f.$('[data-agent-notice]').textContent, /对话已更新/);
+    f.$('[data-agent-edit-cancel]').click(); f.$('[data-agent-message-action="regenerate"]').click();
+    current = task({ ...current, revision: 'b'.repeat(64) }); f.$('[data-agent-refresh]').click(); await settle();
+    assert.equal(f.$('[data-agent-answer-dialog]').open, false);
+    f.$('[data-agent-answer-confirm]').click(); await settle(); assert.equal(f.calls.filter(call => call.route === 'runs/12/messages/1').length, 0);
+    f.$('[data-agent-message-action="edit"]').click(); f.$('[data-agent-new]').click();
+    assert.equal(f.$('.oyiso-agent-message-editor'), null); assert.equal(f.$('[data-agent-send]').disabled, false);
+});
+
+test('regenerated replies stream in place without duplicating the prompt or retaining the old answer', async t => {
+    let controller;
+    const stream = new ReadableStream({ start(value) { controller = value; } });
+    let current = task({ conversation: [{ role: 'user', text: 'Request' }, { role: 'assistant', text: 'Old answer' }] });
+    const f = fixture(t, route => route === 'runs/12' ? current : route === 'runs/12/messages/1' ? { sse: stream } : undefined, {}, window => {
+        window.TextDecoder = TextDecoder; window.ReadableStream = ReadableStream; window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12');
+    });
+    await settle(); f.$('[data-agent-message-action="regenerate"]').click(); f.$('[data-agent-answer-confirm]').click(); await settle();
+    current = task({ ...current, status: 'queued', step: 0, revision: 'b'.repeat(64), conversation: [current.conversation[0]] });
+    controller.enqueue(new TextEncoder().encode(`event: state\ndata: ${JSON.stringify(current)}\n\nevent: text\ndata: ${JSON.stringify({ id: 12, step: 1, model: 'model-a', delta: 'New streamed answer' })}\n\n`));
+    await settle();
+    assert.equal(f.window.document.querySelectorAll('.oyiso-agent-message.is-user').length, 1);
+    assert.doesNotMatch(f.$('[data-agent-messages]').textContent, /Old answer/);
+    assert.equal(f.$('[data-agent-partial]').textContent.includes('New streamed answer'), true);
+    current = task({ ...current, status: 'completed', conversation: [...current.conversation, { role: 'assistant', text: 'New streamed answer' }] });
+    controller.enqueue(new TextEncoder().encode(`event: done\ndata: ${JSON.stringify(current)}\n\n`)); controller.close(); await settle();
+    assert.equal(f.$('[data-agent-partial]'), null);
+    assert.equal(f.window.document.querySelectorAll('[data-agent-message-action="regenerate"]').length, 1);
+    assert.equal(f.$('[data-agent-message-action="regenerate"]').disabled, false);
+});
+
+test('active replies disable editing and regeneration but still allow copying', async t => {
+    const current = task({ status: 'running', conversation: [{ role: 'user', text: 'Request' }, { role: 'assistant', text: 'Working' }], partial: { text: 'Streaming', model: 'model-a' } });
+    const f = fixture(t, route => route === 'runs/12' ? current : undefined, {}, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+    await settle();
+    assert.equal(f.$('[data-agent-message-action="copy"]').disabled, false);
+    assert.equal(f.$('[data-agent-message-action="edit"]').disabled, true); assert.equal(f.$('[data-agent-message-action="regenerate"]').disabled, true);
+    assert.equal(f.$('[data-agent-partial] [data-agent-message-action]'), null);
 });
 
 test('opening a settings shortcut in a new tab preserves the current assistant', async t => {

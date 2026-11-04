@@ -194,6 +194,20 @@ final class StreamTest extends TestCase
         $retryResponse = rest_get_server()->dispatch($retry);
         ob_start(); try { Oyiso_Agent_Live::serve(false, $retryResponse, $retry, $server); } finally { ob_end_clean(); }
         self::assertSame(1, $requests, 'Reading an already completed live response must not generate again.');
+        $regenerate = new WP_REST_Request('POST', '/oyiso-agent/v1/runs/' . $id . '/messages/1');
+        $regenerate->set_header('Accept', 'text/event-stream');
+        $regenerate->set_param('action', 'regenerate');
+        $regenerate->set_param('revision', Oyiso_Agent_Store::view(Oyiso_Agent_Store::get($id))['revision']);
+        $replacement = rest_get_server()->dispatch($regenerate);
+        self::assertSame(200, $replacement->get_status());
+        ob_start();
+        try { self::assertTrue(Oyiso_Agent_Live::serve(false, $replacement, $regenerate, $server)); }
+        finally { $regenerated = ob_get_clean(); }
+        self::assertSame(2, $requests);
+        self::assertStringContainsString('event: text', $regenerated);
+        self::assertStringContainsString('event: done', $regenerated);
+        self::assertCount(2, Oyiso_Agent_Store::get($id)['conversation']);
+        self::assertSame('你好', Oyiso_Agent_Store::get($id)['conversation'][1]['text']);
     }
 
     public function testLiveServingCannotBypassRouteMethodStatusOrOwnershipChecks(): void

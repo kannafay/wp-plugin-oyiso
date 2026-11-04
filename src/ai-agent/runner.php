@@ -37,15 +37,16 @@ final class Oyiso_Agent_Runner
      * @param list<Attachment> $attachments
      * @param PageContext|null $context
      */
-    public static function message(array &$run, string $text, array $attachments = [], ?array $context = null): void
+    public static function message(array &$run, string $text, array $attachments = [], ?array $context = null, ?int $replaceFrom = null): void
     {
-        Oyiso_Agent_Store::beginExecution($run);
+        Oyiso_Agent_Store::beginExecution($run, $replaceFrom);
         // Read-before-write snapshots belong to one user turn, not the whole conversation.
         unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['plugin_retry'], $run['context_retry']);
         $run['snapshots'] = [];
         foreach ($run['messages'] as &$previous) unset($previous['oyiso_page_context']);
         unset($previous, $run['page_context']);
         $message = (new UserMessage([new MessagePart($text)]))->toArray();
+        $message['oyiso_user_index'] = count($run['conversation']);
         if ($context !== null) { $run['page_context'] = $context; $message['oyiso_page_context'] = $context; }
         if ($attachments !== []) $message['oyiso_attachments'] = array_column($attachments, 'id');
         $run['messages'][] = $message;

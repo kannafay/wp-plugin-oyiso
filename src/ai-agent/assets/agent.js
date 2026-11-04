@@ -36,6 +36,9 @@
     let productConfirmation;
     const refillDialog = document.querySelector('[data-agent-refill-dialog]');
     let refillConfirmation;
+    const answerDialog = document.querySelector('[data-agent-answer-dialog]');
+    let answerConfirmation;
+    let messageEditor;
     const statuses = { queued: '等待执行', running: '执行中', waiting: '等待确认', completed: '已完成', failed: '执行失败', cancelled: '已取消' };
     const fields = { description: '长描述', short_description: '短描述', seo_title: 'SEO 标题', seo_description: 'SEO 描述', seo_keywords: '目标关键词' };
     const storageKey = `oyiso-agent:${config.user}:${new URL(config.url).pathname}`;
@@ -525,13 +528,12 @@
         contextMeter.dataset.level = ratio === null ? 'unknown' : ratio >= 0.95 ? 'high' : ratio >= 0.8 ? 'warning' : 'normal';
         $('[data-agent-context-percent]', contextMeter).textContent = percent;
         $('.oyiso-agent-context-value', contextMeter).setAttribute('stroke-dashoffset', String(100 - Math.min(1, Math.max(0, ratio || 0)) * 100));
-        const count = used !== null ? `最近输入：${used.toLocaleString()} Token` : '等待当前模型的请求结果';
-        const capacity = limit !== null ? `模型容量：${limit.toLocaleString()} Token（${model.source === 'catalog' ? '接口返回' : '官方预设'}）` : '模型容量未知，无法计算占比';
+        const count = used !== null ? `最近输入：${used.toLocaleString()} Token` : '最近输入：—';
+        const capacity = limit !== null ? `模型容量：${limit.toLocaleString()} Token` : '模型容量：未知';
         $('[data-agent-context-count]', contextMeter).textContent = count;
         $('[data-agent-context-limit]', contextMeter).textContent = capacity;
         const compacting = ['queued', 'running'].includes(run?.status) && run?.context_state?.phase === 'compacting';
         $('[data-agent-context-button]', contextMeter).setAttribute('aria-busy', String(compacting));
-        $('[data-agent-context-note]', contextMeter).textContent = compacting ? '正在自动整理较早的对话，原始记录和方案会保留。' : `按最近一次请求的输入统计，响应后更新；不含待发送内容。${run?.context_state?.count ? ` 已自动整理 ${run.context_state.count} 次。` : ''}`;
         $('[data-agent-context-button]', contextMeter).setAttribute('aria-label', `上下文用量${ratio === null ? '尚无法计算占比' : percent}。${count}。${capacity}。`);
     }
 
@@ -544,7 +546,7 @@
         const ready = config.enabled && config.supported;
         const stopping = cancelling.has(runId);
         const sendButton = $('[data-agent-send]'), stopButton = $('[data-agent-cancel]');
-        sendButton.disabled = !ready || !Object.hasOwn(config.models || {}, modelSelect.value) || loading || sending || deleting || changing.size > 0 || active || run?.status === 'cancelled';
+        sendButton.disabled = !ready || !Object.hasOwn(config.models || {}, modelSelect.value) || loading || sending || deleting || changing.size > 0 || active || run?.status === 'cancelled' || !!messageEditor;
         sendButton.hidden = !!active;
         sendButton.classList.toggle('is-sending', sending);
         sendButton.setAttribute('aria-label', sending ? '正在发送' : '发送');
@@ -578,6 +580,148 @@
         if (stopping) state = '正在停止…';
         responseLabel.textContent = state;
         messages.setAttribute('aria-busy', String(!!(sending || active || loading)));
+        syncMessageActions();
+    }
+
+    function canReviseMessages() {
+        return run && /^[a-f0-9]{64}$/.test(run.revision || '') && config.enabled && config.supported && Object.hasOwn(config.models || {}, modelSelect.value)
+            && !loading && !sending && !deleting && !changing.size && !['queued', 'running'].includes(run.status);
+    }
+
+    function syncMessageActions() {
+        const ready = canReviseMessages();
+        for (const button of messages.querySelectorAll('[data-agent-message-action]')) {
+            if (button.dataset.agentMessageAction !== 'copy') button.disabled = !ready || !!messageEditor;
+        }
+        if (messageEditor) {
+            messageEditor.input.disabled = sending;
+            messageEditor.save.disabled = !ready || !messageEditor.input.value.trim();
+            messageEditor.cancel.disabled = sending;
+        }
+        if (answerConfirmation && (answerConfirmation.id !== runId || answerConfirmation.revision !== run?.revision || !ready)) closeAnswerConfirmation();
+    }
+
+    function messageActions(item, role) {
+        let actions = $('.oyiso-agent-message-actions', item);
+        if (actions?.dataset.role === role) return;
+        actions?.remove();
+        actions = node('div', 'oyiso-agent-message-actions'); actions.dataset.role = role;
+        const icons = {
+            copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+            edit: '<path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14Z"/>',
+            regenerate: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
+        };
+        for (const [action, label] of [['copy', '复制消息'], role === 'user' ? ['edit', '编辑消息'] : ['regenerate', '重新回答']]) {
+            const button = node('button', 'oyiso-agent-icon-button'); button.type = 'button'; button.title = label; button.setAttribute('aria-label', label);
+            button.dataset.agentMessageAction = action;
+            button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[action]}</svg>`;
+            button.addEventListener('click', () => {
+                const index = Number(item.dataset.agentMessageIndex), entry = run?.conversation[index];
+                if (!entry) return;
+                if (action === 'copy') { copyMessage(entry.text, button); return; }
+                if (!canReviseMessages() || messageEditor) return;
+                const pending = { id: runId, index, revision: run.revision, trigger: button };
+                if (action === 'edit') editMessage(pending, item, entry.text);
+                else {
+                    answerConfirmation = pending;
+                    window.oyisoModalMotion.show(answerDialog);
+                    $('[data-agent-answer-cancel]', answerDialog).focus();
+                }
+            });
+            actions.append(button);
+        }
+        const feedback = node('span', 'screen-reader-text'); feedback.setAttribute('role', 'status'); actions.append(feedback);
+        item.append(actions);
+    }
+
+    async function copyMessage(text, button) {
+        let copied = false;
+        try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); copied = true; } } catch { /* HTTP sites and denied clipboard access use the selection fallback. */ }
+        if (!copied) {
+            const focus = document.activeElement, selection = window.getSelection();
+            const ranges = selection ? Array.from({ length: selection.rangeCount }, (_, index) => selection.getRangeAt(index).cloneRange()) : [];
+            const field = node('textarea', 'oyiso-agent-copy-buffer'); field.value = text; field.readOnly = true;
+            field.setAttribute('aria-label', '复制消息'); document.body.append(field); field.focus({ preventScroll: true }); field.select();
+            try { copied = document.execCommand('copy'); } catch { /* Show a visible failure without claiming success. */ }
+            finally {
+                field.remove(); focus?.focus({ preventScroll: true });
+                if (selection) { selection.removeAllRanges(); ranges.forEach(range => selection.addRange(range)); }
+            }
+        }
+        if (!copied) { showNotice('复制失败，请选中消息后手动复制。', true); return; }
+        button.title = '已复制'; button.setAttribute('aria-label', '已复制'); button.classList.add('is-copied');
+        $('[role="status"]', button.parentElement).textContent = '已复制';
+        setTimeout(() => { button.title = '复制消息'; button.setAttribute('aria-label', '复制消息'); button.classList.remove('is-copied'); if (button.isConnected) $('[role="status"]', button.parentElement).textContent = ''; }, 2000);
+    }
+
+    function closeMessageEditor(focus = true) {
+        if (!messageEditor) return;
+        const editor = messageEditor; messageEditor = null;
+        editor.form.remove(); editor.item.classList.remove('is-editing');
+        if (focus && editor.trigger.isConnected) editor.trigger.focus({ preventScroll: true });
+        controls();
+    }
+
+    function editMessage(pending, item, text) {
+        const form = node('div', 'oyiso-agent-message-editor');
+        const input = node('textarea'); input.value = text; input.maxLength = 4000; input.rows = 4; input.setAttribute('aria-label', '编辑消息');
+        const actions = node('div', 'oyiso-agent-message-editor-actions');
+        const cancel = node('button', 'button', '取消'), save = node('button', 'button button-primary', '保存并重新发送');
+        cancel.type = save.type = 'button'; cancel.dataset.agentEditCancel = ''; save.dataset.agentEditSave = '';
+        actions.append(cancel, save); form.append(input, node('p', 'description', '将重新回答，并移除后续消息；已执行的站点修改会保留。'), actions);
+        item.classList.add('is-editing'); item.append(form);
+        messageEditor = { ...pending, item, form, input, cancel, save };
+        cancel.addEventListener('click', () => closeMessageEditor());
+        save.addEventListener('click', () => { if (!save.disabled) reviseMessage(pending, 'edit', input.value.trim()); });
+        input.addEventListener('input', syncMessageActions);
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!sending) closeMessageEditor(); }
+            else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) { event.preventDefault(); save.click(); }
+        });
+        input.addEventListener('change', event => event.stopPropagation());
+        controls(); input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+    }
+
+    function closeAnswerConfirmation() {
+        const trigger = answerConfirmation?.trigger; answerConfirmation = null;
+        if (answerDialog?.open) window.oyisoModalMotion.hide(answerDialog, () => { if (panelOpen) (trigger?.isConnected ? trigger : prompt).focus({ preventScroll: true }); });
+    }
+
+    answerDialog?.querySelectorAll('[data-agent-answer-close], [data-agent-answer-cancel]').forEach(button => button.addEventListener('click', closeAnswerConfirmation));
+    answerDialog?.addEventListener('cancel', event => { event.preventDefault(); closeAnswerConfirmation(); });
+    answerDialog?.addEventListener('keydown', event => { if (event.key === 'Escape') event.stopPropagation(); });
+    answerDialog?.querySelector('[data-agent-answer-confirm]').addEventListener('click', () => {
+        const pending = answerConfirmation; closeAnswerConfirmation();
+        if (pending) reviseMessage(pending, 'regenerate');
+    });
+
+    async function reviseMessage(pending, action, text) {
+        if (!canReviseMessages() || pending.id !== runId) return;
+        if (pending.revision !== run.revision) { showNotice('对话已更新，请刷新后重试。', true); return; }
+        const id = runId, sequence = ++sendSequence;
+        let accepted = false;
+        const accept = next => {
+            if (accepted || id !== runId) return;
+            accepted = true; closeMessageEditor(false); run = null; version = ''; parkProgress();
+            forgetModel(id); remember(id);
+        };
+        const receiver = liveReceiver(accept), controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 180000);
+        clearTimeout(timer); pollController?.abort(); ++pollRevision;
+        sending = true; controls(); renderChanges(run.changes);
+        try {
+            const pageContext = window.oyisoAgentPage?.snapshot();
+            const body = JSON.stringify({ action, revision: pending.revision, selection: modelSelect.value, ...(action === 'edit' ? { message: text } : {}), ...(pageContext ? { page_context: JSON.stringify(pageContext) } : {}) });
+            const next = await api(`runs/${id}/messages/${pending.index}`, { method: 'POST', body, signal: controller.signal, live: receiver.event });
+            accept(next);
+            if (id === runId && sequence === sendSequence) render(next, true);
+        } catch (error) {
+            if (id === runId) showNotice(error.name === 'AbortError' ? '回复连接超时，请刷新查看对话进度。' : error.message, true);
+        } finally {
+            clearTimeout(timeout); receiver.close();
+            if (sequence === sendSequence) { sending = false; controls(); if (run) renderChanges(run.changes); }
+            if (accepted) { loadLists(); if (id === runId && (!receiver.received || ['queued', 'running'].includes(run?.status))) poll(); }
+        }
     }
 
     // Build links as DOM nodes; model output never becomes executable HTML.
@@ -963,6 +1107,7 @@
                     messageEntries.set(item, entrySignature);
                 }
                 fragment.append(item);
+                messageActions(item, entry.role);
             }
             if (!next.conversation.length && !next.partial?.text && !active) fragment.append(empty.cloneNode(true));
             if (next.partial?.text && partial) fragment.append(partial);
@@ -987,6 +1132,7 @@
             partial.classList.toggle('is-streaming', ['queued', 'running'].includes(next.status));
         } else { partial?.remove(); partial = null; }
         placeExecutions(next, executionRows, partial);
+        syncMessageActions();
         if (nearBottom) scroll.scrollTop = scroll.scrollHeight;
     }
 
@@ -1189,6 +1335,7 @@
         }
         rememberDraft();
         if (id === runId && run) { if (!panelOpen) setPanel(true); return; }
+        closeMessageEditor(false); closeAnswerConfirmation();
         clearTimeout(timer);
         runId = id;
         run = null;
@@ -1315,6 +1462,7 @@
         if (example && !prompt.disabled) { prompt.value = example.dataset.agentExample; rememberDraft(); composer?.resize(); prompt.focus(); }
     });
     function newConversation(options = {}) {
+        closeMessageEditor(false); closeAnswerConfirmation();
         if (!options.discardCurrent) rememberDraft();
         const draft = runId === 0 ? '' : draftFor(0);
         if (runId === 0) forgetDraft(0);

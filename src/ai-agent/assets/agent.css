@@ -142,6 +142,19 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-message { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 28px; }
 .oyiso-agent-message:last-child { margin-bottom: 0; }
 .oyiso-agent-message.is-user { align-items: flex-end; }
+.oyiso-agent-message-actions { display: flex; align-items: center; gap: 2px; }
+#oyiso-agent-panel .oyiso-agent-message-actions .oyiso-agent-icon-button { width: 28px; height: 28px; min-height: 28px; }
+.oyiso-agent-message-actions .oyiso-agent-icon-button svg { width: 16px; height: 16px; }
+#oyiso-agent-panel .oyiso-agent-message-actions .is-copied { color: #008a20; }
+#oyiso-agent-panel .oyiso-agent-message-actions button:disabled { opacity: .4; cursor: default; background: transparent; }
+.oyiso-agent-message-actions button:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: 2px; }
+.oyiso-agent-message.is-editing > .oyiso-agent-message-content,
+.oyiso-agent-message.is-editing > .oyiso-agent-message-actions { display: none; }
+.oyiso-agent-message-editor { width: 100%; max-width: 720px; }
+#oyiso-agent-panel .oyiso-agent-message-editor textarea { display: block; box-sizing: border-box; width: 100%; min-height: 100px; max-height: 320px; margin: 0; padding: 10px 12px; border: 1px solid #8c8f94; border-radius: 6px; background: #fff; color: #1d2327; font: inherit; line-height: 1.7; resize: vertical; }
+.oyiso-agent-message-editor .description { margin: 8px 0; font-size: 12px; }
+.oyiso-agent-message-editor-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.oyiso-agent-copy-buffer { position: fixed; top: 0; left: -9999px; width: 1px; height: 1px; padding: 0; opacity: 0; }
 .oyiso-agent-message-role { max-width: 85%; color: #787c82; font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
 .oyiso-agent-message.is-user .oyiso-agent-message-role { display: none; }
 .oyiso-agent-message-content { max-width: min(85%, 720px); padding: 10px 14px; box-sizing: border-box; border-radius: 6px; background: #f1f2f4; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 14px; }
@@ -206,7 +219,6 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
 .oyiso-agent-context-detail { display: none; position: absolute; z-index: 25; right: 0; bottom: calc(100% + 9px); width: 250px; max-width: calc(100vw - 64px); padding: 12px 14px; box-sizing: border-box; border: 1px solid #dcdcde; border-radius: 6px; background: #fff; color: #50575e; box-shadow: 0 4px 16px rgb(0 0 0 / 12%); font-size: 12px; line-height: 1.65; pointer-events: none; }
 .oyiso-agent-context-detail > * { display: block; }
 .oyiso-agent-context-detail strong { margin-bottom: 5px; color: #1d2327; font-size: 13px; font-weight: 600; }
-.oyiso-agent-context-note { margin-top: 7px; color: #646970; }
 .oyiso-agent-context:not([data-dismissed]):hover .oyiso-agent-context-detail,
 .oyiso-agent-context:not([data-dismissed]) .oyiso-agent-context-button:focus-visible + .oyiso-agent-context-detail { display: block; }
 .oyiso-agent-composer-actions [data-agent-cancel] { border-color: #1d2327; background: #1d2327; color: #fff; }

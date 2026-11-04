@@ -1,5 +1,7 @@
 parameters:
     level: 9
+    # WordPress option reads/writes can change after SQL and cache updates.
+    rememberPossiblyImpureFunctionValues: false
     paths:
         - ../../src/ai-agent/query.php
         - ../../src/ai-agent/query-source.php
@@ -10,6 +12,11 @@ parameters:
         - ../../src/ai-agent/tools.php
         - ../../src/ai-agent/model.php
         - ../../src/ai-agent/mcp.php
+        - ../../src/ai-agent/messages.php
+        - ../../src/ai-agent/store.php
+        - ../../src/ai-agent/runner.php
+        - ../../src/ai-agent/admin.php
+        - ../../src/ai-agent/live.php
     scanDirectories:
         - ../../src/ai-agent
         - ../../../woocommerce/includes
@@ -18,6 +25,7 @@ parameters:
         - ../../../../../wp-includes/php-ai-client/src
         - ../../../../../wp-includes/abilities-api
     scanFiles:
+        - ../../src/admin/config-collapse.php
         - ../../vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
         - ../../../../../wp-includes/ai-client.php
         - ../../../../../wp-includes/abilities.php
