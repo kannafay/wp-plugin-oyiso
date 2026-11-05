@@ -922,7 +922,7 @@ final class AgentTest extends TestCase
 
     public function testCompletionReviewUsesIsolatedInstructionsAndNoExecutableAbilities(): void
     {
-        $turn = $this->turn('{"state":"continue","reason":"Only a plan was returned."}'); $captured = []; $settings = [];
+        $turn = $this->turn('{"relevant":true,"state":"continue","reason":"Only a plan was returned."}'); $captured = []; $settings = [];
         $metadata = $this->createMock(ModelMetadata::class); $metadata->method('getId')->willReturn('review-fixture');
         $result = $this->createMock(GenerativeAiResult::class);
         $result->method('getCandidates')->willReturn([new Candidate($turn->message, FinishReasonEnum::stop())]);
@@ -1169,7 +1169,8 @@ final class AgentTest extends TestCase
             self::assertSame(1, ignore_user_abort());
             $publish('你');
             $view = $this->request('GET', 'runs/' . $run['id'])->get_data();
-            self::assertSame(['text' => '你', 'model' => 'fixture-model', 'model_label' => 'fixture-model'], $view['partial']);
+            self::assertArrayNotHasKey('partial', $view);
+            self::assertSame('你', Oyiso_Agent_Store::get($run['id'])['partial']['text']);
             self::assertSame('running', $view['status']); self::assertFalse($view['recoverable']);
             (new Oyiso_Agent_Runner($model))->step($run['id']); self::assertSame(1, $model->calls);
             $publish('好');
@@ -1194,6 +1195,7 @@ final class AgentTest extends TestCase
             (new Oyiso_Agent_Runner($model))->step($run['id']);
             $fresh = Oyiso_Agent_Store::get($run['id']);
             self::assertSame($status, $fresh['status']); self::assertSame('已收到的文字', $fresh['partial']['text']);
+            self::assertArrayNotHasKey('partial', Oyiso_Agent_Store::view($fresh));
             self::assertCount(1, $fresh['messages']); self::assertCount(1, $fresh['conversation']);
         }
     }

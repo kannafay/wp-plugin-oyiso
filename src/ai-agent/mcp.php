@@ -256,7 +256,8 @@ final class Oyiso_Agent_MCP
                 return true;
             }
             $pluginAction = in_array($action['name'], Oyiso_Agent_Plugins::ACTIONS, true);
-            $ability = $pluginAction && Oyiso_Agent_Plugins::enabled(true) ? wp_get_ability($action['name']) : (self::selected(true)[$action['name']] ?? null);
+            $orderAction = $action['name'] === Oyiso_Agent_Order_Update::TOOL;
+            $ability = ($pluginAction && Oyiso_Agent_Plugins::enabled(true) || $orderAction && Oyiso_Agent_MCP::builtinEnabled(true)) ? wp_get_ability($action['name']) : (self::selected(true)[$action['name']] ?? null);
             if ($ability === null) return new WP_Error('agent_mcp_unavailable', '该 MCP 工具未启用或已不可用。', ['status' => 400]);
             // Recheck the saved grant even for an old card or a changed tool annotation.
             $permission = Oyiso_Agent_Permissions::check($action['name']);
@@ -272,13 +273,13 @@ final class Oyiso_Agent_MCP
             $permission = Oyiso_Agent_Permissions::check($action['name']);
             if (is_wp_error($permission)) return $permission;
             try {
-                $result = self::result($pluginAction ? Oyiso_Agent_Plugins::apply($run, $id) : $ability->execute($input === [] && array_key_exists('default', $ability->get_input_schema()) ? null : $input));
+                $result = self::result($pluginAction ? Oyiso_Agent_Plugins::apply($run, $id) : ($orderAction ? Oyiso_Agent_Order_Update::apply($run, $id) : $ability->execute($input === [] && array_key_exists('default', $ability->get_input_schema()) ? null : $input)));
             } catch (Throwable $error) {
                 $result = new WP_Error('agent_mcp_execute', Oyiso_Agent_Config::error($error->getMessage()));
             }
             $failed = is_wp_error($result);
             $summary = $failed ? Oyiso_Agent_Config::error($result->get_error_message()) : self::json($result);
-            $run['mcp_actions'][$index] = array_replace($action, ['status' => $failed ? 'failed' : 'completed', 'result' => $summary]);
+            $run['mcp_actions'][$index] = array_replace($run['mcp_actions'][$index] ?? $action, ['status' => $failed ? 'failed' : 'completed', 'result' => $summary]);
             Oyiso_Agent_Store::event($run, $failed ? 'error' : 'success', $action['label'], $failed ? $summary : '用户已确认并执行 MCP 操作。');
             $run['messages'][] = (new \WordPress\AiClient\Messages\DTO\UserMessage([new \WordPress\AiClient\Messages\DTO\MessagePart('MCP 操作结果（工具资料）：' . self::json(['name' => $action['name'], 'status' => $failed ? 'failed' : 'completed', 'result' => $summary]))]))->toArray();
             return true;

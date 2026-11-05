@@ -415,3 +415,8 @@ body.oyiso-agent-dragging #oyiso-agent-panel[data-agent-window] .oyiso-agent-pan
     #oyiso-agent-panel[data-agent-window] .oyiso-agent-panel-actions { margin-left: auto; }
     .oyiso-agent-composer { padding: 8px var(--oyiso-agent-gutter, 16px); }
 }
+.oyiso-agent-order-preview { max-height: 320px; overflow: auto; margin: 12px 0; border: 1px solid #dcdcde; border-radius: 6px; }
+.oyiso-agent-order-preview table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.oyiso-agent-order-preview th, .oyiso-agent-order-preview td { padding: 9px 10px; border-bottom: 1px solid #dcdcde; overflow-wrap: anywhere; }
+.oyiso-agent-order-preview th { position: sticky; top: 0; background: #f6f7f7; font-weight: 600; }
+.oyiso-agent-order-preview tbody tr:last-child td { border-bottom: 0; }

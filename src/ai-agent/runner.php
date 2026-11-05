@@ -41,7 +41,7 @@ final class Oyiso_Agent_Runner
     {
         Oyiso_Agent_Store::beginExecution($run, $replaceFrom);
         // Read-before-write snapshots belong to one user turn, not the whole conversation.
-        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['plugin_retry'], $run['context_retry'], $run['completion_state'], $run['completion_retries'], $run['tool_recovery']);
+        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['order_snapshots'], $run['plugin_retry'], $run['context_retry'], $run['completion_state'], $run['completion_retries'], $run['tool_recovery']);
         $run['snapshots'] = [];
         foreach ($run['messages'] as &$previous) unset($previous['oyiso_page_context']);
         unset($previous, $run['page_context']);
@@ -106,15 +106,17 @@ final class Oyiso_Agent_Runner
             Oyiso_Agent_Store::save($run);
             $checkpoint = $run;
             $savedAt = 0.0;
-            $run['partial'] = ['text' => '', 'model' => explode('|', $run['selection'] ?? '|AI', 2)[1] ?? 'AI', 'model_label' => Oyiso_Agent_Connections::label($run['selection'] ?? null)];
+            $run['partial'] = ['text' => '', 'model' => explode('|', $run['selection'] ?? '|AI', 2)[1] ?? 'AI', 'model_label' => Oyiso_Agent_Connections::label($run['selection'] ?? null), 'provisional' => true];
             $requestedModel = $run['partial']['model'];
             $modelLabel = $run['partial']['model_label'];
-            $turn = $this->model->generate(Oyiso_Agent_Compaction::history($run), $allowed, $run['selection'] ?? null, static function (string $text) use (&$run, &$savedAt, $id, $onText): void {
+            $turn = $this->model->generate(Oyiso_Agent_Compaction::history($run), $allowed, $run['selection'] ?? null, static function (string $text) use (&$run, &$savedAt, $id, $onState): void {
                 if (Oyiso_Agent_Store::cancelled($id)) throw new RuntimeException('任务已取消。');
                 if ($text === '') return;
                 $run['partial']['text'] .= $text;
-                if (microtime(true) - $savedAt >= 0.25) { Oyiso_Agent_Store::save($run); $savedAt = microtime(true); }
-                if ($onText !== null) $onText($text, $run['step'], $run['partial']['model']);
+                if (microtime(true) - $savedAt >= 1.0) {
+                    Oyiso_Agent_Store::save($run); $savedAt = microtime(true);
+                    if ($onState !== null) $onState(Oyiso_Agent_Store::view($run));
+                }
             });
             if (Oyiso_Agent_Store::cancelled($id)) {
                 Oyiso_Agent_Store::save($run);
@@ -180,7 +182,7 @@ final class Oyiso_Agent_Runner
             }
             $completion = 'completed';
             if ($calls === [] && trim($text) !== '') {
-                $run['partial'] = ['text' => $text, 'model' => $turn->model, 'model_label' => $modelLabel];
+                $run['partial'] = ['text' => $text, 'model' => $turn->model, 'model_label' => $modelLabel, 'provisional' => true];
                 $completion = $this->review($run, $text, $allowed, $onState);
                 if ($completion === null) {
                     if ($onText === null && $run['status'] === 'queued' && !Oyiso_Agent_Store::cancelled($id)) self::enqueue($id);
@@ -192,6 +194,8 @@ final class Oyiso_Agent_Runner
             if (trim($text) !== '') {
                 $label = str_ends_with($modelLabel, ' / ' . $requestedModel) ? substr($modelLabel, 0, -strlen($requestedModel)) . $turn->model : Oyiso_Agent_Connections::label($run['selection'] ?? null, $turn->model);
                 $run['conversation'][] = ['role' => 'assistant', 'text' => $text, 'model' => $turn->model, 'model_label' => $label];
+                // Publish only an accepted answer (or a completed tool-call turn), never a draft that review may withdraw.
+                if ($onText !== null) $onText($text, $run['step'], $turn->model);
             }
             Oyiso_Agent_Store::event($run, 'info', '模型已响应', $turn->model);
             $tools = new Oyiso_Agent_Tools($run);
@@ -250,7 +254,8 @@ final class Oyiso_Agent_Runner
                 foreach ($run['content_changes'] ?? [] as $index => $proposal) if ($index >= $proposalStarts['content_changes']) { $proposal['message_index'] = $owner; $run['content_changes'][$index] = $proposal; }
                 foreach ($run['mcp_actions'] ?? [] as $index => $proposal) if ($index >= $proposalStarts['mcp_actions']) { $proposal['message_index'] = $owner; $run['mcp_actions'][$index] = $proposal; }
                 $pluginActions = array_filter(array_slice($run['mcp_actions'] ?? [], $mcpBefore), static fn(array $action): bool => in_array($action['name'], Oyiso_Agent_Plugins::ACTIONS, true));
-                $run['conversation'][] = ['role' => 'assistant', 'text' => $pluginActions !== [] ? '插件启停方案已生成，尚未执行。请核对插件名称和状态，再确认是否执行。' : (count($run['mcp_actions'] ?? []) > $mcpBefore ? 'MCP 操作尚未执行。请查看工具和参数，再选择是否执行。' : $review), 'model' => $turn->model];
+                $orderActions = array_filter(array_slice($run['mcp_actions'] ?? [], $mcpBefore), static fn(array $action): bool => $action['name'] === Oyiso_Agent_Order_Update::TOOL);
+                $run['conversation'][] = ['role' => 'assistant', 'text' => $orderActions !== [] ? '订单状态修改方案已生成，尚未执行。请核对卡片中的订单和前后状态，再确认执行。' : ($pluginActions !== [] ? '插件启停方案已生成，尚未执行。请核对插件名称和状态，再确认是否执行。' : (count($run['mcp_actions'] ?? []) > $mcpBefore ? 'MCP 操作尚未执行。请查看工具和参数，再选择是否执行。' : $review)), 'model' => $turn->model];
             } elseif ($calls === []) {
                 $run['status'] = $pending ? 'waiting' : $completion;
                 if (trim($text) === '') {

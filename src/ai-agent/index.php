@@ -28,6 +28,7 @@ require_once __DIR__ . '/query-filter.php';
 require_once __DIR__ . '/query-spec.php';
 require_once __DIR__ . '/query-catalog.php';
 require_once __DIR__ . '/query.php';
+require_once __DIR__ . '/order-update.php';
 require_once __DIR__ . '/tools.php';
 require_once __DIR__ . '/abilities.php';
 require_once __DIR__ . '/tool-feedback.php';

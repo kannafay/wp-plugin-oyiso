@@ -48,6 +48,7 @@ final class Oyiso_Agent_Tools
             'search-products' => $this->search($input),
             'get-product' => $this->product(self::integer($input, 'product_id')),
             'order-summary' => $this->orders($input),
+            'get-orders', 'prepare-order-update' => Oyiso_Agent_Order_Update::call($this->run, $name, $input),
             'prepare-product-update' => $this->prepare($input),
             'prepare-product-trash' => Oyiso_Agent_Product_Trash::prepare($this->run, self::integer($input, 'product_id'), self::text($input, 'reason')),
             'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash' => Oyiso_Agent_Product_Trash::change($this->run, self::text($input, 'proposal_id'), explode('-', $name)[0], $this->approval),

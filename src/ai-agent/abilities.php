@@ -6,7 +6,7 @@ defined('ABSPATH') || exit;
 
 final class Oyiso_Agent_Abilities
 {
-    public const WOOCOMMERCE = ['search-products', 'get-product', 'order-summary', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash'];
+    public const WOOCOMMERCE = ['search-products', 'get-product', 'order-summary', 'get-orders', 'prepare-order-update', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash'];
     private static ?Oyiso_Agent_Tools $context = null;
 
     /** @return array<string, WP_Ability> */
@@ -71,7 +71,7 @@ final class Oyiso_Agent_Abilities
             'mcp-describe-tool' => ['读取 MCP 工具说明', '读取指定 MCP 工具的用途、完整输入 schema 和读写属性。调用前必须先读取。', ['name' => $text], ['name']],
             'mcp-call-tool' => ['调用 MCP 工具', '调用已启用的 MCP 工具。input_json 为遵守工具 schema 的 JSON 对象字符串（无参数时为 {}）。只读工具立即执行；修改类仅生成待确认卡片，尚未保存。', ['name' => $text, 'input_json' => ['type' => 'string', 'maxLength' => 50000]], ['name', 'input_json']],
         ];
-        $definitions = array_merge($definitions, Oyiso_Agent_Query::definitions());
+        $definitions = array_merge($definitions, Oyiso_Agent_Query::definitions(), Oyiso_Agent_Order_Update::definitions());
         foreach ($definitions as $name => [$label, $description, $properties, $required]) {
             wp_register_ability('oyiso/' . $name, [
                 'label' => $label,
@@ -94,7 +94,7 @@ final class Oyiso_Agent_Abilities
                 'execute_callback' => static function (array $input) use ($name): array|WP_Error {
                     return self::$context?->execute($name, $input) ?? new WP_Error('agent_context_missing', '请从 AI Agent 对话或修改预览中调用此能力。');
                 },
-                'meta' => ['show_in_rest' => false, 'annotations' => ['readonly' => !in_array($name, ['activate-plugin', 'deactivate-plugin', 'prepare-post-update', 'prepare-post-draft', 'apply-post-update', 'revert-post-update', 'create-post-draft', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash', 'mcp-call-tool'], true), 'destructive' => in_array($name, ['deactivate-plugin', 'apply-product-update', 'revert-product-update', 'apply-product-trash', 'revert-product-trash'], true), 'idempotent' => !in_array($name, ['activate-plugin', 'deactivate-plugin', 'prepare-product-update', 'prepare-product-trash', 'mcp-call-tool'], true)]],
+                'meta' => ['show_in_rest' => false, 'annotations' => ['readonly' => !in_array($name, ['prepare-order-update', 'activate-plugin', 'deactivate-plugin', 'prepare-post-update', 'prepare-post-draft', 'apply-post-update', 'revert-post-update', 'create-post-draft', 'prepare-product-update', 'apply-product-update', 'revert-product-update', 'prepare-product-trash', 'apply-product-trash', 'revert-product-trash', 'dismiss-product-trash', 'mcp-call-tool'], true), 'destructive' => in_array($name, ['deactivate-plugin', 'apply-product-update', 'revert-product-update', 'apply-product-trash', 'revert-product-trash'], true), 'idempotent' => !in_array($name, ['prepare-order-update', 'activate-plugin', 'deactivate-plugin', 'prepare-product-update', 'prepare-product-trash', 'mcp-call-tool'], true)]],
             ]);
         }
     }
@@ -121,6 +121,8 @@ final class Oyiso_Agent_Abilities
         }
         if (Oyiso_Agent_MCP::builtinEnabled() && function_exists('wc_get_orders') && current_user_can('manage_woocommerce')) {
             $names[] = 'oyiso/order-summary';
+            $names[] = 'oyiso/get-orders';
+            if (Oyiso_Agent_Permissions::allows(Oyiso_Agent_Order_Update::TOOL)) $names[] = Oyiso_Agent_Order_Update::TOOL;
         }
         if (current_user_can('manage_options') && Oyiso_Agent_MCP::selected() !== []) {
             $names = array_merge($names, ['oyiso/mcp-list-tools', 'oyiso/mcp-describe-tool', 'oyiso/mcp-call-tool']);

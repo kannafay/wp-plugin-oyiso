@@ -1384,6 +1384,32 @@ test('ungranted plugin cards disable execution while still allowing cancellation
     assert.equal(JSON.parse(f.calls.find(call => call.route.includes('/mcp/')).options.body).action, 'dismiss');
 });
 
+test('order cards show the full fixed batch and require an explicit granted confirmation', async t => {
+    for (const granted of [true, false]) await t.test(granted ? 'authorized' : 'not authorized', async t => {
+        const items = Array.from({ length: 35 }, (_, index) => ({ id: index + 100, number: index === 0 ? '<script>order</script>' : String(index + 100), before: 'processing', before_label: '处理中', after: 'completed', after_label: '已完成' }));
+        const action = { id: 'order-batch', name: 'oyiso/prepare-order-update', label: '修改 35 个订单的状态', status: 'pending', result: '', input_json: '{}', message_index: 1, orders: { items, status: 'completed', label: '已完成' } };
+        const conversation = [{ role: 'user', text: '全部改成已完成' }, { role: 'assistant', text: '订单修改方案已生成，尚未执行。' }];
+        let state = task({ status: 'waiting', conversation, mcp_actions: [action] }); let finish;
+        const f = fixture(t, route => route === 'runs/12' ? state : route.includes('/mcp/') ? new Promise(resolve => { finish = () => { state = task({ conversation, mcp_actions: [{ ...action, status: 'completed', orders: { ...action.orders, items: items.map(item => ({ ...item, result: 'applied' })) } }] }); resolve(state); }; }) : undefined,
+            { writeTools: granted ? [action.name] : [] }, window => window.localStorage.setItem('oyiso-agent:1:/wp-json/oyiso-agent/v1/', '12'));
+        await settle(); const card = f.$('[data-agent-proposal-id="order-batch"]');
+        assert.equal(card.closest('[data-agent-message-index]').dataset.agentMessageIndex, '1');
+        assert.equal(card.querySelectorAll('tbody tr').length, 35); assert.equal(card.querySelector('script'), null);
+        assert.match(card.textContent, /处理中/); assert.match(card.textContent, /已完成/);
+        assert.equal(card.textContent.includes(action.name), false); assert.equal(f.calls.some(call => call.route.includes('/mcp/')), false);
+        const button = [...card.querySelectorAll('button')].find(button => button.textContent === '确认修改 35 个订单');
+        assert.equal(button.disabled, !granted);
+        if (granted) {
+            assert.match(card.textContent, /可能发送订单通知/);
+            button.click(); button.click(); await settle();
+            assert.equal(f.calls.filter(call => call.route.includes('/mcp/')).length, 1);
+            finish(); await settle();
+            assert.match(f.$('[data-agent-proposal-id="order-batch"]').textContent, /已修改/);
+            assert.equal(f.$('[data-agent-proposal-id="order-batch"] button'), null);
+        }
+    });
+});
+
 test('switching conversations loads quietly and only explicit refresh spins the header refresh button', async t => {
     let resolveSwitch, resolveRefresh, reads = 0;
     const f = fixture(t, route => {

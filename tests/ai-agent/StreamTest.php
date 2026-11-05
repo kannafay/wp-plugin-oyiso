@@ -146,7 +146,7 @@ final class StreamTest extends TestCase
         $this->expectException(JsonException::class); $decoder->feed("data: {broken}\n\n");
     }
 
-    public function testLiveRestSendStreamsDeltasBeforeCompletionAndKeepsDurableHistory(): void
+    public function testLiveRestSendPublishesOnlyReviewedTextAndKeepsDurableHistory(): void
     {
         $connection = Oyiso_Agent_Connections::save(['name' => 'live-fixture', 'preset' => 'custom', 'url' => 'https://api.example.com/v1', 'protocol' => 'openai_chat', 'models' => ['fixture-model'], 'key' => 'fixture-stream-key']);
         $request = new WP_REST_Request('POST', '/oyiso-agent/v1/runs');
@@ -162,7 +162,7 @@ final class StreamTest extends TestCase
             $payload = json_decode($args['body'], true);
             if (!isset($payload['tools'])) {
                 $reviews++;
-                return ['headers' => ['content-type' => 'application/json'], 'body' => wp_json_encode(['id' => 'review', 'choices' => [['message' => ['role' => 'assistant', 'content' => '{"state":"complete","reason":"Greeting answered."}'], 'finish_reason' => 'stop']], 'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 10, 'total_tokens' => 20]]), 'response' => ['code' => 200, 'message' => 'OK'], 'cookies' => [], 'filename' => null];
+                return ['headers' => ['content-type' => 'application/json'], 'body' => wp_json_encode(['id' => 'review', 'choices' => [['message' => ['role' => 'assistant', 'content' => '{"relevant":true,"state":"complete","reason":"Greeting answered."}'], 'finish_reason' => 'stop']], 'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 10, 'total_tokens' => 20]]), 'response' => ['code' => 200, 'message' => 'OK'], 'cookies' => [], 'filename' => null];
             }
             $requests++;
             self::assertSame('text/event-stream', $args['headers']['Accept']);
@@ -186,10 +186,10 @@ final class StreamTest extends TestCase
         self::assertSame('no', $server->sent['X-Accel-Buffering']);
         self::assertStringContainsString('no-store', $server->sent['Cache-Control']);
         preg_match_all('/event: (\w+)\ndata: ([^\n]+)\n\n/', $body, $frames, PREG_SET_ORDER);
-        self::assertSame(['state', 'text', 'text', 'state', 'state', 'done'], array_column($frames, 1));
-        self::assertSame('reviewing', json_decode($frames[3][2], true)['completion_state']);
-        self::assertSame('你', json_decode($frames[1][2], true)['delta']);
-        self::assertSame('好', json_decode($frames[2][2], true)['delta']);
+        self::assertSame(['state', 'state', 'state', 'text', 'state', 'done'], array_column($frames, 1));
+        self::assertSame('reviewing', json_decode($frames[2][2], true)['completion_state']);
+        self::assertArrayNotHasKey('partial', json_decode($frames[2][2], true));
+        self::assertSame('你好', json_decode($frames[3][2], true)['delta']);
         self::assertArrayNotHasKey('messages', json_decode($frames[0][2], true));
         self::assertStringNotContainsString('fixture-stream-key', $body);
         self::assertSame('completed', Oyiso_Agent_Store::get($id)['status']);

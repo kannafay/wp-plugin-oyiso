@@ -927,15 +927,33 @@
         }
         if (contentHistory) container.append(contentHistory);
         const actions = (run?.mcp_actions || []).filter(action => action.status !== 'cancelled');
-        if (actions.length) container.append(categoryHeading('插件操作', 'mcp'));
+        if (actions.some(action => !action.orders)) container.append(categoryHeading('插件操作', 'mcp'));
+        if (actions.some(action => action.orders)) container.append(categoryHeading('订单修改', 'orders'));
         for (const action of actions) {
             const section = node('section', 'oyiso-agent-change');
-            tagCard(section, action, 'mcp');
+            tagCard(section, action, action.orders ? 'orders' : 'mcp');
             const heading = node('div', 'oyiso-agent-change-heading');
             const states = { pending: '等待确认', executing: '已提交执行，请核对实际结果', completed: '已执行', dismissed: '已取消', failed: '执行失败，请先核对实际结果' };
             heading.append(node('h4', '', action.label), node('span', 'description', states[action.status] || action.status));
             section.append(heading);
-            if (action.plugin) {
+            if (action.orders) {
+                const scroll = node('div', 'oyiso-agent-order-preview');
+                const table = node('table');
+                const head = node('thead'); const labels = node('tr');
+                for (const label of ['订单', '修改前', '修改为', '结果']) { const th = node('th', '', label); th.scope = 'col'; labels.append(th); }
+                head.append(labels); table.append(head);
+                const body = node('tbody');
+                const results = { applied: '已修改', unchanged: '无需修改', executing: '核对中', needs_review: '请核对' };
+                for (const item of action.orders.items) {
+                    const row = node('tr');
+                    const actual = item.actual_status === item.before ? item.before_label : item.actual_status === item.after ? item.after_label : item.actual_status;
+                    const outcome = item.result === 'needs_review' && actual ? `请核对：${actual}` : results[item.result] || (action.status === 'pending' ? '待确认' : '未执行');
+                    for (const value of [`#${item.number || item.id}`, item.before_label || item.before, item.after_label || item.after, outcome]) row.append(node('td', '', value));
+                    if (item.actual_status) row.lastChild.title = `实际状态：${item.actual_status}`;
+                    body.append(row);
+                }
+                table.append(body); scroll.append(table); section.append(scroll);
+            } else if (action.plugin) {
                 const preview = node('dl', 'oyiso-agent-plugin-preview');
                 const state = value => ({ active: '已启用', inactive: '已停用', network_active: '网络启用' })[value] || value;
                 for (const [label, value] of [['插件标识', action.plugin.file], ['版本', action.plugin.version || '未标注'], ['状态变化', `${state(action.plugin.before)} → ${state(action.plugin.after)}`]]) preview.append(node('dt', '', label), node('dd', '', value));
@@ -957,9 +975,9 @@
             }
             if (action.status === 'pending') {
                 const operation = action.plugin?.after === 'active' ? '启用' : '停用';
-                section.append(node('p', 'description', mayWrite(action.name) ? action.plugin ? `确认后将${operation}此插件，可能影响站点相关功能。` : '确认后将调用此工具修改站点。' : writePermissionNotice));
+                section.append(node('p', 'description', mayWrite(action.name) ? action.orders ? '仅修改以上订单的状态，不执行收款或退款。确认后会触发 WooCommerce 状态变更流程，可能发送订单通知。' : action.plugin ? `确认后将${operation}此插件，可能影响站点相关功能。` : '确认后将调用此工具修改站点。' : writePermissionNotice));
                 const buttons = node('div', 'oyiso-agent-mcp-actions');
-                for (const [decision, label] of [['dismiss', '取消'], ['execute', action.plugin ? `确认${operation}` : '确认执行']]) {
+                for (const [decision, label] of [['dismiss', '取消'], ['execute', action.orders ? `确认修改 ${action.orders.items.length} 个订单` : action.plugin ? `确认${operation}` : '确认执行']]) {
                     const button = node('button', `button${decision === 'execute' ? ' button-primary' : ''}`, changing.has(action.id) ? '处理中…' : label);
                     button.type = 'button';
                     button.disabled = !config.enabled || (decision === 'execute' && !mayWrite(action.name)) || ['queued', 'running', 'cancelled'].includes(run.status) || changing.has(action.id) || sending;

@@ -7,7 +7,7 @@ defined('ABSPATH') || exit;
 final class Oyiso_Agent_Permissions
 {
     public const OPTION = 'agent_write_tools';
-    private const INTERNAL = ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash', 'oyiso/apply-post-update', 'oyiso/revert-post-update', 'oyiso/create-post-draft', 'oyiso/activate-plugin', 'oyiso/deactivate-plugin'];
+    private const INTERNAL = ['oyiso/prepare-order-update', 'oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash', 'oyiso/apply-post-update', 'oyiso/revert-post-update', 'oyiso/create-post-draft', 'oyiso/activate-plugin', 'oyiso/deactivate-plugin'];
 
     public static function required(string $name): ?string
     {

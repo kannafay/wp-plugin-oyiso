@@ -434,7 +434,8 @@ final class PageContextTest extends TestCase
         $model = new Oyiso_Agent_Model(static function (array $messages) use (&$received, $builder) { $received = $messages; return $builder; });
         $model->generate($run['messages'], [], '');
         self::assertCount(1, $received[0]->getParts()); self::assertCount(2, $received[1]->getParts());
-        self::assertStringContainsString('最新页面', $received[1]->getParts()[1]->getText());
-        self::assertStringContainsString('未保存', $received[1]->getParts()[1]->getText());
+        self::assertStringContainsString('最新页面', $received[1]->getParts()[0]->getText());
+        self::assertStringContainsString('未保存', $received[1]->getParts()[0]->getText());
+        self::assertSame('当前在哪', $received[1]->getParts()[1]->getText());
     }
 }

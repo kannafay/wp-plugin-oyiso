@@ -239,17 +239,39 @@ final class CompletionTest extends TestCase
         $next = $this->task('你好'); $states = [];
         (new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('你好。')])))->step($next['id'], static function (): void {}, static function (array $state) use (&$states): void { $states[] = $state; });
         self::assertSame('reviewing', $states[0]['completion_state']); self::assertSame('running', $states[0]['status']);
-        self::assertSame('你好。', $states[0]['partial']['text']); self::assertCount(1, $states[0]['conversation']);
+        self::assertArrayNotHasKey('partial', $states[0]); self::assertCount(1, $states[0]['conversation']);
+    }
+
+    public function testRejectedCandidateNeverAppearsInLiveTextOrPollingViews(): void
+    {
+        $run = $this->task('全部改成已完成'); $published = []; $states = [];
+        $wrong = '你当前在工具设置页。'; $answer = '已理解为修改刚才列出的订单；当前尚未授权订单写入。';
+        $model = new OyisoAgentScriptedModel([
+            function (Closure $publish) use ($wrong): Oyiso_Agent_Turn { $publish($wrong); return $this->turn($wrong); },
+            function (Closure $publish) use ($answer): Oyiso_Agent_Turn { $publish($answer); return $this->turn($answer); },
+        ], [], [new Oyiso_Agent_Completion('continue', '页面位置没有回应订单状态修改。'), new Oyiso_Agent_Completion('blocked', '明确回应目标订单和实际写入权限限制。')]);
+        $runner = new Oyiso_Agent_Runner($model);
+        $onText = static function (string $text) use (&$published): void { $published[] = $text; };
+        $onState = static function (array $state) use (&$states): void { $states[] = $state; };
+        $runner->step($run['id'], $onText, $onState);
+        self::assertSame([], $published);
+        self::assertStringNotContainsString($wrong, wp_json_encode($states, JSON_UNESCAPED_UNICODE));
+        self::assertCount(1, Oyiso_Agent_Store::view(Oyiso_Agent_Store::get($run['id']))['conversation']);
+        $runner->step($run['id'], $onText, $onState);
+        self::assertSame([$answer], $published);
+        self::assertSame($answer, Oyiso_Agent_Store::get($run['id'])['conversation'][1]['text']);
     }
 
     public function testStructuredDecisionsAreValidatedWithoutAcceptingToolCallsOrFreeText(): void
     {
         foreach (['complete', 'continue', 'needs_input', 'blocked'] as $state) {
-            $result = Oyiso_Agent_Completion::parse($this->turn(wp_json_encode(['state' => $state, 'reason' => 'Checked'])));
+            $result = Oyiso_Agent_Completion::parse($this->turn(wp_json_encode(['relevant' => true, 'state' => $state, 'reason' => 'Checked'])));
             self::assertInstanceOf(Oyiso_Agent_Completion::class, $result); self::assertSame($state, $result->state); self::assertSame(40, $result->tokens);
+            $irrelevant = Oyiso_Agent_Completion::parse($this->turn(wp_json_encode(['relevant' => false, 'state' => $state, 'reason' => '页面位置没有回应订单修改，也没有提出问题。'])));
+            self::assertSame('continue', $irrelevant->state);
         }
-        self::assertInstanceOf(Oyiso_Agent_Completion::class, Oyiso_Agent_Completion::parse($this->turn("```json\n{\"state\":\"complete\",\"reason\":\"done\"}\n```")));
-        foreach (['looks done', '{bad json', '{"state":"anything","reason":"ok"}', '{"state":"complete"}', '{"state":"complete","reason":123}', wp_json_encode(['state' => 'complete', 'reason' => str_repeat('x', 501)])] as $bad) {
+        self::assertInstanceOf(Oyiso_Agent_Completion::class, Oyiso_Agent_Completion::parse($this->turn("```json\n{\"relevant\":true,\"state\":\"complete\",\"reason\":\"done\"}\n```")));
+        foreach (['looks done', '{bad json', '{"relevant":true,"state":"anything","reason":"ok"}', '{"state":"complete","reason":"missing relevance"}', '{"relevant":"false","state":"complete","reason":"bad relevance type"}', '{"relevant":true,"state":"complete"}', '{"relevant":true,"state":"complete","reason":123}', wp_json_encode(['relevant' => true, 'state' => 'complete', 'reason' => str_repeat('x', 501)])] as $bad) {
             $result = Oyiso_Agent_Completion::parse($this->turn($bad)); self::assertWPError($result); self::assertSame(40, $result->get_error_data()['tokens']);
         }
         self::assertWPError(Oyiso_Agent_Completion::parse($this->turn('', 'get-current-page')));
