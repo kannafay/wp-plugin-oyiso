@@ -9,6 +9,7 @@ parameters:
         - ../../src/ai-agent/query-spec.php
         - ../../src/ai-agent/query-catalog.php
         - ../../src/ai-agent/abilities.php
+        - ../../src/ai-agent/tool-feedback.php
         - ../../src/ai-agent/tools.php
         - ../../src/ai-agent/model.php
         - ../../src/ai-agent/completion.php

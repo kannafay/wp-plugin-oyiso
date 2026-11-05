@@ -41,7 +41,7 @@ final class Oyiso_Agent_Runner
     {
         Oyiso_Agent_Store::beginExecution($run, $replaceFrom);
         // Read-before-write snapshots belong to one user turn, not the whole conversation.
-        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['plugin_retry'], $run['context_retry'], $run['completion_state'], $run['completion_retries']);
+        unset($run['partial'], $run['post_snapshots'], $run['product_snapshots'], $run['plugin_snapshots'], $run['plugin_retry'], $run['context_retry'], $run['completion_state'], $run['completion_retries'], $run['tool_recovery']);
         $run['snapshots'] = [];
         foreach ($run['messages'] as &$previous) unset($previous['oyiso_page_context']);
         unset($previous, $run['page_context']);
@@ -188,7 +188,7 @@ final class Oyiso_Agent_Runner
                 }
                 unset($run['partial']);
             }
-            if ($calls !== []) unset($run['completion_retries']);
+            if ($calls !== []) unset($run['completion_retries'], $run['tool_recovery']);
             if (trim($text) !== '') {
                 $label = str_ends_with($modelLabel, ' / ' . $requestedModel) ? substr($modelLabel, 0, -strlen($requestedModel)) . $turn->model : Oyiso_Agent_Connections::label($run['selection'] ?? null, $turn->model);
                 $run['conversation'][] = ['role' => 'assistant', 'text' => $text, 'model' => $turn->model, 'model_label' => $label];
@@ -215,14 +215,16 @@ final class Oyiso_Agent_Runner
                 $checkpoint['tokens'] = $run['tokens'];
                 Oyiso_Agent_Store::save($checkpoint);
                 try {
-                    $result = $ability !== null && is_array($args) ? $ability->execute($args) : new WP_Error('agent_tool_denied', '该工具或参数不在允许范围。');
+                    $result = $ability === null ? Oyiso_Agent_Tool_Feedback::unavailable($name, $allowed)
+                        : (is_array($args) ? $ability->execute($args) : new WP_Error('agent_tool_arguments', '工具参数必须是符合 schema 的 JSON 对象，未执行。'));
                 } catch (Throwable $error) {
                     $result = new WP_Error('agent_tool_error', Oyiso_Agent_Config::error($error->getMessage()));
                 }
                 if (is_wp_error($result)) {
                     $error = Oyiso_Agent_Config::error($result->get_error_message());
                     Oyiso_Agent_Store::event($run, 'error', $ability?->get_label() ?? '工具调用失败', $error);
-                    $result = ['error' => $error, 'code' => $result->get_error_code()];
+                    $result = Oyiso_Agent_Tool_Feedback::result($result, $name, $allowed);
+                    if ($result['code'] === 'agent_tool_replaced') $run['tool_recovery'] = $name;
                 } else {
                     Oyiso_Agent_Store::event($run, 'success', $ability?->get_label() ?? '工具执行完成');
                     if (is_array($result)) {
@@ -304,6 +306,10 @@ final class Oyiso_Agent_Runner
         if (Oyiso_Agent_Store::cancelled($run['id'])) { Oyiso_Agent_Store::save($run); return null; }
         if (is_wp_error($result)) { $this->fail($run, '任务结果尚未确认。' . $result->get_error_message()); return null; }
         if (!in_array($result->state, ['complete', 'continue', 'needs_input', 'blocked'], true)) { $this->fail($run, '任务结果检查返回了无效状态。'); return null; }
+        // A retired tool with an authorized replacement is a routing error, even if the reviewer says blocked.
+        if (Oyiso_Agent_Tool_Feedback::replacements($run['tool_recovery'] ?? '', Oyiso_Agent_Abilities::allowed()) !== []) {
+            $result = new Oyiso_Agent_Completion('continue', Oyiso_Agent_Tool_Feedback::instruction());
+        }
         if ($result->state !== 'continue') return match ($result->state) { 'needs_input' => 'awaiting_input', 'blocked' => 'blocked', default => 'completed' };
         $run['completion_retries'] = ($run['completion_retries'] ?? 0) + 1;
         unset($run['partial']);

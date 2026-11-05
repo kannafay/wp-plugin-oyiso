@@ -561,7 +561,14 @@ final class AgentTest extends TestCase
         $runner->step($run['id']);
         $fresh = Oyiso_Agent_Store::get($run['id']);
         self::assertSame('queued', $fresh['status']);
-        self::assertStringContainsString('不在允许范围', wp_json_encode($fresh['messages'], JSON_UNESCAPED_UNICODE));
+        self::assertStringContainsString('agent_tool_unavailable', wp_json_encode($fresh['messages'], JSON_UNESCAPED_UNICODE));
+        foreach (array_slice($fresh['messages'], -2) as $message) {
+            $result = $message['parts'][0]['functionResponse']['response'];
+            self::assertSame('select_available_tool', $result['recovery']['action']);
+            self::assertNotContains('wpab__oyiso__apply-product-update', $result['recovery']['tools']);
+            self::assertArrayNotHasKey('input_schema', $result['recovery']);
+        }
+        self::assertEmpty($fresh['changes']); self::assertArrayNotHasKey('tool_recovery', $fresh);
     }
 
     public function testCancellationDuringModelCallPreventsTools(): void
@@ -865,7 +872,7 @@ final class AgentTest extends TestCase
             Oyiso_Agent_Runner::message($run, 'Legacy webpage request');
             (new Oyiso_Agent_Runner(new OyisoAgentScriptedModel([$this->turn('', [['read-webpage', ['url' => 'https://example.com/source']]])])))->step($run['id']);
             $fresh = Oyiso_Agent_Store::get($run['id']);
-            self::assertContains('该工具或参数不在允许范围。', array_column($fresh['events'], 'detail'));
+            self::assertStringContainsString('该工具不在本轮可用工具列表中', implode('\n', array_column($fresh['events'], 'detail')));
         } finally { remove_filter('pre_http_request', $block, 10); }
     }
 

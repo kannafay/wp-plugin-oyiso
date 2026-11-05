@@ -405,7 +405,7 @@ final class MCPTest extends TestCase
         $saved = Oyiso_Agent_Store::get($run['id']);
         self::assertSame(0, $this->writes);
         self::assertSame([], $saved['mcp_actions'] ?? []);
-        self::assertStringContainsString('agent_tool_denied', wp_json_encode($saved['messages']));
+        self::assertStringContainsString('agent_tool_unavailable', wp_json_encode($saved['messages']));
         self::assertStringContainsString('agent_write_disabled', wp_json_encode($saved['messages']));
     }
 

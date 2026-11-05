@@ -87,6 +87,107 @@ final class CompletionTest extends TestCase
         self::assertArrayNotHasKey('completion_retries', $fresh); self::assertArrayNotHasKey('completion_state', $fresh);
     }
 
+    public function testRetiredToolRecoversEvenWhenReviewerMistakesItForAPermissionBlock(): void
+    {
+        $run = $this->task(); $count = wc_orders_count('processing');
+        $falseAnswer = '当前订单统计工具已被拒绝，请管理员开放查询权限。';
+        $model = new OyisoAgentScriptedModel([
+            $this->turn('', 'order-summary', ['start_date' => '2026-01-01', 'end_date' => '2026-11-05']),
+            $this->turn($falseAnswer), $this->turn('', 'list-data-sources'),
+            $this->turn('', 'describe-data-source', ['source' => 'orders']),
+            $this->turn('', 'query-data', ['source' => 'orders', 'where' => ['field' => 'status', 'op' => 'eq', 'value' => 'processing'], 'metrics' => [['op' => 'count', 'as' => 'orders']]]),
+            $this->turn('当前有 ' . $count . ' 个处理中订单。'),
+        ], [], [new Oyiso_Agent_Completion('blocked', 'Fixture reproduces the incorrect permission conclusion.', 7)]);
+        $runner = new Oyiso_Agent_Runner($model); $runner->step($run['id']);
+        $rejected = Oyiso_Agent_Store::get($run['id']);
+        $response = $rejected['messages'][2]['parts'][0]['functionResponse']['response'];
+        self::assertSame('agent_tool_replaced', $response['code']);
+        self::assertSame('select_replacement', $response['recovery']['action']);
+        self::assertSame(['wpab__oyiso__list-data-sources', 'wpab__oyiso__describe-data-source', 'wpab__oyiso__query-data'], $response['recovery']['tools']);
+        self::assertArrayNotHasKey('total_orders', $response); self::assertSame('oyiso/order-summary', $rejected['tool_recovery']);
+        $runner->step($run['id']); $continued = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('queued', $continued['status']); self::assertCount(1, $continued['conversation']);
+        self::assertSame(87, $continued['tokens']); self::assertTrue($continued['messages'][4]['oyiso_internal']);
+        for ($step = 0; $step < 4; $step++) $runner->step($run['id']);
+        $final = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('completed', $final['status']); self::assertCount(2, $final['conversation']);
+        self::assertSame('当前有 ' . $count . ' 个处理中订单。', $final['conversation'][1]['text']);
+        self::assertArrayNotHasKey('tool_recovery', $final); self::assertSame(247, $final['tokens']);
+        self::assertNotContains('oyiso/order-summary', $model->allowed);
+        $results = json_decode($model->reviewSources[1], true)['current_turn_results'];
+        self::assertTrue(json_decode($results[3]['result'], true)['complete']);
+        self::assertSame($count, json_decode($results[3]['result'], true)['rows'][0]['orders']);
+    }
+
+    public function testRetiredReadsShareMigrationFeedbackWithoutGrantingDisabledAccess(): void
+    {
+        $allowed = Oyiso_Agent_Abilities::allowed();
+        foreach (Oyiso_Agent_Query::LEGACY as $tool) {
+            $name = 'oyiso/' . $tool;
+            $error = Oyiso_Agent_Tool_Feedback::unavailable($name, $allowed);
+            self::assertSame('agent_tool_replaced', $error->get_error_code());
+            self::assertCount(3, Oyiso_Agent_Tool_Feedback::result($error, $name, $allowed)['recovery']['tools']);
+            self::assertSame([], Oyiso_Agent_Tool_Feedback::replacements($name, ['oyiso/get-current-page']));
+        }
+        update_option('oyiso', array_merge(Oyiso_Agent_Config::options(), ['agent_mcp_namespaces' => ['oyiso-wordpress']]));
+        $allowed = Oyiso_Agent_Abilities::allowed();
+        self::assertContains('oyiso/query-data', $allowed, 'WordPress content queries remain available.');
+        $error = Oyiso_Agent_Tool_Feedback::unavailable('oyiso/order-summary', $allowed);
+        self::assertSame('agent_tool_unavailable', $error->get_error_code());
+        self::assertSame([], Oyiso_Agent_Tool_Feedback::replacements('oyiso/order-summary', $allowed));
+    }
+
+    public function testIgnoringReplacementFeedbackIsBoundedAndCannotClaimCompletion(): void
+    {
+        foreach (['complete', 'needs_input', 'blocked'] as $decision) {
+            $run = $this->task();
+            $model = new OyisoAgentScriptedModel([
+                $this->turn('', 'order-summary'), $this->turn('请开放权限。'), $this->turn('请开放权限。'), $this->turn('请开放权限。'),
+            ], [], array_fill(0, 3, new Oyiso_Agent_Completion($decision, 'Incorrect fixture conclusion.')));
+            $runner = new Oyiso_Agent_Runner($model);
+            for ($step = 0; $step < 4; $step++) $runner->step($run['id']);
+            $final = Oyiso_Agent_Store::get($run['id']);
+            self::assertSame('failed', $final['status']); self::assertCount(1, $final['conversation']);
+            self::assertStringContainsString('旧工具已替换', $final['error']);
+            Oyiso_Agent_Runner::message($final, '新的请求'); self::assertArrayNotHasKey('tool_recovery', $final);
+        }
+    }
+
+    public function testRecoveryRechecksPermissionsAndDoesNotOverrideActualDenial(): void
+    {
+        $run = $this->task();
+        $model = new OyisoAgentScriptedModel([$this->turn('', 'order-summary'), $this->turn('订单查询已被禁用。')], [], [new Oyiso_Agent_Completion('blocked', 'WooCommerce access really was revoked.')]);
+        $runner = new Oyiso_Agent_Runner($model); $runner->step($run['id']);
+        update_option('oyiso', array_merge(Oyiso_Agent_Config::options(), ['agent_mcp_namespaces' => ['oyiso-wordpress']]));
+        $runner->step($run['id']); $final = Oyiso_Agent_Store::get($run['id']);
+        self::assertSame('blocked', $final['status']); self::assertCount(2, $final['conversation']);
+        $error = new WP_Error('ability_invalid_permissions', 'Access denied', ['private' => 'must-not-leak']);
+        self::assertSame(['error' => 'Access denied', 'code' => 'ability_invalid_permissions'], Oyiso_Agent_Tool_Feedback::result($error, 'oyiso/query-data', Oyiso_Agent_Abilities::allowed()));
+    }
+
+    public function testParameterErrorsIncludeCurrentSchemaWithoutBeingReportedAsPermissionFailures(): void
+    {
+        $run = $this->task();
+        $malformed = new Oyiso_Agent_Turn(new ModelMessage([new MessagePart(new FunctionCall('null-args', 'wpab__oyiso__describe-data-source', null))]), 40, 'fixture-model');
+        $model = new OyisoAgentScriptedModel([
+            $malformed, $this->turn('', 'describe-data-source'),
+            $this->turn('', 'query-data', ['source' => 'orders', 'where' => ['field' => 'nonexistent', 'op' => 'eq', 'value' => 'x']]),
+            $this->turn('', 'describe-data-source', ['source' => 'orders']),
+        ]);
+        $runner = new Oyiso_Agent_Runner($model);
+        foreach (['agent_tool_arguments', 'ability_invalid_input', 'agent_query_invalid'] as $code) {
+            $runner->step($run['id']); $fresh = Oyiso_Agent_Store::get($run['id']);
+            $response = end($fresh['messages'])['parts'][0]['functionResponse']['response'];
+            self::assertSame($code, $response['code']); self::assertSame('correct_arguments', $response['recovery']['action']);
+            self::assertSame('object', $response['recovery']['input_schema']['type']);
+            self::assertArrayNotHasKey('tool_recovery', $fresh);
+        }
+        $runner->step($run['id']); $fresh = Oyiso_Agent_Store::get($run['id']);
+        self::assertArrayHasKey('fields', end($fresh['messages'])['parts'][0]['functionResponse']['response']);
+        $invalid = new WP_Error('ability_invalid_input', 'Invalid input', ['private' => 'must-not-leak']);
+        self::assertArrayNotHasKey('recovery', Oyiso_Agent_Tool_Feedback::result($invalid, 'oyiso/apply-product-update', Oyiso_Agent_Abilities::allowed()));
+    }
+
     public function testInternalContinuationDoesNotReplaceTheUserRequestDuringCompaction(): void
     {
         $run = $this->task();
