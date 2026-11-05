@@ -90,8 +90,9 @@ final class Oyiso_Agent_Permissions
         $allowed = array_intersect_key($tools, $granted);
         $all = $tools !== [] && count($allowed) === count($tools);
         $partial = $allowed !== [] && !$all;
-        $html = '<label><input type="checkbox" data-agent-write-toggle data-partial="' . ($partial ? 'true' : 'false') . '" aria-label="' . esc_attr('允许 ' . $label . ' 写入') . '"' . checked($all, true, false) . disabled($tools === [], true, false) . '> ' . ($tools === [] ? '仅查询' : '允许写入') . '</label>';
-        if ($partial) $html .= '<span class="description oyiso-agent-write-partial" data-agent-write-partial>部分工具已授权</span>';
+        // This is an on/off switch: any saved grant must be visibly on, including without JavaScript.
+        $html = '<label><input type="checkbox" data-agent-write-toggle data-partial="' . ($partial ? 'true' : 'false') . '" aria-label="' . esc_attr('允许 ' . $label . ' 写入') . '"' . checked($allowed !== [], true, false) . disabled($tools === [], true, false) . '> ' . ($tools === [] ? '仅查询' : '允许写入') . '</label>';
+        if ($partial) $html .= '<span class="description oyiso-agent-write-partial" data-agent-write-partial>已授权 ' . count($allowed) . ' / ' . count($tools) . ' 个写入工具</span>';
         // Keep the server's per-tool grants, including existing partial selections.
         foreach ($tools as $name => $ability) {
             $html .= '<input type="hidden" data-agent-write-grant name="oyiso[' . self::OPTION . '][]" value="' . esc_attr($name) . '"' . disabled(!isset($granted[$name]), true, false) . '>';

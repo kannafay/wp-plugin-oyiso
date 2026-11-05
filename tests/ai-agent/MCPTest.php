@@ -458,8 +458,9 @@ final class MCPTest extends TestCase
             $dom = new DOMDocument(); $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
             $xpath = new DOMXPath($dom);
             $row = '//tr[@data-agent-mcp-plugin="fixture-mcp"]';
-            self::assertSame($grants === $all ? 1 : 0, $xpath->query($row . '//input[@data-agent-write-toggle][@checked]')->length);
+            self::assertSame($grants !== [] ? 1 : 0, $xpath->query($row . '//input[@data-agent-write-toggle][@checked]')->length);
             self::assertSame($grants !== [] && $grants !== $all ? 1 : 0, $xpath->query($row . '//input[@data-agent-write-toggle][@data-partial="true"]')->length);
+            if ($grants !== [] && $grants !== $all) self::assertStringContainsString('已授权 1 / 4 个写入工具', $html);
             $submitted = [];
             foreach ($xpath->query($row . '//input[@data-agent-write-grant][not(@disabled)]') as $input) $submitted[] = $input->getAttribute('value');
             self::assertSame($grants, $submitted);

@@ -7,7 +7,7 @@ const { JSDOM } = require('jsdom');
 const script = fs.readFileSync(path.join(__dirname, '../../src/ai-agent/assets/mcp-settings.js'), 'utf8');
 
 const productWrites = ['oyiso/apply-product-update', 'oyiso/revert-product-update', 'oyiso/apply-product-trash', 'oyiso/revert-product-trash'];
-const wooWrites = [...productWrites, 'woocommerce/product-update', 'woocommerce/product-delete'];
+const wooWrites = [...productWrites, 'oyiso/prepare-order-update', 'woocommerce/product-update', 'woocommerce/product-delete'];
 const wordpressWrites = ['oyiso/apply-post-update', 'oyiso/revert-post-update', 'oyiso/create-post-draft', 'oyiso/activate-plugin', 'oyiso/deactivate-plugin'];
 
 function fixture(t, grants = [], productGrants = [productWrites[0]], enabled = ['oyiso-woocommerce', 'fixture-b']) {
@@ -21,8 +21,8 @@ function fixture(t, grants = [], productGrants = [productWrites[0]], enabled = [
         const allowed = tools.filter(name => selected.includes(name)).length;
         const partial = allowed > 0 && allowed < tools.length;
         return `<tr data-agent-write-group="${plugin}"><td>${plugin}</td><td><details><summary>查看工具</summary><p>工具明细</p></details></td><td>
-            <input type="checkbox" data-agent-write-toggle data-partial="${partial}"${tools.length && allowed === tools.length ? ' checked' : ''}${tools.length ? '' : ' disabled'}>
-            ${partial ? '<span data-agent-write-partial>部分工具已授权</span>' : ''}${tools.map(grantInput).join('')}
+            <input type="checkbox" data-agent-write-toggle data-partial="${partial}"${allowed > 0 ? ' checked' : ''}${tools.length ? '' : ' disabled'}>
+            ${partial ? `<span data-agent-write-partial>已授权 ${allowed} / ${tools.length} 个写入工具</span>` : ''}${tools.map(grantInput).join('')}
         </td><td><input type="checkbox" data-agent-plugin-toggle data-partial="${partialEnabled}"${active === members.length ? ' checked' : ''}>
             ${partialEnabled ? '<span data-agent-plugin-partial>部分工具已启用</span>' : ''}
             ${members.map(name => `<input type="hidden" data-agent-plugin-member name="oyiso[agent_mcp_namespaces][]" value="${name}"${enabled.includes(name) ? '' : ' disabled'}>`).join('')}
@@ -61,17 +61,19 @@ test('turning a plugin off removes all of its submitted grants while preserving 
     assert.equal(f.toggle('fixture-b').checked, true);
 });
 
-test('partial legacy permissions survive an unrelated save until the plugin switch is changed', t => {
+test('partial grants show an enabled switch, survive unrelated saves, and are revoked by one click', t => {
     const f = fixture(t, ['fixture-a/create']);
     const toggle = f.toggle('fixture-a');
-    assert.equal(toggle.indeterminate, true);
+    assert.equal(toggle.checked, true);
+    assert.equal(toggle.indeterminate, false);
     assert.deepEqual(f.submitted(), ['oyiso/apply-product-update', 'fixture-a/create']);
     toggle.click();
     assert.equal(toggle.indeterminate, false);
     assert.equal(toggle.closest('tr').querySelector('[data-agent-write-partial]').hidden, true);
-    assert.deepEqual(f.submitted(), ['oyiso/apply-product-update', 'fixture-a/create', 'fixture-a/delete']);
-    toggle.click();
+    assert.equal(toggle.checked, false);
     assert.deepEqual(f.submitted(), ['oyiso/apply-product-update']);
+    toggle.click();
+    assert.deepEqual(f.submitted(), ['oyiso/apply-product-update', 'fixture-a/create', 'fixture-a/delete']);
 });
 
 test('a plugin with only read tools cannot add write grants', t => {
@@ -85,10 +87,13 @@ test('a plugin with only read tools cannot add write grants', t => {
 test('one WooCommerce write switch controls built-in and native writes together while preserving other plugins', t => {
     const f = fixture(t, ['fixture-b/update']);
     const toggle = f.toggle('woocommerce');
-    assert.equal(toggle.indeterminate, true);
+    assert.equal(toggle.checked, true);
+    assert.equal(toggle.indeterminate, false);
     assert.deepEqual(f.submitted(), [productWrites[0], 'fixture-b/update']);
     toggle.click();
     assert.equal(toggle.indeterminate, false);
+    assert.deepEqual(f.submitted(), ['fixture-b/update']);
+    toggle.click();
     assert.deepEqual(f.submitted(), [...wooWrites, 'fixture-b/update']);
     toggle.click();
     assert.deepEqual(f.submitted(), ['fixture-b/update']);
@@ -112,13 +117,30 @@ test('the WooCommerce enable switch preserves legacy partial state until changed
 
 test('one WordPress switch controls content and plugin management while preserving existing partial grants', t => {
     const f = fixture(t, [wordpressWrites[0]]);
-    assert.equal(f.toggle('wordpress').indeterminate, true);
+    assert.equal(f.toggle('wordpress').checked, true);
+    assert.equal(f.toggle('wordpress').indeterminate, false);
     assert.deepEqual(f.submitted(), [wordpressWrites[0], productWrites[0]]);
     f.enabled('wordpress').click();
     assert.deepEqual(f.plugins(), ['oyiso-wordpress', 'oyiso-woocommerce', 'fixture-b']);
     assert.deepEqual(f.submitted(), [wordpressWrites[0], productWrites[0]], 'enabling WordPress does not grant new writes');
     f.toggle('wordpress').click();
+    assert.deepEqual(f.submitted(), [productWrites[0]]);
+    f.toggle('wordpress').click();
     assert.deepEqual(f.submitted(), [...wordpressWrites, productWrites[0]]);
     f.toggle('wordpress').click();
     assert.deepEqual(f.submitted(), [productWrites[0]]);
+});
+
+test('an individual order write grant cannot remain hidden behind an unchecked WooCommerce switch', t => {
+    const f = fixture(t, ['oyiso/prepare-order-update', 'fixture-b/update'], []);
+    const toggle = f.toggle('woocommerce');
+    assert.equal(toggle.checked, true);
+    assert.equal(toggle.indeterminate, false);
+    assert.deepEqual(f.submitted(), ['oyiso/prepare-order-update', 'fixture-b/update']);
+    assert.equal(toggle.closest('tr').querySelector('[data-agent-write-partial]').textContent, '已授权 1 / 7 个写入工具');
+    toggle.click();
+    assert.equal(toggle.checked, false);
+    assert.deepEqual(f.submitted(), ['fixture-b/update']);
+    f.enabled('woocommerce').click();
+    assert.deepEqual(f.submitted(), ['fixture-b/update'], 'enabling sources cannot restore a revoked order grant');
 });

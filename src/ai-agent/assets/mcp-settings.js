@@ -15,7 +15,8 @@
     document.querySelectorAll('[data-agent-write-toggle]').forEach(toggle => {
         const row = toggle.closest('[data-agent-write-group]');
         if (!row) return;
-        toggle.indeterminate = toggle.dataset.partial === 'true';
+        // Partial grants are still enabled; one click must revoke them, not expand them.
+        toggle.indeterminate = false;
         toggle.addEventListener('change', () => {
             toggle.indeterminate = false;
             row.querySelectorAll('[data-agent-write-grant]').forEach(input => {

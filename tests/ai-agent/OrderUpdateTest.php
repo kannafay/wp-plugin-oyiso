@@ -129,6 +129,10 @@ final class OrderUpdateTest extends TestCase
         update_option('oyiso', array_merge(Oyiso_Agent_Config::options(), ['agent_write_tools' => []]));
         self::assertNotContains(Oyiso_Agent_Order_Update::TOOL, Oyiso_Agent_Abilities::allowed());
         self::assertFalse($this->tool($run, 'get-orders', ['order_ids' => [$id]])['can_update']);
+        $denied = $this->tool($run, 'prepare-order-update', ['order_ids' => [$id], 'status' => 'cancelled']);
+        self::assertInstanceOf(WP_Error::class, $denied);
+        self::assertSame('ability_invalid_permissions', $denied->get_error_code());
+        self::assertCount(1, $run['mcp_actions'], 'Revoked write permission must not create another confirmation card.');
         self::assertSame(403, $this->confirm($run, $plan)->get_status());
         self::assertSame(200, $this->confirm($run, $plan, 'dismiss')->get_status());
         self::assertSame('processing', wc_get_order($id)->get_status());

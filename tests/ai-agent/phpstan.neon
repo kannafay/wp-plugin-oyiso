@@ -16,6 +16,7 @@ parameters:
         - ../../src/ai-agent/completion.php
         - ../../src/ai-agent/compaction.php
         - ../../src/ai-agent/mcp.php
+        - ../../src/ai-agent/permissions.php
         - ../../src/ai-agent/messages.php
         - ../../src/ai-agent/store.php
         - ../../src/ai-agent/runner.php
