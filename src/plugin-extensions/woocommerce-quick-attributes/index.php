@@ -102,7 +102,7 @@ if (!class_exists('Oyiso_WC_Quick_Attributes')) {
                 'oyiso-wc-quick-attributes',
                 plugins_url('assets/quick-attributes.js', __FILE__),
                 ['jquery', 'select2'],
-                '1.0.0',
+                filemtime(__DIR__ . '/assets/quick-attributes.js'),
                 true
             );
 

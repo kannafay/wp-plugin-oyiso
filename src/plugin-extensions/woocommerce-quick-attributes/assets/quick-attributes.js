@@ -15,6 +15,113 @@
     var currentIdx = '';
     var $modalTitle = $modal.find('.oyiso-qa-modal-header h2');
     var activeTab = 'new';
+    var isSubmitting = false;
+    var previewTimer = null;
+    var closeTimer = null;
+    var requests = { submit: null, preview: null, terms: null };
+
+    function setSubmitting(value) {
+        isSubmitting = value;
+        $doBtn.prop('disabled', value);
+        $spinner.toggleClass('is-active', value);
+        $('.oyiso-qa-tab').prop('disabled', value);
+        $textarea.prop('disabled', value);
+    }
+
+    function cancelRequest(type) {
+        var request = requests[type];
+        // 先使回调失效，避免 abort 的同步回调影响下一次操作。
+        requests[type] = null;
+        if (request && request.xhr) {
+            request.xhr.abort();
+        }
+    }
+
+    function cancelPreview() {
+        clearTimeout(previewTimer);
+        previewTimer = null;
+        cancelRequest('preview');
+    }
+
+    function resetRequests() {
+        cancelPreview();
+        cancelRequest('terms');
+        cancelRequest('submit');
+        setSubmitting(false);
+        cachedTerms = null;
+    }
+
+    function responseMessage(resp, fallback) {
+        return resp && resp.data && typeof resp.data.message === 'string' ? resp.data.message : fallback;
+    }
+
+    function requestMessage(xhr, status, fallback) {
+        if (status === 'timeout') {
+            return '请求超时，请重试。';
+        }
+        return responseMessage(xhr && xhr.responseJSON, fallback);
+    }
+
+    function sendRequest(type, data, onSuccess, onError, onComplete) {
+        cancelRequest(type);
+        var request = { xhr: null };
+        requests[type] = request;
+
+        function finish() {
+            if (requests[type] !== request) {
+                return;
+            }
+            requests[type] = null;
+            if (onComplete) {
+                onComplete();
+            }
+        }
+
+        function fail(xhr, status) {
+            if (requests[type] !== request) {
+                return;
+            }
+            try {
+                onError(xhr, status);
+            } finally {
+                finish();
+            }
+        }
+
+        try {
+            request.xhr = $.ajax({
+                url: config.ajaxurl,
+                type: 'POST',
+                dataType: 'json',
+                timeout: 30000,
+                data: data,
+                success: function (resp) {
+                    if (requests[type] !== request) {
+                        return;
+                    }
+                    try {
+                        onSuccess(resp);
+                    } catch (error) {
+                        onError(null, 'callbackerror');
+                    } finally {
+                        // change 监听器等代码抛错时，jQuery 的 complete 可能不会执行。
+                        finish();
+                    }
+                },
+                error: fail
+            });
+            // 全局 beforeSend 提前取消时，options.error 尚未注册，需接住已拒绝的请求。
+            request.xhr.fail(fail);
+        } catch (error) {
+            fail(null, 'error');
+        }
+    }
+
+    function validTerms(terms) {
+        return Array.isArray(terms) && terms.every(function (term) {
+            return term && /^[1-9]\d*$/.test(String(term.id)) && typeof term.name === 'string';
+        });
+    }
 
     function setPreviewHint() {
         $preview
@@ -41,15 +148,14 @@
 
     // 打开弹窗
     $(document).on('click', '.oyiso-qa-btn', function () {
+        clearTimeout(closeTimer);
+        resetRequests();
         currentTaxonomy = $(this).data('taxonomy');
-        cachedTerms = null;
         currentIdx = $(this).data('idx');
         $modalTitle.text('快速添加属性值 — ' + ($(this).data('label') || currentTaxonomy));
-        activeTab = 'new';
-        switchTab('new');
         $textarea.val('');
         setPreviewHint();
-        $doBtn.prop('disabled', false);
+        switchTab('new');
         $modal.css('display', 'flex');
         // force reflow then trigger transition
         $modal[0].offsetHeight;
@@ -59,6 +165,11 @@
 
     // Tab 切换
     function switchTab(tab) {
+        if (isSubmitting) {
+            return;
+        }
+        cancelPreview();
+        cancelRequest('terms');
         activeTab = tab;
         $('.oyiso-qa-tab').toggleClass('oyiso-qa-tab-active', false);
         $('.oyiso-qa-tab[data-tab="' + tab + '"]').addClass('oyiso-qa-tab-active');
@@ -68,6 +179,7 @@
         if (tab === 'existing') {
             fetchTerms();
         } else {
+            doPreview();
             setTimeout(function () { $textarea.focus(); }, 100);
         }
     }
@@ -91,25 +203,20 @@
         $list.html('<span class="spinner oyiso-qa-term-spinner" style="float:none;margin:12px auto;display:block;"></span>');
         $count.text('');
 
-        $.ajax({
-            url: config.ajaxurl,
-            type: 'POST',
-            data: {
-                action: config.getTermsAction,
-                nonce: config.nonce,
-                taxonomy: currentTaxonomy
-            },
-            success: function (resp) {
-                if (!resp.success || !resp.data) {
-                    $list.html('<div class="oyiso-qa-no-terms">获取失败</div>');
-                    return;
-                }
-                cachedTerms = { taxonomy: currentTaxonomy, terms: resp.data.terms };
-                renderTermList(resp.data.terms);
-            },
-            error: function () {
-                $list.html('<div class="oyiso-qa-no-terms">获取失败</div>');
+        var taxonomy = currentTaxonomy;
+        sendRequest('terms', {
+            action: config.getTermsAction,
+            nonce: config.nonce,
+            taxonomy: taxonomy
+        }, function (resp) {
+            if (!resp || !resp.success || !resp.data || !validTerms(resp.data.terms)) {
+                $list.empty().append($('<div class="oyiso-qa-no-terms">').text(responseMessage(resp, '获取失败，请重试。')));
+                return;
             }
+            cachedTerms = { taxonomy: taxonomy, terms: resp.data.terms };
+            renderTermList(resp.data.terms);
+        }, function (xhr, status) {
+            $list.empty().append($('<div class="oyiso-qa-no-terms">').text(requestMessage(xhr, status, '获取失败，请重试。')));
         });
     }
 
@@ -154,8 +261,10 @@
 
     // 关闭弹窗
     function closeModal() {
+        resetRequests();
         $modal.removeClass('is-open');
-        setTimeout(function () { $modal.css('display', 'none'); }, 200);
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(function () { $modal.css('display', 'none'); }, 200);
         currentTaxonomy = '';
         currentIdx = '';
     }
@@ -166,12 +275,12 @@
     });
 
     // 实时预览
-    var previewTimer = null;
-
-
     function doPreview() {
-        clearTimeout(previewTimer);
-        previewTimer = null;
+        cancelPreview();
+
+        if (isSubmitting || activeTab !== 'new') {
+            return;
+        }
 
         var raw = $textarea.val().trim();
 
@@ -182,39 +291,33 @@
 
         showPreviewLoading();
 
-        $.ajax({
-            url: config.ajaxurl,
-            type: 'POST',
-            data: {
-                action: config.previewAction,
-                nonce: config.nonce,
-                taxonomy: currentTaxonomy,
-                values: raw
-            },
-            success: function (resp) {
-                if (!resp.success || !resp.data) {
-                    showInlineError(resp.data ? resp.data.message : '预览失败');
-                    return;
-                }
-                var d = resp.data;
-                var html = '<p style="margin:0 0 4px;font-weight:600;">预览（共 ' + d.total + ' 个）</p>';
-                if (d.new_vals.length) {
-                    html += '<p style="margin:0;color:#007017;">新建 ' + d.new_vals.length + ' 个：' + d.new_vals.join(', ') + '</p>';
-                }
-                if (d.existing.length) {
-                    var names = d.existing.map(function (t) { return t.name; });
-                    html += '<p style="margin:0;color:#646970;">复用 ' + d.existing.length + ' 个：' + names.join(', ') + '</p>';
-                }
-                $preview.html(html).removeClass('oyiso-qa-preview-hint oyiso-qa-preview-loading oyiso-qa-preview-error').addClass('oyiso-qa-preview-active');
-            },
-            error: function () {
-                setPreviewHint();
+        sendRequest('preview', {
+            action: config.previewAction,
+            nonce: config.nonce,
+            taxonomy: currentTaxonomy,
+            values: raw
+        }, function (resp) {
+            if (!resp || !resp.success || !resp.data || !Array.isArray(resp.data.new_vals) || !validTerms(resp.data.existing)) {
+                showInlineError(responseMessage(resp, '预览失败，请重试。'));
+                return;
             }
+            var d = resp.data;
+            var html = '<p style="margin:0 0 4px;font-weight:600;">预览（共 ' + d.total + ' 个）</p>';
+            if (d.new_vals.length) {
+                html += '<p style="margin:0;color:#007017;">新建 ' + d.new_vals.length + ' 个：' + $('<span>').text(d.new_vals.join(', ')).html() + '</p>';
+            }
+            if (d.existing.length) {
+                var names = d.existing.map(function (t) { return t.name; });
+                html += '<p style="margin:0;color:#646970;">复用 ' + d.existing.length + ' 个：' + $('<span>').text(names.join(', ')).html() + '</p>';
+            }
+            $preview.html(html).removeClass('oyiso-qa-preview-hint oyiso-qa-preview-loading oyiso-qa-preview-error').addClass('oyiso-qa-preview-active');
+        }, function (xhr, status) {
+            showInlineError(requestMessage(xhr, status, '预览失败，请重试。'));
         });
     }
 
     $textarea.on('input', function () {
-        clearTimeout(previewTimer);
+        cancelPreview();
         previewTimer = setTimeout(doPreview, 200);
     });
 
@@ -226,6 +329,9 @@
 
     // 确定添加
     $doBtn.on('click', function () {
+        if (isSubmitting || !currentTaxonomy) {
+            return;
+        }
         if (activeTab === 'existing') {
             submitExistingTerms();
             return;
@@ -237,52 +343,49 @@
             return;
         }
 
-        $doBtn.prop('disabled', true);
-        $spinner.addClass('is-active');
+        cancelPreview();
+        setSubmitting(true);
+        var taxonomy = currentTaxonomy;
 
-        $.ajax({
-            url: config.ajaxurl,
-            type: 'POST',
-            data: {
-                action: config.action,
-                nonce: config.nonce,
-                taxonomy: currentTaxonomy,
-                values: raw
-            },
-            success: function (resp) {
-                if (!resp.success || !resp.data) {
-                    showInlineError(resp.data ? resp.data.message : '请求失败');
-                    return;
-                }
-
-                var terms = resp.data.terms;
-                var $select = $('.attribute_values[data-taxonomy="' + currentTaxonomy + '"]');
-
-                if ($select.length) {
-                    var selected = $select.val() || [];
-                    $.each(terms, function (i, term) {
-                        if ($select.find('option[value="' + term.id + '"]').length === 0) {
-                            var $opt = $('<option>').val(term.id).text(term.name).prop('selected', true);
-                            $select.append($opt);
-                        }
-                        if ($.inArray(String(term.id), selected) === -1) {
-                            selected.push(String(term.id));
-                        }
-                    });
-                    $select.val(selected).trigger('change');
-                }
-
-                closeModal();
-            },
-            error: function () {
-                showInlineError('请求失败，请重试。');
-            },
-            complete: function () {
-                $doBtn.prop('disabled', false);
-                $spinner.removeClass('is-active');
+        sendRequest('submit', {
+            action: config.action,
+            nonce: config.nonce,
+            taxonomy: taxonomy,
+            values: raw
+        }, function (resp) {
+            if (!resp || !resp.success || !resp.data || !validTerms(resp.data.terms) || !resp.data.terms.length) {
+                showInlineError(responseMessage(resp, '未获取到有效的属性值，请重试。'));
+                return;
             }
+            applyTerms(taxonomy, resp.data.terms);
+            closeModal();
+        }, function (xhr, status) {
+            showInlineError(requestMessage(xhr, status, status === 'callbackerror' ? '更新属性选项失败，请重试。' : '请求失败，请重试。'));
+        }, function () {
+            setSubmitting(false);
         });
     });
+
+    function applyTerms(taxonomy, terms) {
+        var $select = $('.attribute_values[data-taxonomy="' + taxonomy + '"]');
+        if (!$select.length) {
+            throw new Error('Attribute selector is unavailable');
+        }
+        var selected = $select.val() || [];
+        if (!Array.isArray(selected)) {
+            selected = [String(selected)];
+        }
+        $.each(terms, function (i, term) {
+            var id = String(term.id);
+            if ($select.find('option[value="' + id + '"]').length === 0) {
+                $('<option>').val(id).text(term.name).prop('selected', true).appendTo($select);
+            }
+            if ($.inArray(id, selected) === -1) {
+                selected.push(id);
+            }
+        });
+        $select.val(selected).trigger('change');
+    }
 
     function submitExistingTerms() {
         var checked = $('.oyiso-qa-term-check:checked');
@@ -290,29 +393,19 @@
             return;
         }
 
-        $doBtn.prop('disabled', true);
-        $spinner.addClass('is-active');
-
-        var $select = $('.attribute_values[data-taxonomy="' + currentTaxonomy + '"]');
-        if ($select.length) {
-            var selected = $select.val() || [];
+        setSubmitting(true);
+        try {
+            var terms = [];
             checked.each(function () {
-                var id = String($(this).val());
-                if ($select.find('option[value="' + id + '"]').length === 0) {
-                    var name = $(this).closest('.oyiso-qa-term-item').find('span').text();
-                    $('<option>').val(id).text(name).prop('selected', true).appendTo($select);
-                }
-                if ($.inArray(id, selected) === -1) {
-                    selected.push(id);
-                }
+                terms.push({ id: $(this).val(), name: $(this).closest('.oyiso-qa-term-item').find('span').text() });
             });
-            $select.val(selected).trigger('change');
+            applyTerms(currentTaxonomy, terms);
+            closeModal();
+        } catch (error) {
+            $('.oyiso-qa-term-count').text('更新属性选项失败，请重试。');
+        } finally {
+            setSubmitting(false);
         }
-
-        $doBtn.prop('disabled', false);
-        $spinner.removeClass('is-active');
-        cachedTerms = null;
-        closeModal();
     }
 
 })(jQuery);

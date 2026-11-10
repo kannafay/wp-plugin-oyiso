@@ -11,7 +11,8 @@
     "test:agent-ui": "node --test tests/ai-agent/agent-ui.test.cjs tests/ai-agent/page-context.test.cjs tests/ai-agent/live-ui.test.cjs tests/ai-agent/model-settings.test.cjs tests/ai-agent/files-ui.test.cjs tests/ai-agent/mcp-settings.test.cjs",
     "test:checkout-maintenance": "node --test tests/checkout-maintenance/*.test.cjs",
     "test:checkout-maintenance:php": "php tests/checkout-maintenance/checkout-maintenance.test.php",
-    "test:backup": "node --test tests/backup/*.test.cjs"
+    "test:backup": "node --test tests/backup/*.test.cjs",
+    "test:quick-attributes": "node --test tests/quick-attributes/*.test.cjs"
   },
   "devDependencies": {
     "archiver": "^7.0.1",
